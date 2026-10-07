@@ -44,24 +44,32 @@ void launch_tc_partial_i8(const Tensor& q, CacheInput input, const Tensor& pos, 
     auto launch = [&]<int WarpsPerCta, int MinBlocksPerSm, int KeyBlock, bool DynamicArena,
                       int QkSplit = 1, bool EarlyFetch = false>() {
         const dim3 grid(Geometry::KVHeads, splits, invocation.batch_size);
-        constexpr std::size_t kDynamicBytes =
-            DynamicArena ? static_cast<std::size_t>(4 * KeyBlock * kCausalHeadDim) : 0u;
         auto issue_pv = [&]<bool PackedValues, KvKeyCoding Keys, bool PvF16>() {
             if constexpr (DynamicArena) {
-                configure_cuda_device_once([&] {
+                // NOTE(S6 patch): MSVC C3495 rejects a `[&]` simple capture of a constexpr local
+                // declared inside the enclosing generic lambda `launch`. Both uses of the former
+                // kDynamicBytes are now the constant expression
+                // `DynamicArena ? size_t(4 * KeyBlock * kCausalHeadDim) : 0u` (the DynamicArena /
+                // KeyBlock compile-time template params fold the ternary), so this callback
+                // references only template params and constant expressions (non odr-use) and uses
+                // an empty capture; the kernel launch below uses the same constant expression.
+                configure_cuda_device_once([] {
                     return cudaFuncSetAttribute(
                         causal_attention_small_t_i8_tiled_kernel<
                             Geometry, TokenTile, WarpsPerCta, MinBlocksPerSm, KeyBlock, DynamicArena,
                             MultiBatch, Masked, CacheInput, PackedValues, Keys, PvF16, QkSplit,
                             EarlyFetch>,
-                        cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(kDynamicBytes));
+                        cudaFuncAttributeMaxDynamicSharedMemorySize,
+                        static_cast<int>(4 * KeyBlock * kCausalHeadDim));
                 });
             }
             causal_attention_small_t_i8_tiled_kernel<Geometry, TokenTile, WarpsPerCta,
                                                      MinBlocksPerSm, KeyBlock, DynamicArena,
                                                      MultiBatch, Masked, CacheInput, PackedValues,
                                                      Keys, PvF16, QkSplit, EarlyFetch>
-            <<<grid, WarpsPerCta * 32, kDynamicBytes, stream>>>(
+            <<<grid, WarpsPerCta * 32,
+               DynamicArena ? static_cast<std::size_t>(4 * KeyBlock * kCausalHeadDim) : 0u,
+               stream>>>(
                 static_cast<const __nv_bfloat16*>(q.data), input,
                 static_cast<const std::int32_t*>(pos.data), static_cast<std::int8_t*>(cache_k.data),
                 static_cast<std::int8_t*>(cache_v.data), static_cast<__half*>(cache_k_scale.data),

@@ -3,6 +3,24 @@
 set(NINFER_DEVICE_PROFILES_FILE ${CMAKE_CURRENT_SOURCE_DIR}/engine/device_profiles.json)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${NINFER_DEVICE_PROFILES_FILE})
 file(READ ${NINFER_DEVICE_PROFILES_FILE} NINFER_DEVICE_PROFILES_JSON)
+# MSVC caps a single string literal at 16380 chars; the embedded JSON (30,566) exceeds it, which
+# would raise C2026 (and truncate the data). Adjacent raw-string literals concatenate at
+# translation phase 6, so split the JSON into chunks each < 16000 and join them with the
+# )ninfer_json" R"ninfer_json( delimiter. The bytes are unchanged; the delimiter token never
+# appears inside the JSON, so there is no collision. The .cpp.in template is untouched.
+string(LENGTH "${NINFER_DEVICE_PROFILES_JSON}" _json_len)
+set(_chunk_size 16000)
+set(_json_parts "")
+math(EXPR _offset 0)
+while(_offset LESS _json_len)
+  if(NOT _offset EQUAL 0)
+    string(APPEND _json_parts ")ninfer_json\" R\"ninfer_json(")
+  endif()
+  string(SUBSTRING "${NINFER_DEVICE_PROFILES_JSON}" ${_offset} ${_chunk_size} _chunk)
+  string(APPEND _json_parts "${_chunk}")
+  math(EXPR _offset "${_offset} + ${_chunk_size}")
+endwhile()
+set(NINFER_DEVICE_PROFILES_JSON "${_json_parts}")
 configure_file(engine/device_profiles_builtin.cpp.in
                ${CMAKE_CURRENT_BINARY_DIR}/engine/device_profiles_builtin.cpp @ONLY)
 

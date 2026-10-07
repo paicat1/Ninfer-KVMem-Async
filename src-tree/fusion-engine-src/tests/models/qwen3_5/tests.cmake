@@ -32,6 +32,7 @@ set_tests_properties(
   PROPERTIES SKIP_RETURN_CODE 77)
 
 ninfer_add_test(ninfer_qwen3_5_frontend_test
+  STANDALONE
   SOURCES "${CMAKE_CURRENT_LIST_DIR}/test_frontend.cpp"
   NEEDS_SOURCE_DIR
   LIBRARIES ninfer_engine ninfer_core ninfer::json)

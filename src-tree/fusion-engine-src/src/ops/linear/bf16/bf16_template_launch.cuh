@@ -31,8 +31,13 @@ void launch_bf16_a16_gemv(const Bf16A16Operands& p, Output output, Epilogue epil
             throw std::invalid_argument("BF16 GEMV activation exceeds shared memory capacity");
         bytes = p.k * 2;
         if (bytes + static_bytes > 48 * 1024) {
+            // NOTE(S6 patch): write the full template instance inline instead of capturing the
+            // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr
+            // __global__ function pointer. The outer `kernel` is still used by the top-level
+            // launch below; this rewrite only removes the capture inside the configure callback.
             configure_cuda_device_once([&] {
-                return cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                return cudaFuncSetAttribute(bf16_a16_gemv_kernel<Schedule, Output, Epilogue>,
+                                            cudaFuncAttributeMaxDynamicSharedMemorySize,
                                             max_dynamic);
             });
         }
@@ -109,8 +114,13 @@ void launch_bf16_a16_sliced_k_mma(const Bf16A16Operands& p, Output output, Epilo
     const int bytes       = bf16_prepare_shared<Schedule::kSharedBytes, kernel>();
     for_each_token_slice(p.tokens, Schedule::kBlockTokens, [&](int offset, int count) {
         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, Schedule::kBlockTokens));
-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(p.x, p.weight, output, epilogue, p.rows,
-                                                            p.k, p.tokens, offset);
+        // NOTE(S6 patch): write the full template instance inline instead of capturing the
+        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
+        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
+        bf16_a16_sliced_k_mma_kernel<Schedule, Output, Epilogue><<<grid, Schedule::kThreads, bytes,
+                                                                   stream>>>(p.x, p.weight, output,
+                                                                             epilogue, p.rows, p.k,
+                                                                             p.tokens, offset);
         CUDA_CHECK(cudaGetLastError());
     });
 }

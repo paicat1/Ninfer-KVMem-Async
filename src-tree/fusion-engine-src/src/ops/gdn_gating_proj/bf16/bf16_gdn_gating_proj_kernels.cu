@@ -297,12 +297,28 @@ bool launch_bf16_prefill_mma(Bf16GdnGatingTokenVariant variant, const Tensor& x,
                         static_cast<unsigned>(SplitK));
         auto launch = [&](auto full_tokens) {
             constexpr bool FullTokens     = decltype(full_tokens)::value;
-            configure_cuda_device_once([&] {
-                return cudaFuncSetAttribute(
-                    bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, FullTokens, Warps,
-                                                         NormalizeInput, NormTokenCapacity>,
-                    cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
-            });
+            // NOTE(S6 patch): MSVC C3495 rejects a `[&]` simple capture of a constexpr local
+            // declared inside an enclosing generic lambda and used as a template argument. The
+            // configure callback is invoked with no arguments once per device (device.h), so branch
+            // on the compile-time FullTokens and pass an empty-capture callback that references only
+            // the function-template parameters plus the non-dependent constexpr kSmemBytes (non
+            // odr-use, same shape as recurrence.cu). Same kernel specialization as <…, FullTokens,…>,
+            // same once-per-device cache.
+            if constexpr (FullTokens) {
+                configure_cuda_device_once([] {
+                    return cudaFuncSetAttribute(
+                        bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, true, Warps,
+                                                             NormalizeInput, NormTokenCapacity>,
+                        cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
+                });
+            } else {
+                configure_cuda_device_once([] {
+                    return cudaFuncSetAttribute(
+                        bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, false, Warps,
+                                                             NormalizeInput, NormTokenCapacity>,
+                        cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
+                });
+            }
             if constexpr (SplitK > 1) {
                 cudaLaunchConfig_t config{};
                 config.gridDim          = grid;

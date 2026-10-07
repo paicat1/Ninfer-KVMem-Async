@@ -80,7 +80,12 @@ void launch_fp8_a16_sliced_k_mma(const Fp8A16Operands& p, Output output, Epilogu
     const int bytes       = fp8_prepare_shared<Schedule::kSharedBytes, kernel>();
     for_each_token_slice(p.tokens, capacity, [&](int offset, int count) {
         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, capacity));
-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(p, output, epilogue, rows, offset);
+        // NOTE(S6 patch): write the full template instance inline instead of capturing the
+        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
+        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
+        fp8_a16_sliced_k_mma_kernel<Schedule, Output, Epilogue, Rows><<<grid, Schedule::kThreads,
+                                                                      bytes, stream>>>(
+            p, output, epilogue, rows, offset);
         CUDA_CHECK(cudaGetLastError());
     });
 }

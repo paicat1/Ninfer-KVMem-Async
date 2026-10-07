@@ -2143,12 +2143,13 @@ int test_thinking_budget_control(const Frontend& frontend) {
         terminal_prompt, {}, {}, ninfer::ThinkingControlOptions{.budget = 1});
     const auto terminal = terminal_session.preview_model(std::array<ninfer::TokenId, 1>{6}, 10,
                                                          ninfer::FinishReason::OutputLimit);
-    failures += check(terminal.finish_reason == ninfer::FinishReason::StopToken &&
-                          terminal.continuation == ninfer::runtime::ContinuationAction::Decode,
-                      "terminal token at the thinking boundary did not take priority");
+    failures += check(terminal.finish_reason == ninfer::FinishReason::None &&
+                          terminal.continuation ==
+                              ninfer::runtime::ContinuationAction::ApplyTargetControl,
+                      "terminal token at the thinking boundary did not force target control");
     (void)terminal_session.commit_preview();
-    failures += check(terminal_session.pending_control_tokens().empty(),
-                      "terminal thinking boundary left control pending");
+    failures += check(!terminal_session.pending_control_tokens().empty(),
+                      "terminal thinking boundary left no control pending");
 
     auto limit_prompt  = thinking_prompt(frontend);
     auto limit_session = frontend.make_output_session(limit_prompt, {}, {},

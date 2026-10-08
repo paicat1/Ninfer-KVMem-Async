@@ -1,0 +1,66 @@
+From a25012b8cad0e53b43ed21f0a44d5ed206bfc410 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 7 Oct 2026 12:54:05 +0800
+Subject: [PATCH 2/3] =?UTF-8?q?feat(frontend):=20Design=20C=E2=80=94?=
+ =?UTF-8?q?=E2=80=94thinking=20=E9=98=B6=E6=AE=B5=20stop=20=E5=BC=BA?=
+ =?UTF-8?q?=E5=88=B6=E8=BF=9B=20answer=EF=BC=8C=E9=81=BF=E5=85=8D=E7=A9=BA?=
+ =?UTF-8?q?=E6=AD=A3=E6=96=87=EF=BC=9B=E5=90=8C=E6=AD=A5=20thinking-bounda?=
+ =?UTF-8?q?ry=20=E5=8D=95=E6=B5=8B=E6=96=AD=E8=A8=80?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../src/models/qwen3_5/frontend/output_session.cpp   | 12 ++++++++++++
+ .../tests/models/qwen3_5/test_frontend.cpp           | 11 ++++++-----
+ 2 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
+index 5207696..f9084d5 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
+@@ -551,6 +551,18 @@ runtime::OutputDecision OutputSession::preview_model(std::span<const TokenId> to
+         }
+ 
+         if (stop_token) {
++            // Design C: a model stop while still in the thinking phase (not normally closed) would
++            // otherwise end with an empty answer. Force the engine's target-control path so the
++            // thinking is closed and the model continues in the answer region.
++            if (impl_->preview_semantic.in_reasoning && impl_->preview_semantic.budget) {
++                if (!impl_->policy.publish_stop_token) {
++                    impl_->preview_state  = std::move(before_state);
++                    impl_->preview_output = std::move(before_output);
++                }
++                impl_->preview_semantic.control_pending = true;
++                return complete(count, FinishReason::None,
++                                runtime::ContinuationAction::ApplyTargetControl);
++            }
+             if (!impl_->policy.publish_stop_token) {
+                 impl_->preview_state  = std::move(before_state);
+                 impl_->preview_output = std::move(before_output);
+diff --git a/src-tree/fusion-engine-src/tests/models/qwen3_5/test_frontend.cpp b/src-tree/fusion-engine-src/tests/models/qwen3_5/test_frontend.cpp
+index cad1a76..4a9b21c 100644
+--- a/src-tree/fusion-engine-src/tests/models/qwen3_5/test_frontend.cpp
++++ b/src-tree/fusion-engine-src/tests/models/qwen3_5/test_frontend.cpp
+@@ -2143,12 +2143,13 @@ int test_thinking_budget_control(const Frontend& frontend) {
+         terminal_prompt, {}, {}, ninfer::ThinkingControlOptions{.budget = 1});
+     const auto terminal = terminal_session.preview_model(std::array<ninfer::TokenId, 1>{6}, 10,
+                                                          ninfer::FinishReason::OutputLimit);
+-    failures += check(terminal.finish_reason == ninfer::FinishReason::StopToken &&
+-                          terminal.continuation == ninfer::runtime::ContinuationAction::Decode,
+-                      "terminal token at the thinking boundary did not take priority");
++    failures += check(terminal.finish_reason == ninfer::FinishReason::None &&
++                          terminal.continuation ==
++                              ninfer::runtime::ContinuationAction::ApplyTargetControl,
++                      "terminal token at the thinking boundary did not force target control");
+     (void)terminal_session.commit_preview();
+-    failures += check(terminal_session.pending_control_tokens().empty(),
+-                      "terminal thinking boundary left control pending");
++    failures += check(!terminal_session.pending_control_tokens().empty(),
++                      "terminal thinking boundary left no control pending");
+ 
+     auto limit_prompt  = thinking_prompt(frontend);
+     auto limit_session = frontend.make_output_session(limit_prompt, {}, {},
+-- 
+2.55.0.windows.4
+

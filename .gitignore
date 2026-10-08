@@ -1,0 +1,34 @@
+# ============================================================
+#  ninfer-kvmem
+#  目标：把 Qwen3.8-27B-Coder390（Q2 LynnStyle .ninfer）搬进
+#        NInfer + KVMem 架构跑起来，并尽量适配 MTP / DFlash2 / ngram。
+#  只收"本线产品本身"；输入物料（体积大 / 上游内容）不入库。
+# ============================================================
+
+# 引擎成品与模型制品（体积大，不入库）
+engine/
+models/
+
+# 上游引擎源码 clone（复现输入，自带 .git）
+official-repo/
+
+# 参考资料区（第三方 / 前序输入物料，不入库）
+refs/
+
+# 姊妹仓评价文档（评的是他仓，非本线产品本身，仅本地留存）
+docs/仓库建议.txt
+
+# 运行日志 / 临时 / 缓存
+logs/
+.temp/
+__pycache__/
+*.log
+Testing/
+
+# 备份快照
+_safety_backups/
+
+# 工作流工具链（类③，不入项目 git）
+smart_push.ps1
+tools/
+.codebuddy/

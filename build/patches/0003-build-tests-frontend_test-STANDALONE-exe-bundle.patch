@@ -1,0 +1,31 @@
+From 3b9dc837d15b6d7b4ab5f95723762d24bb350efc Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 7 Oct 2026 12:54:12 +0800
+Subject: [PATCH 3/3] =?UTF-8?q?build(tests):=20frontend=5Ftest=20=E5=8A=A0?=
+ =?UTF-8?q?=20STANDALONE=20=E5=BC=80=E5=85=B3=EF=BC=88=E5=AE=98=E6=96=B9?=
+ =?UTF-8?q?=E6=9C=BA=E5=88=B6=E7=8B=AC=E7=AB=8B=20exe=EF=BC=8C=E7=BB=95?=
+ =?UTF-8?q?=E5=BC=80=E4=B8=8A=E6=B8=B8=E5=9D=8F=E6=B5=8B=E8=AF=95=20bundle?=
+ =?UTF-8?q?=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ src-tree/fusion-engine-src/tests/models/qwen3_5/tests.cmake | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src-tree/fusion-engine-src/tests/models/qwen3_5/tests.cmake b/src-tree/fusion-engine-src/tests/models/qwen3_5/tests.cmake
+index d1e37e9..9a87b8a 100644
+--- a/src-tree/fusion-engine-src/tests/models/qwen3_5/tests.cmake
++++ b/src-tree/fusion-engine-src/tests/models/qwen3_5/tests.cmake
+@@ -32,6 +32,7 @@ set_tests_properties(
+   PROPERTIES SKIP_RETURN_CODE 77)
+ 
+ ninfer_add_test(ninfer_qwen3_5_frontend_test
++  STANDALONE
+   SOURCES "${CMAKE_CURRENT_LIST_DIR}/test_frontend.cpp"
+   NEEDS_SOURCE_DIR
+   LIBRARIES ninfer_engine ninfer_core ninfer::json)
+-- 
+2.55.0.windows.4
+

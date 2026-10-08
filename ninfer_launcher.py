@@ -1,0 +1,820 @@
+# -*- coding: utf-8 -*-
+"""Bonsai-27B-NInfer-kvmem 启动器（第一版）
+
+用途：点选参数 → 实时预览启动命令 → 起服（可见窗口，关窗=停服）→ 就绪自测。
+零外部依赖（仅 Python 自带 tkinter / urllib / json / subprocess）。
+
+对照施工方案：
+  · S1 起服：首起档 = dflash 档（默认组合 = 官方 start-pq2-dflash.bat 的参数 + E5 止血两旗；核心参数逐字等价）
+  · S2 就绪判据：判活必须真发请求（/v1/models 200 ≠ 能服务）
+  · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
+
+版本：v1（覆盖起服 + 自检/就绪自测）。后续版本继续补齐全部参数维度（见文件尾 TODO）。
+"""
+
+import json
+import os
+import queue
+import subprocess
+import sys
+import threading
+import time
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+import urllib.request
+import urllib.error
+
+# ---------------------------------------------------------------
+# 常量：路径与基础参数
+# ---------------------------------------------------------------
+ROOT        = os.path.dirname(os.path.abspath(__file__))          # 项目根（便携：不写死盘符）
+ENGINE      = os.path.join(ROOT, "engine", "ninfer-serve-120a.exe")            # 官方成品（无 Design C）
+ENGINE_DIR  = os.path.dirname(ENGINE)
+ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（20261008 + 全部补丁）
+ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 自编·回退锚（20261003 + 全部补丁）
+ENGINE_OPTIONS = {
+    "official": ("官方成品",       ENGINE),
+    "self":      ("自编·现役(20261008)",  ENGINE_SELF),
+    "self_prev": ("自编·回退锚(20261003)", ENGINE_PREV),
+}
+MODEL       = os.path.join(ROOT, "models", "Ternary-Bonsai-2-27B-ninfer-v3.ninfer")
+CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
+LOG_DIR = os.path.join(ROOT, "logs")
+TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
+PORT_DEFAULT = 8094
+# tee 需要“带控制台”的 python.exe（GUI 以 pythonw 运行，用它起 tee 会得空白窗口）
+PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("pythonw", "python")
+
+# 池 token 数（= config 里的 --kv-capacity）。硬约束 = 单请求的【prompt_tokens + 输出(max_tokens) ≤ 池】：
+# 超过则 (a) 未开止血 → worker 崩且不自愈；或 (b) 开了 --kv-lease-growth（E5 止血）→ 被静默截断(finish_reason=length、
+# 内容像正常但只有半截)。--default-max-tokens 只是服务端默认上限，不是硬约束。
+KV_POOL_TOKENS = 17920
+
+# KVMem 五开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
+KV_ENV = {
+    "NINFER_KV_WINDOW":          "16384",
+    "NINFER_KV_RETRIEVE":        "8192",
+    "NINFER_KV_RING":            "1",
+    "NINFER_HOST_PAGEABLE":      "1",
+    "NINFER_KV_REUSE_HOSTBACKED": "1",
+}
+
+# ---------------------------------------------------------------
+# 维度定义：key -> {value: (显示名, 附加参数列表)}
+# ---------------------------------------------------------------
+# 投机解码：键 -> (显示名, 参数)。k0=无, k1..k5=MTP, d1..d15=DFlash2
+# 对齐旧项目写法：MTP 与 DFlash2 都提供完整 K 值 1..N，不写死单一档。
+SPEC_OPTIONS = {"k0": ("无（裸档 · 慢）", [])}
+SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}",
+                               ["--spec", "mtp", "--draft-tokens", str(i)])
+                     for i in range(1, 6)})
+SPEC_OPTIONS.update({f"d{i}": (f"DFlash2 K={i}",
+                               ["--spec", "dflash2", "--draft-tokens", str(i), "--lm-head-draft"])
+                     for i in range(1, 16)})
+KV_OPTIONS = {
+    "k8v4":     ("k8v4（官方默认）", ["--kv-dtype", "k8v4"]),
+    "rk8v4":    ("rk8v4",           ["--kv-dtype", "rk8v4"]),
+    "rk4v4":    ("rk4v4",           ["--kv-dtype", "rk4v4"]),
+    "rk4v4-e8": ("rk4v4-e8",        ["--kv-dtype", "rk4v4-e8"]),
+    "rk2v4-e8": ("rk2v4-e8（5080 回执用）", ["--kv-dtype", "rk2v4-e8"]),
+    "nvfp4":    ("nvfp4",           ["--kv-dtype", "nvfp4"]),
+    "fp8":      ("fp8",             ["--kv-dtype", "fp8"]),
+    "int8":     ("int8",            ["--kv-dtype", "int8"]),
+    "bf16":     ("bf16",            ["--kv-dtype", "bf16"]),
+}
+CTX_OPTIONS = {
+    "32k":  ("32K",   ["--max-context", "32768"]),
+    "64k":  ("64K",   ["--max-context", "65536"]),
+    "128k": ("128K",  ["--max-context", "131072"]),
+    "150k": ("150K",  ["--max-context", "153600"]),
+    "160k": ("160K",  ["--max-context", "163840"]),
+    "170k": ("170K",  ["--max-context", "174080"]),
+    "180k": ("180K",  ["--max-context", "184320"]),
+    "200k": ("200K",  ["--max-context", "204800"]),
+    "224k": ("224K",  ["--max-context", "229376"]),
+    "256k": ("256K（官方默认）", ["--max-context", "262144"]),
+}
+KVCAP_OPTIONS = {
+    "17920": ("17920（官方默认）",         ["--kv-capacity", "17920"]),
+    "auto":  ("auto（按剩余显存）",   ["--kv-capacity", "auto"]),
+    "16k":     ("16K",  ["--kv-capacity", "16384"]),
+    "32k":     ("32K",  ["--kv-capacity", "32768"]),
+    "64k":     ("64K",  ["--kv-capacity", "65536"]),
+    "128k":    ("128K", ["--kv-capacity", "131072"]),
+    "150k":    ("150K", ["--kv-capacity", "153600"]),
+    "160k":    ("160K", ["--kv-capacity", "163840"]),
+    "170k":    ("170K", ["--kv-capacity", "174080"]),
+    "180k":    ("180K", ["--kv-capacity", "184320"]),
+    "200k":    ("200K", ["--kv-capacity", "204800"]),
+    "224k":    ("224K", ["--kv-capacity", "229376"]),
+    "256k":    ("256K", ["--kv-capacity", "262144"]),
+}
+HOSTKV_OPTIONS = {
+    "16384": ("16384（官方默认）", ["--host-kv-mib", "16384"]),
+    "8192":  ("8192",            ["--host-kv-mib", "8192"]),
+    "32768": ("32768",           ["--host-kv-mib", "32768"]),
+}
+PREFILL_OPTIONS = {
+    "1024": ("1024（官方默认）", ["--prefill-chunk", "1024"]),
+    "512":  ("512",            ["--prefill-chunk", "512"]),
+    "2048": ("2048",           ["--prefill-chunk", "2048"]),
+}
+THINK_OPTIONS = {
+    "none":   ("none（官方默认 · 关思考）", ["--default-reasoning-effort", "none"]),
+    "low":    ("low",                      ["--default-reasoning-effort", "low"]),
+    "medium": ("medium",                   ["--default-reasoning-effort", "medium"]),
+    "high":   ("high",                     ["--default-reasoning-effort", "high"]),
+    "off":    ("--no-thinking（强制关）",    ["--no-thinking"]),
+}
+MAXOUT_OPTIONS = {
+    "default": ("默认(65535)", []),
+    "4096":    ("4096",     ["--default-max-tokens", "4096"]),
+    "8192":    ("8192",     ["--default-max-tokens", "8192"]),
+    "16384":   ("16384",    ["--default-max-tokens", "16384"]),
+    "32768":   ("32768（官方默认）", ["--default-max-tokens", "32768"]),
+    "1024":    ("1024",     ["--default-max-tokens", "1024"]),
+}
+VISION_OPTIONS = {
+    "on":      ("开·GPU 编码器（官方默认）", ["--vision"]),
+    "overlay": ("开·主机内存 overlay（折中）", ["--vision", "--vision-residency", "overlay"]),
+    "cpu":     ("开·CPU 编码器（最省显存·慢）", ["--vision-cpu"]),
+    "off":     ("关（省显存）",   []),
+}
+SAMPLE_OPTIONS = {
+    "shipped":  ("官方(0.7/0.9/20, presence0)", ["--presence-penalty", "0", "--temperature", "0.7", "--top-p", "0.9", "--top-k", "20"]),
+    "thinking": ("思考档(1.0/0.95/20)",          ["--presence-penalty", "0", "--temperature", "1.0", "--top-p", "0.95", "--top-k", "20"]),
+    "greedy":   ("贪心(greedy)",                 ["--greedy"]),
+}
+# 官方 B01 止血开关（官方出厂件已有、官方启动器未写）：防“超池+大输出租约 ⇒ worker 崩/进程静默退出”。
+HEMOSTAT_OPTIONS = {
+    "on":  ("开（推荐·防 B01 崩溃）", ["--kv-lease-growth", "--recover-invariant-failures"]),
+    "off": ("关（官方 bat 原样）", []),
+}
+# 思考预算档：--default-thinking-budget N —— 治“思考墙死循环”（xhigh 思考烧光输出预算 → 空正文）。
+# 这是服务端(argv)级设置；OpenAI chat 端点不解析请求里的 thinking_budget 字段（仅 Anthropic 的 thinking.budget_tokens 读它）。
+TB_OPTIONS = {
+    "none":   ("无（默认）",      []),
+    "8000":   ("8000",          ["--default-thinking-budget", "8000"]),
+    "12000":  ("12000",         ["--default-thinking-budget", "12000"]),
+    "16000":  ("16000（推荐）",  ["--default-thinking-budget", "16000"]),
+    "24000":  ("24000",         ["--default-thinking-budget", "24000"]),
+    "32000":  ("32000",         ["--default-thinking-budget", "32000"]),
+}
+CONC_OPTIONS = {
+    "1": ("1（官方默认·单路）", ["--max-concurrency", "1"]),
+    "2": ("2",                ["--max-concurrency", "2"]),
+    "4": ("4",                ["--max-concurrency", "4"]),
+}
+PRESERVE_OPTIONS = {
+    "off": ("关（官方默认）", []),
+    "on":  ("开（保留思考）", ["--preserve-thinking"]),
+}
+
+DIMENSIONS = [
+    ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
+    ("kv",     "KV 类型",         KV_OPTIONS),
+    ("ctx",    "上下文",          CTX_OPTIONS),
+    ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
+    ("hostkv", "主机 KV (MiB)",   HOSTKV_OPTIONS),
+    ("prefill","prefill 块",      PREFILL_OPTIONS),
+    ("think",  "思考模式",         THINK_OPTIONS),
+    ("tb",     "思考预算",         TB_OPTIONS),
+    ("maxout", "输出上限",        MAXOUT_OPTIONS),
+    ("vision", "视觉",            VISION_OPTIONS),
+    ("sample", "采样",            SAMPLE_OPTIONS),
+    ("conc",   "并发",            CONC_OPTIONS),
+    ("preserve","保留思考",        PRESERVE_OPTIONS),
+    ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
+]
+
+# 默认组合 = 官方 start-pq2-dflash.bat 的参数（核心逐字等价）+ E5 止血两旗（--kv-lease-growth / --recover-invariant-failures，有意新增）
+DEFAULTS = {
+    "spec": "d12", "kv": "k8v4", "ctx": "256k", "kvcap": "17920", "hostkv": "16384",
+    "prefill": "1024", "think": "none", "tb": "none", "maxout": "32768", "vision": "on",
+    "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
+}
+
+# v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
+# 新档位内部值已改为 "d12"/"k4" 等；加载时自动迁移，避免旧命名组合失效。
+LEGACY_VALUE_MAP = {
+    ("spec", "dflash2"): "d12",
+    ("spec", "mtp"):     "k4",
+}
+
+DIM_TIPS = {
+    "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
+    "kv":     "KV 缓存精度。官方默认 k8v4；官方 5080 回执另用 rk* 系列。可用性随架构变，异常时换一档试。",
+    "ctx":    "上下文长度（--max-context）。官方默认 256K。",
+    "kvcap":  "KV 池容量（--kv-capacity）。官方默认 17920 = 池 token 数；auto 按剩余显存最大化；更大=更多上下文但更占显存。",
+    "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
+    "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
+    "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
+    "tb":     "思考预算上限（--default-thinking-budget，每回合最多思考 token）。治“思考墙死循环”：xhigh 思考烧光输出预算→空正文。越小越省时，审核/批量建议小；长逻辑建议大。⚠ OpenAI 端点不转发请求里的 thinking_budget，只能靠服务端此参数。",
+    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 硬约束 = 单请求【prompt_tokens + 输出 ≤ 池(17920)】；超池会被 --kv-lease-growth 静默截断(finish_reason=length)或(无止血)使 worker 崩。发请求时请控 prompt 长。",
+    "vision": "视觉（多模态）。GPU 编码器=默认，视觉塔常驻显存(~1.4G)；overlay=视觉塔驻 pinned 主机内存、仍走 GPU 算（折中，需可驱逐尾部支撑）；cpu=视觉塔走 CPU 线程、无设备视觉显存（引擎自动把 --vision-max-merged 压到 256，每图慢）。显存紧：优先 overlay，其次 cpu；不用视觉就关。",
+    "sample": "采样预设。默认 = 官方值 0.7/0.9/20、presence 0。",
+    "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
+    "preserve":"保留已关闭回合的 assistant 推理（--preserve-thinking）。多轮长对话要前序思考时开。",
+    "hemostat":"官方 B01 止血：--kv-lease-growth（租约按需增长，掐掉“超池+大输出 ⇒ worker 崩”的触发条件）+ --recover-invariant-failures（出问题只废当前请求、不弄死引擎）。官方出厂件有，官方 bat 未写。",
+}
+
+# 命名组合预置（首次运行若无配置文件则落盘）
+PRESET_PROFILES = {
+    "起服-dflash档": dict(DEFAULTS),
+    "备用-MTP档":    dict(DEFAULTS, spec="k4"),
+    "省显存-无视觉": dict(DEFAULTS, vision="off"),
+    "省显存-视觉CPU": dict(DEFAULTS, vision="cpu"),
+    "省显存-视觉overlay": dict(DEFAULTS, vision="overlay"),
+    "思考预算-16000": dict(DEFAULTS, think="high", tb="16000", sample="thinking"),
+    "长文档-224K":   dict(DEFAULTS, ctx="224k"),
+    "并发4-吞吐":    dict(DEFAULTS, conc="4"),
+}
+
+
+# ---------------------------------------------------------------
+# 校验 / 命令构造
+# ---------------------------------------------------------------
+def validate(combo, exe=None):
+    """返回告警列表（空 = 无告警）。"""
+    exe = exe or ENGINE
+    warns = []
+    mx = str(combo.get("maxout", "default"))
+    mx_val = 65535 if mx == "default" else (int(mx) if mx.isdigit() else 0)  # "default"=65535；非数字安全跳过（照老项目：不裸 int 转换）
+    if mx_val > KV_POOL_TOKENS:
+        warns.append(f"输出上限({mx}) > 池 token 数({KV_POOL_TOKENS})——官方默认如此；"
+                     f"真正的硬约束 = 单请求【prompt_tokens + 输出(max_tokens) ≤ {KV_POOL_TOKENS}】："
+                     f"超过会在 prefill 阶段超池——(a)未开止血→worker 崩且不自愈、(b)已开 --kv-lease-growth→"
+                     f"被静默截断(finish_reason=length、内容像正常但只有半截)。发请求时请确保 prompt 长度 + max_tokens ≤ {KV_POOL_TOKENS}。")
+    if not os.path.exists(exe):
+        warns.append(f"未找到引擎：{exe}")
+    if not os.path.exists(MODEL):
+        warns.append(f"未找到模型：{MODEL}")
+    if any(ord(c) > 127 for c in ROOT):
+        warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
+    return warns
+
+
+def _argv_of(table, value, fallback_key):
+    """安全取某维度参数（照老项目 D8）：未知/缺失值回退到默认项，避免裸下标 KeyError 崩 GUI。"""
+    ent = table.get(value)
+    if ent is None:
+        ent = table.get(fallback_key)
+    return ent[1] if ent else []
+
+
+def build_command(combo, port=PORT_DEFAULT, exe=None):
+    """返回 (exe, argv)。argv 为引擎参数（不含 exe）；核心参数与官方 start-pq2-dflash.bat 逐字等价，另含 E5 止血两旗（hemostat=on，可关）。
+    取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
+    exe=None 时用官方成品；传 ENGINE_SELF 用自编引擎。"""
+    exe = exe or ENGINE
+    argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b"]
+    argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
+    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "17920"),   "17920")
+    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "k8v4"),       "k8v4")
+    argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
+    argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "1024"),  "1024")
+    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "d12"),      "d12")
+    argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "on"),     "on")
+    argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
+    argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
+    argv += _argv_of(TB_OPTIONS,      combo.get("tb", "none"),       "none")
+    argv += _argv_of(CONC_OPTIONS,    combo.get("conc", "1"),        "1")
+    argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
+    argv += ["--max-shared-prefixes", "0"]   # 铁律：防打砖
+    argv += _argv_of(SAMPLE_OPTIONS,  combo.get("sample", "shipped"), "shipped")
+    argv += _argv_of(HEMOSTAT_OPTIONS, combo.get("hemostat", "on"),  "on")   # B01 止血（E5 决定：默认开）
+    return exe, argv
+
+
+def env_for_launch(exe=None):
+    env = dict(os.environ)
+    env.update(KV_ENV)
+    env["PATH"] = os.path.dirname(exe or ENGINE) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+# ---------------------------------------------------------------
+# 组合持久化
+# ---------------------------------------------------------------
+def load_profiles():
+    """读取命名组合。损坏时**留痕不静默**（照老项目 D5：避免“一次崩溃后组合无声消失”），原文件不改动。"""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and data:
+                return data
+            print(f"[profiles] 文件为空/格式异常（{CONFIG_FILE}）——回退内置预设；原文件未改动，可手工修复。")
+        except Exception as e:
+            print(f"[profiles] 读取失败（{CONFIG_FILE}）：{e}")
+            print("[profiles] 已回退内置预设；原文件未改动，可手工修复。")
+    return dict(PRESET_PROFILES)
+
+
+def save_profiles(profiles):
+    """原子写：先写临时文件 + fsync，再 os.replace（照老项目 D5），避免崩溃/断电把全部组合写坏或写空。"""
+    tmp = CONFIG_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(profiles, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, CONFIG_FILE)
+
+
+# ---------------------------------------------------------------
+# 探测：S0 环境自检 / S2 就绪自测（全部只读）
+# ---------------------------------------------------------------
+def env_check():
+    lines = []
+    try:
+        r = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total,memory.free", "--format=csv,noheader"],
+                           capture_output=True, text=True, timeout=20)
+        lines.append("GPU: " + (r.stdout.strip() or r.stderr.strip()))
+    except Exception as e:
+        lines.append("GPU: 探测失败 " + str(e))
+    try:
+        r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ninfer-serve*", "/FO", "CSV", "/NH"],
+                           capture_output=True, text=True, timeout=20)
+        out = r.stdout.strip()
+        lines.append("ninfer-serve 进程: " + (out if out else "(无)"))
+    except Exception as e:
+        lines.append("ninfer-serve 进程: 探测失败 " + str(e))
+    return lines
+
+
+def readiness_test(port=PORT_DEFAULT):
+    """S2：/v1/models + 真发一条请求。返回 [ (标题, 结果, 摘要) ]。"""
+    res = []
+    base = f"http://127.0.0.1:{port}"
+    # 1) /v1/models
+    try:
+        with urllib.request.urlopen(base + "/v1/models", timeout=15) as r:
+            body = r.read().decode("utf-8", "replace")
+            res.append(("GET /v1/models", str(r.status), body[:400]))
+    except Exception as e:
+        res.append(("GET /v1/models", "ERR", str(e)))
+    # 2) 真发请求（判活必须真发；max_tokens 取安全小值）
+    payload = json.dumps({
+        "model": "qwen3.8-27b",
+        "messages": [{"role": "user", "content": "用一句话回答：1+1 等于几？"}],
+        "max_tokens": 64, "temperature": 0,
+    }).encode("utf-8")
+    req = urllib.request.Request(base + "/v1/chat/completions", data=payload,
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            j = json.loads(r.read().decode("utf-8", "replace"))
+            ch = (j.get("choices") or [{}])[0]
+            content = (ch.get("message") or {}).get("content", "")
+            fin = ch.get("finish_reason", "?")
+            res.append(("POST /v1/chat/completions", str(r.status),
+                        f"finish_reason={fin}\ncontent={content[:300]}"))
+    except Exception as e:
+        res.append(("POST /v1/chat/completions", "ERR", str(e)))
+    return res
+
+
+# ---------------------------------------------------------------
+# 悬停提示
+# ---------------------------------------------------------------
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget, self.text, self.tip = widget, text, None
+        widget.bind("<Enter>", self._show, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _show(self, _e=None):
+        if not self.text or self.tip is not None:
+            return
+        try:
+            self.tip = tk.Toplevel(self.widget)
+        except Exception:
+            return
+        try:
+            self.tip.wm_overrideredirect(True)
+            self.tip.attributes("-topmost", True)
+        except Exception:
+            pass
+        try:
+            tk.Label(self.tip, text=self.text, bg="#ffffe4", fg="#222",
+                     font=("Microsoft YaHei UI", 9), wraplength=340, justify="left",
+                     padx=8, pady=6).pack()
+            x, y = self.widget.winfo_rootx(), self.widget.winfo_rooty()
+            self.tip.wm_geometry(f"+{x+24}+{y+self.widget.winfo_height()+6}")
+        except Exception:
+            pass
+
+    def _hide(self, _e=None):
+        if self.tip is not None:
+            try:
+                self.tip.destroy()
+            except Exception:
+                pass
+            self.tip = None
+
+
+# ---------------------------------------------------------------
+# 图形界面
+# ---------------------------------------------------------------
+class LauncherApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Bonsai-27B-NInfer-kvmem 启动器")
+        self.root.geometry("900x700")
+        self.root.minsize(780, 660)
+        self.bg, self.fg = "#f4f8ff", "#1a3a6b"
+        self.root.configure(bg=self.bg)
+
+        self.profiles = load_profiles()
+        self.selection = dict(DEFAULTS)
+        self.var = {}
+        self._label2key = {}
+        self.port_var = tk.StringVar(value=str(PORT_DEFAULT))
+        self.logmode_var = tk.StringVar(value="精简")
+        self.engine_var = tk.StringVar(value=ENGINE_OPTIONS["official"][0])
+        # 投机档两级联动：类型 + K 值（照老项目；初值由 DEFAULTS["spec"] 解析）
+        _d = DEFAULTS["spec"]
+        if _d == "k0":
+            _st, _sk = "无", ""
+        elif _d.startswith("k"):
+            _st, _sk = "MTP", _d[1:]
+        else:
+            _st, _sk = "DFlash2", _d[1:]
+        self.var_spec_type = tk.StringVar(value=_st)
+        self.var_spec_k = tk.StringVar(value=_sk)
+        self._build_widgets()
+        self._refresh()
+
+    def _build_widgets(self):
+        main = tk.Frame(self.root, bg=self.bg)
+        main.pack(fill="both", expand=True, padx=14, pady=12)
+
+        tk.Label(main, text="Bonsai-27B-NInfer-kvmem 启动器", font=("Microsoft YaHei UI", 15, "bold"),
+                 bg=self.bg, fg="#1b4d8a").pack(anchor="w")
+        tk.Label(main, text="Bonsai-2-27B（三元） · sm_120a 引擎",
+                 font=("Microsoft YaHei UI", 9), bg=self.bg, fg="#5a6b8a").pack(anchor="w", pady=(0, 6))
+
+        # 端口行
+        portrow = tk.Frame(main, bg=self.bg)
+        portrow.pack(anchor="w", pady=(0, 6))
+        tk.Label(portrow, text="端口:", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10)).pack(side="left")
+        self.port_entry = ttk.Entry(portrow, textvariable=self.port_var, width=8)
+        self.port_entry.pack(side="left", padx=(4, 0))
+        tk.Label(portrow, text="（官方默认 8094）", bg=self.bg, fg="#9b8c5a",
+                 font=("Microsoft YaHei UI", 9)).pack(side="left", padx=(6, 0))
+        # 日志显示模式（传给 serve_tee 窗口；日志文件两种模式都全文落盘）
+        tk.Label(portrow, text="日志:", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10)).pack(side="left", padx=(16, 0))
+        self.logmode_cb = ttk.Combobox(portrow, state="readonly", width=6, textvariable=self.logmode_var,
+                                       values=["精简", "全部"], font=("Microsoft YaHei UI", 9))
+        self.logmode_cb.pack(side="left", padx=(4, 0))
+        ToolTip(self.logmode_cb, "窗口日志显示：精简=只留每段 SELECT 首末条 + 业务行（KEPT 隐藏）；全部=不过滤（查错用）。日志文件两种模式都全文落盘。")
+        # 引擎版本（官方成品 / 自编 Design C）——我们自己的引擎在此可选
+        tk.Label(portrow, text="引擎:", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10)).pack(side="left", padx=(16, 0))
+        self.engine_cb = ttk.Combobox(portrow, state="readonly", width=14, textvariable=self.engine_var,
+                                      values=[v[0] for v in ENGINE_OPTIONS.values()], font=("Microsoft YaHei UI", 9))
+        self.engine_cb.pack(side="left", padx=(4, 0))
+        self.engine_cb.bind("<<ComboboxSelected>>", lambda _e: self._refresh())
+        ToolTip(self.engine_cb, "用哪个引擎起服：官方成品 / 自编（含 Design C，治思考区空正文）。预览与启动都用所选引擎。")
+
+        # 左：参数区（可滚动）
+        left_outer = tk.Frame(main, bg=self.bg)
+        left_outer.pack(side="left", fill="y", padx=(0, 14))
+        canvas = tk.Canvas(left_outer, bg=self.bg, highlightthickness=0, width=210)
+        scroll = ttk.Scrollbar(left_outer, orient="vertical", command=canvas.yview)
+        inner = tk.Frame(canvas, bg=self.bg)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="y")
+        scroll.pack(side="right", fill="y")
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), "units")))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        # 场景预设（一键推荐组合，照老项目；源 = 内置 PRESET_PROFILES）
+        preset_box = tk.LabelFrame(inner, text="场景预设（推荐）", font=("Microsoft YaHei UI", 10),
+                                   bg=self.bg, fg="#2b3a6b")
+        preset_box.pack(fill="x", pady=4)
+        ToolTip(preset_box, "按场景一键套用推荐组合（官方线专用）。选择后自动填充下方参数。")
+        self.preset_var = tk.StringVar()
+        self.preset_cb = ttk.Combobox(preset_box, state="readonly", textvariable=self.preset_var,
+                                      width=22, font=("Microsoft YaHei UI", 9))
+        self.preset_cb["values"] = list(PRESET_PROFILES.keys())
+        self.preset_cb.bind("<<ComboboxSelected>>", self._apply_preset)
+        self.preset_cb.pack(anchor="w", padx=8, pady=4)
+
+        for key, label, opts in DIMENSIONS:
+            box = tk.LabelFrame(inner, text=label, font=("Microsoft YaHei UI", 10), bg=self.bg, fg="#2b3a6b")
+            box.pack(fill="x", pady=4)
+            ToolTip(box, DIM_TIPS.get(key, ""))
+            self._label2key[key] = {lbl: val for val, (lbl, _) in opts.items()}
+            self.var[key] = tk.StringVar(value=opts[DEFAULTS[key]][0])
+            if key == "spec":
+                # 投机档两级联动（照老项目）：类型（无/MTP/DFlash2）+ K 值
+                f = tk.Frame(box, bg=self.bg)
+                f.pack(anchor="w", padx=8, pady=4)
+                self.combo_spec_type = ttk.Combobox(f, state="readonly", width=9,
+                                                    textvariable=self.var_spec_type, font=("Microsoft YaHei UI", 9))
+                self.combo_spec_type["values"] = ["无", "MTP", "DFlash2"]
+                self.combo_spec_type.bind("<<ComboboxSelected>>", self._on_spec_change)
+                self.combo_spec_type.pack(side="left", padx=(0, 6))
+                self.combo_spec_k = ttk.Combobox(f, state="readonly", width=6,
+                                                 textvariable=self.var_spec_k, font=("Microsoft YaHei UI", 9))
+                self.combo_spec_k.bind("<<ComboboxSelected>>", self._on_spec_change)
+                self.combo_spec_k.pack(side="left")
+                self._update_spec_k_range()
+            else:
+                cb = ttk.Combobox(box, state="readonly", textvariable=self.var[key], width=24,
+                                  font=("Microsoft YaHei UI", 9))
+                cb["values"] = list(self._label2key[key].keys())
+                cb.bind("<<ComboboxSelected>>", lambda _e: self._on_change())
+                cb.pack(anchor="w", padx=8, pady=4)
+
+        # 右：预览 + 操作
+        right = tk.Frame(main, bg=self.bg)
+        right.pack(side="right", fill="both", expand=True)
+
+        tk.Label(right, text="启动命令预览", bg=self.bg, fg="#9b8c5a",
+                 font=("Microsoft YaHei UI", 10, "bold")).pack(anchor="w", pady=(0, 2))
+        self.cmd_box = tk.Text(right, height=10, width=62, wrap="word", bg="white", fg="#1a1a1a",
+                               bd=1, relief="solid", font=("Consolas", 9))
+        self.cmd_box.pack(fill="both", expand=True)
+        self.cmd_box.configure(state="disabled")
+
+        self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
+                               font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=560)
+        self.status.pack(anchor="w", pady=(6, 0))
+
+        # 操作按钮
+        btns = tk.Frame(right, bg=self.bg)
+        btns.pack(fill="x", pady=(10, 4))
+        ttk.Button(btns, text="启 动", command=self._launch, width=12).pack(side="left", padx=(0, 6))
+        ttk.Button(btns, text="环境自检", command=self._env_check, width=10).pack(side="left", padx=6)
+        ttk.Button(btns, text="就绪自测", command=self._readiness, width=10).pack(side="left", padx=6)
+
+        # 命名组合
+        combox = tk.Frame(right, bg=self.bg)
+        combox.pack(fill="x", pady=(6, 2))
+        tk.Label(combox, text="命名组合:", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10)).pack(side="left")
+        self.profile_cb = ttk.Combobox(combox, state="readonly", width=20, values=list(self.profiles.keys()))
+        self.profile_cb.pack(side="left", padx=(6, 0))
+        ttk.Button(combox, text="加载", command=self._load_profile).pack(side="left", padx=4)
+        ttk.Button(combox, text="保存当前", command=self._save_profile).pack(side="left", padx=4)
+        ttk.Button(combox, text="删除", command=self._del_profile).pack(side="left", padx=4)
+
+        tk.Label(right, text="提示：启动后引擎在“新控制台窗口”里运行 —— 关掉那个窗口 = 停服。",
+                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 9), wraplength=560,
+                 justify="left").pack(anchor="w", pady=(6, 0))
+
+    # ---- 事件 ----
+    def _on_change(self):
+        for key, var in self.var.items():
+            if key == "spec":
+                self.selection["spec"] = self._spec_key_from_ui()
+            elif key in self._label2key:
+                self.selection[key] = self._label2key[key].get(var.get(), self.selection.get(key))
+            else:
+                self.selection[key] = var.get()
+        self._refresh()
+
+    # ---- 投机档两级联动（照老项目）----
+    def _update_spec_k_range(self):
+        """按类型更新 K 下拉范围（无/MTP:1-5/DFlash2:1-15）。"""
+        t = self.var_spec_type.get()
+        if t == "无":
+            self.combo_spec_k["values"] = []
+            self.combo_spec_k.set("")
+            self.combo_spec_k.config(state="disabled")
+        elif t == "MTP":
+            self.combo_spec_k["values"] = [str(i) for i in range(1, 6)]
+            self.combo_spec_k.config(state="readonly")
+        else:  # DFlash2
+            self.combo_spec_k["values"] = [str(i) for i in range(1, 16)]
+            self.combo_spec_k.config(state="readonly")
+        cur = self.var_spec_k.get()
+        if cur not in self.combo_spec_k["values"]:
+            self.var_spec_k.set(self.combo_spec_k["values"][0] if self.combo_spec_k["values"] else "")
+
+    def _on_spec_change(self, event=None):
+        self._update_spec_k_range()
+        self.selection["spec"] = self._spec_key_from_ui()
+        self._refresh()
+
+    def _spec_key_from_ui(self):
+        """由类型+K 生成 spec 内部键（k0 / k1..k5 / d1..d15）。"""
+        typ = self.var_spec_type.get()
+        k = self.var_spec_k.get()
+        if typ == "无":
+            return "k0"
+        if typ == "MTP":
+            return f"k{k}" if k.isdigit() and 1 <= int(k) <= 5 else "k4"
+        if typ == "DFlash2":
+            return f"d{k}" if k.isdigit() and 1 <= int(k) <= 15 else "d12"
+        return "k0"
+
+    def _apply_spec_to_ui(self, val):
+        """把 spec 内部键反设到两级下拉（供 场景预设/加载组合 共用）。"""
+        if val == "k0":
+            self.var_spec_type.set("无"); self.var_spec_k.set("")
+        elif val.startswith("k"):
+            self.var_spec_type.set("MTP"); self.var_spec_k.set(val[1:])
+        elif val.startswith("d"):
+            self.var_spec_type.set("DFlash2"); self.var_spec_k.set(val[1:])
+        self._update_spec_k_range()
+
+    def _apply_preset(self, _e=None):
+        """场景预设一键套用（照老项目；源 = 内置 PRESET_PROFILES）。"""
+        name = self.preset_var.get()
+        preset = PRESET_PROFILES.get(name) or {}
+        valid_keys = {d[0] for d in DIMENSIONS}
+        for key, val in preset.items():
+            if key not in valid_keys:
+                continue
+            opts = next(d[2] for d in DIMENSIONS if d[0] == key)
+            if val not in opts:
+                continue
+            if key == "spec":
+                self._apply_spec_to_ui(val)
+            else:
+                self.var[key].set(opts[val][0])
+        self._on_change()
+        self.status.config(text=f"已应用场景预设「{name}」", fg="#4a6b4a")
+
+    def _engine_path(self):
+        for _k, (lbl, path) in ENGINE_OPTIONS.items():
+            if lbl == self.engine_var.get():
+                return path
+        return ENGINE
+
+    def _refresh(self):
+        self.selection = {k: self.selection.get(k, DEFAULTS[k]) for k in DEFAULTS}
+        exe, argv = build_command(self.selection, self._port(), self._engine_path())
+        envs = " ".join(f"{k}={v}" for k, v in KV_ENV.items())
+        text = f"[env  {envs}]\n\n{exe}\n  " + "\n  ".join(argv)
+        self.cmd_box.configure(state="normal")
+        self.cmd_box.delete("1.0", "end")
+        self.cmd_box.insert("1.0", text)
+        self.cmd_box.configure(state="disabled")
+        warns = validate(self.selection, self._engine_path())
+        if warns:
+            self.status.config(text="⚠ " + "\n⚠ ".join(warns), fg="#b07a20")
+        else:
+            self.status.config(text="✓ 配置合法，可启动", fg="#4a6b4a")
+
+    def _port(self):
+        try:
+            return int(self.port_var.get().strip() or PORT_DEFAULT)
+        except Exception:
+            return PORT_DEFAULT
+
+    # ---- 异步执行小工具（避免 GUI 卡死）----
+    def _run_async(self, fn, on_done):
+        q = queue.Queue()
+
+        def worker():
+            try:
+                q.put(("ok", fn()))
+            except Exception as e:
+                q.put(("err", str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        def poll():
+            try:
+                kind, val = q.get_nowait()
+            except queue.Empty:
+                self.root.after(300, poll)
+                return
+            on_done(kind, val)
+
+        self.root.after(300, poll)
+
+    def _show_lines(self, title, lines):
+        win = tk.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg=self.bg)
+        win.geometry("760x420")
+        t = tk.Text(win, wrap="word", bg="white", fg="#1a1a1a", font=("Consolas", 9))
+        t.pack(fill="both", expand=True, padx=10, pady=10)
+        t.insert("1.0", lines)
+        t.configure(state="disabled")
+
+    def _env_check(self):
+        self.status.config(text="环境自检中…", fg="#2b3a6b")
+        self._run_async(env_check, lambda k, v: self._show_lines(
+            "环境自检（S0 只读）", "\n".join(v) if k == "ok" else "探测失败: " + v))
+
+    def _readiness(self):
+        self.status.config(text="就绪自测中…（首次请求可能较慢）", fg="#2b3a6b")
+
+        def done(kind, val):
+            if kind != "ok":
+                self.status.config(text="自测失败: " + val, fg="#b03030")
+                return
+            lines = []
+            ok = True
+            for name, code,摘要 in val:
+                lines.append(f"[{code}] {name}\n    {摘要}\n")
+                if code == "ERR":
+                    ok = False
+            self._show_lines("就绪自测（S2）", "\n".join(lines))
+            self.status.config(text=("✓ 就绪自测完成" if ok else "⚠ 就绪自测有问题（见弹窗）"),
+                               fg=("#4a6b4a" if ok else "#b03030"))
+
+        self._run_async(lambda: readiness_test(self._port()), done)
+
+    # ---- 启动 ----
+    def _launch(self):
+        warns = validate(self.selection, self._engine_path())
+        hard = [w for w in warns if "未找到" in w or "非 ASCII" in w]
+        if hard:
+            messagebox.showerror("无法启动", "\n".join(hard))
+            return
+        exe, argv = build_command(self.selection, self._port(), self._engine_path())
+        if not messagebox.askyesno("启动确认", f"确认启动 serve？\n\n{exe}\n\n端口: {self._port()}\n\n"
+                                               f"（会在新控制台窗口运行；关窗 = 停服）"):
+            return
+        try:
+            CREATE_NEW_CONSOLE = 0x00000010
+            logfile = os.path.join(LOG_DIR, "serve_" + time.strftime("%Y%m%d_%H%M%S") + ".log")
+            env = env_for_launch(exe)
+            env["SERVE_TEE_MODE"] = "full" if self.logmode_var.get() == "全部" else "slim"
+            subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
+                             env=env, cwd=ROOT,
+                             creationflags=CREATE_NEW_CONSOLE)
+            self.status.config(text="✓ 已启动（控制台窗口 + 日志落盘）—— 关窗即停；首次见 calibrating routes 请勿杀\n"
+                                    "   日志：" + logfile, fg="#4a6b4a")
+        except Exception as e:
+            messagebox.showerror("启动失败", str(e))
+
+    # ---- 命名组合 ----
+    def _load_profile(self):
+        """加载命名组合：把 profile 里的**内部值**反查为**显示名**写回下拉（照老项目 _load_profile）。
+        旧格式值（spec: dflash2/mtp）经 LEGACY_VALUE_MAP 迁移。"""
+        name = self.profile_cb.get()
+        if not name or name not in self.profiles:
+            self.status.config(text="未选择或找不到组合", fg="#b03030")
+            return
+        combo = self.profiles[name]
+        valid_keys = {d[0] for d in DIMENSIONS}
+        applied = 0
+        for key, val in combo.items():
+            if key not in valid_keys:
+                continue
+            val = LEGACY_VALUE_MAP.get((key, val), val)     # 旧值迁移
+            opts = next(d[2] for d in DIMENSIONS if d[0] == key)
+            if val not in opts:
+                continue
+            if key == "spec":
+                self._apply_spec_to_ui(val)                 # 反设投机档两级下拉
+            else:
+                self.var[key].set(opts[val][0])             # 内部值 -> 显示名
+            applied += 1
+        self._on_change()
+        miss = len(combo) - applied
+        msg = f"已加载组合 '{name}'"
+        if miss > 0:
+            msg += f"（{miss} 项无法识别，已跳过）"
+        self.status.config(text=msg, fg="#4a6b4a")
+
+    def _save_profile(self):
+        name = simpledialog.askstring("保存组合", "输入组合名称：")
+        if not name:
+            return
+        self.profiles[name] = dict(self.selection)
+        save_profiles(self.profiles)
+        self.profile_cb["values"] = list(self.profiles.keys())
+        self.profile_cb.set(name)
+        self.status.config(text=f"已保存组合 '{name}'", fg="#4a6b4a")
+
+    def _del_profile(self):
+        name = self.profile_cb.get()
+        if not name or name not in self.profiles:
+            return
+        del self.profiles[name]
+        save_profiles(self.profiles)
+        self.profile_cb["values"] = list(self.profiles.keys())
+        self.profile_cb.set("")
+
+
+def main():
+    root = tk.Tk()
+    LauncherApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+
+# ---------------------------------------------------------------
+# TODO（后续版本补齐，对齐自建线 ninfer_launcher.py 的全部功能）：
+#   · 场景预设（一键推荐组合）
+#   · 更多维度：spec draft 1..15 二级联动、--thinking-budget、--prefill-cublas、
+#     --lookup-ngram、--vision-residency、--kv-headroom-mib、--seed 等
+#   · 日志落盘（serve_tee 等价物，写 logs\serve_<时间戳>.log）
+#   · 端口可改、S3 KVMem 检索证据（kvmem_score: SELECT）采集
+# ---------------------------------------------------------------

@@ -1,0 +1,238 @@
+From 5b07bc12d83c0b4481e5eef7fdd9f582e555e25c Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 7 Oct 2026 10:51:27 +0800
+Subject: [PATCH 1/3] =?UTF-8?q?fix(engine):=202026=20=E8=87=AA=E7=BC=96=20?=
+ =?UTF-8?q?120a=20=E4=B8=89=E7=B1=BB=20MSVC=20=E7=BC=96=E8=AF=91=E5=85=BC?=
+ =?UTF-8?q?=E5=AE=B9=E8=A1=A5=E4=B8=81(C2326/C3495/C2026)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- C2326: lambda 捕获 constexpr __global__ 函数指针 -> 回调内写完整模板实例
+  (bf16/fp8/nvfp4 template_launch.cuh, nvfp4_a4_tma.cuh)
+- C3495: lambda 简单捕获外层泛型 lambda constexpr 局部 -> if constexpr 双分支 / 空捕获+删死变量
+  (gdn_gating_proj_kernels.cu, small_t_i8_launch.cuh)
+- C2026: 单字面量超 16380 -> CMake 侧 JSON 切段 + raw string 相邻拼接
+  (runtime/CMakeLists.txt)
+---
+ .../bf16/bf16_gdn_gating_proj_kernels.cu      | 28 +++++++++++++++----
+ .../ops/linear/bf16/bf16_template_launch.cuh  | 16 +++++++++--
+ .../ops/linear/fp8/fp8_template_launch.cuh    |  7 ++++-
+ .../src/ops/linear/nvfp4/nvfp4_a4_tma.cuh     | 13 +++++++--
+ .../linear/nvfp4/nvfp4_template_launch.cuh    |  8 +++++-
+ .../dense/causal_cache/small_t_i8_launch.cuh  | 18 ++++++++----
+ .../src/runtime/CMakeLists.txt                | 18 ++++++++++++
+ 7 files changed, 89 insertions(+), 19 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/ops/gdn_gating_proj/bf16/bf16_gdn_gating_proj_kernels.cu b/src-tree/fusion-engine-src/src/ops/gdn_gating_proj/bf16/bf16_gdn_gating_proj_kernels.cu
+index 8d93b3a..a24e791 100644
+--- a/src-tree/fusion-engine-src/src/ops/gdn_gating_proj/bf16/bf16_gdn_gating_proj_kernels.cu
++++ b/src-tree/fusion-engine-src/src/ops/gdn_gating_proj/bf16/bf16_gdn_gating_proj_kernels.cu
+@@ -297,12 +297,28 @@ bool launch_bf16_prefill_mma(Bf16GdnGatingTokenVariant variant, const Tensor& x,
+                         static_cast<unsigned>(SplitK));
+         auto launch = [&](auto full_tokens) {
+             constexpr bool FullTokens     = decltype(full_tokens)::value;
+-            configure_cuda_device_once([&] {
+-                return cudaFuncSetAttribute(
+-                    bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, FullTokens, Warps,
+-                                                         NormalizeInput, NormTokenCapacity>,
+-                    cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
+-            });
++            // NOTE(S6 patch): MSVC C3495 rejects a `[&]` simple capture of a constexpr local
++            // declared inside an enclosing generic lambda and used as a template argument. The
++            // configure callback is invoked with no arguments once per device (device.h), so branch
++            // on the compile-time FullTokens and pass an empty-capture callback that references only
++            // the function-template parameters plus the non-dependent constexpr kSmemBytes (non
++            // odr-use, same shape as recurrence.cu). Same kernel specialization as <…, FullTokens,…>,
++            // same once-per-device cache.
++            if constexpr (FullTokens) {
++                configure_cuda_device_once([] {
++                    return cudaFuncSetAttribute(
++                        bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, true, Warps,
++                                                             NormalizeInput, NormTokenCapacity>,
++                        cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
++                });
++            } else {
++                configure_cuda_device_once([] {
++                    return cudaFuncSetAttribute(
++                        bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, false, Warps,
++                                                             NormalizeInput, NormTokenCapacity>,
++                        cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemBytes);
++                });
++            }
+             if constexpr (SplitK > 1) {
+                 cudaLaunchConfig_t config{};
+                 config.gridDim          = grid;
+diff --git a/src-tree/fusion-engine-src/src/ops/linear/bf16/bf16_template_launch.cuh b/src-tree/fusion-engine-src/src/ops/linear/bf16/bf16_template_launch.cuh
+index 3c063e2..bb12b4c 100644
+--- a/src-tree/fusion-engine-src/src/ops/linear/bf16/bf16_template_launch.cuh
++++ b/src-tree/fusion-engine-src/src/ops/linear/bf16/bf16_template_launch.cuh
+@@ -31,8 +31,13 @@ void launch_bf16_a16_gemv(const Bf16A16Operands& p, Output output, Epilogue epil
+             throw std::invalid_argument("BF16 GEMV activation exceeds shared memory capacity");
+         bytes = p.k * 2;
+         if (bytes + static_bytes > 48 * 1024) {
++            // NOTE(S6 patch): write the full template instance inline instead of capturing the
++            // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr
++            // __global__ function pointer. The outer `kernel` is still used by the top-level
++            // launch below; this rewrite only removes the capture inside the configure callback.
+             configure_cuda_device_once([&] {
+-                return cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
++                return cudaFuncSetAttribute(bf16_a16_gemv_kernel<Schedule, Output, Epilogue>,
++                                            cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                             max_dynamic);
+             });
+         }
+@@ -109,8 +114,13 @@ void launch_bf16_a16_sliced_k_mma(const Bf16A16Operands& p, Output output, Epilo
+     const int bytes       = bf16_prepare_shared<Schedule::kSharedBytes, kernel>();
+     for_each_token_slice(p.tokens, Schedule::kBlockTokens, [&](int offset, int count) {
+         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, Schedule::kBlockTokens));
+-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(p.x, p.weight, output, epilogue, p.rows,
+-                                                            p.k, p.tokens, offset);
++        // NOTE(S6 patch): write the full template instance inline instead of capturing the
++        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
++        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
++        bf16_a16_sliced_k_mma_kernel<Schedule, Output, Epilogue><<<grid, Schedule::kThreads, bytes,
++                                                                   stream>>>(p.x, p.weight, output,
++                                                                             epilogue, p.rows, p.k,
++                                                                             p.tokens, offset);
+         CUDA_CHECK(cudaGetLastError());
+     });
+ }
+diff --git a/src-tree/fusion-engine-src/src/ops/linear/fp8/fp8_template_launch.cuh b/src-tree/fusion-engine-src/src/ops/linear/fp8/fp8_template_launch.cuh
+index a016f71..1728efe 100644
+--- a/src-tree/fusion-engine-src/src/ops/linear/fp8/fp8_template_launch.cuh
++++ b/src-tree/fusion-engine-src/src/ops/linear/fp8/fp8_template_launch.cuh
+@@ -80,7 +80,12 @@ void launch_fp8_a16_sliced_k_mma(const Fp8A16Operands& p, Output output, Epilogu
+     const int bytes       = fp8_prepare_shared<Schedule::kSharedBytes, kernel>();
+     for_each_token_slice(p.tokens, capacity, [&](int offset, int count) {
+         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, capacity));
+-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(p, output, epilogue, rows, offset);
++        // NOTE(S6 patch): write the full template instance inline instead of capturing the
++        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
++        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
++        fp8_a16_sliced_k_mma_kernel<Schedule, Output, Epilogue, Rows><<<grid, Schedule::kThreads,
++                                                                      bytes, stream>>>(
++            p, output, epilogue, rows, offset);
+         CUDA_CHECK(cudaGetLastError());
+     });
+ }
+diff --git a/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_a4_tma.cuh b/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_a4_tma.cuh
+index 92dd97e..d17f4e6 100644
+--- a/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_a4_tma.cuh
++++ b/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_a4_tma.cuh
+@@ -441,12 +441,19 @@ void launch_nvfp4_a4_tma_mma(const Nvfp4A4Operands& p, Output output, Epilogue e
+ #ifdef NINFER_TMA_STAGED_DESCRIPTORS
+         // Windows: the descriptors are staged into a device buffer and pointer-passed, because MSVC
+         // cannot pass the alignas(128) CUtensorMap struct by value (see the kernel parameter).
+-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(
++        // NOTE(S6 patch): write the full template instance inline instead of capturing the
++        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
++        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
++        nvfp4_a4_tma_kernel<Schedule, Epilogue, Output, Rows><<<grid, Schedule::kThreads, bytes,
++                                                                stream>>>(
+             nvfp4_a4_tma_staging().stage(descriptors, stream), p.alpha, epilogue, output,
+             offset + count, p.rows, p.k, offset);
+ #else
+-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(descriptors, p.alpha, epilogue, output,
+-                                                            offset + count, p.rows, p.k, offset);
++        nvfp4_a4_tma_kernel<Schedule, Epilogue, Output, Rows><<<grid, Schedule::kThreads, bytes,
++                                                                stream>>>(descriptors, p.alpha,
++                                                                          epilogue, output,
++                                                                          offset + count, p.rows,
++                                                                          p.k, offset);
+ #endif
+         CUDA_CHECK(cudaGetLastError());
+     });
+diff --git a/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_template_launch.cuh b/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_template_launch.cuh
+index 341005b..7a798de 100644
+--- a/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_template_launch.cuh
++++ b/src-tree/fusion-engine-src/src/ops/linear/nvfp4/nvfp4_template_launch.cuh
+@@ -86,7 +86,13 @@ void launch_nvfp4_a16_sliced_k_mma(const Nvfp4A16Operands& p, Output output, Epi
+     const int bytes       = nvfp4_prepare_shared<Schedule::kSharedBytes, kernel>();
+     for_each_token_slice(p.tokens, capacity, [&](int offset, int count) {
+         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, capacity));
+-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(p, output, epilogue, rows, offset);
++        // NOTE(S6 patch): write the full template instance inline instead of capturing the
++        // constexpr `kernel` local — MSVC C2326 rejects a lambda capturing a constexpr __global__
++        // function pointer. This is a compile-time-only rewrite; the launched kernel is identical.
++        nvfp4_a16_sliced_k_mma_kernel<Schedule, Output, Epilogue, Rows><<<grid, Schedule::kThreads,
++                                                                        bytes, stream>>>(p, output,
++                                                                                         epilogue,
++                                                                                         rows, offset);
+         CUDA_CHECK(cudaGetLastError());
+     });
+ }
+diff --git a/src-tree/fusion-engine-src/src/ops/softmax_attention/dense/causal_cache/small_t_i8_launch.cuh b/src-tree/fusion-engine-src/src/ops/softmax_attention/dense/causal_cache/small_t_i8_launch.cuh
+index 56e632f..0ea7270 100644
+--- a/src-tree/fusion-engine-src/src/ops/softmax_attention/dense/causal_cache/small_t_i8_launch.cuh
++++ b/src-tree/fusion-engine-src/src/ops/softmax_attention/dense/causal_cache/small_t_i8_launch.cuh
+@@ -44,24 +44,32 @@ void launch_tc_partial_i8(const Tensor& q, CacheInput input, const Tensor& pos,
+     auto launch = [&]<int WarpsPerCta, int MinBlocksPerSm, int KeyBlock, bool DynamicArena,
+                       int QkSplit = 1, bool EarlyFetch = false>() {
+         const dim3 grid(Geometry::KVHeads, splits, invocation.batch_size);
+-        constexpr std::size_t kDynamicBytes =
+-            DynamicArena ? static_cast<std::size_t>(4 * KeyBlock * kCausalHeadDim) : 0u;
+         auto issue_pv = [&]<bool PackedValues, KvKeyCoding Keys, bool PvF16>() {
+             if constexpr (DynamicArena) {
+-                configure_cuda_device_once([&] {
++                // NOTE(S6 patch): MSVC C3495 rejects a `[&]` simple capture of a constexpr local
++                // declared inside the enclosing generic lambda `launch`. Both uses of the former
++                // kDynamicBytes are now the constant expression
++                // `DynamicArena ? size_t(4 * KeyBlock * kCausalHeadDim) : 0u` (the DynamicArena /
++                // KeyBlock compile-time template params fold the ternary), so this callback
++                // references only template params and constant expressions (non odr-use) and uses
++                // an empty capture; the kernel launch below uses the same constant expression.
++                configure_cuda_device_once([] {
+                     return cudaFuncSetAttribute(
+                         causal_attention_small_t_i8_tiled_kernel<
+                             Geometry, TokenTile, WarpsPerCta, MinBlocksPerSm, KeyBlock, DynamicArena,
+                             MultiBatch, Masked, CacheInput, PackedValues, Keys, PvF16, QkSplit,
+                             EarlyFetch>,
+-                        cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(kDynamicBytes));
++                        cudaFuncAttributeMaxDynamicSharedMemorySize,
++                        static_cast<int>(4 * KeyBlock * kCausalHeadDim));
+                 });
+             }
+             causal_attention_small_t_i8_tiled_kernel<Geometry, TokenTile, WarpsPerCta,
+                                                      MinBlocksPerSm, KeyBlock, DynamicArena,
+                                                      MultiBatch, Masked, CacheInput, PackedValues,
+                                                      Keys, PvF16, QkSplit, EarlyFetch>
+-            <<<grid, WarpsPerCta * 32, kDynamicBytes, stream>>>(
++            <<<grid, WarpsPerCta * 32,
++               DynamicArena ? static_cast<std::size_t>(4 * KeyBlock * kCausalHeadDim) : 0u,
++               stream>>>(
+                 static_cast<const __nv_bfloat16*>(q.data), input,
+                 static_cast<const std::int32_t*>(pos.data), static_cast<std::int8_t*>(cache_k.data),
+                 static_cast<std::int8_t*>(cache_v.data), static_cast<__half*>(cache_k_scale.data),
+diff --git a/src-tree/fusion-engine-src/src/runtime/CMakeLists.txt b/src-tree/fusion-engine-src/src/runtime/CMakeLists.txt
+index 23e1090..84225ba 100644
+--- a/src-tree/fusion-engine-src/src/runtime/CMakeLists.txt
++++ b/src-tree/fusion-engine-src/src/runtime/CMakeLists.txt
+@@ -3,6 +3,24 @@
+ set(NINFER_DEVICE_PROFILES_FILE ${CMAKE_CURRENT_SOURCE_DIR}/engine/device_profiles.json)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${NINFER_DEVICE_PROFILES_FILE})
+ file(READ ${NINFER_DEVICE_PROFILES_FILE} NINFER_DEVICE_PROFILES_JSON)
++# MSVC caps a single string literal at 16380 chars; the embedded JSON (30,566) exceeds it, which
++# would raise C2026 (and truncate the data). Adjacent raw-string literals concatenate at
++# translation phase 6, so split the JSON into chunks each < 16000 and join them with the
++# )ninfer_json" R"ninfer_json( delimiter. The bytes are unchanged; the delimiter token never
++# appears inside the JSON, so there is no collision. The .cpp.in template is untouched.
++string(LENGTH "${NINFER_DEVICE_PROFILES_JSON}" _json_len)
++set(_chunk_size 16000)
++set(_json_parts "")
++math(EXPR _offset 0)
++while(_offset LESS _json_len)
++  if(NOT _offset EQUAL 0)
++    string(APPEND _json_parts ")ninfer_json\" R\"ninfer_json(")
++  endif()
++  string(SUBSTRING "${NINFER_DEVICE_PROFILES_JSON}" ${_offset} ${_chunk_size} _chunk)
++  string(APPEND _json_parts "${_chunk}")
++  math(EXPR _offset "${_offset} + ${_chunk_size}")
++endwhile()
++set(NINFER_DEVICE_PROFILES_JSON "${_json_parts}")
+ configure_file(engine/device_profiles_builtin.cpp.in
+                ${CMAKE_CURRENT_BINARY_DIR}/engine/device_profiles_builtin.cpp @ONLY)
+ 
+-- 
+2.55.0.windows.4
+

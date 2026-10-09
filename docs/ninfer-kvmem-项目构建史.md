@@ -33,6 +33,7 @@
 | 2026-10-10 | v23 | **测试工具就绪（挂账 15/19 的可执行部分，均不需 AI 起服）**：① ★关键取证 —— **ngram 默认就开着**（`product/speculative_options.h:32-41`：`--spec` 非 none 时 `ngram_draft_tokens=15`）⇒ 此前 MTP 读数已含 ngram；② 新增 **`scripts\bench_spec.py`**（8 类固定任务 → 从日志解析 decode/接受率 → 分布 + 两臂 `--baseline` 对比；**不启动任何进程**；正则已用真实日志跑通 parse+summarize，并修掉一个 `acccepted` 拼写 bug）；③ 新增 **`start-coder390-mtp-nongram.bat`**（ngram 对照臂，端口 8096）；④ `serve_tee.py` 把 `[ninfer] ring retrieve:` 纳入同段首末压缩（用户追加反馈的刷屏源） |
 | 2026-10-10 | v24 | **GUI 加"模型"维度（用户裁决，重要遗漏修复）**：用户指出「**GUI 是唯一入口，那批 bat 压根没人用**」，而模型此前**写死在 iq4_nl 版** ⇒ "要用视觉就得换官方版"这条**成了只能靠 bat 的死路**。已加：`MODEL_OPTIONS`/`MODEL_PATHS` 三档（iq4nl★ / q8mtp 官方含视觉 / orig 原件）、`DIMENSIONS` 把**模型放第一位**、`build_command` 用所选模型（位置参数）、**选官方 Q8MTP 自动降池到 20480**（`_apply_model_coupling()`，并同步下拉显示）、`validate` 两条新告警（官方版池过大 / 原件配非 k0 档）、预设与 profiles 增 **"★Coder390-视觉档"**；顺带修 `⇒`(U+21D2) **GBK 无法编码导致 print 崩溃**的问题（全量替换为 `->`） |
 | 2026-10-10 | v25 | **§三·十二 两项取证**：① `--default-thinking-budget` **不占显存**（纯行为控制参数；全树 27 处命中无一用于资源分配）；② ★**挂账 35**：把官方版 vision 组件嫁接到 iq4_nl 版 —— 取证 vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**，收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存；给出五步技术路径与风险 |
+| 2026-10-10 | v26 | ★**视觉塔嫁接完成**（挂账 35 施工，离线）：新增 `scripts\graft_vision.py`；取证证明是**纯追加**（bindings/uses/objects 三项差集、`ours_only=0`、ID 命名空间 `weight/v*` 不冲突、`writer.py` 原生支持无需扩展）；产物 `.mtp-iq4nl.vision.ninfer` **12.94 GiB**、视觉塔 **282.0 MiB**、比官方版**小 202.5 MiB**；**L1 全量 SHA-256：804+335 对象零不匹配**，L2 负对照 PASS；**待实机验证**（起服识图 + 大池并存） |
 
 ---
 
@@ -904,6 +905,53 @@ negative control: PASS (refused as required)
 
 **估算**：比 MTP 头转换复杂得多（对象 5→335、bindings 0→441），但**性质是机械复制**（无重新量化、无精度损失）。
 
+### 3. ★挂账 35 施工完成：视觉塔已嫁接（2026-10-10）
+
+**前提**：用户正在跑实机大模型测试 ⇒ **本轮全程离线**（不起服、不占显存），只做容器施工 + 离线校验。
+
+**★ 决定性取证 —— 嫁接是"纯追加"，不是"重建"**：
+
+```
+[EVIDENCE] bindings：官方 1420 vs 我们 979 → 多 441，且 **ours_only = 0**（我们的是官方版真子集）
+[EVIDENCE] uses    ：官方  784 vs 我们 619 → 多 165，且 **ours_only = 0**
+[EVIDENCE] objects ：官方 1139 vs 我们 804 → 多 335，且 **B_minus_A = 0**、common = 804
+[EVIDENCE] 多出的键全部以 `vision/` 开头（如 vision/layers/0/attention/key）
+[EVIDENCE] 多出的对象 ID 是 `weight/v000000…v000332`（**v 前缀，独立命名空间**）
+           + 2 个 resource（resource/vision/*.json，合计仅 775 B）
+           ⇒ 与骨架的 `weight/NNNNNN` **不冲突**；骨架的 ID/bindings/uses 全部照旧
+[EVIDENCE] iter_object / iter_range 支持 vision 的自有格式：
+           q4_g64_fp16 / row_split_k128_v1、bf16 / contiguous_le_v1 均 OK
+[EVIDENCE] vision 组件本体满足引擎硬要求：target = "text"（config.cpp:50-52）
+[EVIDENCE] ArtifactWriter.__init__ 原生接受 components / bindings / uses ⇒ **无需扩展 writer.py**
+```
+
+**脚本**：`scripts\graft_vision.py`（新增）
+- `--skeleton`（受体）/ `--donor`（供体）/ `--component` / `--prefix` 显式表达"取谁、给谁、取哪部分"；
+- **逐字节复制**（`iter_range`，不经 `iter_object` 的编解码）⇒ 两半各自与源**逐字节相同**；
+- 三重前置校验：对象必须落在 graft 命名空间；**每个 graft binding/use 必须在（骨架 ∪ graft）里可解析**（`binding_parts`）；组件 `target` 必须为 `text`；
+- 三档验收：`--dry-run` / `--verify`（全量 SHA-256）/ `--negative-control`。
+
+**L2 负对照**：故意把 `resource/vision/preprocessor_config.json` 少写 1 字节（389/390）⇒ writer 拒绝（`output coverage is incomplete`）⇒ **PASS** ✅
+
+**产物**：`models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer`
+
+```
+[EVIDENCE] written 13,568,254,929 B（12.94 GiB）｜payload 12,657.7 + 282.0 = 12,939.7 MiB
+[EVIDENCE] L1 全量 SHA-256（零采样）：
+             skeleton 804 objects, **0 mismatched**（骨架零改动）
+             graft     335 objects, **0 mismatched**（视觉塔零改动）
+[EVIDENCE] product: objects 1139 | bindings 1420 | uses 784 | components **mtp+text+vision**
+           name: qwen3.8-27b-coder390-Q2LynnStyle-Mtp+mtp-iq4nl+vision
+[EVIDENCE] 体积 13,568,625,664 B，比官方 Q8MTP 版**小 212,328,448 B = 202.5 MiB**
+           （正是 MTP 头 q8_0→iq4_nl 的差额；8,192 B 零头是对齐填充）
+```
+
+**⇒ "大池 + 视觉"并存的基础**：官方版只能配 20K 池（头 451 MB），本产物头仅 239 MB ⇒ **省下的 202.5 MiB 可转给 KV 池**。
+
+**⏳ 尚未做（GPU 被实机测试占用，且起服纪律归用户）**：
+1. `--vision-cpu` 起服 + 实图识图（端到端验证视觉塔真的能用）；
+2. 验证"大池 + 视觉"能否同时成立（省下的 202.5 MiB 换池容量，预期可行，待实测）。
+
 ---
 
 ## 四、待续事项（挂账）
@@ -942,7 +990,7 @@ negative control: PASS (refused as required)
 | 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
 | 33 | **定稿误设"关思考"** | ✅ 已纠正（§三·十一）：改 `high` + `tb 16000`（launcher + 3 bat + profiles 4 档） |
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
-| 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求挂账） | 📋 **已挂账 + 完成取证**（§三·十二）：vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**；收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存。**待裁决是否施工**（比 MTP 头复杂，但性质是机械复制） |
+| 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **施工完成 + L1/L2 通过**（§三·十二 §3）：产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，视觉塔 282.0 MiB，**比官方版小 202.5 MiB**；804+335 对象**全量 SHA-256 零不匹配**。**待实机验证**（`--vision-cpu` 起服 + 识图 + 大池并存） |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |

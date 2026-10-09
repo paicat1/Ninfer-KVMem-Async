@@ -82,11 +82,11 @@ KV_ENV = {
 # ---------------------------------------------------------------
 # 投机解码：键 -> (显示名, 参数)。k0=无, k1..k5=MTP, d1..d15=DFlash2
 # 对齐旧项目写法：MTP 与 DFlash2 都提供完整 K 值 1..N，不写死单一档。
-SPEC_OPTIONS = {"k0": ("无（裸档 · 慢）", [])}
-SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}",
+SPEC_OPTIONS = {"k0": ("无（裸档 · 慢 · A/B 对照用）", [])}
+SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}" + ("（★本线定稿）" if i == 4 else ""),
                                ["--spec", "mtp", "--draft-tokens", str(i)])
                      for i in range(1, 6)})
-SPEC_OPTIONS.update({f"d{i}": (f"DFlash2 K={i}",
+SPEC_OPTIONS.update({f"d{i}": (f"DFlash2 K={i}（本线不可行·包内无该组件）",
                                ["--spec", "dflash2", "--draft-tokens", str(i), "--lm-head-draft"])
                      for i in range(1, 16)})
 KV_OPTIONS = {
@@ -110,7 +110,7 @@ CTX_OPTIONS = {
     "180k": ("180K",  ["--max-context", "184320"]),
     "200k": ("200K",  ["--max-context", "204800"]),
     "224k": ("224K",  ["--max-context", "229376"]),
-    "256k": ("256K（官方默认）", ["--max-context", "262144"]),
+    "256k": ("256K（★本线定稿 · 模型原生上限）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
     "40960": ("40960（★本线定稿 · 40K 全速池）", ["--kv-capacity", "40960"]),
@@ -131,17 +131,17 @@ KVCAP_OPTIONS = {
     "256k":    ("256K", ["--kv-capacity", "262144"]),
 }
 HOSTKV_OPTIONS = {
-    "16384": ("16384（官方默认）", ["--host-kv-mib", "16384"]),
+    "16384": ("16384（★本线定稿）", ["--host-kv-mib", "16384"]),
     "8192":  ("8192",            ["--host-kv-mib", "8192"]),
-    "32768": ("32768",           ["--host-kv-mib", "32768"]),
+    "32768": ("32768（主机内存够大时可试）", ["--host-kv-mib", "32768"]),
 }
 PREFILL_OPTIONS = {
     "1024": ("1024（官方默认）", ["--prefill-chunk", "1024"]),
-    "512":  ("512",            ["--prefill-chunk", "512"]),
+    "512":  ("512（★本线定稿 · 省 workspace）", ["--prefill-chunk", "512"]),
     "2048": ("2048",           ["--prefill-chunk", "2048"]),
 }
 THINK_OPTIONS = {
-    "none":   ("none（官方默认 · 关思考）", ["--default-reasoning-effort", "none"]),
+    "none":   ("none（★本线定稿 · 关思考）", ["--default-reasoning-effort", "none"]),
     "low":    ("low",                      ["--default-reasoning-effort", "low"]),
     "medium": ("medium",                   ["--default-reasoning-effort", "medium"]),
     "high":   ("high",                     ["--default-reasoning-effort", "high"]),
@@ -152,42 +152,42 @@ MAXOUT_OPTIONS = {
     "4096":    ("4096",     ["--default-max-tokens", "4096"]),
     "8192":    ("8192",     ["--default-max-tokens", "8192"]),
     "16384":   ("16384",    ["--default-max-tokens", "16384"]),
-    "32768":   ("32768（官方默认）", ["--default-max-tokens", "32768"]),
+    "32768":   ("32768（★本线定稿）", ["--default-max-tokens", "32768"]),
     "1024":    ("1024",     ["--default-max-tokens", "1024"]),
 }
 VISION_OPTIONS = {
-    "on":      ("开·GPU 编码器（官方默认）", ["--vision"]),
-    "overlay": ("开·主机内存 overlay（折中）", ["--vision", "--vision-residency", "overlay"]),
-    "cpu":     ("开·CPU 编码器（最省显存·慢）", ["--vision-cpu"]),
-    "off":     ("关（省显存）",   []),
+    "on":      ("开·GPU 编码器（本线必失败：无 vision 组件）", ["--vision"]),
+    "overlay": ("开·主机内存 overlay（本线必失败）", ["--vision", "--vision-residency", "overlay"]),
+    "cpu":     ("开·CPU 编码器（本线必失败）", ["--vision-cpu"]),
+    "off":     ("关（★本线定稿 · 容器无 vision 组件）",   []),
 }
 SAMPLE_OPTIONS = {
-    "shipped":  ("官方(0.7/0.9/20, presence0)", ["--presence-penalty", "0", "--temperature", "0.7", "--top-p", "0.9", "--top-k", "20"]),
+    "shipped":  ("官方(0.7/0.9/20, presence0)（★本线定稿）", ["--presence-penalty", "0", "--temperature", "0.7", "--top-p", "0.9", "--top-k", "20"]),
     "thinking": ("思考档(1.0/0.95/20)",          ["--presence-penalty", "0", "--temperature", "1.0", "--top-p", "0.95", "--top-k", "20"]),
     "greedy":   ("贪心(greedy)",                 ["--greedy"]),
 }
 # 官方 B01 止血开关（官方出厂件已有、官方启动器未写）：防“超池+大输出租约 ⇒ worker 崩/进程静默退出”。
 HEMOSTAT_OPTIONS = {
-    "on":  ("开（推荐·防 B01 崩溃）", ["--kv-lease-growth", "--recover-invariant-failures"]),
+    "on":  ("开（★本线定稿 · 防 B01 崩溃）", ["--kv-lease-growth", "--recover-invariant-failures"]),
     "off": ("关（官方 bat 原样）", []),
 }
 # 思考预算档：--default-thinking-budget N —— 治“思考墙死循环”（xhigh 思考烧光输出预算 → 空正文）。
 # 这是服务端(argv)级设置；OpenAI chat 端点不解析请求里的 thinking_budget 字段（仅 Anthropic 的 thinking.budget_tokens 读它）。
 TB_OPTIONS = {
-    "none":   ("无（默认）",      []),
+    "none":   ("无（★本线定稿 · 定稿关思考）",      []),
     "8000":   ("8000",          ["--default-thinking-budget", "8000"]),
     "12000":  ("12000",         ["--default-thinking-budget", "12000"]),
-    "16000":  ("16000（推荐）",  ["--default-thinking-budget", "16000"]),
+    "16000":  ("16000（开思考时推荐）",  ["--default-thinking-budget", "16000"]),
     "24000":  ("24000",         ["--default-thinking-budget", "24000"]),
     "32000":  ("32000",         ["--default-thinking-budget", "32000"]),
 }
 CONC_OPTIONS = {
-    "1": ("1（官方默认·单路）", ["--max-concurrency", "1"]),
+    "1": ("1（★本线定稿 · 单路确定性）", ["--max-concurrency", "1"]),
     "2": ("2",                ["--max-concurrency", "2"]),
     "4": ("4",                ["--max-concurrency", "4"]),
 }
 PRESERVE_OPTIONS = {
-    "off": ("关（官方默认）", []),
+    "off": ("关（★本线定稿）", []),
     "on":  ("开（保留思考）", ["--preserve-thinking"]),
 }
 

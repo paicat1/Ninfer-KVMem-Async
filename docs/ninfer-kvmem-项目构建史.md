@@ -21,6 +21,7 @@
 | 2026-10-09 | v11 | **P0 系列已入库**（a96d6af 提交 + push，含 TELE 的 07898d7）；**P1 施工完成**——`scripts\recode_mtp.py` + q4_0→q8_0 位级无损重打包，**L0/L1/L2 三档验收全过**（13,271,040 块零不匹配），交 TELE 审核 |
 | 2026-10-09 | v12 | ★**MTP 跑通**：官方 Q8MTP 版验证（多 vision、真 8-bit）→ 官方版起服两度失败（缺 139–200 MiB）→ **自转 `iq4_nl`**（q8_0→4.5bpw，Δ0 等长，省 212 MB）→ **起服成功 + A/B 实测**（散文 +32%、代码 +233%，接受率 22.6%/93.8%）；推翻上一轮"关 KVMem 省显存"的建议（KVMem 实为"允许 KV 池 < 上下文"的前提） |
 | 2026-10-09 | v13 | **挂账 14 完成**：ctx 扫描四档 ⇒ **最大稳定 ctx = 24576**（free 349.7 MiB，decode 89.4 tok/s）；32768 缺 36 MiB（临界）、65536 缺 158 MiB。**P1b 施工已提交并推送**（`64a03d4`，含 TELE 的 `c7521dd`） |
+| 2026-10-09 | v14 | ★**更正 §4.1 的错误结论**：`--max-context`（逻辑）≠ `NINFER_KV_WINDOW`（device 窗口）。修正后 **逻辑上下文 131072（128K）可用**，并实测 **20,203 tokens prompt 检索正确**（`ring retrieve restored=16`、`kvmem_score: SELECT`）；runtime 1.80→1.18 GiB、free 349.7→925.1 MiB |
 
 ---
 
@@ -526,6 +527,57 @@ negative control: PASS (refused as required)
 ⇒ **本机 16 GB 显存下的最大稳定 ctx = 24576（24K）**；32768 仅差 36 MiB（可用量波动 ±250 MiB ⇒ 重试可能碰过，但**不稳定、不建议作为配置**）。
 ⇒ 65536 档缺 158 MiB ⇒ **若要 64K 上下文，需再省 ~160 MB 权重或降 kv-dtype 精度**（留作后续）。
 
+> ⚠️ **本节结论已被 §4.2 更正**：上述四档测试把 `--max-context` 与 `NINFER_KV_WINDOW` 设成了**同一个值**，等于强制 device 常驻整个逻辑上下文 —— 这不是 KVMem 的设计用法。正确用法见 §4.2，逻辑上下文可达 **131072（128K）**。
+
+### 4.2 ★更正：`--max-context` / `NINFER_KV_WINDOW` / `--kv-capacity` 是三个不同量（挂账 14 的真正结论）
+
+**源码依据（三个参数各司其职）**：
+
+```
+[EVIDENCE] serve_options.cpp:1113-1117:
+  // LOCAL PROTOTYPE (KVMem-style ring): the ring lets --kv-capacity be SMALLER than --max-context.
+  // Storage-side backing for it is the ring itself (device pool < logical context, with the recycled
+  // pages demoted to host memory)
+[EVIDENCE] startup.cpp:145-160 ring_resident_pages():
+  window_pages = window_tokens > 0 ? window_tokens / kPagedKVPageSize : logical_pages
+  per_lane     = min(window_pages + page_count(prefill_chunk), logical_pages)
+  demand       = per_lane * lanes + 8        ← device 常驻只由 WINDOW 决定，与 max_context 无关
+[EVIDENCE] startup.cpp:1047-1053:
+  minimum_pages = ring_requested() ? max_concurrency : max(logical_pages, max_concurrency)
+```
+
+| 参数 | 含义 | 物理位置 |
+|---|---|---|
+| `--max-context` | **逻辑**上下文上限 | 不占显存（仅使 workspace 略增） |
+| `NINFER_KV_WINDOW` | device **常驻窗口** | 显存 |
+| `--kv-capacity` | device **活跃池** | 显存 |
+| `--host-kv-mib` | host KV 存储（下沉页） | 主机内存（16 GiB） |
+
+**修正后的配置与实测**：
+
+```
+[EVIDENCE] --max-context 131072 / NINFER_KV_WINDOW 16384 / --kv-capacity 2048
+           / --prefill-chunk 512 / --kv-dtype rk2v4-e8
+  ⇒ engine ready | KV 2,048 tokens, rk2v4-e8 | pages 32/2,048 | runtime 1.18 GiB | free 925.1 MiB  ✅
+  ⇒ 相比 §4.1 的 24576 档：runtime 1.80 → 1.18 GiB、free 349.7 → 925.1 MiB（**余量反而更大**）
+```
+
+**★ 长上下文实测（故意超出 device 窗口）**：
+
+```
+[EVIDENCE] prompt_tokens = 20,203      （远超 window 16384）
+[EVIDENCE] ANSWER        = 350         （问"第 350 段编号"，答案位于 prompt 中段）← **正确**
+[EVIDENCE] [ninfer] ring retrieve: which=text preferred=16 restored=16 first=149 last=307
+[EVIDENCE] kvmem_score: SELECT label=text_prefill_chunk n_blocks=316 budget_blocks=512
+           sink_blocks=64 kept=316 scored_kept=252 candidates=252 window_tokens=20224
+[EVIDENCE] req#2 done | prompt 20,203 | output 4 | TTFT 11.3s | prefill 1.82k tok/s | decode 92.9 tok/s
+```
+
+⇒ **KVMem 环确实在工作**：窗口外的页下沉 host，检索时按内容评分恢复（本次 restored=16 页），**答案正确**。
+
+**⇒ 结论（更正）**：本机 16 GB 显存下 **逻辑上下文 131072（128K）可用**；§4.1 的"24K 上限"**作废**（那是把 window 当成 max-context 的产物）。
+（`--max-context` 还能更高：262144 档的 runtime 需求与 131072 几乎相同 —— 1,818,929,408 vs 1,818,913,024 —— 待验。）
+
 ### 5. B 路径（官方版重试）结论：仍失败 ⇒ 闭环
 
 官方 q8_0 版第三次尝试仍缺 **139 MiB**（见 §2）。
@@ -564,7 +616,7 @@ negative control: PASS (refused as required)
 | 11 | 关键结论（MTP 收益）用 official 交叉验证 | 待办（用户已同意该做法） |
 | 12 | **Step 8/9：起服测 MTP** | ✅ **已完成**（2026-10-09 23:09，用 `.mtp-iq4nl.ninfer` 成功起服；`.mtp-q8.ninfer` 因显存不足起不来 —— 详见三·八） |
 | 13 | 提交 `scripts\recode_mtp.py` + 产物登记 | 待审核 + 用户批准（脚本已含 iq4_nl 扩展与跨文件取数） |
-| 14 | **扫 ctx 找最大可用值** | ✅ **已完成**（2026-10-09 23:26）：最大稳定 **24576**（free 349.7 MiB，decode 89.4 tok/s）；32768 缺 36 MiB（临界）、65536 缺 158 MiB |
+| 14 | **扫 ctx 找最大可用值** | ✅ **已完成并更正**（2026-10-09 23:40）：真正上限是**逻辑上下文 131072（128K）**（§4.2；实测 20,203 tokens prompt 答案正确）；§4.1 的"24K"系误用（把 window 当成了 max-context） |
 | 15 | **建立 MTP 接受率基线**（多 prompt 分布） | 待办（现有 3 样本：50% / 93.8% / 22.6%） |
 | 16 | 官方 Q8MTP 版（含 vision）留存与用途裁定 | 待办（本线不用 vision；留作精度参照件） |
 | 17 | 是否以 `.mtp-iq4nl.ninfer` 作为正式探针件（取代 `.mtp-q8.ninfer`） | 待裁决 |

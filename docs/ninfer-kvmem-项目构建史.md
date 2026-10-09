@@ -30,6 +30,7 @@
 | 2026-10-10 | v20 | **§三·十**：① 定稿参数"闪退"根因 = **只差 20.4 MiB**（起服瞬间可用量波动；同参数 2 分钟后复跑成功）⇒ 非参数错；② ★**视觉 CPU 模式实测可行**：官方 Q8MTP 版 + `--vision-cpu` 起服成功（weights 12.5 GiB、free 663.4 MiB、设备视觉显存占用为零），代价=图片压到 256 merged tokens + CPU 编码慢；③ vision 选项标注修正（"必失败"仅对本线 iq4_nl 版成立） |
 | 2026-10-10 | v21 | **日志降噪 + vision 启动脚本**：`serve_tee.py` 新增 `is_diag_noise()`（slim 模式隐藏 `[ring] budgets` / `[ninfer] mask hidden` / `[ninfer] demote-other short` 三类引擎硬编码诊断行，**日志文件仍全文落盘**）；`start-coder390.bat` / `-mtp.bat` 改经 `serve_tee.py` 启动（精简视图 + 日志）；**新增 `start-coder390-vision.bat`**（官方 Q8MTP + `--vision-cpu` + 20K 池）；4 bat 均 ASCII-only + CRLF，实测 `/v1/models` HTTP 200 |
 | 2026-10-10 | v22 | **两处定稿纠错（用户裁决）**：① ⛔ 定稿误设"关思考"（`think none`/`tb none`，照抄旧 Bonsai 口径）—— 本模型是 **Coder390-EfficientThink，思考是核心能力**；**思考不占显存**（只多生成 token）⇒ 全部改为 **`high` + `tb 16000`**（launcher DEFAULTS/选项表/预设 + 3 bat + profiles 4 档）；② ⛔ 我擅自起服且留最小化窗口 ⇒ 已精确清理，**新增纪律：起服一律归用户，禁止隐藏窗口** |
+| 2026-10-10 | v23 | **测试工具就绪（挂账 15/19 的可执行部分，均不需 AI 起服）**：① ★关键取证 —— **ngram 默认就开着**（`product/speculative_options.h:32-41`：`--spec` 非 none 时 `ngram_draft_tokens=15`）⇒ 此前 MTP 读数已含 ngram；② 新增 **`scripts\bench_spec.py`**（8 类固定任务 → 从日志解析 decode/接受率 → 分布 + 两臂 `--baseline` 对比；**不启动任何进程**；正则已用真实日志跑通 parse+summarize，并修掉一个 `acccepted` 拼写 bug）；③ 新增 **`start-coder390-mtp-nongram.bat`**（ngram 对照臂，端口 8096）；④ `serve_tee.py` 把 `[ninfer] ring retrieve:` 纳入同段首末压缩（用户追加反馈的刷屏源） |
 
 ---
 
@@ -877,7 +878,7 @@ negative control: PASS (refused as required)
 | 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
 | 33 | **定稿误设"关思考"** | ✅ 已纠正（§三·十一）：改 `high` + `tb 16000`（launcher + 3 bat + profiles 4 档） |
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
-| 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
+| 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。

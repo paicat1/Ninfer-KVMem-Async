@@ -3,12 +3,19 @@ REM ============================================================
 REM  start-coder390.bat  --  Coder390 BARE DECODE (no speculation)
 REM
 REM  Model : models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer
+REM          ^-- the ORIGINAL factory artifact: bare decode does not touch the
+REM              MTP head, so the q4_0 problem does not apply here. Using the
+REM              untouched original keeps this arm a pure baseline.
 REM  Engine: engine\self-built-20261008\ninfer-serve.exe  (SELF-BUILT, current)
 REM  Port  : 8091
 REM
-REM  Purpose (P0, 2026-10-09): reproduce the BARE-DECODE BASELINE of the
-REM  current line. This is the CONTROL ARM for every later A/B test
-REM  (MTP / ngram / DFlash2).
+REM  Purpose: the CONTROL ARM for every A/B test (MTP / ngram / DFlash2).
+REM    Measured 2026-10-09 (same prompt as the MTP arm): 55.4 tok/s decode.
+REM
+REM  TUNED PARAMS -- kept IDENTICAL to start-coder390-mtp.bat so that the only
+REM  difference between the two scripts is --spec mtp:
+REM    --max-context 262144 / --kv-capacity 40960 / --kv-dtype rk2v4-e8
+REM    --prefill-chunk 512 / NINFER_KV_WINDOW=32768 / --host-kv-mib 16384
 REM
 REM  NO --vision : the Coder390 artifact has no "vision" component; passing
 REM                it aborts startup with "missing component vision".
@@ -37,7 +44,7 @@ if not exist "%ENGINE%" (
 )
 set "CUDA_BIN=%ROOT%engine"
 set "PATH=%CUDA_BIN%;%CUDA_BIN%\x64;%PATH%"
-set "NINFER_KV_WINDOW=16384"
+set "NINFER_KV_WINDOW=32768"
 set "NINFER_KV_RETRIEVE=8192"
 set "NINFER_KV_RING=1"
 set "NINFER_HOST_PAGEABLE=1"
@@ -46,13 +53,15 @@ set "NINFER_KV_REUSE_HOSTBACKED=1"
 echo [engine] %ENGINE%
 echo [model ] %MODEL%
 echo [mode  ] BARE DECODE (no --spec, no --vision) -- baseline / control arm
+echo [tuned ] ctx 256K / pool 40K / rk2v4-e8 / prefill 512 / ring window 32K
 echo [note  ] content scorer defaults ON (set NINFER_TERNARY_KVMEM=0 to disable = negative control)
+echo [warn  ] close other GPU apps first -- free VRAM swings ~250 MiB and decides startup
 "%ENGINE%" "%MODEL%" ^
   --host 127.0.0.1 --port 8091 --model-id qwen3.8-27b-coder390 ^
-  --max-context 262144 --kv-capacity 17920 --kv-dtype k8v4 --host-kv-mib 16384 ^
-  --prefill-chunk 1024 ^
+  --max-context 262144 --kv-capacity 40960 --kv-dtype rk2v4-e8 --host-kv-mib 16384 ^
+  --prefill-chunk 512 ^
   --default-max-tokens 32768 --default-reasoning-effort none --max-concurrency 1 ^
-  --max-shared-prefixes 0 ^
+  --max-shared-prefixes 0 --kv-lease-growth --recover-invariant-failures ^
   --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
 
 echo.

@@ -24,6 +24,8 @@
 | 2026-10-09 | v14 | ★**更正 §4.1 的错误结论**：`--max-context`（逻辑）≠ `NINFER_KV_WINDOW`（device 窗口）。修正后 **逻辑上下文 131072（128K）可用**，并实测 **20,203 tokens prompt 检索正确**（`ring retrieve restored=16`、`kvmem_score: SELECT`）；runtime 1.80→1.18 GiB、free 349.7→925.1 MiB |
 | 2026-10-09 | v15 | **§4.3 device 活跃池**：澄清"全速区间由 `--kv-capacity` 决定"（非 window）；池扩容极便宜（≈0.83 MB/页）⇒ 定为 **kv 32768**；同 prompt A/B：TTFT 11.3→10.6s、decode 92.9→98.3 tok/s（**改善温和，瓶颈是 prefill 计算**）。给出本线最终推荐配置 |
 | 2026-10-09 | v16 | **§4.4 压榨**：逻辑上下文 128K → **262144（256K，模型原生上限）**、全速池 32K → **40K**；decode 105.0 tok/s；kv 49152 仅缺 49 MiB（临界，待清 GPU 占用后重试）；列出剩余可压榨项 |
+| 2026-10-09 | v17 | **三·九 启动器定稿**：`ninfer_launcher.py`（9 处：模型指向 iq4_nl 件 / 池 40960 / window 32768 / DEFAULTS / 选项表 / 预设 / 回退值 / 提示）+ 两个 `start-coder390*.bat`（参数与实测成功命令逐字对齐，补 hemostat 两旗）+ profiles 增 4 个 ★定稿档；构造命令与实测逐字一致 |
+| 2026-10-10 | v18 | **Bonsai 口径清除**（用户裁决）：删 4 个 Bonsai 启动脚本、删 8 个 Bonsai 预设、profiles 14→**4 档**（只留 ★）、UI 标题与 docstring 改本线口径；保留 8 处历史沿革字样（非功能残留）与 `BONSAI_ngram_audit_report.md`（ngram 参考件） |
 
 ---
 
@@ -668,6 +670,72 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·九、2026-10-09 · 启动器定稿（按 P1b 实测参数重写）
+
+> P0 的启动层适配当时用的是旧参数（k8v4 / 17920 / 1024）；本节把它**更新为 P1b 实测定稿**。
+
+### 做了什么
+
+| 文件 | 改动 |
+|---|---|
+| **`ninfer_launcher.py`** | `MODEL` → **`.mtp-iq4nl.ninfer`**（唯一同时支持裸解码与 MTP 的可用件）；`KV_POOL_TOKENS` 17920 → **40960**；`KV_ENV["NINFER_KV_WINDOW"]` 16384 → **32768**；`DEFAULTS` → `spec k4 / kv rk2v4-e8 / kvcap 40960 / prefill 512`；`KVCAP_OPTIONS` 增 40960 / 49152 / 20480；`KV_OPTIONS["rk2v4-e8"]` 标 ★定稿；`PRESET_PROFILES` 增 5 个 Coder390 预设（定稿 / 裸解码对照 / 大池 / 省显存 / 思考档）；`build_command()` 的 4 个回退值同步；`DIM_TIPS` 三条提示重写（含"全速区间 = `--kv-capacity`"的准确解释） |
+| **`start-coder390-mtp.bat`** | 模型 → `.mtp-iq4nl.ninfer`；参数 → 定稿；**补上 `--kv-lease-growth --recover-invariant-failures`**（原脚本缺这两旗，而实测起服时是带的）；注释由"会失败"改为"已通 + 实测读数" |
+| **`start-coder390.bat`** | 参数与 MTP 版**完全对齐**（唯一差异 = 无 `--spec`，保证 A/B 单变量）；模型**保持原件**（裸解码不碰 MTP 头，用原件才是纯基线） |
+| **`ninfer_launcher_profiles.json`** | 新增 4 个 `★` 定稿档（置顶）；**原有 10 档全部保留**（含 Bonsai 残留档，未删 —— 尊重用户数据） |
+
+### 证据（构造出的命令行与实测成功命令逐字核对）
+
+```
+[EVIDENCE] build_command(DEFAULTS) →
+  ...-MTP.mtp-iq4nl.ninfer --host 127.0.0.1 --port 8095 --model-id qwen3.8-27b-coder390
+  --max-context 262144 --kv-capacity 40960 --kv-dtype rk2v4-e8 --host-kv-mib 16384
+  --prefill-chunk 512 --spec mtp --draft-tokens 4 --default-max-tokens 32768
+  --default-reasoning-effort none --max-concurrency 1 --max-shared-prefixes 0
+  --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
+  --kv-lease-growth --recover-invariant-failures
+[EVIDENCE] 与 §4.4 实测起服成功那条命令**逐字一致**（唯一差异：端口 8095 vs 8094）
+[EVIDENCE] py_compile exit=0；profiles JSON 14 档解析通过；★定稿档加载后构造的命令同样正确
+```
+
+### 遗留（交审核 / 后续）
+1. ~~`start-pq2*.bat` / `start-ptq1-mtp.bat` 四个 Bonsai 口径脚本未改~~ → **已按用户裁决删除**，见下节。
+2. ~~profiles 里的 Bonsai 残留档未清理~~ → **已清理**，见下节。
+3. 本轮启动器改动**未提交**（等批准）。
+
+### Bonsai 口径清除（2026-10-10 · 用户裁决）
+
+用户裁决原文：「**和本项目无关的东西，一开始本来就是拿来做参考、基准、基础的，如果现在或者未来没用了，都删，免得混淆**」。执行：
+
+| 项 | 动作 |
+|---|---|
+| `start-pq2.bat` / `start-pq2-dflash.bat` / `start-pq2-dflash-designc.bat` / `start-ptq1-mtp.bat` | **删除**（4 个文件） |
+| `ninfer_launcher.py` → `PRESET_PROFILES` | 删 8 个 Bonsai 预设，只留 5 个 Coder390 档 |
+| `ninfer_launcher_profiles.json` | **14 档 → 4 档**（只留 ★ 定稿档）。同时清理 Coder390 的过期档：`裸解码 256K`（k8v4/17920，与 ★ 档重复但参数不同，易误选）、`裸解码 180K`（kvcap 180k，16 GB 上**必然失败**）、`MTP K4（待P1容器）`（名字已过时） |
+| `ninfer_launcher.py` → UI | 标题 `Bonsai-27B-NInfer-kvmem 启动器` → **`Coder390 · NInfer 启动器`**；副标题 → `Qwen3.8-27B-Coder390 · MTP + KVMem · RTX 5080 sm_120`；docstring 改本线口径 |
+| `启动器.bat` | 注释改本线口径 |
+| `docs\BONSAI_ngram_audit_report.md` | **保留** —— ngram 机制的唯一审计资料，本线第三目标（ngram）要用；属"参考件"而非"Bonsai 专属件" |
+
+**保留的 8 处 Bonsai 字样**（全部是历史沿革 / 事实说明，不构成功能残留）：
+
+```
+[EVIDENCE] ninfer_launcher.py:14-15  沿革说明（本文件最初为前序 Bonsai 线所写…）
+[EVIDENCE] ninfer_launcher.py:43     模型迁移历史（旧值 Ternary-Bonsai-… 属前序 Bonsai 线）
+[EVIDENCE] ninfer_launcher.py:211 / 251-254  档位删除理由
+[EVIDENCE] ninfer_launcher.py:325    cublas 实测事实（系统 PATH 首个命中 = J:\Bonsai\landing\cuda-13.3\bin\x64）
+[EVIDENCE] ninfer_launcher.py:464    标题变更历史
+```
+
+**校验（清除后）**：
+
+```
+[EVIDENCE] python -m py_compile ninfer_launcher.py → exit=0
+[EVIDENCE] profiles = 4 档（全部 ★Coder390）；PRESET_PROFILES = 5 档（全部 Coder390）
+[EVIDENCE] 根目录 .bat = 3 个（启动器.bat / start-coder390.bat / start-coder390-mtp.bat）
+[EVIDENCE] 构造命令仍与实测起服成功命令逐字一致
+```
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -692,6 +760,10 @@ negative control: PASS (refused as required)
 | 18 | **参数定稿**（§4.4）：**256K ctx / 40K 全速池** / rk2v4-e8 / prefill 512 / window 32768 | ✅ 已实测定型（当前服务即此配置；runtime 1.71 GiB / free 449.6 MiB） |
 | 21 | 清 GPU 占用后重试 kv 49152 / 65536（当前仅缺 49 MiB） | 待用户侧操作（关浏览器/Overlay 等） |
 | 22 | MTP 头 `iq4_nl` → `iq3_xxs`（再省 53 MB）是否值得 | 待裁决（需重跑误差探针，质量再降） |
+| 23 | **启动器定稿**（三·九）：launcher 9 处 + 2 bat + 4 个 ★profiles 档 | ✅ 已完成并校验（构造命令与实测逐字一致） |
+| 24 | Bonsai 口径清除（4 脚本 + 8 预设 + profiles + UI 文本） | ✅ **已完成**（2026-10-10 用户裁决；详见三·九末节） |
+| 25 | 启动器改动提交（launcher + 2 bat + profiles + 构建史 v17/v18） | 待批准（用户已口头同意，待执行） |
+| 26 | `docs\BONSAI_ngram_audit_report.md` 是否改名（去掉 BONSAI 前缀） | 待裁决（内容是 ngram 机制，本线要用；改名可避免误删） |
 | 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

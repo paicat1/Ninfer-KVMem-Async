@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Bonsai-27B-NInfer-kvmem 启动器（第一版）
+"""NInfer 启动器（本线 ninfer-kvmem / 模型 Coder390）
 
 用途：点选参数 → 实时预览启动命令 → 起服（可见窗口，关窗=停服）→ 就绪自测。
 零外部依赖（仅 Python 自带 tkinter / urllib / json / subprocess）。
 
 对照施工方案：
-  · S1 起服：首起档 = dflash 档（默认组合 = 官方 start-pq2-dflash.bat 的参数 + E5 止血两旗；核心参数逐字等价）
+  · S1 起服：定稿档 = MTP（--spec mtp --draft-tokens 4）；构造出的参数与实测起服成功的命令逐字一致
+    （见 docs\\ninfer-kvmem-项目构建史.md §4.4 与三·九）
   · S2 就绪判据：判活必须真发请求（/v1/models 200 ≠ 能服务）
   · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
 
-版本：v1（覆盖起服 + 自检/就绪自测）。后续版本继续补齐全部参数维度（见文件尾 TODO）。
+版本：v1（覆盖起服 + 自检/就绪自测）。
+沿革：本文件最初为前序 Bonsai 线所写；2026-10-09（P0）迁移到 Coder390，2026-10-10 按用户裁决
+      清除全部 Bonsai 口径（档位 / 脚本 / UI 文本），本线不再保留任何 Bonsai 引用。
 """
 
 import json
@@ -38,7 +41,11 @@ ENGINE_OPTIONS = {
     "self_prev": ("自编·回退锚(20261003·本线缺失)", ENGINE_PREV),
 }
 # P0 (2026-10-09): 本线模型换成 Coder390（旧值 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 属前序 Bonsai 线，本线 models\ 不存在该文件）
-MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer")
+# P1b (2026-10-09): 指向【自转 iq4_nl 版】。原件 MTP 头是 gguf_q4_0（引擎不支持，--spec mtp 必失败），
+#   .mtp-iq4nl.ninfer 把该头转成 gguf_iq4_nl（与原件等长，全量 L1 通过），**裸解码与 MTP 两种模式都用它**。
+#   实测定稿（同模型同 prompt，唯一变量 --spec mtp）：散文 decode 55.4→73.2 tok/s（接受率 22.6%）、
+#   代码 184.3 tok/s（接受率 93.8%）；输出语义一致无劣化。
+MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer")
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -49,11 +56,17 @@ PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("python
 # 池 token 数（= config 里的 --kv-capacity）。硬约束 = 单请求的【prompt_tokens + 输出(max_tokens) ≤ 池】：
 # 超过则 (a) 未开止血 → worker 崩且不自愈；或 (b) 开了 --kv-lease-growth（E5 止血）→ 被静默截断(finish_reason=length、
 # 内容像正常但只有半截)。--default-max-tokens 只是服务端默认上限，不是硬约束。
-KV_POOL_TOKENS = 17920
+# P1b (2026-10-09) 定稿值 = 40960（对应 --kv-capacity 40960）。实测：40960 起服成功（runtime 1.71 GiB /
+#   free 449.6 MiB）；49152 缺 49 MiB（临界）、65536 缺 320 MiB。池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。
+#   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
+#   （--host-kv-mib 16384）；实测 20,203 tokens prompt 检索答案正确（ring retrieve restored=128）。
+KV_POOL_TOKENS = 40960
 
 # KVMem 五开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
+# ⚠️ NINFER_KV_WINDOW 同时是"允许 --kv-capacity < --max-context"的开关（serve_options.cpp:1124-1132）：
+#    不设它，引擎强制要求 kv-capacity ≥ max-context 并拒绝启动（--kv-capacity must be at least --max-context）。
 KV_ENV = {
-    "NINFER_KV_WINDOW":          "16384",
+    "NINFER_KV_WINDOW":          "32768",
     "NINFER_KV_RETRIEVE":        "8192",
     "NINFER_KV_RING":            "1",
     "NINFER_HOST_PAGEABLE":      "1",
@@ -77,7 +90,7 @@ KV_OPTIONS = {
     "rk8v4":    ("rk8v4",           ["--kv-dtype", "rk8v4"]),
     "rk4v4":    ("rk4v4",           ["--kv-dtype", "rk4v4"]),
     "rk4v4-e8": ("rk4v4-e8",        ["--kv-dtype", "rk4v4-e8"]),
-    "rk2v4-e8": ("rk2v4-e8（5080 回执用）", ["--kv-dtype", "rk2v4-e8"]),
+    "rk2v4-e8": ("rk2v4-e8（★本线定稿 · 5080 最省）", ["--kv-dtype", "rk2v4-e8"]),
     "nvfp4":    ("nvfp4",           ["--kv-dtype", "nvfp4"]),
     "fp8":      ("fp8",             ["--kv-dtype", "fp8"]),
     "int8":     ("int8",            ["--kv-dtype", "int8"]),
@@ -96,6 +109,9 @@ CTX_OPTIONS = {
     "256k": ("256K（官方默认）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
+    "40960": ("40960（★本线定稿 · 40K 全速池）", ["--kv-capacity", "40960"]),
+    "49152": ("49152（48K · 需清 GPU 占用才起得来）", ["--kv-capacity", "49152"]),
+    "20480": ("20480（20K · 更省显存）",      ["--kv-capacity", "20480"]),
     "17920": ("17920（官方默认）",         ["--kv-capacity", "17920"]),
     "auto":  ("auto（按剩余显存）",   ["--kv-capacity", "auto"]),
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
@@ -188,14 +204,20 @@ DIMENSIONS = [
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
 ]
 
-# 默认组合（P0 2026-10-09 适配 Coder390）：
-#   spec   : "k0" = 裸解码（无投机）——本线基线，也是所有 A/B 的对照
+# 默认组合（P0 2026-10-09 适配 Coder390；P1b 2026-10-09 按实测参数定稿）：
+#   spec   : "k4" = MTP K=4（本线已跑通；要裸解码基线请显式选 "k0"）
 #   vision : "off"——Coder390 容器**没有 vision 组件**，置 on 会让引擎在 companion("vision") 处抛
 #            "missing component vision" 而启动失败（这是硬阻塞，不是"省显存"选项）
-# 前序 Bonsai 口径（spec="d12" + vision="on"）保留在 PRESET_PROFILES 的旧档里备查。
+# 沿革：前序 Bonsai 口径（spec="d12" + vision="on"）的档位已于 2026-10-10 按用户裁决整批删除。
 DEFAULTS = {
-    "spec": "k0", "kv": "k8v4", "ctx": "256k", "kvcap": "17920", "hostkv": "16384",
-    "prefill": "1024", "think": "none", "tb": "none", "maxout": "32768", "vision": "off",
+    # ★P1b 定稿（2026-10-09 实测定型，详见 docs\ninfer-kvmem-项目构建史.md §4.4）：
+    #   spec    k4       = MTP K=4（本线已通；要裸解码对照请选 "k0"）
+    #   kv      rk2v4-e8 = 最省 KV 格式（2bit key + 4bit value；5080 实测可用，输出与 k8v4 语义一致）
+    #   ctx     256k     = 262144 = 模型原生上限（逻辑上下文；池外部分下沉 host）
+    #   kvcap   40960    = 40K 全速池（显存内直接可读的范围）
+    #   prefill 512      = 比官方 1024 省 workspace（实测起服余量更大）
+    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "40960", "hostkv": "16384",
+    "prefill": "512", "think": "none", "tb": "none", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
 }
 
@@ -208,14 +230,14 @@ LEGACY_VALUE_MAP = {
 
 DIM_TIPS = {
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
-    "kv":     "KV 缓存精度。官方默认 k8v4；官方 5080 回执另用 rk* 系列。可用性随架构变，异常时换一档试。",
-    "ctx":    "上下文长度（--max-context）。官方默认 256K。",
-    "kvcap":  "KV 池容量（--kv-capacity）。官方默认 17920 = 池 token 数；auto 按剩余显存最大化；更大=更多上下文但更占显存。",
+    "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
+    "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
+    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 40960（40K）；扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）：48K 需先清 GPU 占用、64K 缺 320 MiB。auto = 按剩余显存最大化。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
     "tb":     "思考预算上限（--default-thinking-budget，每回合最多思考 token）。治“思考墙死循环”：xhigh 思考烧光输出预算→空正文。越小越省时，审核/批量建议小；长逻辑建议大。⚠ OpenAI 端点不转发请求里的 thinking_budget，只能靠服务端此参数。",
-    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 硬约束 = 单请求【prompt_tokens + 输出 ≤ 池(17920)】；超池会被 --kv-lease-growth 静默截断(finish_reason=length)或(无止血)使 worker 崩。发请求时请控 prompt 长。",
+    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 定稿池 = 40960 tokens；单请求【prompt_tokens + 输出】留在池内可避免 host 往返；开了 --kv-lease-growth 时超池会被静默截断(finish_reason=length)。",
     "vision": "视觉（多模态）。GPU 编码器=默认，视觉塔常驻显存(~1.4G)；overlay=视觉塔驻 pinned 主机内存、仍走 GPU 算（折中，需可驱逐尾部支撑）；cpu=视觉塔走 CPU 线程、无设备视觉显存（引擎自动把 --vision-max-merged 压到 256，每图慢）。显存紧：优先 overlay，其次 cpu；不用视觉就关。",
     "sample": "采样预设。默认 = 官方值 0.7/0.9/20、presence 0。",
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
@@ -225,18 +247,16 @@ DIM_TIPS = {
 
 # 命名组合预置（首次运行若无配置文件则落盘）
 PRESET_PROFILES = {
-    # —— 本线 Coder390（P0 2026-10-09）——
-    "Coder390-裸解码": dict(DEFAULTS),                    # 基线 + 所有 A/B 的对照（无投机、无视觉）
-    "Coder390-MTP档":  dict(DEFAULTS, spec="k4"),         # 待 P1 产出 MTP 可用容器后启用
-    # —— 前序 Bonsai 口径（显式保留旧语义备查；本线模型无 dflash2/vision 组件，选中必失败）——
-    "起服-dflash档": dict(DEFAULTS, spec="d12", vision="on"),
-    "备用-MTP档":    dict(DEFAULTS, spec="k4"),
-    "省显存-无视觉": dict(DEFAULTS, vision="off"),
-    "省显存-视觉CPU": dict(DEFAULTS, vision="cpu"),
-    "省显存-视觉overlay": dict(DEFAULTS, vision="overlay"),
-    "思考预算-16000": dict(DEFAULTS, think="high", tb="16000", sample="thinking"),
-    "长文档-224K":   dict(DEFAULTS, ctx="224k"),
-    "并发4-吞吐":    dict(DEFAULTS, conc="4"),
+    # —— ★本线 Coder390 定稿（P1b 2026-10-09 实测定型，见构建史 §4.4）——
+    # 注：Bonsai 线的全部预设（起服-dflash档 / 备用-MTP档 / 省显存-视觉* / 思考预算-16000 /
+    #     长文档-224K / 并发4-吞吐）已按用户裁决（2026-10-10）**整批删除**：
+    #     本线模型无 dflash2 / vision 组件，那些档位选中必失败；且它们引用的是 Bonsai 口径的
+    #     旧参数，留着只会与下面的定稿档混淆。Bonsai 相关内容一律不进本线。
+    "Coder390-MTP 定稿":    dict(DEFAULTS),                        # MTP K4 + 256K ctx + 40K 池 + rk2v4-e8
+    "Coder390-裸解码对照":  dict(DEFAULTS, spec="k0"),              # 无投机（所有 A/B 的对照臂）
+    "Coder390-MTP 大池":    dict(DEFAULTS, kvcap="49152"),          # 48K 池（实测缺 49 MiB；清 GPU 占用后可能过）
+    "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
+    "Coder390-思考档":      dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
 }
 
 
@@ -272,17 +292,17 @@ def _argv_of(table, value, fallback_key):
 
 
 def build_command(combo, port=PORT_DEFAULT, exe=None):
-    """返回 (exe, argv)。argv 为引擎参数（不含 exe）；核心参数与官方 start-pq2-dflash.bat 逐字等价，另含 E5 止血两旗（hemostat=on，可关）。
+    """返回 (exe, argv)。argv 为引擎参数（不含 exe）；与实测起服成功的定稿命令逐字一致（构建史 §4.4 / 三·九），另含 B01 止血两旗（hemostat=on，可关）。
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
     exe=None 时用官方成品；传 ENGINE_SELF 用自编引擎。"""
     exe = exe or ENGINE
     argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
-    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "17920"),   "17920")
-    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "k8v4"),       "k8v4")
+    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "40960"),   "40960")  # P1b: 回退对齐 DEFAULTS（原 "17920"）
+    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
-    argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "1024"),  "1024")
-    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k0"),       "k0")     # P0: 回退与 DEFAULTS 对齐（原为 "d12"=DFlash2，Coder390 上无 dflash2 组件）
+    argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）
+    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k4"),       "k4")     # P1b: 回退对齐 DEFAULTS（原 "k0"；要裸解码请显式选 k0）
     argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "off"),    "off")    # P0: 回退与 DEFAULTS 对齐（原为 "on"，Coder390 无 vision 组件会启动失败）
     argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
     argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
@@ -474,9 +494,9 @@ class LauncherApp:
         main = tk.Frame(self.root, bg=self.bg)
         main.pack(fill="both", expand=True, padx=14, pady=12)
 
-        tk.Label(main, text="Bonsai-27B-NInfer-kvmem 启动器", font=("Microsoft YaHei UI", 15, "bold"),
+        tk.Label(main, text="Coder390 · NInfer 启动器", font=("Microsoft YaHei UI", 15, "bold"),
                  bg=self.bg, fg="#1b4d8a").pack(anchor="w")
-        tk.Label(main, text="Bonsai-2-27B（三元） · sm_120a 引擎",
+        tk.Label(main, text="Qwen3.8-27B-Coder390 · MTP + KVMem · RTX 5080 sm_120",
                  font=("Microsoft YaHei UI", 9), bg=self.bg, fg="#5a6b8a").pack(anchor="w", pady=(0, 6))
 
         # 端口行

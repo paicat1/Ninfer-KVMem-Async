@@ -1,4 +1,8 @@
 @echo off
+REM [P0 2026-10-09] PREVIOUS-LINE (Bonsai) TIER SCRIPT -- kept for reference.
+REM   This line runs Coder390; the Bonsai model named below is NOT in models\,
+REM   and Coder390 has no dflash2/vision component. For this line use:
+REM     start-coder390.bat (bare decode)  /  start-coder390-mtp.bat (MTP)
 REM ============================================================
 REM  start-pq2.bat  --  tier launcher for the sm_120a engine pack
 REM

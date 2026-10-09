@@ -31,13 +31,14 @@ ROOT        = os.path.dirname(os.path.abspath(__file__))          # 项目根（
 ENGINE      = os.path.join(ROOT, "engine", "ninfer-serve-120a.exe")            # 官方成品（无 Design C）
 ENGINE_DIR  = os.path.dirname(ENGINE)
 ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（20261008 + 全部补丁）
-ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 自编·回退锚（20261003 + 全部补丁）
+ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 前序回退锚（20261003）——P0 实测：本线 engine\ 下**无** self-built\ 目录，此路径**不存在**（GUI 选中会给出"未找到引擎"提示，不会崩）
 ENGINE_OPTIONS = {
     "official": ("官方成品",       ENGINE),
     "self":      ("自编·现役(20261008)",  ENGINE_SELF),
-    "self_prev": ("自编·回退锚(20261003)", ENGINE_PREV),
+    "self_prev": ("自编·回退锚(20261003·本线缺失)", ENGINE_PREV),
 }
-MODEL       = os.path.join(ROOT, "models", "Ternary-Bonsai-2-27B-ninfer-v3.ninfer")
+# P0 (2026-10-09): 本线模型换成 Coder390（旧值 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 属前序 Bonsai 线，本线 models\ 不存在该文件）
+MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer")
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -187,10 +188,14 @@ DIMENSIONS = [
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
 ]
 
-# 默认组合 = 官方 start-pq2-dflash.bat 的参数（核心逐字等价）+ E5 止血两旗（--kv-lease-growth / --recover-invariant-failures，有意新增）
+# 默认组合（P0 2026-10-09 适配 Coder390）：
+#   spec   : "k0" = 裸解码（无投机）——本线基线，也是所有 A/B 的对照
+#   vision : "off"——Coder390 容器**没有 vision 组件**，置 on 会让引擎在 companion("vision") 处抛
+#            "missing component vision" 而启动失败（这是硬阻塞，不是"省显存"选项）
+# 前序 Bonsai 口径（spec="d12" + vision="on"）保留在 PRESET_PROFILES 的旧档里备查。
 DEFAULTS = {
-    "spec": "d12", "kv": "k8v4", "ctx": "256k", "kvcap": "17920", "hostkv": "16384",
-    "prefill": "1024", "think": "none", "tb": "none", "maxout": "32768", "vision": "on",
+    "spec": "k0", "kv": "k8v4", "ctx": "256k", "kvcap": "17920", "hostkv": "16384",
+    "prefill": "1024", "think": "none", "tb": "none", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
 }
 
@@ -220,7 +225,11 @@ DIM_TIPS = {
 
 # 命名组合预置（首次运行若无配置文件则落盘）
 PRESET_PROFILES = {
-    "起服-dflash档": dict(DEFAULTS),
+    # —— 本线 Coder390（P0 2026-10-09）——
+    "Coder390-裸解码": dict(DEFAULTS),                    # 基线 + 所有 A/B 的对照（无投机、无视觉）
+    "Coder390-MTP档":  dict(DEFAULTS, spec="k4"),         # 待 P1 产出 MTP 可用容器后启用
+    # —— 前序 Bonsai 口径（显式保留旧语义备查；本线模型无 dflash2/vision 组件，选中必失败）——
+    "起服-dflash档": dict(DEFAULTS, spec="d12", vision="on"),
     "备用-MTP档":    dict(DEFAULTS, spec="k4"),
     "省显存-无视觉": dict(DEFAULTS, vision="off"),
     "省显存-视觉CPU": dict(DEFAULTS, vision="cpu"),
@@ -267,14 +276,14 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
     exe=None 时用官方成品；传 ENGINE_SELF 用自编引擎。"""
     exe = exe or ENGINE
-    argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b"]
+    argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "17920"),   "17920")
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "k8v4"),       "k8v4")
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "1024"),  "1024")
-    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "d12"),      "d12")
-    argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "on"),     "on")
+    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k0"),       "k0")     # P0: 回退与 DEFAULTS 对齐（原为 "d12"=DFlash2，Coder390 上无 dflash2 组件）
+    argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "off"),    "off")    # P0: 回退与 DEFAULTS 对齐（原为 "on"，Coder390 无 vision 组件会启动失败）
     argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
     argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
     argv += _argv_of(TB_OPTIONS,      combo.get("tb", "none"),       "none")
@@ -289,7 +298,19 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
 def env_for_launch(exe=None):
     env = dict(os.environ)
     env.update(KV_ENV)
-    env["PATH"] = os.path.dirname(exe or ENGINE) + os.pathsep + env.get("PATH", "")
+    # P0b (2026-10-09): PATH 必须同时含 exe 所在目录 **与 engine\ 根目录**。
+    #   理由：自编件在 engine\self-built-20261008\，但它**动态依赖 cublas64_13.dll**
+    #   （实测：全文件搜索 1.27GB exe 命中 "cublas64_13"），而该 DLL **只在 engine\ 根**
+    #   （自编子目录只有 cudart64_13）。只加 dirname(exe) 时，自编件会回退到系统 PATH 的
+    #   cublas —— 实测本机系统 PATH 首个命中 = J:\Bonsai\landing\cuda-13.3\bin\x64
+    #   （**前序已封存线的目录**），版本 6.14.11.1360 ≠ 打包版 6.14.11.1351
+    #   ⇒ 结果不确定、且隐式依赖外部线。加入 ENGINE_DIR 后固定用打包版（确定性 + 自包含）。
+    _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE), ENGINE_DIR], set(), []
+    for _p in _parts:
+        if _p and _p not in _seen:
+            _seen.add(_p)
+            _uniq.append(_p)
+    env["PATH"] = os.pathsep.join(_uniq) + os.pathsep + env.get("PATH", "")
     return env
 
 
@@ -420,7 +441,7 @@ class ToolTip:
 class LauncherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Bonsai-27B-NInfer-kvmem 启动器")
+        self.root.title("Coder390 · NInfer 启动器（ninfer-kvmem）")   # P0: 标题原为 "Bonsai-27B-NInfer-kvmem 启动器"
         self.root.geometry("900x700")
         self.root.minsize(780, 660)
         self.bg, self.fg = "#f4f8ff", "#1a3a6b"
@@ -432,7 +453,10 @@ class LauncherApp:
         self._label2key = {}
         self.port_var = tk.StringVar(value=str(PORT_DEFAULT))
         self.logmode_var = tk.StringVar(value="精简")
-        self.engine_var = tk.StringVar(value=ENGINE_OPTIONS["official"][0])
+        # P0b (2026-10-09): 默认引擎 = 「自编·现役」——A/B 一律用它（官方件保留在下拉里作交叉验证选项）。
+        #   理由：self-built 含 Design C（thinking stop 强制进 answer），官方件无 ⇒ 行为路径不同，
+        #   混用会污染对照；且 self-built 是本线现役（交接文档指定、两个 start-coder390*.bat 已用）。
+        self.engine_var = tk.StringVar(value=ENGINE_OPTIONS["self"][0])
         # 投机档两级联动：类型 + K 值（照老项目；初值由 DEFAULTS["spec"] 解析）
         _d = DEFAULTS["spec"]
         if _d == "k0":

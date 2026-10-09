@@ -35,10 +35,14 @@ ENGINE      = os.path.join(ROOT, "engine", "ninfer-serve-120a.exe")            #
 ENGINE_DIR  = os.path.dirname(ENGINE)
 ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（20261008 + 全部补丁）
 ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 前序回退锚（20261003）——P0 实测：本线 engine\ 下**无** self-built\ 目录，此路径**不存在**（GUI 选中会给出"未找到引擎"提示，不会崩）
+# 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
+#   · self_prev（engine\self-built\ninfer-serve.exe）—— **该目录本线不存在**，选中只会报"未找到引擎"（死项）；
+#   · official（engine\ninfer-serve-120a.exe）—— 文件在，但 P0b 已裁定本线统一用 self-built：
+#     它含 Design C（思考停止强制进 answer）而官方件没有 ⇒ 行为路径不同，混用污染 A/B 对照；
+#     且官方件是否支持 rk2v4-e8 / --spec mtp 从未验证（选了可能是第二个坑）。
+#   ENGINE / ENGINE_PREV 两个常量保留（供将来临时改回或命令行引用），只是不再进下拉。
 ENGINE_OPTIONS = {
-    "official": ("官方成品",       ENGINE),
-    "self":      ("自编·现役(20261008)",  ENGINE_SELF),
-    "self_prev": ("自编·回退锚(20261003·本线缺失)", ENGINE_PREV),
+    "self": ("自编·现役(20261008)", ENGINE_SELF),
 }
 # P0 (2026-10-09): 本线模型换成 Coder390（旧值 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 属前序 Bonsai 线，本线 models\ 不存在该文件）
 # P1b (2026-10-09): 指向【自转 iq4_nl 版】。原件 MTP 头是 gguf_q4_0（引擎不支持，--spec mtp 必失败），
@@ -265,7 +269,7 @@ PRESET_PROFILES = {
 # ---------------------------------------------------------------
 def validate(combo, exe=None):
     """返回告警列表（空 = 无告警）。"""
-    exe = exe or ENGINE
+    exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     warns = []
     mx = str(combo.get("maxout", "default"))
     mx_val = 65535 if mx == "default" else (int(mx) if mx.isdigit() else 0)  # "default"=65535；非数字安全跳过（照老项目：不裸 int 转换）
@@ -294,8 +298,8 @@ def _argv_of(table, value, fallback_key):
 def build_command(combo, port=PORT_DEFAULT, exe=None):
     """返回 (exe, argv)。argv 为引擎参数（不含 exe）；与实测起服成功的定稿命令逐字一致（构建史 §4.4 / 三·九），另含 B01 止血两旗（hemostat=on，可关）。
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
-    exe=None 时用官方成品；传 ENGINE_SELF 用自编引擎。"""
-    exe = exe or ENGINE
+    exe=None 时用自编现役（ENGINE_SELF，本线唯一现役引擎）。"""
+    exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "40960"),   "40960")  # P1b: 回退对齐 DEFAULTS（原 "17920"）
@@ -325,7 +329,7 @@ def env_for_launch(exe=None):
     #   cublas —— 实测本机系统 PATH 首个命中 = J:\Bonsai\landing\cuda-13.3\bin\x64
     #   （**前序已封存线的目录**），版本 6.14.11.1360 ≠ 打包版 6.14.11.1351
     #   ⇒ 结果不确定、且隐式依赖外部线。加入 ENGINE_DIR 后固定用打包版（确定性 + 自包含）。
-    _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE), ENGINE_DIR], set(), []
+    _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE_SELF), ENGINE_DIR], set(), []
     for _p in _parts:
         if _p and _p not in _seen:
             _seen.add(_p)
@@ -692,7 +696,7 @@ class LauncherApp:
         for _k, (lbl, path) in ENGINE_OPTIONS.items():
             if lbl == self.engine_var.get():
                 return path
-        return ENGINE
+        return ENGINE_SELF      # 2026-10-10: 回退改为自编现役（原为官方件，与"统一 self-built"的裁决矛盾）
 
     def _refresh(self):
         self.selection = {k: self.selection.get(k, DEFAULTS[k]) for k in DEFAULTS}

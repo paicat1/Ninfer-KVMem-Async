@@ -18,6 +18,7 @@
 | 2026-10-09 | v8 | **P0b：引擎统一 self-built**（含 cublas 依赖发现：PATH 必须含 `engine\` 根）——用户批准后实施，交 TELE 复审 |
 | 2026-10-09 | v9 | **P0c：实测起服**——裸解码基线 **≈17 tok/s**（3 次）；KVMem 判活 `kvmem_score: SELECT` ✅；流传的"~52 tok/s"标【待证】（refs 内只找到 llama.cpp bench 表） |
 | 2026-10-09 | v10 | **P0c-2：成因已定**——关掉浏览器后同参数重测 **55.7–55.9 tok/s**（差 3.3 倍）⇒ 17 tok/s 系 GPU 资源竞争所致；**撤销"52 tok/s【待证】"**（实测证实）；新增 A/B 前置纪律：测试前清 GPU 占用 |
+| 2026-10-09 | v11 | **P0 系列已入库**（a96d6af 提交 + push，含 TELE 的 07898d7）；**P1 施工完成**——`scripts\recode_mtp.py` + q4_0→q8_0 位级无损重打包，**L0/L1/L2 三档验收全过**（13,271,040 块零不匹配），交 TELE 审核 |
 
 ---
 
@@ -308,21 +309,82 @@ FATAL server failed during startup          （serve_tee end exit=1）
 
 ---
 
+## 三·七、2026-10-09 · P1 施工：MTP 数据侧重打包（q4_0 → q8_0 位级无损）
+
+### 做了什么
+1. 新增 **`scripts\recode_mtp.py`**（②类项目工具；落 `scripts\` 而非 `tools\` —— 后者被 `.gitignore` 排除会静默入不了库）：
+   - 骨架照官方重打包范例 `official-repo\ninfer-fusion-kvmem\tools\strip_components.py`，`UPSTREAM` 指向本机源码树；
+   - 只改 5 个 `gguf_q4_0` 对象的 `format` → `gguf_q8_0` + 转码字节；其余 799 个对象**原样流式搬运**；
+   - **位级无损转码**：q4_0 块 18 B（fp16 `d` + 16 B nibbles）→ q8_0 块 34 B（fp16 `d` + 32 B int8）；**scale 两字节逐字节拷贝**，nibble → `int8(nibble − 8)`（经 int16 中转防 uint8 下溢）；**零浮点运算、零重量化**；
+   - 读源 q4_0 对象必须用 `iter_range`（`iter_object` 会因 q4_0 不在 Python 格式注册表而抛错）；
+   - 内置 `--dry-run` / `--verify`（全量 oracle）/ `--negative-control`（L2）；
+   - `metadata.name` 追加 `+mtp-q8`（标记非原厂件）；`provenance.mtp_recode` 登记来源/方法/源 artifact_id。
+2. **产物**：`models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-q8.ninfer`
+   （**新文件**；原件零写入 —— writer 对已存在目标抛 `FileExistsError`，且全程只 `iter_range` 读源）。
+
+### 验收证据（三档全过，交 TeleAgent 审核）
+**L0（结构；`tools.artifact.inspect --json / --objects`）**：
+```
+file_bytes 13485135360 | payload_bytes 13484885504
+objects 804 | tensors 800 | resources 4 | bindings 979 | uses 619
+formats: gguf_q8_0 = 5   （gguf_q4_0 已归零）
+name: qwen3.8-27b-coder390-Q2LynnStyle-Mtp+mtp-q8
+weight/000079  77987840  gguf_q8_0/gguf_blocks_v1 [14336, 5120]
+weight/000080 189399040  gguf_q8_0/gguf_blocks_v1 [34816, 5120]
+weight/000789  55705600  gguf_q8_0/gguf_blocks_v1 [5120, 10240]
+weight/000796  33423360  gguf_q8_0/gguf_blocks_v1 [5120, 6144]
+weight/000798  94699520  gguf_q8_0/gguf_blocks_v1 [5120, 17408]
+```
+（5 对象 bytes 与方案 §3.4 表、dry-run 输出**逐项一致**）
+
+**L1（全量位级 oracle，非抽样；源容器 q4_0 vs 新容器 q8_0 逐块解出比较）**：
+```
+weight/000079  blocks=2293760  scale_identical=True values_identical=True mismatches=0
+weight/000080  blocks=5570560  scale_identical=True values_identical=True mismatches=0
+weight/000789  blocks=1638400  scale_identical=True values_identical=True mismatches=0
+weight/000796  blocks=983040   scale_identical=True values_identical=True mismatches=0
+weight/000798  blocks=2785280  scale_identical=True values_identical=True mismatches=0
+L1 VERDICT: PASS (bit-exact)
+```
+合计 **13,271,040 块**；`scale` 两字节与 `values` **全部逐位相同，零不匹配**。
+
+**L2（负控：故意把 `weight/000079` 写短 1 字节 = 77,987,839 / 77,987,840）**：
+```
+negative control: wrote weight/000079 ONE BYTE SHORT (77987839 of 77987840 declared bytes), finishing early
+negative control: writer raised: resource/text/tokenizer.json: output coverage is incomplete
+negative control: PASS (refused as required)
+```
+⇒ writer 拒绝不完整输出；`dst` 不存在（abort 清理）、**无残留 `.tmp`**。
+
+### 参数与成本
+- 新文件 **13,485,135,360 B**（+212,336,640 B = **+202.5 MiB**，占全模型 1.5%）
+- 5 个对象：238,878,720 → **451,215,360 B**；块数 13,271,040
+- 脚本先以 `--dry-run` 核对计划（输出与上表逐项一致）后才正式执行
+
+### 遗留（交审核 / 后续）
+1. **Step 8/9 起服测 MTP 未做** —— 需用户授权；按纪律**先关 GPU 占用程序**（浏览器/QQ/Overlay，实测差 3.3 倍）。
+2. **`scripts\recode_mtp.py` 与产物尚未提交**（等 TELE 审核 L0/L1/L2 + 用户批准）。
+3. 关键结论（MTP 收益）**另用 official 引擎交叉验证**（用户已同意）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
 |---|---|---|
 | 1 | 9 份文档提交 | ✅ 已完成 `d2c9806`（已 push） |
-| 2 | MTP 探针（数据侧重打包；探针格式 `gguf_q8_0`） | 待用户批准 P1 |
-| 3 | 是否允许改写 `models\` 内 `.ninfer` | 待用户裁决（方案为**写新文件、不覆盖原件**） |
+| 2 | **MTP 探针（数据侧重打包，`gguf_q8_0`）** | ✅ **已执行**（P1：L0/L1/L2 三档全过）——**交 TeleAgent 审核中** |
+| 3 | 是否允许改写 `models\` 内 `.ninfer` | ✅ 已按"**写新文件、原件零写入**"执行（产物 `.mtp-q8.ninfer`） |
 | 4 | 引擎补 Q4_0（方案 A） | 暂缓（用户已同意，留兜底） |
 | 5 | DFlash2 是否投入 | 延后（零成本几何核对已通过；接受率门槛待定） |
-| 6 | 启动层适配 Coder390 | ✅ 已完成（P0，本轮）——**交 TeleAgent 审核中** |
+| 6 | 启动层适配 Coder390 | ✅ 完成并入库（P0，`a96d6af`；TELE 审核通过） |
 | 7 | 复算模型 SHA256 并补录 | 待办 |
-| 8 | KVMem 检索判活（`kvmem_score: SELECT`）在 Coder390 上确认 | 待办 |
-| 9 | P0 实测起服（裸解码基线读数） | 待用户双击 BAT，或授权 AI 起服 |
-| 10 | GUI 默认引擎统一为 self-built（含 PATH 修复） | ✅ 已实施（P0b，用户批准）——**交 TeleAgent 复审中** |
+| 8 | KVMem 检索判活（`kvmem_score: SELECT`） | ✅ 已在 Coder390 上确认（P0c） |
+| 9 | 实测起服（裸解码基线） | ✅ 已完成（**55.7–55.9 tok/s**，P0c-2） |
+| 10 | GUI 默认引擎统一 self-built（含 PATH 修复） | ✅ 已实施并入库（P0b，`a96d6af`；TELE 复审通过） |
 | 11 | 关键结论（MTP 收益）用 official 交叉验证 | 待办（用户已同意该做法） |
+| 12 | **Step 8/9：起服测 MTP**（用 `.mtp-q8.ninfer`） | 待用户授权起服；**起服前先关 GPU 占用程序** |
+| 13 | 提交 `scripts\recode_mtp.py` + 产物登记 | 待 TELE 审核 L0/L1/L2 后、经用户批准 |
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。
 > —— 施工/审核分工：**施工 + 构建史 = CodeBuddy**；**审核报告 = TeleAgent**（各自 commit/push；commit 前保留 T-COMMIT-APPROVAL 展示环节）。

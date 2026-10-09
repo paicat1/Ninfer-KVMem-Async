@@ -952,6 +952,45 @@ negative control: PASS (refused as required)
 1. `--vision-cpu` 起服 + 实图识图（端到端验证视觉塔真的能用）；
 2. 验证"大池 + 视觉"能否同时成立（省下的 202.5 MiB 换池容量，预期可行，待实测）。
 
+### 4. 用户实机"加视觉秒退"的真实原因（2026-10-10 02:54）与 GUI 修复
+
+```
+[EVIDENCE] 日志 serve_20261010_025432.log（秒退）：
+  CMD 里的模型 = .mtp-iq4nl.ninfer（**无 vision 组件**），参数却带 --vision-cpu
+  ERROR startup failed | planning runtime | 79 us
+  ERROR engine init | FAILED while constructing the service: Qwen3.5 config: missing component vision
+  FATAL server failed during startup | Qwen3.5 config: missing component vision
+[EVIDENCE] 另一份 serve_20261010_025220.log（同模型、无视觉、kv 40960）：
+  requested Engine runtime reservation requires 1,838,389,504 B, but only 1,749,782,528 B available
+  ⇒ 缺 85 MiB —— 因 GPU 正被用户的实机测试占用（**同参数 025326 是成功起服的**：free 587.3 MiB）
+```
+
+**⇒ 两个失败都不是嫁接产物的问题**：① 是"模型没换成带视觉的嫁接件"；② 是"GPU 被占用导致可用量缩水"（波动，非配置不可行）。
+
+**⛔ 但根因在我这边**：**GUI 里根本没有 `.mtp-iq4nl.vision.ninfer` 这一档**（模型下拉只有 iq4nl / q8mtp / orig）
+⇒ 用户想用视觉只能选"无视觉的 iq4nl"再手动开视觉 ⇒ **必然踩 "missing component vision"**。
+**这是我 v24 加"模型维度"时的遗漏**：当时嫁接件尚不存在，而它一旦产出，GUI 就该立刻跟进。
+
+**GUI 修复**（`ninfer_launcher.py`）：
+- `MODEL_OPTIONS` / `MODEL_PATHS` 新增 **`iq4nlvis`** 档（★iq4_nl 骨架 + 官方视觉塔，12.94 GiB）；
+- 新增 `VISION_CAPABLE_MODELS = {iq4nlvis, q8mtp}`；
+- **validate 加"模型 ↔ 视觉"配对校验**（★防踩坑的核心）：
+  - 模型不含视觉 + 开了视觉 ⇒ 告警"引擎启动即挂：Qwen3.5 config: missing component vision"；
+  - 模型含视觉 + 视觉关 ⇒ 提示"塔不会被加载（也不占显存）"；
+  - iq4nlvis + 池 > 24576 ⇒ 提示"池容量尚未实测，起不来请降到 20480/24576"；
+- **不对 iq4nlvis 做自动降池**（**无实测依据，不臆造耦合**）—— 只出提示；
+- 预设：视觉档改用 `iq4nlvis`（保守 20K），新增"视觉 大池"档（40K，未实测）。
+
+**离线验证**（不起服、不占 GPU，直接调 `validate()`）：
+```
+[EVIDENCE] iq4nl    + vision=cpu  ⇒ 正确告警 missing component vision  ✅（正是用户踩的坑）
+[EVIDENCE] iq4nlvis + vision=cpu  ⇒ 仅提示"池未实测"，无配对错误       ✅
+[EVIDENCE] iq4nlvis + vision=off  ⇒ 提示"塔不会被加载"                 ✅
+[EVIDENCE] 4 个模型文件全部存在；build_command 产出 .mtp-iq4nl.vision.ninfer + --vision-cpu ✅
+```
+
+**⇒ 教训**：**新增产物后必须回头检查"入口"是否跟得上**。产物做得再对，只要 GUI 里选不到，用户就只能手工拼命令 —— 而手工拼命令恰恰会踩"模型与开关不配对"的坑。
+
 ---
 
 ## 四、待续事项（挂账）

@@ -55,26 +55,40 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-
 # 模型档（2026-10-10 用户裁决新增）
 #   WHY: GUI 必须能切模型。否则"要用视觉就得换官方版"这条只能靠 bat 实现，
 #        而实际上没人用 bat，全在启动器上选 —— 那样 vision 就是死功能。
-#   iq4nl : 自转 MTP 头（gguf_iq4_nl，239 MB）—— ★定稿；**无 vision 组件**
-#   q8mtp : 官方 Q8MTP 版（MTP 头 q8_0 = 451 MB，比 iq4nl 多 212 MB）—— **唯一含 vision 组件**；
-#           选它时 GUI 会自动把 --kv-capacity 降到 20480（否则 40K 池起不来，实测过）
-#   orig  : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
+#   iq4nl    : 自转 MTP 头（gguf_iq4_nl，239 MB）—— ★定稿；**无 vision 组件**
+#   iq4nlvis : ★iq4_nl 骨架 + 官方视觉塔（graft_vision.py 嫁接，2026-10-10 晚）
+#              = 唯一"小 MTP 头 + 有视觉"的组合件；视觉塔 282 MiB，
+#              整体比官方 Q8MTP 版小 202.5 MiB（差额正是 MTP 头 q8_0 -> iq4_nl）；
+#              L1 全量 SHA-256：骨架 804 + 视觉 335 对象零不匹配
+#              **池容量未实测** —— iq4nl 无视觉 40K 实测 free 587.3 MiB，视觉塔约 282 MiB，
+#              理论可行；起不来就把池降到 20480/24576（待实测定稿再定耦合）
+#   q8mtp    : 官方 Q8MTP 版（MTP 头 q8_0 = 451 MB，比 iq4nl 多 212 MB）—— 含 vision 组件；
+#              选它时 GUI 会自动把 --kv-capacity 降到 20480（否则 40K 池起不来，实测过）
+#   orig     : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
 #   注：这里的 argv 列表留空 —— 模型是引擎的**位置参数**（第一个），不走 --flag。
 # ---------------------------------------------------------------
 MODEL_OPTIONS = {
-    "iq4nl": ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
-    "q8mtp": ("官方 Q8MTP（含视觉 · 选它自动降池 20K）", []),
-    "orig":  ("原件（纯基线 · MTP 不可用）", []),
+    "iq4nl":    ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
+    "iq4nlvis": ("★iq4_nl + 视觉塔（嫁接件 · 含 vision 组件）", []),
+    "q8mtp":    ("官方 Q8MTP（含视觉 · 选它自动降池 20K）", []),
+    "orig":     ("原件（纯基线 · MTP 不可用）", []),
 }
 MODEL_PATHS = {
     "iq4nl": os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer"),
+    "iq4nlvis": os.path.join(
+        ROOT, "models",
+        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
     "q8mtp": os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"),
     "orig":  os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
 }
+# 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
+VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q8mtp"))
 # 选官方 Q8MTP 时自动降到的池（实测：40K 起不来，20K 起服 free 663 MiB）
+# iq4nlvis 不在此表：**没有实测依据，故不臆造自动降池**；改由 validate() 出提示
+# （它比官方版省 212 MB，可能 40K 也起得来 —— 实测定稿后再决定是否加耦合）
 MODEL_KVCAP_MAX = {"q8mtp": "20480"}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
@@ -183,14 +197,18 @@ MAXOUT_OPTIONS = {
     "32768":   ("32768（★本线定稿）", ["--default-max-tokens", "32768"]),
     "1024":    ("1024",     ["--default-max-tokens", "1024"]),
 }
-# 视觉：**只有【官方 Q8MTP 版】含 vision 组件**（本线的 .mtp-iq4nl.ninfer 与原件都没有 -> 任何 --vision* 都会
-# "missing component vision" 起不来）。实测（构建史 §三·十，2026-10-10）：官方版 + --vision-cpu 起服成功，
+# 视觉：含 vision 组件的模型 = 【iq4nlvis 嫁接件】与【官方 Q8MTP 版】（前者 2026-10-10 晚新增）。
+#   .mtp-iq4nl.ninfer 与原件**没有** vision 组件 -> 对它们传任何 --vision* 都会启动即挂：
+#   "Qwen3.5 config: missing component vision"（2026-10-10 实测，日志 serve_20261010_025432）。
+#   => validate() 会对「模型不含视觉 + 开了视觉」直接告警，这是防该坑的关键。
+# 实测（构建史 §三·十，2026-10-10）：官方版 + --vision-cpu 起服成功，
 # weights 12.3→12.5 GiB、runtime 1.44 GiB、free 663.4 MiB，**设备视觉显存占用为零**；
 # 代价：图片被压到 256 merged tokens（约 512x512）、CPU 编码慢（one to a few seconds）。
+# iq4nlvis + 视觉：尚未实测（当晚 GPU 被用户的实机测试占用），池容量待定。
 VISION_OPTIONS = {
-    "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需官方版模型）", ["--vision"]),
-    "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存）", ["--vision", "--vision-residency", "overlay"]),
-    "cpu":     ("开·CPU 编码器（★不占设备视觉显存；需官方版模型）", ["--vision-cpu"]),
+    "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需含视觉模型）", ["--vision"]),
+    "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存；需含视觉模型）", ["--vision", "--vision-residency", "overlay"]),
+    "cpu":     ("开·CPU 编码器（★不占设备视觉显存；需含视觉模型）", ["--vision-cpu"]),
     "off":     ("关（★本线定稿 · 纯文本配置）",   []),
 }
 SAMPLE_OPTIONS = {
@@ -302,7 +320,10 @@ PRESET_PROFILES = {
     "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
     "Coder390-思考 medium":  dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
     "Coder390-关思考对照":    dict(DEFAULTS, think="none", tb="none"),   # 仅 A/B 对照：本模型不思考没法用
-    "Coder390-视觉档":       dict(DEFAULTS, model="q8mtp", vision="cpu", kvcap="20480"),  # 官方版 + CPU 视觉（零设备视觉显存）
+    # 视觉档（2026-10-10 晚更新：改用嫁接件 iq4nlvis —— 同样的视觉塔，但 MTP 头小 202 MB。
+    #   官方 q8mtp 退为参照件：它 40K 起不来，只能 20K；iq4nlvis 理论可配更大池）
+    "Coder390-视觉档":       dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),  # 保守（确定能起）
+    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="40960"),  # 试 40K（未实测；起不来就降池）
 }
 
 
@@ -330,6 +351,23 @@ def validate(combo, exe=None):
                      "（实测 40K 缺 100+ MiB）。选它时 GUI 会自动把池降到 20480。")
     if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
         warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
+    # ---- 2026-10-10 实测踩坑（日志 serve_20261010_025432）：模型与视觉必须配对 ----
+    # 模型不含 vision 组件却传 --vision* -> 引擎启动即挂
+    #   "Qwen3.5 config: missing component vision"（79 us 就失败，即"秒退"）。
+    # 这是防该坑的关键告警：此前 GUI 没有 iq4nlvis 档，用户只能选无视觉模型 + 手动开视觉。
+    _model = combo.get("model", "iq4nl")
+    _vis = str(combo.get("vision", "off"))
+    if _vis != "off" and _model not in VISION_CAPABLE_MODELS:
+        warns.append(f"模型【{_model}】不含 vision 组件，但你开了视觉（{_vis}）-> 引擎启动即挂："
+                     f"Qwen3.5 config: missing component vision。"
+                     f"要识图请选【iq4nlvis】（iq4_nl 骨架 + 视觉塔）或【q8mtp】（官方版）。")
+    if _vis == "off" and _model in VISION_CAPABLE_MODELS:
+        warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
+                     f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
+    _kv = str(combo.get("kvcap", "40960"))
+    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 24576:
+        warns.append("iq4nlvis 的池容量**尚未实测**（视觉塔 282 MiB）。参照：iq4nl 无视觉 40K "
+                     "实测 free 587.3 MiB；若起不来请把池降到 20480/24576。")
     if any(ord(c) > 127 for c in ROOT):
         warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
     return warns

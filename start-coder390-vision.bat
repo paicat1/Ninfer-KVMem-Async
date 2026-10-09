@@ -65,7 +65,7 @@ echo [warn  ] close other GPU apps first -- free VRAM swings ~250 MiB and decide
   --host 127.0.0.1 --port 8097 --model-id qwen3.8-27b-coder390-vision ^
   --max-context 262144 --kv-capacity 20480 --kv-dtype rk2v4-e8 --host-kv-mib 16384 ^
   --prefill-chunk 512 --spec mtp --draft-tokens 4 --vision-cpu ^
-  --default-max-tokens 8192 --default-reasoning-effort none --max-concurrency 1 ^
+  --default-max-tokens 8192 --default-reasoning-effort high --default-thinking-budget 16000 --max-concurrency 1 ^
   --max-shared-prefixes 0 --kv-lease-growth --recover-invariant-failures ^
   --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
 

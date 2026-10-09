@@ -140,12 +140,14 @@ PREFILL_OPTIONS = {
     "512":  ("512（★本线定稿 · 省 workspace）", ["--prefill-chunk", "512"]),
     "2048": ("2048",           ["--prefill-chunk", "2048"]),
 }
+# ⚠️ 本模型是 Coder390-**EfficientThink**：思考是它的核心能力，定稿必须开。
+#    "思考不额外占显存"（只是多生成 token）—— 关思考既不省显存、也没好处。
 THINK_OPTIONS = {
-    "none":   ("none（★本线定稿 · 关思考）", ["--default-reasoning-effort", "none"]),
+    "none":   ("none（关思考 · 仅 A/B 对照）", ["--default-reasoning-effort", "none"]),
     "low":    ("low",                      ["--default-reasoning-effort", "low"]),
-    "medium": ("medium",                   ["--default-reasoning-effort", "medium"]),
-    "high":   ("high",                     ["--default-reasoning-effort", "high"]),
-    "off":    ("--no-thinking（强制关）",    ["--no-thinking"]),
+    "medium": ("medium（省 token）",        ["--default-reasoning-effort", "medium"]),
+    "high":   ("high（★本线定稿 · EfficientThink 必开）", ["--default-reasoning-effort", "high"]),
+    "off":    ("--no-thinking（强制关 · 仅对照）", ["--no-thinking"]),
 }
 MAXOUT_OPTIONS = {
     "default": ("默认(65535)", []),
@@ -178,10 +180,10 @@ HEMOSTAT_OPTIONS = {
 # 思考预算档：--default-thinking-budget N —— 治“思考墙死循环”（xhigh 思考烧光输出预算 → 空正文）。
 # 这是服务端(argv)级设置；OpenAI chat 端点不解析请求里的 thinking_budget 字段（仅 Anthropic 的 thinking.budget_tokens 读它）。
 TB_OPTIONS = {
-    "none":   ("无（★本线定稿 · 定稿关思考）",      []),
+    "none":   ("无（不设上限 · 有思考墙风险）",      []),
     "8000":   ("8000",          ["--default-thinking-budget", "8000"]),
     "12000":  ("12000",         ["--default-thinking-budget", "12000"]),
-    "16000":  ("16000（开思考时推荐）",  ["--default-thinking-budget", "16000"]),
+    "16000":  ("16000（★本线定稿 · 防思考墙）",  ["--default-thinking-budget", "16000"]),
     "24000":  ("24000",         ["--default-thinking-budget", "24000"]),
     "32000":  ("32000",         ["--default-thinking-budget", "32000"]),
 }
@@ -224,8 +226,14 @@ DEFAULTS = {
     #   ctx     256k     = 262144 = 模型原生上限（逻辑上下文；池外部分下沉 host）
     #   kvcap   40960    = 40K 全速池（显存内直接可读的范围）
     #   prefill 512      = 比官方 1024 省 workspace（实测起服余量更大）
+    #   think   high     = ★2026-10-10 用户裁决：本模型是 Coder390-**EfficientThink**，
+    #                      **思考是它的核心能力**（"不思考没法用"）。原定稿 "none" 是照抄
+    #                      旧 Bonsai 口径的残留，属错误配置，已改。
+    #                      ⚠️ **思考不额外占显存**（只是多生成 token），关思考既不省显存也没好处。
+    #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
+    #                      OpenAI chat 端点不转发请求里的 thinking_budget，只能靠服务端此参数。
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "40960", "hostkv": "16384",
-    "prefill": "512", "think": "none", "tb": "none", "maxout": "32768", "vision": "off",
+    "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
 }
 
@@ -264,7 +272,8 @@ PRESET_PROFILES = {
     "Coder390-裸解码对照":  dict(DEFAULTS, spec="k0"),              # 无投机（所有 A/B 的对照臂）
     "Coder390-MTP 大池":    dict(DEFAULTS, kvcap="49152"),          # 48K 池（实测缺 49 MiB；清 GPU 占用后可能过）
     "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
-    "Coder390-思考档":      dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
+    "Coder390-思考 medium":  dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
+    "Coder390-关思考对照":    dict(DEFAULTS, think="none", tb="none"),   # 仅 A/B 对照：本模型不思考没法用
 }
 
 

@@ -32,6 +32,7 @@
 | 2026-10-10 | v22 | **两处定稿纠错（用户裁决）**：① ⛔ 定稿误设"关思考"（`think none`/`tb none`，照抄旧 Bonsai 口径）—— 本模型是 **Coder390-EfficientThink，思考是核心能力**；**思考不占显存**（只多生成 token）⇒ 全部改为 **`high` + `tb 16000`**（launcher DEFAULTS/选项表/预设 + 3 bat + profiles 4 档）；② ⛔ 我擅自起服且留最小化窗口 ⇒ 已精确清理，**新增纪律：起服一律归用户，禁止隐藏窗口** |
 | 2026-10-10 | v23 | **测试工具就绪（挂账 15/19 的可执行部分，均不需 AI 起服）**：① ★关键取证 —— **ngram 默认就开着**（`product/speculative_options.h:32-41`：`--spec` 非 none 时 `ngram_draft_tokens=15`）⇒ 此前 MTP 读数已含 ngram；② 新增 **`scripts\bench_spec.py`**（8 类固定任务 → 从日志解析 decode/接受率 → 分布 + 两臂 `--baseline` 对比；**不启动任何进程**；正则已用真实日志跑通 parse+summarize，并修掉一个 `acccepted` 拼写 bug）；③ 新增 **`start-coder390-mtp-nongram.bat`**（ngram 对照臂，端口 8096）；④ `serve_tee.py` 把 `[ninfer] ring retrieve:` 纳入同段首末压缩（用户追加反馈的刷屏源） |
 | 2026-10-10 | v24 | **GUI 加"模型"维度（用户裁决，重要遗漏修复）**：用户指出「**GUI 是唯一入口，那批 bat 压根没人用**」，而模型此前**写死在 iq4_nl 版** ⇒ "要用视觉就得换官方版"这条**成了只能靠 bat 的死路**。已加：`MODEL_OPTIONS`/`MODEL_PATHS` 三档（iq4nl★ / q8mtp 官方含视觉 / orig 原件）、`DIMENSIONS` 把**模型放第一位**、`build_command` 用所选模型（位置参数）、**选官方 Q8MTP 自动降池到 20480**（`_apply_model_coupling()`，并同步下拉显示）、`validate` 两条新告警（官方版池过大 / 原件配非 k0 档）、预设与 profiles 增 **"★Coder390-视觉档"**；顺带修 `⇒`(U+21D2) **GBK 无法编码导致 print 崩溃**的问题（全量替换为 `->`） |
+| 2026-10-10 | v25 | **§三·十二 两项取证**：① `--default-thinking-budget` **不占显存**（纯行为控制参数；全树 27 处命中无一用于资源分配）；② ★**挂账 35**：把官方版 vision 组件嫁接到 iq4_nl 版 —— 取证 vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**，收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存；给出五步技术路径与风险 |
 
 ---
 
@@ -843,6 +844,68 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·十二、2026-10-10 · 两项取证：思考预算是否占显存 + 视觉塔嫁接挂账
+
+### 1. `--default-thinking-budget` 不占显存（回答用户提问）
+
+**用户问**：思考预算是要占显存吗？
+
+**答：不占。** 取证如下：
+
+```
+[EVIDENCE] serve_options.h:107     std::optional<std::uint32_t> default_thinking_budget;   ← 纯数值参数
+[EVIDENCE] serve_options.cpp:531-536   仅做范围校验（0 < budget <= uint32 上限）后存下，无任何资源分配
+[EVIDENCE] translate.cpp:426-429   进入每请求的执行选项：
+             options.execution.thinking.budget = request.thinking_budget
+                                                 ? request.thinking_budget : server.default_thinking_budget;
+[EVIDENCE] request_log.cpp:232-247 / :543 / :619-623   只用于**日志记录**（thinking_budget=…）
+[EVIDENCE] 全树 27 处 thinking_budget 命中中，**没有一处**把它用于显存 / workspace / 池容量计算
+```
+
+**⇒ 结论**：思考预算是**行为控制参数**（限制"最多思考多少 token"，防"思考墙死循环"烧光输出预算导致空正文），**既不省显存也不费显存**。
+**唯一与显存有关的间接影响**：思考产生的 token 会进 KV 缓存 ⇒ 占 KV 池 —— 但这是"token 数"的常规成本，与是否设预算无关。
+
+### 2. ★挂账 35：把官方版的 vision 组件嫁接到 iq4_nl 版
+
+**用户要求**：把官方那个模型里的视觉塔摘出来，用在我们的模型上。
+
+**为什么值得做（收益）**：
+- 官方 Q8MTP 版能跑视觉，但它的 **MTP 头是 451 MB**（q8_0）⇒ 实测只能配 **20K 池**（40K 起不来）；
+- 若把 vision 嫁接到 **iq4_nl 版**（头仅 **239 MB**）⇒ **省 212 MB** ⇒ 可望**同时**拿到「**大池 + 视觉**」。
+
+**取证（工作量与可行性）**：
+
+```
+[EVIDENCE] 组件结构对比（tools.artifact.inspect --json）：
+             iq4_nl 版  ：objects  804 | tensors  800 | resources 4 | bindings  979 | uses 619 | text+mtp
+             官方 Q8MTP ：objects 1139 | tensors 1133 | resources 6 | bindings 1420 | uses 784 | text+mtp+vision
+             ⇒ **vision 增量 = 335 对象（333 张量）+ 2 resources + 441 bindings + 165 uses**
+[EVIDENCE] vision 组件本体（官方版 inspect）：
+             config: model_type=qwen3_5_vision, depth=27, hidden_size=1152, intermediate_size=4304,
+                     num_heads=16, patch_size=16, temporal_patch_size=2, spatial_merge_size=2,
+                     num_position_embeddings=2304
+             target: "text"    ← 满足 companion() 的硬要求（config.cpp:50-52：target 非 text 会抛错）
+             resources: preprocessor_config.json / video_preprocessor_config.json
+[EVIDENCE] 引擎只从**同一 artifact** 取 vision（config.cpp:48-54 companion() + :323）
+           ⇒ 不能外部加载，**只能嫁接进容器**
+```
+
+**技术路径（五步）**：
+1. 读官方版 `components.vision`（config + target + resources 三项）⇒ 写入新 artifact 的 components；
+2. 复制 **335 个 vision 对象**（ID 不变 ⇒ bindings 可直接复用）；
+3. 复制涉及 vision 的 **441 条 bindings + 165 条 uses**（**这是主要工作量**，比对象还多）；
+4. 复制 **2 个 resources**（preprocessor JSON）；
+5. 校验：inspect 对比 + `--vision-cpu` 起服 + 实图识图。
+
+**风险与难点**：
+- **bindings / uses 是目录级结构**（不是对象字段）⇒ 需在新目录**追加**（`writer.py` 可能要扩展"追加 binding/use"能力）；
+- 若 bindings 引用了不存在的对象 ID ⇒ 引擎加载时报错（需前置校验）；
+- 嫁接过 vision 后**必须确认 text 部分零改动**（否则污染已验收的 MTP 与长上下文检索结果）。
+
+**估算**：比 MTP 头转换复杂得多（对象 5→335、bindings 0→441），但**性质是机械复制**（无重新量化、无精度损失）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -879,6 +942,8 @@ negative control: PASS (refused as required)
 | 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
 | 33 | **定稿误设"关思考"** | ✅ 已纠正（§三·十一）：改 `high` + `tb 16000`（launcher + 3 bat + profiles 4 档） |
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
+| 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求挂账） | 📋 **已挂账 + 完成取证**（§三·十二）：vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**；收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存。**待裁决是否施工**（比 MTP 头复杂，但性质是机械复制） |
+| 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

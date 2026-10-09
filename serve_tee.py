@@ -5,6 +5,13 @@
 并**同时落盘**到 <logfile> —— 供 grep 取证（如 `kvmem_score: SELECT`）。
 关闭本控制台窗口 = 终止本进程 = 引擎随控制台退出（**关窗=停服**）。
 颜色：控制台窗口给关键数字上色（decode 绿 / prefill 黄 / 接受率红）；**日志文件始终原文**（不带色，保 grep）。
+
+窗口显示模式（环境变量 SERVE_TEE_MODE，默认 slim）：
+  slim = 精简：隐藏 KVMem KEPT 刷屏行 + 引擎硬编码诊断行（[ring] budgets / [ninfer] mask hidden /
+         [ninfer] demote-other short）；SELECT / harvest 同段只留首末条；业务行全显。
+  full = 全部：不过滤（查错用）。
+**两种模式日志文件都全文落盘**（保 grep 取证）。
+
 colorama 可选：有则启用 Windows ANSI/VT 色码；无则降级无色，不阻断 serve。
 """
 import os
@@ -40,6 +47,27 @@ def is_kept_noise(line):
 def is_select(line):
     """判定是否为 KVMem SELECT 决策行（`kvmem_score: SELECT ...`）。精简模式下只留每段首末条。"""
     return line.startswith("kvmem_score: SELECT")
+
+
+def is_diag_noise(line):
+    """引擎的**硬编码 fprintf(stderr) 诊断行**：无开关、按步/按映射打印，实测严重刷屏。
+    slim 模式下窗口隐藏；**日志文件仍全文落盘**（查错时切 SERVE_TEE_MODE=full 或直接 grep 日志）。
+
+    三类及出处（2026-10-10 取证）：
+      ① `[ring] budgets: skeleton=.. evidence=.. recent=.. free=.. (pool ..)`
+         context.cpp:2481 —— **每次映射都打**，是刷屏主力；
+      ② `[ninfer] mask hidden: which=.. site=.. span=.. resident=.. hidden=..`
+         context.cpp:2136 —— 源码注释本意是"隐藏 0 页就静默（no per-step spam）"，
+         但实测常态 hidden=1 ⇒ **每步都打**；
+      ③ `[ninfer] demote-other short: freed=.. want=.. slots=.. invalid=..`
+         context.cpp:1925 —— 降级不足时打；常态 freed=0 want=1 每轮都出现。
+
+    注意：这三类在**异常**场景下仍有信息量（如 host KV 不足、掩码异常），
+    所以只在窗口的 slim 模式隐藏，日志文件与 full 模式一律保留。
+    """
+    return (line.startswith("[ring] budgets:")
+            or line.startswith("[ninfer] mask hidden:")
+            or line.startswith("[ninfer] demote-other short:"))
 
 
 def is_harvest_note(line):
@@ -123,8 +151,8 @@ def main(argv):
         if mode == "full":
             emit(text)                       # 全部：不过滤
         else:                                # 精简
-            if is_kept_noise(text):
-                pass                         # KEPT 刷屏行：窗口隐藏
+            if is_kept_noise(text) or is_diag_noise(text):
+                pass                         # KEPT 刷屏行 + 引擎诊断行（budgets / mask hidden / demote-other short）：窗口隐藏
             elif is_select(text) or is_harvest_note(text):
                 sel_buf.append(text)         # SELECT / harvest 告警：同段攒着，段末只留首末
             else:

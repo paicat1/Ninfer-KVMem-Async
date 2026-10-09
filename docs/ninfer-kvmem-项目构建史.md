@@ -28,6 +28,7 @@
 | 2026-10-10 | v18 | **Bonsai 口径清除**（用户裁决）：删 4 个 Bonsai 启动脚本、删 8 个 Bonsai 预设、profiles 14→**4 档**（只留 ★）、UI 标题与 docstring 改本线口径；保留 8 处历史沿革字样（非功能残留）与 `BONSAI_ngram_audit_report.md`（ngram 参考件） |
 | 2026-10-10 | v19 | **launcher 定稿标注 + 引擎下拉收口 + 双击修复**：14 个参数维度的定稿值全部标 ★（实测核对无遗漏）；DFlash2 档（包内无组件）与 vision 开档（必失败）加不可行标注；引擎下拉 **3→1**（自编现役；原含不存在的回退锚与行为路径不同的官方件），3 处 `exe or ENGINE` 回退值同步；`启动器.bat` 修复双击失效（UTF-8 中文注释 + LF 换行 + 多行 if 块 ⇒ ASCII + CRLF + goto） |
 | 2026-10-10 | v20 | **§三·十**：① 定稿参数"闪退"根因 = **只差 20.4 MiB**（起服瞬间可用量波动；同参数 2 分钟后复跑成功）⇒ 非参数错；② ★**视觉 CPU 模式实测可行**：官方 Q8MTP 版 + `--vision-cpu` 起服成功（weights 12.5 GiB、free 663.4 MiB、设备视觉显存占用为零），代价=图片压到 256 merged tokens + CPU 编码慢；③ vision 选项标注修正（"必失败"仅对本线 iq4_nl 版成立） |
+| 2026-10-10 | v21 | **日志降噪 + vision 启动脚本**：`serve_tee.py` 新增 `is_diag_noise()`（slim 模式隐藏 `[ring] budgets` / `[ninfer] mask hidden` / `[ninfer] demote-other short` 三类引擎硬编码诊断行，**日志文件仍全文落盘**）；`start-coder390.bat` / `-mtp.bat` 改经 `serve_tee.py` 启动（精简视图 + 日志）；**新增 `start-coder390-vision.bat`**（官方 Q8MTP + `--vision-cpu` + 20K 池）；4 bat 均 ASCII-only + CRLF，实测 `/v1/models` HTTP 200 |
 
 ---
 
@@ -826,6 +827,9 @@ negative control: PASS (refused as required)
 | 27 | **定稿参数闪退**（缺 20.4 MiB） | ✅ 已定位（§三·十）：非参数错，是起服瞬间可用量波动 ⇒ 关 GPU 占用 / 重试 / 换 20K 池档 |
 | 28 | **视觉能力**（官方版 + `--vision-cpu`） | ✅ 实测可行（§三·十）；**待裁决**：是否给 launcher 加"模型档"维度（当前 MODEL 固定为 iq4_nl 版，选 vision 会失败） |
 | 29 | ngram 实测（本线第三目标） | 待办 |
+| 30 | **日志刷屏降噪**（`[ring] budgets` / `mask hidden` / `demote-other short`） | ✅ 已完成：serve_tee slim 模式隐藏三类诊断行；日志文件仍全文落盘 |
+| 31 | **视觉启动脚本** | ✅ 已完成：`start-coder390-vision.bat`（官方版 + `--vision-cpu` + 20K 池） |
+| 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
 | 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

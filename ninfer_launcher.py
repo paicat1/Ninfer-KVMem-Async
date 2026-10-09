@@ -155,11 +155,15 @@ MAXOUT_OPTIONS = {
     "32768":   ("32768（★本线定稿）", ["--default-max-tokens", "32768"]),
     "1024":    ("1024",     ["--default-max-tokens", "1024"]),
 }
+# 视觉：**只有【官方 Q8MTP 版】含 vision 组件**（本线的 .mtp-iq4nl.ninfer 与原件都没有 ⇒ 任何 --vision* 都会
+# "missing component vision" 起不来）。实测（构建史 §三·十，2026-10-10）：官方版 + --vision-cpu 起服成功，
+# weights 12.3→12.5 GiB、runtime 1.44 GiB、free 663.4 MiB，**设备视觉显存占用为零**；
+# 代价：图片被压到 256 merged tokens（约 512x512）、CPU 编码慢（one to a few seconds）。
 VISION_OPTIONS = {
-    "on":      ("开·GPU 编码器（本线必失败：无 vision 组件）", ["--vision"]),
-    "overlay": ("开·主机内存 overlay（本线必失败）", ["--vision", "--vision-residency", "overlay"]),
-    "cpu":     ("开·CPU 编码器（本线必失败）", ["--vision-cpu"]),
-    "off":     ("关（★本线定稿 · 容器无 vision 组件）",   []),
+    "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需官方版模型）", ["--vision"]),
+    "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存）", ["--vision", "--vision-residency", "overlay"]),
+    "cpu":     ("开·CPU 编码器（★不占设备视觉显存；需官方版模型）", ["--vision-cpu"]),
+    "off":     ("关（★本线定稿 · 纯文本配置）",   []),
 }
 SAMPLE_OPTIONS = {
     "shipped":  ("官方(0.7/0.9/20, presence0)（★本线定稿）", ["--presence-penalty", "0", "--temperature", "0.7", "--top-p", "0.9", "--top-k", "20"]),

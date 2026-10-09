@@ -27,6 +27,7 @@
 | 2026-10-09 | v17 | **三·九 启动器定稿**：`ninfer_launcher.py`（9 处：模型指向 iq4_nl 件 / 池 40960 / window 32768 / DEFAULTS / 选项表 / 预设 / 回退值 / 提示）+ 两个 `start-coder390*.bat`（参数与实测成功命令逐字对齐，补 hemostat 两旗）+ profiles 增 4 个 ★定稿档；构造命令与实测逐字一致 |
 | 2026-10-10 | v18 | **Bonsai 口径清除**（用户裁决）：删 4 个 Bonsai 启动脚本、删 8 个 Bonsai 预设、profiles 14→**4 档**（只留 ★）、UI 标题与 docstring 改本线口径；保留 8 处历史沿革字样（非功能残留）与 `BONSAI_ngram_audit_report.md`（ngram 参考件） |
 | 2026-10-10 | v19 | **launcher 定稿标注 + 引擎下拉收口 + 双击修复**：14 个参数维度的定稿值全部标 ★（实测核对无遗漏）；DFlash2 档（包内无组件）与 vision 开档（必失败）加不可行标注；引擎下拉 **3→1**（自编现役；原含不存在的回退锚与行为路径不同的官方件），3 处 `exe or ENGINE` 回退值同步；`启动器.bat` 修复双击失效（UTF-8 中文注释 + LF 换行 + 多行 if 块 ⇒ ASCII + CRLF + goto） |
+| 2026-10-10 | v20 | **§三·十**：① 定稿参数"闪退"根因 = **只差 20.4 MiB**（起服瞬间可用量波动；同参数 2 分钟后复跑成功）⇒ 非参数错；② ★**视觉 CPU 模式实测可行**：官方 Q8MTP 版 + `--vision-cpu` 起服成功（weights 12.5 GiB、free 663.4 MiB、设备视觉显存占用为零），代价=图片压到 256 merged tokens + CPU 编码慢；③ vision 选项标注修正（"必失败"仅对本线 iq4_nl 版成立） |
 
 ---
 
@@ -737,6 +738,63 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·十、2026-10-10 · 视觉能力可行性（用户提问）+ 定稿参数"闪退"根因
+
+### 1. 定稿参数"闪退"根因：只差 20.4 MiB（不是参数错）
+
+用户按定稿参数启动，窗口闪退。日志 `logs\serve_20261010_002718.log` 原文：
+
+```
+[EVIDENCE] ERROR engine init | FAILED while constructing the service: requested Engine runtime
+           reservation requires 1838389504 bytes, but only 1816981504 bytes are available
+           for runtime capacity
+```
+
+⇒ 缺口 = **20.4 MiB**（1,838,389,504 − 1,816,981,504 = 21,408,000 B）。
+⇒ **不是参数问题**：**同一组参数在 2 分钟后（00:29）复跑成功**（`free=508 MiB`，`listening on 8094`）。
+⇒ 根因 = §4.2/§4.4 已记录的**起服瞬间可用量波动（±250 MiB）**；用户当时环境比复跑时少约 170 MB。
+
+**三个解法**：① **起服前关 GPU 占用程序**（浏览器/Overlay；此前实测差 3.3 倍）② **重试**（碰高可用时刻）③ 换 `★Coder390-MTP 省显存（20K池）` 档。
+
+### 2. ★视觉能力：官方版 + `--vision-cpu` 实测可行（用户设想成立）
+
+**用户提问**：视觉塔选 CPU，能否"有视觉能力又不增显存"？**答案：能。**
+
+**源码取证**（`serve_options.cpp:291-297`）：
+
+```
+--vision-residency resident|overlay|cpu
+    overlay keeps the Vision tower in host memory and borrows device memory per image
+    cpu runs it on CPU threads with **no device Vision memory**, and caps
+    --vision-max-merged at 256 unless given
+--vision-cpu = --vision with --vision-residency cpu
+```
+```
+[EVIDENCE] serve_options.cpp:1154-1156: --vision-residency overlay or cpu requires --vision
+           ⇒ 必须有 vision 组件（本线 Coder390 容器没有 ⇒ 一律 "missing component vision"）
+[EVIDENCE] serve_options.cpp:1159-1161: CPU 模式自动把 --vision-max-merged 压到 256（约 512x512 像素）
+```
+
+**实测（2026-10-10 00:32，官方 Q8MTP 版 + `--vision-cpu` + ctx 262144 + kv 20480 + rk2v4-e8）**：
+
+```
+[EVIDENCE] loading weights | 12.5 GiB
+[EVIDENCE] engine ready | qwen3.8-27b-coder390-Q2LynnStyle-Q8Mtp | total 13.3s | weights 12.5 GiB
+[EVIDENCE] capacity | KV 20,480 tokens, rk2v4-e8 | pages 320/4,096 | runtime 1.44 GiB | free 663.4 MiB  ✅
+[EVIDENCE] listening on http://127.0.0.1:8096
+```
+
+**⇒ 结论**：**可行** —— 有视觉能力，设备视觉显存占用为零（weights 12.3 → 12.5 GiB，+0.2 GiB 为 vision 塔权重）。
+
+**⚠️ 四个前提 / 代价**：
+
+1. **必须用官方 Q8MTP 版** —— 本线的 `.mtp-iq4nl.ninfer` 与原件**都没有 vision 组件**，任何 `--vision*` 参数都会 `missing component vision` 起不来；
+2. 官方版 MTP 头是 451 MB（q8_0），比自转 iq4_nl 多 212 MB ⇒ **必须降池**（实测降到 20K 池）；
+3. **图片被压到 256 merged tokens**（约 512×512），更大的图会降采样；
+4. **CPU 编码慢**（引擎注释：one to a few seconds）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -765,6 +823,9 @@ negative control: PASS (refused as required)
 | 24 | Bonsai 口径清除（4 脚本 + 8 预设 + profiles + UI 文本） | ✅ **已完成**（2026-10-10 用户裁决；详见三·九末节） |
 | 25 | 启动器改动提交（launcher + 2 bat + profiles + 构建史 v17/v18） | 待批准（用户已口头同意，待执行） |
 | 26 | `docs\BONSAI_ngram_audit_report.md` 是否改名（去掉 BONSAI 前缀） | 待裁决（内容是 ngram 机制，本线要用；改名可避免误删） |
+| 27 | **定稿参数闪退**（缺 20.4 MiB） | ✅ 已定位（§三·十）：非参数错，是起服瞬间可用量波动 ⇒ 关 GPU 占用 / 重试 / 换 20K 池档 |
+| 28 | **视觉能力**（官方版 + `--vision-cpu`） | ✅ 实测可行（§三·十）；**待裁决**：是否给 launcher 加"模型档"维度（当前 MODEL 固定为 iq4_nl 版，选 vision 会失败） |
+| 29 | ngram 实测（本线第三目标） | 待办 |
 | 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

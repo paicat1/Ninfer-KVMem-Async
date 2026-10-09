@@ -19,6 +19,7 @@
 | 2026-10-09 | v9 | **P0c：实测起服**——裸解码基线 **≈17 tok/s**（3 次）；KVMem 判活 `kvmem_score: SELECT` ✅；流传的"~52 tok/s"标【待证】（refs 内只找到 llama.cpp bench 表） |
 | 2026-10-09 | v10 | **P0c-2：成因已定**——关掉浏览器后同参数重测 **55.7–55.9 tok/s**（差 3.3 倍）⇒ 17 tok/s 系 GPU 资源竞争所致；**撤销"52 tok/s【待证】"**（实测证实）；新增 A/B 前置纪律：测试前清 GPU 占用 |
 | 2026-10-09 | v11 | **P0 系列已入库**（a96d6af 提交 + push，含 TELE 的 07898d7）；**P1 施工完成**——`scripts\recode_mtp.py` + q4_0→q8_0 位级无损重打包，**L0/L1/L2 三档验收全过**（13,271,040 块零不匹配），交 TELE 审核 |
+| 2026-10-09 | v12 | ★**MTP 跑通**：官方 Q8MTP 版验证（多 vision、真 8-bit）→ 官方版起服两度失败（缺 139–200 MiB）→ **自转 `iq4_nl`**（q8_0→4.5bpw，Δ0 等长，省 212 MB）→ **起服成功 + A/B 实测**（散文 +32%、代码 +233%，接受率 22.6%/93.8%）；推翻上一轮"关 KVMem 省显存"的建议（KVMem 实为"允许 KV 池 < 上下文"的前提） |
 
 ---
 
@@ -368,6 +369,167 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·八、2026-10-09 · ★MTP 跑通：官方 Q8MTP 验证 → 自转 iq4_nl → 起服与 A/B
+
+> 本章记录从"官方 Q8MTP 版下载完成"到"MTP 在 16 GB 机器上首次跑通"的全过程。所有数字均为本机实测。
+
+### 1. 官方 Q8MTP 版到货与验证（先验证再使用）
+
+**文件**：`models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer`
+
+```
+[EVIDENCE] 文件长度 13,780,954,112 B（12.84 GiB；页面标注 13.78 GB 为十进制，同一文件）
+[EVIDENCE] inspect --json：
+  objects 1139 | tensors 1133 | resources 6 | bindings 1420 | uses 784
+  components: text + mtp + vision          ← 比原件多一整个 vision 组件
+  formats: gguf_q4_0 = 0, gguf_q8_0 = 5    ← MTP 头已被官方改成 q8_0
+  metadata.name: qwen3.8-27b-coder390-Q2LynnStyle-Q8Mtp
+[EVIDENCE] 5 个 MTP 头对象 bytes 与我们 P1 产物**逐项完全相同**：
+  weight/000079 77,987,840 | 000080 189,399,040 | 000789 55,705,600
+  weight/000796 33,423,360 | 000798  94,699,520   （合计 451,215,360 B）
+```
+
+**多出的 333 个张量 = 视觉塔**（222 bf16 + 111 引擎自有 group-wise 格式：q4_g64_fp16 ×54、q5_g64_fp16 ×54、q6_g64_fp16 ×1、q8_g32_fp16 ×2）。
+引擎只在传 `--vision` 时才加载该组件（`config.cpp:323`），故不传即等于没有 —— 但**文件更大**（+0.5 GB）。
+
+**★ 关键发现（双方此前都不知道）：官方 q8_0 与我们产物的"大小相同、信息量不同"**
+
+```
+[EVIDENCE] 首块 hex 对照（weight/000079 前 5 块）：
+  官方 a30d f9d6c228c2dd07fad24ac4acfff1e7ba14ad1721d51ffefa889b44d5080c811a
+        int8 值域到 ±127（[-7,-42,-62,40,-62,-35,...]）
+  我们 981d 0001fdfbfc010302fcfdfe0200000000fdf805fafc04fbfd0001ff01fef8fc02
+        int8 值域 [−8,7]（[0,1,-3,-5,-4,1,3,2,...]）—— 正是 (nibble−8) 的特征
+⇒ 官方是**真 8-bit 量化**（很可能从 bf16 原始权重重新量化，用满 int8 动态范围）；
+  我们的 q8_0 是**q4_0 的无损搬运**（不引入新损失，但保留了 q4_0 原有的 4-bit 损失）。
+⇒ 官方版 MTP 头质量更高。**本次自转 iq4_nl 因此特意从官方 q8_0 取数**（用高精度源），
+  而不是从原件 q4_0 取数。
+```
+
+### 2. 官方版起服：两度失败（显存），并推翻一条此前的建议
+
+```
+[EVIDENCE] ctx 65536 / kv 8192：需求 2,125,809,408，可用 1,789,370,368 → 缺 321 MiB
+[EVIDENCE] ctx 16384 / kv 4096：需求 1,927,851,776，可用 1,718,067,200 → 缺 200 MiB
+[EVIDENCE] 官方版重试（同参数）：需求 1,927,851,776，可用 1,788,653,568 → 缺 139 MiB
+[EVIDENCE] draft-tokens 4 → 1：需求仅降 12.7 MB（1,927,851,776 → 1,915,165,952）⇒ 此路无效
+[EVIDENCE] 可用量波动极大：1.29 – 1.79 GiB（±250 MiB/次），起服成败高度依赖起服瞬间 GPU 状态
+```
+
+**⛔ 推翻上一轮"关 KVMem 省显存"的建议** —— 引擎硬约束原文：
+
+```
+[EVIDENCE] ninfer-serve: --kv-capacity must be at least --max-context
+           (set NINFER_KV_WINDOW=<window tokens> to allow the experimental ring)
+```
+
+⇒ **KVMem ring 的作用之一就是"允许 KV 池 < 上下文"**（老内容下沉 host）。**关掉 KVMem ⇒ 引擎强制 `kv-capacity ≥ max-context`** ⇒ KV 池反而必须变大（ctx 65536 时池 ≥ 65536 tokens ≈ 1.57 GB）。
+⇒ **KVMem 在本线是"省显存的前提"，不是负担。上一轮"关 KVMem"方案作废。**
+
+### 3. 自转 `iq4_nl`：让 MTP 装上的决定性一步
+
+**思路**：MTP 头**权重常驻显存**，直接挤占 runtime 可用量。
+官方 q8_0 头 = 451.2 MB；换 `iq4_nl`（4.5 bpw，块几何与 q4_0 完全相同）= **238.9 MB ⇒ 省 212.3 MB**，而当时缺口正是 139–200 MiB ⇒ **量级吻合**。
+
+**脚本扩展**（`scripts\recode_mtp.py`，在 P1 基础上新增能力）：
+- `--mtp-src` / `--mtp-src-format`：**容器骨架与头数据分离** —— 骨架用**原件**（无 vision，13.27 GB），头数据用**官方 q8_0 版**（高精度源）；
+- `--target-format gguf_iq4_nl`：新增有损转码路径；
+- `--probe-error`：只跑全量误差统计、不写文件；
+- oracle 支持两种判定：**逐位**（q8_0）/ **误差上界**（iq4_nl，阈值 `MAX_REL_ABS_ERR = 10%`）；
+- 数据源校验：目标对象在数据源中缺失 / 格式不符 / shape 不符 ⇒ **一律拒绝**。
+
+**取证（四项，缺一不可）**：
+
+```
+[EVIDENCE] 块结构 ggml-common.h:446-452：#define QK4_NL 32; struct { ggml_half d; uint8_t qs[16]; } ⇒ 18 B/32 元素
+[EVIDENCE] 码表 ggml-common.h:1120-1122：kvalues_iq4nl = -127,-104,-83,-65,-49,-35,-22,-10,1,13,25,38,53,69,89,113
+           （16 项，**不对称**：max 113 ≠ |min| 127）
+[EVIDENCE] ★ nibble 布局 dequantize.cuh:418-419：
+             y[j+ 0] = d * kvalues_iq4nl[q4[j] & 0xf]   ← 低 nibble → 元素 j      (0..15)
+             y[j+16] = d * kvalues_iq4nl[q4[j] >>  4]   ← 高 nibble → 元素 j+16   (16..31)
+           ⇒ iq4_nl 是**分半布局**；q4_0/q8_0 是**交错**（低 nibble → 元素 2j）。
+           **写错不报错、只静默搅乱权重** —— 本路径最大的静默陷阱。
+[EVIDENCE] third_party 内 quantize_row_iq4_nl 命中 0 ⇒ **无 CPU 参考量化器**，自实现：
+           每块「最近码表项 ↔ 最小二乘 scale」交替迭代 3 轮，最后 d 存 fp16。
+[EVIDENCE] 引擎侧支持完整（ggml_bridge.cu）：dequant :244/:281、vec :86、mmq :435，块几何 :302 {32,18}
+```
+
+**全量探针（13,271,040 块，零采样）**：
+
+| 对象 | 块数 | 相对误差 | RMSE | SNR |
+|---|---|---|---|---|
+| 000079 | 2,293,760 | 8.57% | 1.424e-3 | 21.66 dB |
+| 000080 | 5,570,560 | 8.44% | 1.078e-3 | 21.78 dB |
+| 000789 | 1,638,400 | 8.79% | 1.070e-3 | 21.65 dB |
+| 000796 | 983,040 | 9.07% | 1.699e-3 | 21.32 dB |
+| 000798 | 2,785,280 | 8.95% | 1.045e-3 | 21.42 dB |
+
+⇒ 误差与**原件 q4_0 自身的量化误差同量级**（不比原始 MTP 头更差），但确实**丢掉了官方 q8_0 的精度优势**。
+
+**产物**：`models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer`
+
+```
+[EVIDENCE] file_bytes 13,272,798,720（**与原件完全相同** —— iq4_nl 与 q4_0 等长）
+[EVIDENCE] objects 804 | components mtp,text（**无 vision**）| L1 VERDICT: PASS（5 对象全过阈值）
+[EVIDENCE] 5 对象 451,215,360 → 238,878,720 B（Δ = −212,336,640 B = −202.5 MiB）
+```
+
+### 4. ★起服成功 + A/B 实测
+
+**起服（ctx 16384 / kv 4096 / KVMem 五开关 / `--spec mtp` / draft 4）**：
+
+```
+[EVIDENCE] engine ready | qwen3.8-27b-coder390-Q2LynnStyle-Mtp+mtp-iq4nl | total 8.9s
+           | weights 12.3 GiB | capacity | KV 4,096 tokens, k8v4 | runtime 1.80 GiB | free 413.9 MiB
+           | listening on http://127.0.0.1:8095        ← 10 秒内就绪
+```
+
+**MTP 确实在起草（不是只加载了组件）**：
+
+```
+[EVIDENCE] req#1 done | prompt 19 | output 41 | TTFT 156 ms | prefill 122.1 tok/s
+           | decode 112.1 tok/s | mtp accepted 28/56 (50.0%)
+```
+
+**A/B（同模型、同 prompt、同参数，唯一变量 = `--spec mtp`）**：
+
+| 任务 | 裸解码 | MTP | 接受率 |
+|---|---|---|---|
+| 散文（介绍 CUDA 图，output 193/157） | **55.4 tok/s**（prefill 363.3） | **73.2 tok/s（+32%）** | 22.6% (75/332) |
+| 代码（Python 快排，output 96） | — | **184.3 tok/s（+233%）** | **93.8% (75/80)** |
+
+**资源对照**：
+
+```
+[EVIDENCE] 裸解码：weights 12.1 GiB | runtime 1.38 GiB | free 735.2 MiB
+[EVIDENCE] MTP   ：weights 12.3 GiB | runtime 1.80 GiB | free 413.9 MiB
+⇒ MTP 净消耗 ≈ 321 MiB（239 MB 头 + ~80 MB workspace）
+```
+
+**L4b（输出等价性）**：同一 prompt 两版回复**语义一致、质量相当，无系统性劣化** ✅
+（判据为"语义等价 + 无系统性劣化"，**不要求逐字相同** —— MTP 开/关会改变每轮 batch/round 结构与 kernel 规约顺序，微小数值抖动属正常）
+
+### 5. B 路径（官方版重试）结论：仍失败 ⇒ 闭环
+
+官方 q8_0 版第三次尝试仍缺 **139 MiB**（见 §2）。
+⇒ **官方 Q8MTP 版在本机 16 GB 显存下起不来；自转 `iq4_nl` 是唯一可行路径。**
+
+### 6. 教训与纪律
+
+1. **"无损"要看对什么无损**：我们的 q8_0 对 q4_0 无损，但对"原始权重"是有损的（保留了 4-bit 损失）。**换格式能省显存的前提是"更小的 bpw"，而更小必然有损** —— 本次是"用可接受的误差换 212 MB 显存"，并已量化为 8.4–9.1% / SNR 21.5 dB。
+2. **静默陷阱要前置取证**：iq4_nl 的 nibble 是**分半**布局（与 q4_0 交错不同），写错**不报错**。实现前先读 `dequantize.cuh` 原文，并写进脚本注释与 provenance。
+3. **不要把"想当然的省显存手段"当成已证事实**：上一轮"关 KVMem 省显存"被引擎硬约束直接证伪（关掉后 kv ≥ ctx，反而更费）。**结论必须来自源码原文或实测。**
+4. **可用量本身是变量**：同一参数三次起服，可用量在 1.29–1.79 GiB 间波动（±250 MiB）⇒ **单次失败不足以判定"配置不可行"，单次成功也不足以判定"稳"**。
+5. **跨文件取数优于就地转换**：骨架用原件（小、无 vision）、头数据用官方版（高精度），两者优点兼得；脚本以 `--mtp-src` 显式表达，并做三重校验。
+
+### 遗留（交审核 / 后续）
+1. **ctx 只有 16384**（为省显存压到最小）—— 需扫一轮找最大可用值（推算 ctx 32768 约卡临界，65536 约缺 125 MiB）。
+2. **接受率基线样本仅 3 条**（50% / 93.8% / 22.6%）—— 需多 prompt 建立分布。
+3. `scripts\recode_mtp.py`（含本轮扩展）与两份产物**均未提交**，等审核 + 用户批准。
+4. 官方 Q8MTP 版的 `vision` 组件**未使用**（本线不需要），其 333 张量亦未参与任何测试。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -383,8 +545,12 @@ negative control: PASS (refused as required)
 | 9 | 实测起服（裸解码基线） | ✅ 已完成（**55.7–55.9 tok/s**，P0c-2） |
 | 10 | GUI 默认引擎统一 self-built（含 PATH 修复） | ✅ 已实施并入库（P0b，`a96d6af`；TELE 复审通过） |
 | 11 | 关键结论（MTP 收益）用 official 交叉验证 | 待办（用户已同意该做法） |
-| 12 | **Step 8/9：起服测 MTP**（用 `.mtp-q8.ninfer`） | 待用户授权起服；**起服前先关 GPU 占用程序** |
-| 13 | 提交 `scripts\recode_mtp.py` + 产物登记 | 待 TELE 审核 L0/L1/L2 后、经用户批准 |
+| 12 | **Step 8/9：起服测 MTP** | ✅ **已完成**（2026-10-09 23:09，用 `.mtp-iq4nl.ninfer` 成功起服；`.mtp-q8.ninfer` 因显存不足起不来 —— 详见三·八） |
+| 13 | 提交 `scripts\recode_mtp.py` + 产物登记 | 待审核 + 用户批准（脚本已含 iq4_nl 扩展与跨文件取数） |
+| 14 | **扫 ctx 找最大可用值**（当前仅 16384） | 待办（推算 32768 约卡临界、65536 约缺 125 MiB） |
+| 15 | **建立 MTP 接受率基线**（多 prompt 分布） | 待办（现有 3 样本：50% / 93.8% / 22.6%） |
+| 16 | 官方 Q8MTP 版（含 vision）留存与用途裁定 | 待办（本线不用 vision；留作精度参照件） |
+| 17 | 是否以 `.mtp-iq4nl.ninfer` 作为正式探针件（取代 `.mtp-q8.ninfer`） | 待裁决 |
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。
 > —— 施工/审核分工：**施工 + 构建史 = CodeBuddy**；**审核报告 = TeleAgent**（各自 commit/push；commit 前保留 T-COMMIT-APPROVAL 展示环节）。

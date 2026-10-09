@@ -7,8 +7,11 @@
 颜色：控制台窗口给关键数字上色（decode 绿 / prefill 黄 / 接受率红）；**日志文件始终原文**（不带色，保 grep）。
 
 窗口显示模式（环境变量 SERVE_TEE_MODE，默认 slim）：
-  slim = 精简：隐藏 KVMem KEPT 刷屏行 + 引擎硬编码诊断行（[ring] budgets / [ninfer] mask hidden /
-         [ninfer] demote-other short）；SELECT / harvest 同段只留首末条；业务行全显。
+  slim = 精简：
+    · 整段隐藏：KVMem KEPT 刷屏行 + 引擎硬编码诊断行（[ring] budgets / [ninfer] mask hidden /
+      [ninfer] demote-other short）；
+    · 同段只留首末：kvmem_score: SELECT / [ninfer] ring retrieve: / [ninfer] kvmem harvest:；
+    · 业务行（INFO/WARN/ERROR、decode/prefill/accept 读数）全显。
   full = 全部：不过滤（查错用）。
 **两种模式日志文件都全文落盘**（保 grep 取证）。
 
@@ -45,8 +48,17 @@ def is_kept_noise(line):
 
 
 def is_select(line):
-    """判定是否为 KVMem SELECT 决策行（`kvmem_score: SELECT ...`）。精简模式下只留每段首末条。"""
-    return line.startswith("kvmem_score: SELECT")
+    """判定是否为 KVMem 的**逐块决策/恢复行** —— 精简模式下**同段只留首末条**（保留趋势、去掉刷屏）：
+
+      · `kvmem_score: SELECT ...` 内容评分选页决策；
+      · `[ninfer] ring retrieve: which=.. preferred=.. restored=.. first=.. last=..`
+        host -> device 的页恢复（用户 2026-10-10 反馈它同样刷屏）。
+
+    这两类在长上下文请求里会连续打几十行，但**都有诊断价值**（能看出某段恢复了多少页、
+    评分选中了哪些块），所以按"同段首末压缩"处理，而不是像 budgets/mask hidden 那样整段隐藏。
+    """
+    return (line.startswith("kvmem_score: SELECT")
+            or line.startswith("[ninfer] ring retrieve:"))
 
 
 def is_diag_noise(line):

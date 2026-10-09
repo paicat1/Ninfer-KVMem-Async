@@ -872,7 +872,7 @@ negative control: PASS (refused as required)
 | 27 | **定稿参数闪退**（缺 20.4 MiB） | ✅ 已定位（§三·十）：非参数错，是起服瞬间可用量波动 ⇒ 关 GPU 占用 / 重试 / 换 20K 池档 |
 | 28 | **视觉能力**（官方版 + `--vision-cpu`） | ✅ 实测可行（§三·十）；**待裁决**：是否给 launcher 加"模型档"维度（当前 MODEL 固定为 iq4_nl 版，选 vision 会失败） |
 | 29 | ngram 实测（本线第三目标） | 待办 |
-| 30 | **日志刷屏降噪**（`[ring] budgets` / `mask hidden` / `demote-other short`） | ✅ 已完成：serve_tee slim 模式隐藏三类诊断行；日志文件仍全文落盘 |
+| 30 | **日志刷屏降噪** | ✅ 已完成（两轮）：`[ring] budgets` / `[ninfer] mask hidden` / `[ninfer] demote-other short` / `kvmem_score: KEPT` **整段隐藏**；`kvmem_score: SELECT` / **`[ninfer] ring retrieve:`** / `[ninfer] kvmem harvest:` **同段只留首末**（后两者是用户 2026-10-10 追加反馈的刷屏源）；日志文件始终全文落盘 |
 | 31 | **视觉启动脚本** | ✅ 已完成：`start-coder390-vision.bat`（官方版 + `--vision-cpu` + 20K 池） |
 | 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
 | 33 | **定稿误设"关思考"** | ✅ 已纠正（§三·十一）：改 `high` + `tb 16000`（launcher + 3 bat + profiles 4 档） |

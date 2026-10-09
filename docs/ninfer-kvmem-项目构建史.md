@@ -23,6 +23,7 @@
 | 2026-10-09 | v13 | **挂账 14 完成**：ctx 扫描四档 ⇒ **最大稳定 ctx = 24576**（free 349.7 MiB，decode 89.4 tok/s）；32768 缺 36 MiB（临界）、65536 缺 158 MiB。**P1b 施工已提交并推送**（`64a03d4`，含 TELE 的 `c7521dd`） |
 | 2026-10-09 | v14 | ★**更正 §4.1 的错误结论**：`--max-context`（逻辑）≠ `NINFER_KV_WINDOW`（device 窗口）。修正后 **逻辑上下文 131072（128K）可用**，并实测 **20,203 tokens prompt 检索正确**（`ring retrieve restored=16`、`kvmem_score: SELECT`）；runtime 1.80→1.18 GiB、free 349.7→925.1 MiB |
 | 2026-10-09 | v15 | **§4.3 device 活跃池**：澄清"全速区间由 `--kv-capacity` 决定"（非 window）；池扩容极便宜（≈0.83 MB/页）⇒ 定为 **kv 32768**；同 prompt A/B：TTFT 11.3→10.6s、decode 92.9→98.3 tok/s（**改善温和，瓶颈是 prefill 计算**）。给出本线最终推荐配置 |
+| 2026-10-09 | v16 | **§4.4 压榨**：逻辑上下文 128K → **262144（256K，模型原生上限）**、全速池 32K → **40K**；decode 105.0 tok/s；kv 49152 仅缺 49 MiB（临界，待清 GPU 占用后重试）；列出剩余可压榨项 |
 
 ---
 
@@ -611,14 +612,40 @@ negative control: PASS (refused as required)
 **⇒ 诚实结论：改善温和（5–6%）**。原因：**prefill 的瓶颈是计算本身**（1.90k tok/s × 20,203 ≈ 10.6s），页恢复（128 页）只占很小一部分。
 ⇒ **推论**：device 池的价值主要在"减少 host 往返的延迟抖动"，而非提升吞吐；池内是真全速，池外也不会慢很多。
 
-**本线最终推荐配置（16 GB / RTX 5080 sm_120）**：
+**本线最终推荐配置（16 GB / RTX 5080 sm_120）** —— 见 §4.4（已进一步压榨）：
 
 ```
---max-context 131072  NINFER_KV_WINDOW=32768  --kv-capacity 32768
+--max-context 262144  NINFER_KV_WINDOW=32768  --kv-capacity 40960
 --kv-dtype rk2v4-e8   --prefill-chunk 512     --host-kv-mib 16384
 --spec mtp --draft-tokens 4
-⇒ runtime 1.60 GiB | free 557.3 MiB | 128K 逻辑上下文 / 32K 全速池
+⇒ runtime 1.71 GiB | free 449.6 MiB | 256K 逻辑上下文 / 40K 全速池
 ```
+
+### 4.4 压榨结果：256K 逻辑上下文 + 40K 全速池（2026-10-09 23:50）
+
+| `--max-context` | `--kv-capacity` | 需求 | 可用 | 结果 |
+|---|---|---|---|---|
+| 262144 | 65536 | 2,199,361,792 | 1,863,794,688 | ❌ 缺 320 MiB |
+| 262144 | 49152 | 1,958,713,600 | 1,907,736,576 | ❌ 缺 **49 MiB**（临界） |
+| **262144** | **40960** | — | — | ✅ **成功** |
+
+```
+[EVIDENCE] capacity | KV 40,960 tokens, rk2v4-e8 | pages 640/4,096 | runtime 1.71 GiB | free 449.6 MiB
+[EVIDENCE] 同一条 20,203 tokens prompt：ANSWER = 350 ✅ | TTFT 10.6s
+           | prefill 1.91k tok/s | decode 105.0 tok/s | ring retrieve restored=128
+```
+
+⇒ **两个方向同时推进**：逻辑上下文 128K → **262144（256K，模型原生上限）**；全速池 32K → **40K**；decode 还略有提升（98.3 → 105.0 tok/s）。
+
+**剩余可压榨项（按性价比排序）**：
+
+| 手段 | 预期收益 | 前提 |
+|---|---|---|
+| **清 GPU 占用**（浏览器/Overlay） | 可用量 **+250 MB**（此前实测差 3.3 倍） | 用户侧操作；可解锁 kv 49152 甚至 65536 |
+| `--prefill-chunk` 512 → 256 | 省少量 workspace | 可能影响 prefill 速度 |
+| MTP 头 `iq4_nl` → `iq3_xxs` | 省 **53 MB** | 质量再降（3.5 bpw），需重跑误差探针 |
+| `--no-cuda-graph` | 省 driver state | 解码变慢 |
+| text 主体重打包（12.1 GiB） | **GB 级** | 风险最高（全模型重写 + 质量未知），需单独立项 |
 
 ### 5. B 路径（官方版重试）结论：仍失败 ⇒ 闭环
 
@@ -662,7 +689,9 @@ negative control: PASS (refused as required)
 | 15 | **建立 MTP 接受率基线**（多 prompt 分布） | 待办（现有 3 样本：50% / 93.8% / 22.6%） |
 | 16 | 官方 Q8MTP 版（含 vision）留存与用途裁定 | 待办（本线不用 vision；留作精度参照件） |
 | 17 | 是否以 `.mtp-iq4nl.ninfer` 作为正式探针件（取代 `.mtp-q8.ninfer`） | 待裁决 |
-| 18 | **参数定稿**（§4.3）：128K ctx / 32K 池 / rk2v4-e8 / prefill 512 / window 32768 | ✅ 已实测定型（当前服务即此配置） |
+| 18 | **参数定稿**（§4.4）：**256K ctx / 40K 全速池** / rk2v4-e8 / prefill 512 / window 32768 | ✅ 已实测定型（当前服务即此配置；runtime 1.71 GiB / free 449.6 MiB） |
+| 21 | 清 GPU 占用后重试 kv 49152 / 65536（当前仅缺 49 MiB） | 待用户侧操作（关浏览器/Overlay 等） |
+| 22 | MTP 头 `iq4_nl` → `iq3_xxs`（再省 53 MB）是否值得 | 待裁决（需重跑误差探针，质量再降） |
 | 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

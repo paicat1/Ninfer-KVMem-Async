@@ -22,6 +22,7 @@
 | 2026-10-09 | v12 | ★**MTP 跑通**：官方 Q8MTP 版验证（多 vision、真 8-bit）→ 官方版起服两度失败（缺 139–200 MiB）→ **自转 `iq4_nl`**（q8_0→4.5bpw，Δ0 等长，省 212 MB）→ **起服成功 + A/B 实测**（散文 +32%、代码 +233%，接受率 22.6%/93.8%）；推翻上一轮"关 KVMem 省显存"的建议（KVMem 实为"允许 KV 池 < 上下文"的前提） |
 | 2026-10-09 | v13 | **挂账 14 完成**：ctx 扫描四档 ⇒ **最大稳定 ctx = 24576**（free 349.7 MiB，decode 89.4 tok/s）；32768 缺 36 MiB（临界）、65536 缺 158 MiB。**P1b 施工已提交并推送**（`64a03d4`，含 TELE 的 `c7521dd`） |
 | 2026-10-09 | v14 | ★**更正 §4.1 的错误结论**：`--max-context`（逻辑）≠ `NINFER_KV_WINDOW`（device 窗口）。修正后 **逻辑上下文 131072（128K）可用**，并实测 **20,203 tokens prompt 检索正确**（`ring retrieve restored=16`、`kvmem_score: SELECT`）；runtime 1.80→1.18 GiB、free 349.7→925.1 MiB |
+| 2026-10-09 | v15 | **§4.3 device 活跃池**：澄清"全速区间由 `--kv-capacity` 决定"（非 window）；池扩容极便宜（≈0.83 MB/页）⇒ 定为 **kv 32768**；同 prompt A/B：TTFT 11.3→10.6s、decode 92.9→98.3 tok/s（**改善温和，瓶颈是 prefill 计算**）。给出本线最终推荐配置 |
 
 ---
 
@@ -578,6 +579,47 @@ negative control: PASS (refused as required)
 **⇒ 结论（更正）**：本机 16 GB 显存下 **逻辑上下文 131072（128K）可用**；§4.1 的"24K 上限"**作废**（那是把 window 当成 max-context 的产物）。
 （`--max-context` 还能更高：262144 档的 runtime 需求与 131072 几乎相同 —— 1,818,929,408 vs 1,818,913,024 —— 待验。）
 
+### 4.3 device 活跃池：概念澄清与扩容实测（2026-10-09 23:46）
+
+**⚠️ 概念澄清 —— 决定"全速区间"的是 `--kv-capacity`，不是 window**：
+
+| 参数 | 含义 | 对速度的影响 |
+|---|---|---|
+| `--max-context` | 逻辑上下文上限 | 不直接决定速度 |
+| **`--kv-capacity`** | **device 活跃池**（显存里能放多少 KV token） | **池内直接访问；池外页需从 host 恢复** |
+| `NINFER_KV_WINDOW` | 保留优先级窗口 | 影响恢复命中率 |
+| `--host-kv-mib` | 下沉页存放 | 影响恢复速度 |
+
+（此前我把"窗口"当成"全速区间"表述，属不严谨 —— 日志 `pages 32/2,048` 的真实含义是：**device 池只占 32 页，逻辑总量 2048 页**。）
+
+**池扩容实测（成本极低）**：
+
+```
+[EVIDENCE] kv  2048：runtime 1.18 GiB | free 925.1 MiB | pages  32/2,048
+[EVIDENCE] kv  8192：runtime 1.26 GiB | free 889.0 MiB | pages 128/2,048   （+96 页 ≈ +80 MB）
+[EVIDENCE] kv 32768：runtime 1.60 GiB | free 557.3 MiB | pages 512/2,048   （+384 页 ≈ +348 MB）
+```
+⇒ **每页 ≈ 0.83 MB**（rk2v4-e8）—— 扩容极便宜，最终取 **kv 32768**。
+
+**同一条 20,203 tokens prompt 的 A/B（唯一变量 = device 池大小）**：
+
+| device 池 | TTFT | prefill | decode | ring retrieve | 检索答案 |
+|---|---|---|---|---|---|
+| 2048 | 11.3s | 1.82k tok/s | 92.9 tok/s | restored=16 | 350 ✅ |
+| **32768** | **10.6s** | **1.90k tok/s** | **98.3 tok/s** | **restored=128** | 350 ✅ |
+
+**⇒ 诚实结论：改善温和（5–6%）**。原因：**prefill 的瓶颈是计算本身**（1.90k tok/s × 20,203 ≈ 10.6s），页恢复（128 页）只占很小一部分。
+⇒ **推论**：device 池的价值主要在"减少 host 往返的延迟抖动"，而非提升吞吐；池内是真全速，池外也不会慢很多。
+
+**本线最终推荐配置（16 GB / RTX 5080 sm_120）**：
+
+```
+--max-context 131072  NINFER_KV_WINDOW=32768  --kv-capacity 32768
+--kv-dtype rk2v4-e8   --prefill-chunk 512     --host-kv-mib 16384
+--spec mtp --draft-tokens 4
+⇒ runtime 1.60 GiB | free 557.3 MiB | 128K 逻辑上下文 / 32K 全速池
+```
+
 ### 5. B 路径（官方版重试）结论：仍失败 ⇒ 闭环
 
 官方 q8_0 版第三次尝试仍缺 **139 MiB**（见 §2）。
@@ -620,6 +662,9 @@ negative control: PASS (refused as required)
 | 15 | **建立 MTP 接受率基线**（多 prompt 分布） | 待办（现有 3 样本：50% / 93.8% / 22.6%） |
 | 16 | 官方 Q8MTP 版（含 vision）留存与用途裁定 | 待办（本线不用 vision；留作精度参照件） |
 | 17 | 是否以 `.mtp-iq4nl.ninfer` 作为正式探针件（取代 `.mtp-q8.ninfer`） | 待裁决 |
+| 18 | **参数定稿**（§4.3）：128K ctx / 32K 池 / rk2v4-e8 / prefill 512 / window 32768 | ✅ 已实测定型（当前服务即此配置） |
+| 19 | **ngram 实测**（本线第三目标） | 待办（MTP 已通，可直接加 `--ngram-draft-tokens` 试） |
+| 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。
 > —— 施工/审核分工：**施工 + 构建史 = CodeBuddy**；**审核报告 = TeleAgent**（各自 commit/push；commit 前保留 T-COMMIT-APPROVAL 展示环节）。

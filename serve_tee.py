@@ -70,7 +70,7 @@ def is_diag_noise(line):
          context.cpp:2481 —— **每次映射都打**，是刷屏主力；
       ② `[ninfer] mask hidden: which=.. site=.. span=.. resident=.. hidden=..`
          context.cpp:2136 —— 源码注释本意是"隐藏 0 页就静默（no per-step spam）"，
-         但实测常态 hidden=1 ⇒ **每步都打**；
+         但实测常态 hidden=1 -> **每步都打**；
       ③ `[ninfer] demote-other short: freed=.. want=.. slots=.. invalid=..`
          context.cpp:1925 —— 降级不足时打；常态 freed=0 want=1 每轮都出现。
 

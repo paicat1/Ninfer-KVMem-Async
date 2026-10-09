@@ -38,7 +38,7 @@ ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")    
 # 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
 #   · self_prev（engine\self-built\ninfer-serve.exe）—— **该目录本线不存在**，选中只会报"未找到引擎"（死项）；
 #   · official（engine\ninfer-serve-120a.exe）—— 文件在，但 P0b 已裁定本线统一用 self-built：
-#     它含 Design C（思考停止强制进 answer）而官方件没有 ⇒ 行为路径不同，混用污染 A/B 对照；
+#     它含 Design C（思考停止强制进 answer）而官方件没有 -> 行为路径不同，混用污染 A/B 对照；
 #     且官方件是否支持 rk2v4-e8 / --spec mtp 从未验证（选了可能是第二个坑）。
 #   ENGINE / ENGINE_PREV 两个常量保留（供将来临时改回或命令行引用），只是不再进下拉。
 ENGINE_OPTIONS = {
@@ -50,6 +50,32 @@ ENGINE_OPTIONS = {
 #   实测定稿（同模型同 prompt，唯一变量 --spec mtp）：散文 decode 55.4→73.2 tok/s（接受率 22.6%）、
 #   代码 184.3 tok/s（接受率 93.8%）；输出语义一致无劣化。
 MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer")
+
+# ---------------------------------------------------------------
+# 模型档（2026-10-10 用户裁决新增）
+#   WHY: GUI 必须能切模型。否则"要用视觉就得换官方版"这条只能靠 bat 实现，
+#        而实际上没人用 bat，全在启动器上选 —— 那样 vision 就是死功能。
+#   iq4nl : 自转 MTP 头（gguf_iq4_nl，239 MB）—— ★定稿；**无 vision 组件**
+#   q8mtp : 官方 Q8MTP 版（MTP 头 q8_0 = 451 MB，比 iq4nl 多 212 MB）—— **唯一含 vision 组件**；
+#           选它时 GUI 会自动把 --kv-capacity 降到 20480（否则 40K 池起不来，实测过）
+#   orig  : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
+#   注：这里的 argv 列表留空 —— 模型是引擎的**位置参数**（第一个），不走 --flag。
+# ---------------------------------------------------------------
+MODEL_OPTIONS = {
+    "iq4nl": ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
+    "q8mtp": ("官方 Q8MTP（含视觉 · 选它自动降池 20K）", []),
+    "orig":  ("原件（纯基线 · MTP 不可用）", []),
+}
+MODEL_PATHS = {
+    "iq4nl": os.path.join(ROOT, "models",
+                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer"),
+    "q8mtp": os.path.join(ROOT, "models",
+                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"),
+    "orig":  os.path.join(ROOT, "models",
+                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
+}
+# 选官方 Q8MTP 时自动降到的池（实测：40K 起不来，20K 起服 free 663 MiB）
+MODEL_KVCAP_MAX = {"q8mtp": "20480"}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -157,7 +183,7 @@ MAXOUT_OPTIONS = {
     "32768":   ("32768（★本线定稿）", ["--default-max-tokens", "32768"]),
     "1024":    ("1024",     ["--default-max-tokens", "1024"]),
 }
-# 视觉：**只有【官方 Q8MTP 版】含 vision 组件**（本线的 .mtp-iq4nl.ninfer 与原件都没有 ⇒ 任何 --vision* 都会
+# 视觉：**只有【官方 Q8MTP 版】含 vision 组件**（本线的 .mtp-iq4nl.ninfer 与原件都没有 -> 任何 --vision* 都会
 # "missing component vision" 起不来）。实测（构建史 §三·十，2026-10-10）：官方版 + --vision-cpu 起服成功，
 # weights 12.3→12.5 GiB、runtime 1.44 GiB、free 663.4 MiB，**设备视觉显存占用为零**；
 # 代价：图片被压到 256 merged tokens（约 512x512）、CPU 编码慢（one to a few seconds）。
@@ -172,7 +198,7 @@ SAMPLE_OPTIONS = {
     "thinking": ("思考档(1.0/0.95/20)",          ["--presence-penalty", "0", "--temperature", "1.0", "--top-p", "0.95", "--top-k", "20"]),
     "greedy":   ("贪心(greedy)",                 ["--greedy"]),
 }
-# 官方 B01 止血开关（官方出厂件已有、官方启动器未写）：防“超池+大输出租约 ⇒ worker 崩/进程静默退出”。
+# 官方 B01 止血开关（官方出厂件已有、官方启动器未写）：防“超池+大输出租约 -> worker 崩/进程静默退出”。
 HEMOSTAT_OPTIONS = {
     "on":  ("开（★本线定稿 · 防 B01 崩溃）", ["--kv-lease-growth", "--recover-invariant-failures"]),
     "off": ("关（官方 bat 原样）", []),
@@ -198,6 +224,7 @@ PRESERVE_OPTIONS = {
 }
 
 DIMENSIONS = [
+    ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（视觉只有官方版有）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
     ("kv",     "KV 类型",         KV_OPTIONS),
     ("ctx",    "上下文",          CTX_OPTIONS),
@@ -232,6 +259,7 @@ DEFAULTS = {
     #                      ⚠️ **思考不额外占显存**（只是多生成 token），关思考既不省显存也没好处。
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      OpenAI chat 端点不转发请求里的 thinking_budget，只能靠服务端此参数。
+    "model": "iq4nl",
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "40960", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
@@ -258,7 +286,7 @@ DIM_TIPS = {
     "sample": "采样预设。默认 = 官方值 0.7/0.9/20、presence 0。",
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
     "preserve":"保留已关闭回合的 assistant 推理（--preserve-thinking）。多轮长对话要前序思考时开。",
-    "hemostat":"官方 B01 止血：--kv-lease-growth（租约按需增长，掐掉“超池+大输出 ⇒ worker 崩”的触发条件）+ --recover-invariant-failures（出问题只废当前请求、不弄死引擎）。官方出厂件有，官方 bat 未写。",
+    "hemostat":"官方 B01 止血：--kv-lease-growth（租约按需增长，掐掉“超池+大输出 -> worker 崩”的触发条件）+ --recover-invariant-failures（出问题只废当前请求、不弄死引擎）。官方出厂件有，官方 bat 未写。",
 }
 
 # 命名组合预置（首次运行若无配置文件则落盘）
@@ -274,6 +302,7 @@ PRESET_PROFILES = {
     "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
     "Coder390-思考 medium":  dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
     "Coder390-关思考对照":    dict(DEFAULTS, think="none", tb="none"),   # 仅 A/B 对照：本模型不思考没法用
+    "Coder390-视觉档":       dict(DEFAULTS, model="q8mtp", vision="cpu", kvcap="20480"),  # 官方版 + CPU 视觉（零设备视觉显存）
 }
 
 
@@ -293,8 +322,14 @@ def validate(combo, exe=None):
                      f"被静默截断(finish_reason=length、内容像正常但只有半截)。发请求时请确保 prompt 长度 + max_tokens ≤ {KV_POOL_TOKENS}。")
     if not os.path.exists(exe):
         warns.append(f"未找到引擎：{exe}")
-    if not os.path.exists(MODEL):
-        warns.append(f"未找到模型：{MODEL}")
+    _mp = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)
+    if not os.path.exists(_mp):
+        warns.append(f"未找到模型：{_mp}")
+    if combo.get("model") == "q8mtp" and str(combo.get("kvcap", "20480")) != "20480":
+        warns.append("官方 Q8MTP 的 MTP 头是 q8_0（451 MB，比 iq4_nl 多 212 MB）-> 池大于 20480 起不来"
+                     "（实测 40K 缺 100+ MiB）。选它时 GUI 会自动把池降到 20480。")
+    if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
+        warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
     if any(ord(c) > 127 for c in ROOT):
         warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
     return warns
@@ -313,7 +348,8 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
     exe=None 时用自编现役（ENGINE_SELF，本线唯一现役引擎）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
-    argv = [MODEL, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
+    model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
+    argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "40960"),   "40960")  # P1b: 回退对齐 DEFAULTS（原 "17920"）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
@@ -341,7 +377,7 @@ def env_for_launch(exe=None):
     #   （自编子目录只有 cudart64_13）。只加 dirname(exe) 时，自编件会回退到系统 PATH 的
     #   cublas —— 实测本机系统 PATH 首个命中 = J:\Bonsai\landing\cuda-13.3\bin\x64
     #   （**前序已封存线的目录**），版本 6.14.11.1360 ≠ 打包版 6.14.11.1351
-    #   ⇒ 结果不确定、且隐式依赖外部线。加入 ENGINE_DIR 后固定用打包版（确定性 + 自包含）。
+    #   -> 结果不确定、且隐式依赖外部线。加入 ENGINE_DIR 后固定用打包版（确定性 + 自包含）。
     _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE_SELF), ENGINE_DIR], set(), []
     for _p in _parts:
         if _p and _p not in _seen:
@@ -491,7 +527,7 @@ class LauncherApp:
         self.port_var = tk.StringVar(value=str(PORT_DEFAULT))
         self.logmode_var = tk.StringVar(value="精简")
         # P0b (2026-10-09): 默认引擎 = 「自编·现役」——A/B 一律用它（官方件保留在下拉里作交叉验证选项）。
-        #   理由：self-built 含 Design C（thinking stop 强制进 answer），官方件无 ⇒ 行为路径不同，
+        #   理由：self-built 含 Design C（thinking stop 强制进 answer），官方件无 -> 行为路径不同，
         #   混用会污染对照；且 self-built 是本线现役（交接文档指定、两个 start-coder390*.bat 已用）。
         self.engine_var = tk.StringVar(value=ENGINE_OPTIONS["self"][0])
         # 投机档两级联动：类型 + K 值（照老项目；初值由 DEFAULTS["spec"] 解析）
@@ -640,7 +676,28 @@ class LauncherApp:
                 self.selection[key] = self._label2key[key].get(var.get(), self.selection.get(key))
             else:
                 self.selection[key] = var.get()
+        self._apply_model_coupling()
         self._refresh()
+
+    def _apply_model_coupling(self):
+        """模型档联动（2026-10-10 用户要求）：选官方 Q8MTP -> 自动把池降到 20480。
+
+        WHY: 官方版 MTP 头是 q8_0（451 MB），比 iq4_nl 多 212 MB —— 40K 池实测起不来
+        （缺 100+ MiB）。用户明确要求"用官方版就降池"，所以这里直接改，并同步下拉显示，
+        避免"界面显示 40K、实际命令 20K"的不一致。
+        """
+        cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
+        if not cap:
+            return
+        cur = str(self.selection.get("kvcap", ""))
+        try:
+            too_big = int(cur) > int(cap)
+        except ValueError:            # auto / 非数字：不动
+            too_big = False
+        if too_big:
+            self.selection["kvcap"] = cap
+            if "kvcap" in self.var and cap in KVCAP_OPTIONS:
+                self.var["kvcap"].set(KVCAP_OPTIONS[cap][0])      # 同步下拉显示
 
     # ---- 投机档两级联动（照老项目）----
     def _update_spec_k_range(self):

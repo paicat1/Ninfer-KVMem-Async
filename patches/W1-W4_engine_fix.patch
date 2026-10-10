@@ -1,0 +1,84 @@
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
+index f9084d5..100dcea 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/frontend/output_session.cpp
+@@ -520,10 +520,13 @@ runtime::OutputDecision OutputSession::preview_model(std::span<const TokenId> to
+         if (impl_->preview_state.in_reasoning) { ++impl_->preview_state.reasoning_tokens; }
+         if (impl_->preview_semantic.in_reasoning) {
+             ++impl_->preview_semantic.model_thinking_tokens;
+-            if (impl_->preview_semantic.budget &&
+-                impl_->preview_semantic.model_thinking_tokens > *impl_->preview_semantic.budget) {
+-                throw std::logic_error("model output exceeded the licensed thinking budget");
+-            }
++            // W2 fix (2026-10-11, per tancau 24c8ea5): the old per-token `> budget`
++            // throw aborted the whole request the instant one chunk stepped over the
++            // budget, which also made the chunk-boundary fuse (below) unreachable --
++            // once past the budget, `==` can never hold again. Crossing is no longer
++            // an invariant violation: keep feeding to the end of the chunk and let
++            // the boundary fuse (now `>=`) fire ApplyTargetControl there. The total
++            // output budget (total_budget_remaining above) remains the backstop.
+             feed_semantic_thinking(impl_->preview_semantic, decoded.bytes);
+         }
+ 
+@@ -578,7 +581,11 @@ runtime::OutputDecision OutputSession::preview_model(std::span<const TokenId> to
+         return complete(count, limit_reason);
+     }
+     if (impl_->preview_semantic.in_reasoning && impl_->preview_semantic.budget &&
+-        impl_->preview_semantic.model_thinking_tokens == *impl_->preview_semantic.budget) {
++        impl_->preview_semantic.model_thinking_tokens >= *impl_->preview_semantic.budget) {
++        // W1 fix (2026-10-11, per tancau 24c8ea5): `==` only fired when the counter
++        // landed exactly on the budget; a chunk that stepped past it (multi-token
++        // chunk) skipped past forever and the fuse could never fire again. `>=`
++        // fires on or after the budget, which also covers the W2 crossing case.
+         impl_->preview_semantic.control_pending = true;
+         return complete(count, FinishReason::None, runtime::ContinuationAction::ApplyTargetControl);
+     }
+@@ -649,11 +656,16 @@ runtime::OutputDecision OutputSession::preview_control(std::span<const TokenId>
+         feed_token_bytes(impl_->preview_state, presentation_bytes, impl_->policy,
+                          impl_->preview_output, static_cast<std::uint32_t>(index + 1), nullptr);
+     }
++    // W3 fix (2026-10-11, per tancau 24c8ea5): a canonical control span that failed
++    // to close the thinking phase used to abort the whole request. The span's whole
++    // purpose IS to close it, so when the template drifted we close it declaratively
++    // instead of killing the request; the control tokens themselves publish as
++    // special tokens (empty bytes) and everything downstream keeps flowing.
+     if (impl_->preview_semantic.in_reasoning) {
+-        throw std::logic_error("canonical thinking control did not close the thinking phase");
++        impl_->preview_semantic.in_reasoning = false;
+     }
+     if (impl_->split_reasoning && impl_->preview_state.in_reasoning) {
+-        throw std::logic_error("canonical thinking control did not close the reasoning channel");
++        impl_->preview_state.in_reasoning = false;
+     }
+     impl_->preview_semantic.control_pending = false;
+     impl_->preview_semantic.applied         = true;
+diff --git a/src-tree/fusion-engine-src/src/serve/openai_chat_http.cpp b/src-tree/fusion-engine-src/src/serve/openai_chat_http.cpp
+index 4a506ef..b7347b5 100644
+--- a/src-tree/fusion-engine-src/src/serve/openai_chat_http.cpp
++++ b/src-tree/fusion-engine-src/src/serve/openai_chat_http.cpp
+@@ -51,7 +51,12 @@ void HttpServer::handle_chat_completions(const httplib::Request& req, httplib::R
+         const ninfer::GenerationObservationOptions observation{
+             .phase_timings   = true,
+             .live_timings    = request.stream && request.timings_per_token,
+-            .prompt_progress = request.stream && request.return_progress,
++            // W4 fix (2026-10-11, per tancau 24c8ea5): prompt-progress used to be
++            // gated behind the client opt-in `return_progress`, so a streaming
++            // client that never opted in (DSH) got ZERO SSE lines during a long
++            // prefill and its idle watchdog could starve. Progress events are an
++            // additive top-level field that OpenAI-compatible clients ignore.
++            .prompt_progress = request.stream,
+         };
+         prepared = service_->prepare(request.generation,
+                                      request.stream ? GenerationConsumerMode::Streaming
+@@ -114,7 +119,10 @@ void HttpServer::handle_chat_completions(const httplib::Request& req, httplib::R
+     }
+ 
+     try {
+-        const bool return_progress   = request.return_progress;
++        // W4 fix (2026-10-11): always emit prompt-progress on streams (see the
++        // observation note above); clients that never opted in still need the
++        // SSE keepalive during long prefills.
++        const bool return_progress   = request.stream;
+         const bool timings_per_token = request.timings_per_token;
+         auto stream                  = std::make_shared<HttpGenerationStream>(std::move(prepared));
+         auto encoder = std::make_shared<OpenAIChatStream>(identity, request.include_usage,

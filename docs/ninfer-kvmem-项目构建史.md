@@ -1244,6 +1244,36 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 ---
 
+## 三·十七、2026-10-11 · W1-W4 引擎施工完成（编译+部署+四重验收全过）
+
+### 1. 代码修改（两文件、四处、84 行 patch：`patches/W1-W4_engine_fix.patch`）
+
+| # | 文件:行 | 修改 |
+|---|---|---|
+| W2 | `frontend/output_session.cpp` feed 循环 | **删除逐 token `> budget` throw**——越过后继续 feed 到 chunk 尾，交给边界熔断接管（总输出预算仍是 backstop）。修后代码审查发现原 throw 同时使 W1 的 `==` 永不可达（越过即死，熔断失灵双杀） |
+| W1 | 同文件 chunk 边界 | `==` → **`>=`**——越过预算的 chunk 也触发 `ApplyTargetControl`（与 `model_token_budget_remaining` 已有的 `>=` 对齐，佐证 W1 属笔误级） |
+| W3 | 同文件 `preview_control` | 两处 throw → **防御性强制闭合**（`in_reasoning=false`）——control 序列的本意就是闭合思考，模板漂移时引擎代为闭合；control tokens 以 special token 发布（空字节），下游正常流转 |
+| W4 | `serve/openai_chat_http.cpp` L54/L117 | prompt-progress 门控放宽：`request.stream && request.return_progress` → `request.stream`——流式客户端（DSH）长 prefill 期间不再零 SSE 行（watchdog 饿死防御）。progress 事件是附加顶层字段，OpenAI 兼容客户端忽略 |
+
+**W4 剩余项（登记不动）**：`openai_chat_response.cpp:363/386` 的空 delta 是否需注入内容，取决于 DSH 解析层级（行级 vs delta 级）取证——行级时 progress 事件已足喂狗。W5 不动（先实测）。
+
+**构建**：修改同步至构建侧 clone（Bonsai-Official，两 clone 基线一致性经 git hash 验证——工作区 hash 差异纯 CRLF 表示）；`build-1208a`（Ninja/Release，VS BuildTools 环境 `Launch-VsDevShell.ps1`）增量编译 `[11/11] Linking` 成功；产物部署 `engine\self-built-20261008\ninfer-serve.exe`（旧件备份 `.bak_pre_W1W4`）。**修改留 dirty 于 official-repo 工作区**（回滚 = git checkout），补丁已入库主仓。
+
+### 2. 四重验收（tb=2,000 + xhigh/high，49,152 池，growth OFF）——全过
+
+| 探针 | 场景 | 结果 |
+|---|---|---|
+| req#1（high·数学证明） | 思考烧满预算 | **`thinking 2,000/2,000, control 25`** → 正文 1,338 tok → **stop token**（熔断注入路径实测；旧引擎此场景 W2 throw 必死） |
+| req#2-4（xhigh×3） | 思考恰好自然闭合 | `thinking 2,000/2,000, control 0` → 正文直通 **output limit 4,096**、HTTP 200（自然闭合路径实测——旧引擎同样会死在越过瞬间） |
+| W4 探针（流式 + 43.5K prompt） | 长 prefill 保活 | **53 条 SSE 行含 35 个 prompt_progress 事件**（旧引擎流式 progress = 0） |
+| 全程 | 异常扫描 | invariant failure / scatter / 500 = **0** |
+
+**越界分支说明**：三发 xhigh 均恰好顶格 2,000 未出现 `>2,000`——decode 供给层已有钳制（`model_token_budget_remaining` 的 `>=`），feed 层越界天然不可达 ⇒ W2 删除 throw 是纯安全增益。回归：无回归迹象（prefill/decode 速度、stop 收尾、长度限制全部正常行为）。
+
+**验收结论**：W1（顶格+越过防御）、W2（不再杀请求）、W3（防御闭合，正常 config 不可达，代码审查通过）、W4（progress 实流）——**施工批完成**。W5 按设计待长会话实测。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |

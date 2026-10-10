@@ -105,12 +105,14 @@ PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("python
 #    租约窗口(~4,096)无法扩充时输出被砍在 ~4,037-4,071（bounded completion），与 max_tokens/tb 无关
 #    ⇒ DSH 撞墙直接根因，已从 "on" 定稿档移除（官方 README:218：超池要保住输出 → 不要开 growth）。
 # P1b (2026-10-09) 定稿值 = 40960；★2026-10-11 00:11 池上限标定（growth OFF）：65,536 缺 378 MiB、
-#   57,344 差 17.3 MiB（临界）、**55,296（864 页）成功**（runtime 1.91 GiB / free 534.4 MiB），
-#   55K + 视觉（iq4nlvis + --vision-cpu）同样成功（free 490.4 MiB）⇒ 定稿池抬到 55296。
+#   57,344 差 17.3 MiB（临界）、55,296（864 页）当晚成功（free 534.4 MiB），
+#   55K + 视觉（iq4nlvis + --vision-cpu）同样成功（free 490.4 MiB）。
+# ★ 用户裁决（2026-10-11）：定稿 = **51200（800 页）**——55,296 为贴边上限，次日桌面负载 +25 MiB
+#   即拒启（缺 23.6 MiB，`55k_underload_failed.log`），不可复现；51200 对其释放 55.6 MiB，日常稳定。
 #   池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。起服必须带 KV_ENV 五开关（缺 NINFER_KV_WINDOW 直接拒启）。
 #   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
 #   （--host-kv-mib 16384）；实测 20,203 tokens prompt 检索答案正确（ring retrieve restored=128）。
-KV_POOL_TOKENS = 55296
+KV_POOL_TOKENS = 51200
 
 # KVMem 五开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
 # ⚠️ NINFER_KV_WINDOW 同时是"允许 --kv-capacity < --max-context"的开关（serve_options.cpp:1124-1132）：
@@ -159,7 +161,8 @@ CTX_OPTIONS = {
     "256k": ("256K（★本线定稿 · 模型原生上限）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
-    "55296": ("55296（★本线定稿 2026-10-11 · 54K 实测上限）", ["--kv-capacity", "55296"]),
+    "51200": ("51200（★本线定稿 2026-10-11 · 50K 稳定档）", ["--kv-capacity", "51200"]),
+    "55296": ("55296（54K · 贴边上限：需干净 GPU ~1.9G 可约，否则启动即拒）", ["--kv-capacity", "55296"]),
     "40960": ("40960（40K · 旧定稿）", ["--kv-capacity", "40960"]),
     "49152": ("49152（48K）", ["--kv-capacity", "49152"]),
     "20480": ("20480（20K · 更省显存）",      ["--kv-capacity", "20480"]),
@@ -290,7 +293,7 @@ DEFAULTS = {
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
     "model": "iq4nl",
-    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "55296", "hostkv": "16384",
+    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
 }
@@ -306,7 +309,7 @@ DIM_TIPS = {
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
-    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 55296（2026-10-11 标定：64K 缺 378 MiB、56K 差 17.3 MiB、55,296 成功且 55K+视觉也成功）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
+    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
@@ -378,7 +381,11 @@ def validate(combo, exe=None):
     if _vis == "off" and _model in VISION_CAPABLE_MODELS:
         warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
                      f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
-    _kv = str(combo.get("kvcap", "55296"))
+    _kv = str(combo.get("kvcap", "51200"))
+    if _kv.isdigit() and int(_kv) >= 55296:
+        warns.append("★贴边池（≥55,296）：需桌面空闲到引擎可约 ~1.95 GiB（关浏览器/Overlay 等 ~1 GB 占用），"
+                     "否则启动即缺 ~24 MiB 拒启（2026-10-11 实测两次：55,296 当晚成功、次日 +25 MiB 负载即败）。"
+                     "日常请用 51200/49152。")
     if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 55296:
         warns.append("iq4nlvis 的**实测上限是 55,296 池 + 视觉**（2026-10-11 实测成功，free 490.4 MiB）；"
                      "更高未验证（57,344 起服即失败：差 17.3 MiB）。需干净 GPU。")
@@ -407,7 +414,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
-    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "55296"),   "55296")  # 2026-10-11: 回退对齐 DEFAULTS（原 "40960"）
+    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）

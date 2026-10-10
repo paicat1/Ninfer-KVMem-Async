@@ -37,7 +37,8 @@
 | 2026-10-10 | v27 | **ngram 实测**（`trigger 29` 完成，TeleAgent 独立起服两臂）：MTP+ngram（默认 15）vs MTP-only（`--ngram-draft-tokens 0`），8 类任务单轮；decode 均值 104.26 vs 101.41（**+2.7%**），接受率 49.6% vs 48.1%（**+1.5pt**）⇒ **ngram 净贡献≈0（配对差异 stdev 13.2 远大于均值 2.9，无统计显著性）**；两臂同 8 任务、同思考参数（high/16000）、唯一差异为 ngram 宽度 |
 | 2026-10-10 | v28 | ★**视觉塔实机验证闭环**（挂账 35 完成；**TeleAgent 起服执行，CodeBuddy 补录**）：① 20K 池 + `--vision-cpu` 起服成功（引擎识别 `+vision` 组件；weights 12.3 GiB，free 963.4 MiB）；② ★**40K 大池 + 视觉并存成功**（KV 40,960 tokens，free 898.4 MiB）⇒ "嫁接省 212 MB 转给 KV 池"的设计**成立**（官方 Q8MTP 版做不到）；③ 文字推理正常（decode 75.9，MTP 接受 27.3%）；④ ★**真实识图成功**（准确描述"条纹渐变 + 同心圆环"；prompt 318 tokens 含 21 图像 token；TTFT 15.7s = CPU 编码）；⑤ `/v1/models` 返回 `modalities.vision=true`。代价：图片压到 256 merged tokens、CPU 编码慢、**40K+视觉需干净 GPU** |
 | — | — | ⚠️ **越权说明（2026-10-10 用户核准保留）**：上述 v27 由 **TeleAgent 越权提交**（本应归 CodeBuddy 维护构建史）——实测数据真实、结论成立，用户裁决**保留**；但属违规操作，已记档。后续构建史仍归 CodeBuddy 维护，TeleAgent 不代录。 |
-| 2026-10-10 | v29 | **本机 DSH 实证**（§三·十四，补两篇 H 盘文档审核的不可复核项）：本机 DSH 是 **Tauri**（非 Electron/asar，v0.11.0），主逻辑明文在 `.dsh\profiles\core-017\node_modules\@deepseek-ai\*`；H 盘文档四项机制声称**逐字/机制实锤**（DEFAULT_MAX_TOKENS=32768、idleWatchdog 逐次重装、"已达到输出 token 上限"+"继续"文案、thinkingTokenBudgetField 未设）；⭐ **ninfer 活配置**（cordis.patch.yml：18787/v1、maxOutputTokens 32768 > tb 16000）⇒ **撞墙定案分支 B**，W1-W4 补丁是解药；挂账 37：DSH 临时止血**待 TELE 研究后实施**（前置：pi-ai 适配器预算值来源未确认）；工具 `refs/_tools/search_dsh_strings.cjs` 入库 |
+| 2026-10-10 | v29 | **本机 DSH 实证**（§三·十四，补两篇 H 盘文档审核的不可复核项）：本机 DSH 是 **Tauri**（非 Electron/asar，v0.11.0），主逻辑明文在 `.dsh\profiles\core-017\node_modules\@deepseek-ai\*`；H 盘文档四项机制声称**逐字/机制实锤**（DEFAULT_MAX_TOKENS=32768、idleWatchdog 逐次重装、"已达到输出 token 上限"+"继续"文案、thinkingTokenBudgetField 未设）；⭐ **ninfer 活配置**（cordis.patch.yml：18787/v1、maxOutputTokens 32768 > tb 16000）⇒ ~~撞墙定案分支 B~~（**⚠️ 此结论已由 v30 勘误**，见 §三·十五）；挂账 37：DSH 临时止血**待 TELE 研究后实施**（前置：pi-ai 适配器预算值来源未确认）；工具 `refs/_tools/search_dsh_strings.cjs` 入库 |
+| 2026-10-10 | v30 | **勘误 + 交叉审核**（§三·十五）：**自纠 v29 两处错误**（① "分支 B→W1/W2 主嫌"漏了思考 token 计入输出——输出在 ~4,096 被租约窗口先砍，思考到不了 tb，W1/W2 无机会触发；② "logs/ 无撞墙样本"未查凌晨 00-02 六份主运行）；**挂账 37 改判**（对本墙无效）；**TELE 撞墙定案（`--kv-lease-growth` bounded completion）交叉审核证实**——凌晨日志 req#8/32/38 墙位 4,060/4,070/4,071 逐字、22 次 output-limit 中 15 次落 ~4,096 带、README:218（347ca35）/paged-kv-cache.md:432-439/账本 L83/116/177/198 全部逐字、5 启动器全开；对 TELE 报告 5 条修正（⭐建议 #1 必须捆绑压 DSH maxTokens≈20,000，因非 growth= prompt+输出全额预留 `request_plan.cpp:262-266`）；挂账 38：A/B 验证待用户起服；**收入 TeleAgent 审核报告**（署名 TeleAgent，经 CodeBuddy 交叉审核入库） |
 
 ---
 
@@ -1134,6 +1135,50 @@ negative control: PASS (refused as required)
 
 `scripts/search_dsh_strings.cjs` —— 二进制字节级 needle 搜索（exe/asar 通用），本次 Tauri exe 验证所用。（注：原计划放 `refs/_tools/`，但 `refs/` 整体被 .gitignore 忽略不入库，故移至 `scripts/`。）
 
+## 三·十五、2026-10-10 · 勘误（v29 两处错误定案）+ 交叉审核 TELE 撞墙定案报告
+
+### 1. 勘误一：v29 §三·十四 §3 "分支 B 定案"**错误**（CodeBuddy 自纠）
+
+**错误结论**（v29 原文）："DSH 发送 max_tokens 32768/65536 > tb 16000 ⇒ 分支 B ⇒ W1/W2 保险丝缺陷是撞墙主嫌 ⇒ W1-W4 补丁是解药"。
+
+**错因**：只验了请求级参数的区间判定（max_tokens > tb），**漏了思考 token 计入输出**（包含关系，§三·十二已自己验证过）⇒ 输出（含思考）在 ~4,096 处被租约窗口砍断 ⇒ 思考**永远到不了** tb=16,000 ⇒ W1/W2 无机会触发。
+
+**判别证据（TeleAgent，本机复核确认）**：夜测 tb 从 none/32000/16000/8000 全试过、墙位不随 tb 变（由租约覆盖决定）；夜 6 日志**零** W1/W2/W3 触发实例。
+
+### 2. 勘误二：v29 §三·十四 §4 "logs/ 无撞墙样本"——取证范围错误
+
+只查了最新两份（vision 20:31 / nongram 19:52，均为小上限测试请求），**未查凌晨 00:00-02:00 的 6 份主运行**（其中 014459.log 达 13.8 MB）——撞墙样本全在凌晨日志：**22 次 output-limit，其中 15 次落在 3,900-4,400 token 带**（≈4,096 租约窗口）。
+
+### 3. 挂账 37 改判
+
+`thinkingTokenBudgetField` 止血**对本墙无效**——墙在引擎租约侧，不在 DSH 侧；per-request tb 同样不会改变租约墙位（tb 全试过墙位不变）。保留价值：租约问题修复后，若"思考墙"（W1/W2 场景）仍需 per-request 控制，此方案可再启用；前置（pi-ai 适配器预算"值"来源确认）仍未做。
+
+### 4. 交叉审核 TELE《对照排查与撞墙机制定案》——核心结论**证实**
+
+| TELE 声称 | 本机独立验证 | 判定 |
+|---|---|---|
+| 墙位 4,037-4,071（20+ 次） | req#8 output 4,060 / req#32 4,070 / req#38 4,071 **逐字**；22 次 output-limit 中 15 次在 3,900-4,400 带 | ✅ |
+| DSH 实发 max_tokens=65,536 | req#7/8/32/38 started 行 `max output 65,536` **逐字** | ✅ |
+| README:218 官方口径（347ca35） | **逐字命中**："超池构型要保住输出 → 不要开 `--kv-lease-growth`"；提交存在 | ✅ |
+| bounded completion 设计明文 | `fusion-engine-src/docs/maintainer/paged-kv-cache.md:432-439` **逐字** | ✅ |
+| Bug 账本"第二处预留不变量未覆盖" | `已知问题-初期版本.md` L83/116/177/198 **逐字** | ✅ |
+| 5 启动器全开此开关 | `ninfer_launcher.py`×5 + 4 bat 各 1，全部命中 | ✅ |
+| 现役配置 = core-020（8094/v1，maxTokens 65,536） | `cordis.patch.yml` ninfer 段证实 | ✅ |
+| 两 clone 同基线 | `3b9dc837` / `s6-20261008` 双方一致 | ✅ |
+
+### 5. 对 TELE 报告的修正清单（5 条，已随本节告知）
+
+1. **HEAD 笔误**：§一摘要 `3f9dc83` → 实测 **`3b9dc837`**（§2.3 自身写对了）。
+2. **⭐ 建议 #1 缺必要配套**：非 growth 分支预留 = **prompt + 全部 effective_output**（`request_plan.cpp:262-266` 逐字）⇒ DSH 继续发 65,536 时，16K prompt + 65,536 ≈ 82K > 池 40,960 ⇒ **预留必然失败**（排队/被拒）⇒ 去开关必须**捆绑**"DSH maxTokens 压至 ≤ 池−prompt（约 20,000）"；A/B 判据补三种非墙形态：429 / 排队不返回 / 400 拒绝。
+3. **建议 #2 "抬池 49,152" 降级**：req#38 运行池即 49,152（40,833 < 49,152）**仍被砍** ⇒ 抬池不解决，仅去 growth 后再议。
+4. "墙位不变"表述应精确为：**墙位与 tb 无关，由租约覆盖决定**（req#7 tb=32,000 墙位 24,226 = 池上限−prompt）。
+5. **KVMem 对照细节未复现**：`serve_20261010_023405.log` grep 不到 done 行——机制论证（llama.cpp 无租约）成立，但该证据建议 TELE 自核或标注"TELE 已核、交叉审核未复现"。
+
+### 6. 双方收敛情况（待 TELE 复审本节后回填）
+
+- **已收敛**：W1-W5 全部成立（调用点 10 处清单与 CodeBuddy 独立核对逐个吻合）；撞墙主因 = 引擎 `--kv-lease-growth` 的 bounded completion（非 DSH 参数、非 tb、非 watchdog）；W1-W5 与墙解耦、照排施工；修法方向 = 去 `--kv-lease-growth`（+ 配套压 maxTokens）。
+- **待收敛**：TELE 对本节 §5 五条修正的意见；TELE 报告 HEAD 笔误的修订。
+
 ---
 
 ## 四、待续事项（挂账）
@@ -1174,7 +1219,8 @@ negative control: PASS (refused as required)
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
 | 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **全链路闭环**（§三·十二 §3 + §5）：①施工 L1/L2 通过（804+335 对象 SHA-256 零不匹配）；②**实机验证通过**（TeleAgent 执行）：20K/40K 起服成功、**40K+视觉并存成立**（free 898.4 MiB）、**真实识图成功**、`modalities.vision=true`。产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，比官方版小 202.5 MiB |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
-| 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 📋 **已设计、待实施**（§三·十四 §5）：用户裁决**等 TELE 研究完再动**；前置：确认 pi-ai 适配器的预算"值"来源（index.js 仅 schema，无构造逻辑） |
+| 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
+| 38 | ★**A/B 验证：去 `--kv-lease-growth`**（+ 配套压 DSH maxTokens ≈20,000），同 prompt 验证墙消失 | 📋 **待用户批准起服**（§三·十五 §5 #2）：判据 = 同任务不再在 ~4,050 处被砍；观察 429/排队不返回/400 三种非墙形态；启动器改一行、零编译 |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

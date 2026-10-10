@@ -39,6 +39,7 @@
 | — | — | ⚠️ **越权说明（2026-10-10 用户核准保留）**：上述 v27 由 **TeleAgent 越权提交**（本应归 CodeBuddy 维护构建史）——实测数据真实、结论成立，用户裁决**保留**；但属违规操作，已记档。后续构建史仍归 CodeBuddy 维护，TeleAgent 不代录。 |
 | 2026-10-10 | v29 | **本机 DSH 实证**（§三·十四，补两篇 H 盘文档审核的不可复核项）：本机 DSH 是 **Tauri**（非 Electron/asar，v0.11.0），主逻辑明文在 `.dsh\profiles\core-017\node_modules\@deepseek-ai\*`；H 盘文档四项机制声称**逐字/机制实锤**（DEFAULT_MAX_TOKENS=32768、idleWatchdog 逐次重装、"已达到输出 token 上限"+"继续"文案、thinkingTokenBudgetField 未设）；⭐ **ninfer 活配置**（cordis.patch.yml：18787/v1、maxOutputTokens 32768 > tb 16000）⇒ ~~撞墙定案分支 B~~（**⚠️ 此结论已由 v30 勘误**，见 §三·十五）；挂账 37：DSH 临时止血**待 TELE 研究后实施**（前置：pi-ai 适配器预算值来源未确认）；工具 `refs/_tools/search_dsh_strings.cjs` 入库 |
 | 2026-10-10 | v30 | **勘误 + 交叉审核**（§三·十五）：**自纠 v29 两处错误**（① "分支 B→W1/W2 主嫌"漏了思考 token 计入输出——输出在 ~4,096 被租约窗口先砍，思考到不了 tb，W1/W2 无机会触发；② "logs/ 无撞墙样本"未查凌晨 00-02 六份主运行）；**挂账 37 改判**（对本墙无效）；**TELE 撞墙定案（`--kv-lease-growth` bounded completion）交叉审核证实**——凌晨日志 req#8/32/38 墙位 4,060/4,070/4,071 逐字、22 次 output-limit 中 15 次落 ~4,096 带、README:218（347ca35）/paged-kv-cache.md:432-439/账本 L83/116/177/198 全部逐字、5 启动器全开；对 TELE 报告 5 条修正（⭐建议 #1 必须捆绑压 DSH maxTokens≈20,000，因非 growth= prompt+输出全额预留 `request_plan.cpp:262-266`）；挂账 38：A/B 验证待用户起服；**收入 TeleAgent 审核报告**（署名 TeleAgent，经 CodeBuddy 交叉审核入库） |
+| 2026-10-11 | v31 | **A 臂闭环 + 池标定 + 视觉三合一 + 挂账 39**（§三·十六）：**挂账 38 完成销账**（TELE 复核三问定案、4 处数字修正按修正版入库——"会话期 retrieve 0 条"实为 115 条全部常驻零截尾）；DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、非墙形态 0 次）；**池上限标定 55,296**（64K 缺 378 MiB / 56K 差 17.3 MiB），定稿池 40960→55296（launcher `501e942` 冒烟全绿）；**55K+视觉三合一**（识图 26.9s 成功）；★**挂账 39**：非 growth×视觉 token scatter 断言（HTTP 500，recover 兜住；规避=视觉用 legacy 档，launcher 预设内嵌+validate 告警）；streamIdleTimeoutMs=3600000 写入 patch 层（升级安全，备份留存）；视觉塔精度四问（q4/q5 混合为 CPU 最优，38%+43% 占比实测）；KV 五开关教训（缺 NINFER_KV_WINDOW 拒启）；探针脚本 `test_ab_arm1.py`/`probe_recall.py` 入库 |
 
 ---
 
@@ -1190,6 +1191,59 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·十六、2026-10-11 · A 臂实测闭环（挂账 38 销账）+ 池上限标定 + 视觉三合一 + 挂账 39 新发现
+
+### 1. A 臂实测与 TELE 复核：**挂账 38 完成（PASS）**
+
+**施工**（`97f5214`）：启动器去 `--kv-lease-growth`（4 bat 各 1 行 + launcher hemostat 三档）。**实测**（growth OFF，其余与夜测 014459 CMD 逐字同款）：4 支 CB 探针 + **DSH 两轮 agentic 实测**（飞行模拟器 4m33s / 雾铃镇 1m39s，各生成 500-830 行代码）——**零撞墙、零截断、零超池**。
+
+**TELE 复核（2026-10-11）三问全部定案，核心结论证实**（按其修正版数字入库）：
+
+| 判据 | 夜测（growth ON） | A 臂（growth OFF） |
+|---|---|---|
+| 墙位带（~3,900-4,400）截断 | 15 次 | **0 次**（全日志仅 2 条 output-limit = DSH 的 max-output-64 探活，64/64 正常） |
+| 最大连续输出 | 砍在 4,037-4,071 | **req#6 = 16,143 tok**（旧墙 4 倍） |
+| "输出 token 上限"文案 / "继续"续发 | 反复 | **0 次**（9 处"继续"全是游戏代码注释） |
+| turn 结构 | — | 1 turn，`reason=completed` |
+
+会话窗 = req#5-24 = 恰 4 分 33.6 秒（与界面吻合）；req#6 收尾 = "tool calls 1"（自然收尾）。全日志无 invariant/throw/ERROR（唯一命中是 CMD 行开关字样）；122 处"429"全为 kvmem_score 页码巧合。**三种非墙形态（400/429/排队）一次都没出现**（单变量首臂直接通过）。
+
+**TELE 修正 4 处（本节已按修正版入库）**：① "会话期 retrieve 0 条" → 实为 **115 条**（113 条 restored>0），**全部设备常驻、零截尾**（context.cpp:2524-2531 语义：restored==preferred=想要页全常驻；restored<preferred=取回失败截尾）；"restored" 表示操作后设备常驻，不直接等于本次 host 取回量——映射 ≤713 页 < 768 页池，**"无 host 召回需求"成立**；② retrieve 总数 190 → **388**（统计时点差异）；③ cache 97.9-100% → **97.2-100%**（req#10 最低）；④ TTFT 0.1-1.1s → 会话内 **0.33-1.1s**。
+
+### 2. 池上限标定（growth OFF，2026-10-11 00:08-00:11）
+
+| 池 | 结果 | 精确数字 |
+|---|---|---|
+| 65,536（1,024 页） | ❌ | runtime 预约需 2,097 MiB，剩 1,720 → **缺 378 MiB** |
+| 57,344（896 页） | ❌ | 需 1,982.6 MiB，剩 1,965.2 → **差 17.3 MiB**（临界） |
+| **55,296（864 页）** | ✅ | runtime 1.91 GiB / **free 534.4 MiB** |
+
+**定稿池 40,960 → 55,296**（GUI `KV_POOL_TOKENS`/DEFAULTS 同步，`501e942`）。显存对账：表面空闲 894 MiB 属"引擎已按安全水位拿完后"的稳态——启动瞬间的真实可用由 WDDM 可驱逐量决定（~1.9 GiB），且 runtime free 是推理动态工作区（MTP/workspace），贴边即 B01 风险。
+
+### 3. 55K + 视觉三合一 + 识图实测
+
+`iq4nlvis 嫁接件 + --vision-cpu + 55,296 池`：`engine ready | ...+vision`、`modalities.vision=true`、free 490.4 MiB（CPU 视觉塔仅 44 MiB 设备侧）。DSH 识图实测：**26.9s 成功**（prompt 9,133 含图像 token、output 747、stop token、TTFT 19.8s=CPU 编码）。
+
+### 4. ★挂账 39（新发现）：非 growth 预留模式 × 视觉 token = scatter 断言
+
+growth OFF + 视觉请求 → `scatter: expected src [D,V], indices [V], dst [D,T]`（`ops/wrapper/scatter.cpp:18`）→ 图片请求 HTTP 500；`--recover-invariant-failures` **兜住引擎**（只废当前请求，进程存活继续服务——价值现场演示）。**growth ON + 视觉正常**（v28 + 本次识图）。证据矩阵：文本 OFF ✅ / 文本 ON ❌撞墙 / **视觉 OFF ❌scatter / 视觉 ON ✅**。根因方向：非 growth 全额预留 + ring 准入清零 KV 维度与视觉 token 页写入的交互。**规避**：视觉场景用 growth ON（视觉输出短，碰不到 4,096 撞墙窗）——launcher 已沉淀（视觉预设内嵌 legacy + validate 告警）。
+
+### 5. DSH streamIdleTimeoutMs 保险（已写入）
+
+面板不可调（UI settings 包零命中），但它是 **pi-ai provider 配置的正规字段**（`resolveProfiles` 显式读 `source.streamIdleTimeoutMs ?? 3e5`）——写入 `cordis.patch.yml` ninfer 段 `streamIdleTimeoutMs: 3600000`（备份 `.bak_20261011_pre_streamidle`）。**升级安全**：patch 层持久，node_modules 零改动。缓和因素：watchdog 每 chunk 重置，仅 prefill>300s 才危险（当前最重 35s）。
+
+### 6. 视觉塔精度四问（实测：333 对象、282.0 MiB 格式分布）
+
+q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% —— **官方混合精度，非最低**。CPU 路径瓶颈是内存带宽：全 bf16 = 字节×3.5 ≈ 编码时间×3.5（20s→70s），**当前混合精度是 CPU 路径最优**；提质量正道 = 调 `--vision-max-merged`（当前压 256）；想快 = GPU 编码（塔常驻 1.4 GiB，需池降至 ~20K）。**权重精度动不得。**
+
+### 7. 教训：KV 五开关环境变量
+
+照抄夜测 CMD 行起服失败（`--kv-capacity must be at least --max-context`）——`NINFER_KV_WINDOW` 等五开关是**环境变量**，CMD 行里看不到；缺 NINFER_KV_WINDOW 引擎直接拒启，缺其余 = "起得来但静默答错"。launcher 的 KV_ENV 固定注入（GUI 用户无感），手写命令必须自带。失败日志留档：`_failed_nokvwindow.log`。
+
+**产物**：`scripts/test_ab_arm1.py`（A 臂探针）、`scripts/probe_recall.py`（召回延迟探针，待引擎在跑时执行）。**TELE 回执**：复核报告待其落盘（已批准引用）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1229,7 +1283,9 @@ negative control: PASS (refused as required)
 | 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **全链路闭环**（§三·十二 §3 + §5）：①施工 L1/L2 通过（804+335 对象 SHA-256 零不匹配）；②**实机验证通过**（TeleAgent 执行）：20K/40K 起服成功、**40K+视觉并存成立**（free 898.4 MiB）、**真实识图成功**、`modalities.vision=true`。产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，比官方版小 202.5 MiB |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
-| 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | 🔨 **施工完成（2026-10-10 晚，CB）→ 待用户起服**：launcher hemostat 改三档（on=仅 recover-invariant★ / legacy=growth 对照臂 / off）；4 个 bat 同步去 growth。判据 = 同任务不再在 ~4,050 处被砍；观察 429/排队不返回/400 三种非墙形态（ring 准入清零 KV 维度 ⇒ 预留>池不拒绝，TELE 复审 #2）。**起服归用户**（先腾 GPU：非引擎占用 ~2.8 GB）；**日志判定归 TELE** |
+| 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
+| 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | 📋 **已定性 + 已规避**（§三·十六 §4）：growth ON 视觉正常（v28+本次识图）；recover-invariant 兜住引擎。规避 = 视觉场景用 legacy 档（launcher 视觉预设已内嵌 + validate 告警）。**根修待引擎施工批**（与 W1-W5 同批或单独） |
+| 40 | 56K 池重试（仅差 17.3 MiB）+ 召回延迟探针（`probe_recall.py` 待跑） | 📋 **待条件**：56K 需清非引擎占用（~1.1 GB，关浏览器等）后重试；召回探针需引擎在跑 + 超 55K 的大会话（TELE：下个稍长会话就会真正进召回模式） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

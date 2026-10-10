@@ -192,6 +192,12 @@ MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头�
 - `docs/调研-*.md` ×4 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 
+## 致谢
+
+- **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— 本线今天解决的核心问题全部以其同源引擎的公开修复与实测为参照：思考预算熔断三连缺陷（W1-W3）的修法来源、KV 租约撞墙（bounded completion）的对照定案、`ensure_sequence_kv_mapped` 调用点与语义的核对基准。没有这份先行工作，W1-W4 的修复与撞墙定位不会有这么快的收敛。
+- **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
+- **Neroued / 1314521gjy / nerkyor（ModelScope: Merkyor）** —— NInfer 引擎、融合引擎与模型上游。
+
 ## License 与上游
 
 | 组件 | 来源 | 许可 |

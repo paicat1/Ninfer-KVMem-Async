@@ -2,24 +2,27 @@
 rem ============================================================
 rem  start-coder390-vision.bat -- Coder390 with VISION on CPU threads
 rem
-rem  Model : models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer
-rem          ^-- the FACTORY build. It is the ONLY artifact on this line that
-rem              carries a "vision" component: our .mtp-iq4nl.ninfer and the
-rem              original both have none, so any --vision* flag aborts startup
-rem              with "Qwen3.8 config: missing component vision".
+rem  Model : models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer
+rem          ^-- the GRAFTED build (2026-10-10): our .mtp-iq4nl line + the factory
+rem              vision tower copied byte-identical (333 objects, 282.0 MiB).
+rem              It replaced the factory Q8MTP artifact (deleted 2026-10-11): the
+rem              grafted head is iq4_nl (239 MB) vs factory q8_0 (451 MB) => the
+rem              pool fits MUCH larger (55K+vision measured, free 490.4 MiB).
 rem  Engine: engine\self-built-20261008\ninfer-serve.exe
 rem  Port  : 8097
 rem
 rem  WHY --vision-cpu (source: serve_options.cpp:291-297, measured 2026-10-10):
 rem    "cpu runs it on CPU threads with NO device Vision memory"
-rem    => vision costs ZERO device VRAM. Measured: weights 12.3 -> 12.5 GiB,
-rem       runtime 1.44 GiB, free 663.4 MiB, engine ready in 13.3s.
-rem    COST: images are capped at 256 merged tokens (~512x512 pixels) and CPU
-rem    encoding takes "one to a few seconds" per image.
+rem    => vision costs ZERO device VRAM. Measured (grafted build, 55K pool):
+rem       free 490.4 MiB; DSH image recognition succeeded in 26.9s (TTFT 19.8s
+rem       = CPU encoding). COST: images are capped at 256 merged tokens
+rem       (~512x512 pixels) and CPU encoding takes tens of seconds per image.
 rem
-rem  POOL REDUCED TO 20K ON PURPOSE: the factory MTP head is q8_0 (451 MB)
-rem  instead of our iq4_nl head (239 MB), so the 40K pool does not fit.
-rem  Measured with 20K: free 663.4 MiB.
+rem  POOL: this bat keeps the conservative 20K (guaranteed start on a dirty
+rem  desktop); the grafted build measured fine at 40K and 55,296 with vision.
+rem  ⚠ hemostat: vision + no-growth hits a scatter assertion (issue 39,
+rem  2026-10-11) => this bat keeps --kv-lease-growth ON (short vision outputs
+rem  never reach the 4,096 wall).
 rem
 rem  NOT --vision-residency resident: that keeps the tower resident in device
 rem  memory (~1.4 GB) -- the exact opposite of what this script is for.
@@ -31,7 +34,7 @@ rem ============================================================
 setlocal
 set "ROOT=%~dp0"
 
-if not defined MODEL set "MODEL=%ROOT%models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"
+if not defined MODEL set "MODEL=%ROOT%models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"
 if not exist "%MODEL%" goto no_model
 
 set "ENGINE=%ROOT%engine\self-built-20261008\ninfer-serve.exe"

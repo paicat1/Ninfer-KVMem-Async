@@ -6,9 +6,9 @@
 
 | 代 | 仓 | 验证了什么 |
 |---|---|---|
-| 一 | **Bonsai 线**（`refs/04-自建线-J-Bonsai`） | **Bonsai 2 跑上 NInfer 引擎**——三元量化 + MTP 投机，**快**（decode 100+ tok/s） |
-| 二 | **Bonsai-Official 融合线**（`J:\Bonsai-Official`） | **NInfer × KVMem 结合**——灵活配置；有限显存下把 KV 下放内存（16 GiB host 环），**架构跑通** |
-| 三 | **本仓** | 架构验证完成后，**部署更大的模型**——Qwen3.8-27B-Coder390（27B）：256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿 |
+| 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层） | **Bonsai 2 跑上 NInfer 引擎**——三元量化（2.125bit）+ MTP 投机，**快**（decode 100+ tok/s） |
+| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **NInfer × KVMem 结合**——灵活配置；有限显存下把 KV 下放内存（16 GiB host 环），**架构跑通** |
+| 三 | [**paicat1/ninfer-kvmem**](https://github.com/paicat1/ninfer-kvmem)（本仓） | 架构验证完成后，**部署更大的模型**——Qwen3.8-27B-Coder390（27B）：256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿 |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
 

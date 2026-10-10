@@ -1274,6 +1274,8 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 **验收结论**：W1（顶格+越过防御）、W2（不再杀请求）、W3（防御闭合，正常 config 不可达，代码审查通过）、W4（progress 实流）——**施工批完成**。W5 按设计待长会话实测。
 
+**⚠️ push 假成功教训（TELE 复核抓出）**：`smart_push.ps1` 在工作区有未跟踪文件时**拒推且 exit 0**（输出"Commit first, then rerun"，无 FAIL 字样）——4ee93c8 起 13 个提交滞留本地（006cb2a/f12ee6d 等），靠 `git status -sb` 的 ahead 计数才发现。**push 成功的唯一判据 = push 后 `git status -sb` 显示 ahead 0**；grep 'PUSH OK' 不可靠（拒绝分支根本不含该词）。已删临时 bat 后真推（97f5214..3a08ebb）。
+
 ---
 
 ## 四、待续事项（挂账）

@@ -1,4 +1,4 @@
-# ninfer-kvmem
+# Qwen38-27B-NInfer-kvmem
 
 **在两代前序工程跑通的架构上，部署更大的模型（Qwen3.8-27B-Coder390，27B）。**
 

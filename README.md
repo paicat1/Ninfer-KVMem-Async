@@ -4,11 +4,11 @@
 
 三代演进：
 
-| 代 | 仓 | 验证了什么 |
+| 代 | 仓 | 沉淀 |
 |---|---|---|
-| 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层） | **Bonsai 2 跑上 NInfer 引擎**——三元量化（2.125bit）+ MTP 投机，**快**（decode 100+ tok/s） |
-| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **NInfer × KVMem 结合**——灵活配置；有限显存下把 KV 下放内存（16 GiB host 环），**架构跑通** |
-| 三 | [**paicat1/Qwen38-27B-NInfer-kvmem**](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)（本仓） | 架构验证完成后，**部署 Qwen3.8-27B 系 NInfer 容器**——256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
+| 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层，两分支一体） | **Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer**：Ambolio 移植 + CraneBW 内核、改 CMake `89\|120a`、自产 v2 制品；Device/Host **双层 KV**（被动容量）；MTP / DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s |
+| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
+| 三 | [**paicat1/Qwen38-27B-NInfer-kvmem**](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)（本仓） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
 
@@ -16,13 +16,15 @@
 
 ## 从两仓成果到今天：继承、堵点、压榨、成绩
 
-### 继承：前两仓留下的三件武器
+### 继承：前两仓留下的武器库
 
 | 武器 | 来自 | 在本仓的作用 |
 |---|---|---|
-| **MTP 投机解码** | 仓一（Bonsai on NInfer） | decode 105 → 233 tok/s 的来源 |
-| **KVMem 环** | 仓二（NInfer×KVMem 融合） | KV 大挪移：显存装不下的页自动下沉 16 GiB 内存——256K 深度的根基 |
-| **工具链 + GUI 配置能力** | 两仓沉淀 | 量化/转换/校验脚本与启动器全部复用，本仓只做增量 |
+| **混合投机（dflash2 + MTP + ngram）与调参方法论** | 仓二：K=7 甜点、K≥10 崩塌、**接受率是强语料依赖指标**（不能用合成文本测）、真实负载 748.6 峰值 | 本仓的 MTP K4 + ngram 档位、`test_ab_arm1.py` 的接受率/速度统计方法，全部照此模式验收 |
+| **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
+| **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
+| **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 官方成品不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
+| **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 8 预设 + 校验告警 + KV_ENV 注入 |
 
 ### 第一关：让 27B 大模型上车
 

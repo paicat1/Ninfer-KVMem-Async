@@ -71,7 +71,8 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-
 MODEL_OPTIONS = {
     "iq4nl":    ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
     "iq4nlvis": ("★iq4_nl + 视觉塔（嫁接件 · 含 vision 组件）", []),
-    "q8mtp":    ("官方 Q8MTP（含视觉 · 选它自动降池 20K）", []),
+    # q8mtp（官方含视觉）已移除（2026-10-11 用户裁决）：被 iq4nlvis 全面取代（MTP 头小 212 MB、
+    # 可配大池、视觉实测成功）；文件已删（13.78 GB），需要时重新下载。
     "orig":     ("原件（纯基线 · MTP 不可用）", []),
 }
 MODEL_PATHS = {
@@ -80,17 +81,14 @@ MODEL_PATHS = {
     "iq4nlvis": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
-    "q8mtp": os.path.join(ROOT, "models",
-                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"),
     "orig":  os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
 }
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
-VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q8mtp"))
-# 选官方 Q8MTP 时自动降到的池（实测：40K 起不来，20K 起服 free 663 MiB）
-# iq4nlvis **不进此表**：实测它 **40K 池 + 视觉并存成功**（free 898.4 MiB，2026-10-10），
-# 故无需降池 —— 这正是"嫁接省 212 MB 转给 KV 池"的兑现；将来若需限制再按实测数据加。
-MODEL_KVCAP_MAX = {"q8mtp": "20480"}
+# （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
+VISION_CAPABLE_MODELS = frozenset(("iq4nlvis",))
+# 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
+MODEL_KVCAP_MAX = {}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -364,9 +362,6 @@ def validate(combo, exe=None):
     _mp = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)
     if not os.path.exists(_mp):
         warns.append(f"未找到模型：{_mp}")
-    if combo.get("model") == "q8mtp" and str(combo.get("kvcap", "20480")) != "20480":
-        warns.append("官方 Q8MTP 的 MTP 头是 q8_0（451 MB，比 iq4_nl 多 212 MB）-> 池大于 20480 起不来"
-                     "（实测 40K 缺 100+ MiB）。选它时 GUI 会自动把池降到 20480。")
     if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
         warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
     # ---- 2026-10-10 实测踩坑（日志 serve_20261010_025432）：模型与视觉必须配对 ----

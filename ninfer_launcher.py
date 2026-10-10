@@ -104,11 +104,13 @@ PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("python
 # ⚠️ 2026-10-10 夜测定案（构建史 §三·十五，双环境收敛）：growth 在深超池构型下不止截"超池部分"——
 #    租约窗口(~4,096)无法扩充时输出被砍在 ~4,037-4,071（bounded completion），与 max_tokens/tb 无关
 #    ⇒ DSH 撞墙直接根因，已从 "on" 定稿档移除（官方 README:218：超池要保住输出 → 不要开 growth）。
-# P1b (2026-10-09) 定稿值 = 40960（对应 --kv-capacity 40960）。实测：40960 起服成功（runtime 1.71 GiB /
-#   free 449.6 MiB）；49152 缺 49 MiB（临界）、65536 缺 320 MiB。池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。
+# P1b (2026-10-09) 定稿值 = 40960；★2026-10-11 00:11 池上限标定（growth OFF）：65,536 缺 378 MiB、
+#   57,344 差 17.3 MiB（临界）、**55,296（864 页）成功**（runtime 1.91 GiB / free 534.4 MiB），
+#   55K + 视觉（iq4nlvis + --vision-cpu）同样成功（free 490.4 MiB）⇒ 定稿池抬到 55296。
+#   池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。起服必须带 KV_ENV 五开关（缺 NINFER_KV_WINDOW 直接拒启）。
 #   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
 #   （--host-kv-mib 16384）；实测 20,203 tokens prompt 检索答案正确（ring retrieve restored=128）。
-KV_POOL_TOKENS = 40960
+KV_POOL_TOKENS = 55296
 
 # KVMem 五开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
 # ⚠️ NINFER_KV_WINDOW 同时是"允许 --kv-capacity < --max-context"的开关（serve_options.cpp:1124-1132）：
@@ -157,8 +159,9 @@ CTX_OPTIONS = {
     "256k": ("256K（★本线定稿 · 模型原生上限）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
-    "40960": ("40960（★本线定稿 · 40K 全速池）", ["--kv-capacity", "40960"]),
-    "49152": ("49152（48K · 需清 GPU 占用才起得来）", ["--kv-capacity", "49152"]),
+    "55296": ("55296（★本线定稿 2026-10-11 · 54K 实测上限）", ["--kv-capacity", "55296"]),
+    "40960": ("40960（40K · 旧定稿）", ["--kv-capacity", "40960"]),
+    "49152": ("49152（48K）", ["--kv-capacity", "49152"]),
     "20480": ("20480（20K · 更省显存）",      ["--kv-capacity", "20480"]),
     "17920": ("17920（官方默认）",         ["--kv-capacity", "17920"]),
     "auto":  ("auto（按剩余显存）",   ["--kv-capacity", "auto"]),
@@ -208,7 +211,8 @@ MAXOUT_OPTIONS = {
 # 实测（构建史 §三·十，2026-10-10）：官方版 + --vision-cpu 起服成功，
 # weights 12.3→12.5 GiB、runtime 1.44 GiB、free 663.4 MiB，**设备视觉显存占用为零**；
 # 代价：图片被压到 256 merged tokens（约 512x512）、CPU 编码慢（one to a few seconds）。
-# iq4nlvis + 视觉：尚未实测（当晚 GPU 被用户的实机测试占用），池容量待定。
+# iq4nlvis + 视觉：★2026-10-11 实测 55,296 池 + --vision-cpu 成功（free 490.4 MiB；DSH 识图 26.9s 正常）。
+#   ⚠️ 挂账 39：视觉 + hemostat=on（无 growth）触发 scatter 断言 => 视觉请配 legacy 档。
 VISION_OPTIONS = {
     "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需含视觉模型）", ["--vision"]),
     "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存；需含视觉模型）", ["--vision", "--vision-residency", "overlay"]),
@@ -250,7 +254,7 @@ PRESERVE_OPTIONS = {
 }
 
 DIMENSIONS = [
-    ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（视觉只有官方版有）
+    ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（iq4nlvis 含视觉组件，2026-10-11 实测）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
     ("kv",     "KV 类型",         KV_OPTIONS),
     ("ctx",    "上下文",          CTX_OPTIONS),
@@ -284,9 +288,9 @@ DEFAULTS = {
     #                      旧 Bonsai 口径的残留，属错误配置，已改。
     #                      ⚠️ **思考不额外占显存**（只是多生成 token），关思考既不省显存也没好处。
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
-    #                      OpenAI chat 端点不转发请求里的 thinking_budget，只能靠服务端此参数。
+    #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
     "model": "iq4nl",
-    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "40960", "hostkv": "16384",
+    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "55296", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
 }
@@ -302,7 +306,7 @@ DIM_TIPS = {
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
-    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 40960（40K）；扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）：48K 需先清 GPU 占用、64K 缺 320 MiB。auto = 按剩余显存最大化。",
+    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 55296（2026-10-11 标定：64K 缺 378 MiB、56K 差 17.3 MiB、55,296 成功且 55K+视觉也成功）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
@@ -322,16 +326,18 @@ PRESET_PROFILES = {
     #     长文档-224K / 并发4-吞吐）已按用户裁决（2026-10-10）**整批删除**：
     #     本线模型无 dflash2 / vision 组件，那些档位选中必失败；且它们引用的是 Bonsai 口径的
     #     旧参数，留着只会与下面的定稿档混淆。Bonsai 相关内容一律不进本线。
-    "Coder390-MTP 定稿":    dict(DEFAULTS),                        # MTP K4 + 256K ctx + 40K 池 + rk2v4-e8
+    "Coder390-MTP 定稿":    dict(DEFAULTS),                        # MTP K4 + 256K ctx + ★54K 池 + rk2v4-e8
     "Coder390-裸解码对照":  dict(DEFAULTS, spec="k0"),              # 无投机（所有 A/B 的对照臂）
-    "Coder390-MTP 大池":    dict(DEFAULTS, kvcap="49152"),          # 48K 池（实测缺 49 MiB；清 GPU 占用后可能过）
     "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
     "Coder390-思考 medium":  dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
     "Coder390-关思考对照":    dict(DEFAULTS, think="none", tb="none"),   # 仅 A/B 对照：本模型不思考没法用
-    # 视觉档（2026-10-10 晚更新：改用嫁接件 iq4nlvis —— 同样的视觉塔，但 MTP 头小 202 MB。
-    #   官方 q8mtp 退为参照件：它 40K 起不来，只能 20K；iq4nlvis 理论可配更大池）
-    "Coder390-视觉档":       dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),  # 保守（确定能起）
-    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="40960"),  # ★40K+视觉实测成功（free 898.4 MiB）；需干净 GPU
+    # 视觉档（嫁接件 iq4nlvis：同样的视觉塔，MTP 头小 202 MB；官方 q8mtp 退为参照件）。
+    # ★挂账 39：视觉 + hemostat=on（无 growth）触发引擎 scatter 断言 => 视觉预设一律内嵌 hemostat="legacy"。
+    #   视觉请求输出短（64-750 tok），碰不到 4,096 撞墙窗 => growth ON 无墙风险（2026-10-11 识图实测成功）。
+    "Coder390-视觉档":       dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480",
+                                  hemostat="legacy"),              # 保守（确定能起）
+    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296",
+                                  hemostat="legacy"),              # ★55K+视觉实测成功（free 490.4 MiB，2026-10-11）
 }
 
 
@@ -372,10 +378,14 @@ def validate(combo, exe=None):
     if _vis == "off" and _model in VISION_CAPABLE_MODELS:
         warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
                      f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
-    _kv = str(combo.get("kvcap", "40960"))
-    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 40960:
-        warns.append("iq4nlvis 的**实测上限是 40K 池 + 视觉**（2026-10-10 实测成功，free 898.4 MiB）；"
-                     "超过 40K 未验证。注意需**干净 GPU**：有占用程序时缺 ~1 GB 会起不来。")
+    _kv = str(combo.get("kvcap", "55296"))
+    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 55296:
+        warns.append("iq4nlvis 的**实测上限是 55,296 池 + 视觉**（2026-10-11 实测成功，free 490.4 MiB）；"
+                     "更高未验证（57,344 起服即失败：差 17.3 MiB）。需干净 GPU。")
+    if _vis != "off" and str(combo.get("hemostat", "on")) == "on":
+        warns.append("★挂账 39：视觉 + KV止血档on（无 growth）会触发引擎 scatter 断言 -> 图片请求 HTTP 500"
+                     "（2026-10-11 实测 scatter.cpp:18；recover-invariant 兜住引擎但请求失败）。"
+                     "视觉请把止血档切到 legacy（growth ON）——视觉输出短，不会撞 4,096 墙。")
     if any(ord(c) > 127 for c in ROOT):
         warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
     return warns
@@ -397,7 +407,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
-    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "40960"),   "40960")  # P1b: 回退对齐 DEFAULTS（原 "17920"）
+    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "55296"),   "55296")  # 2026-10-11: 回退对齐 DEFAULTS（原 "40960"）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）

@@ -8,7 +8,7 @@
 |---|---|---|
 | 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层） | **Bonsai 2 跑上 NInfer 引擎**——三元量化（2.125bit）+ MTP 投机，**快**（decode 100+ tok/s） |
 | 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **NInfer × KVMem 结合**——灵活配置；有限显存下把 KV 下放内存（16 GiB host 环），**架构跑通** |
-| 三 | [**paicat1/ninfer-kvmem**](https://github.com/paicat1/ninfer-kvmem)（本仓） | 架构验证完成后，**部署更大的模型**——Qwen3.8-27B-Coder390（27B）：256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿 |
+| 三 | [**paicat1/Qwen38-27B-NInfer-kvmem**](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)（本仓） | 架构验证完成后，**部署 Qwen3.8-27B 系 NInfer 容器**——256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
 
@@ -165,6 +165,17 @@ MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头�
 - **超池口径（B28）**：超池 prompt 的中段答案按"未核实"对待——`NINFER_KV_RETRIEVE` 检索开关是保命符。
 - **召回开销已实测**：超池 prefill 被流水化吸收（~8-23%，60K 场景往返 ≈4-8 s），零截尾。
 - **push 教训**：推送成功以 `git status -sb` 的 ahead 0 为唯一判据。
+
+## 模型支持边界与演进方向
+
+| 状态 | 模型 | 说明 |
+|---|---|---|
+| ✅ **已验证** | Qwen3.8-27B 系（`Coder390-EfficientThink` Q2LynnStyle 量化的 NInfer 容器） | 本仓全部实测（A 臂两轮 DSH agentic、召回探针、视觉识图）都跑在它上面 |
+| 🔶 **理论可装，未验证** | **其他 Qwen 3.8 27B 的 NInfer 容器**（如发放包清单的 `neroued/Qwen3.8-27B-NInfer` 官方转换件） | 引擎吃 `.ninfer` 容器，同构容器应可加载；MTP 头/视觉需按模型重新加工（脚本可复用）——**未跑过，不做承诺** |
+| 🔶 **理论可装，未验证** | Qwen 其他系列（如 Qwen3.6-27B/35B 的 NInfer 转换件） | 同上，架构参数（KV 层布局/head_dim）不同构时需先验证 |
+| 🎯 **设计目标** | **Qwen 4 27B 的 Bonsai 格式与 NInfer 格式** | 本仓的池/环/检索/加工链就是为下一代模型着陆预备的：容器一到，重跑加工脚本即可上车 |
+
+> 加工链与容器解耦：换任何 NInfer 容器，只需重跑 `recode_mtp.py`（MTP 头自转）与 `graft_vision.py`（视觉嫁接）两个脚本——参数与验收探针全部现成。
 
 ## 已知限制
 

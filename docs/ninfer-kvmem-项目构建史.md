@@ -1174,10 +1174,19 @@ negative control: PASS (refused as required)
 4. "墙位不变"表述应精确为：**墙位与 tb 无关，由租约覆盖决定**（req#7 tb=32,000 墙位 24,226 = 池上限−prompt）。
 5. **KVMem 对照细节未复现**：`serve_20261010_023405.log` grep 不到 done 行——机制论证（llama.cpp 无租约）成立，但该证据建议 TELE 自核或标注"TELE 已核、交叉审核未复现"。
 
-### 6. 双方收敛情况（待 TELE 复审本节后回填）
+### 6. 双方收敛情况（TELE 复审已回填，2026-10-10 22:29 后）
 
-- **已收敛**：W1-W5 全部成立（调用点 10 处清单与 CodeBuddy 独立核对逐个吻合）；撞墙主因 = 引擎 `--kv-lease-growth` 的 bounded completion（非 DSH 参数、非 tb、非 watchdog）；W1-W5 与墙解耦、照排施工；修法方向 = 去 `--kv-lease-growth`（+ 配套压 maxTokens）。
-- **待收敛**：TELE 对本节 §5 五条修正的意见；TELE 报告 HEAD 笔误的修订。
+**TELE 对 §5 五条修正的复审结论：5 条全部落定（3 证实、2 修正），0 悬置 ⇒ 双方意见收敛。**
+
+| # | CB 修正 | TELE 复审 | 关键证据 |
+|---|---|---|---|
+| 1 | HEAD 笔误 3f9dc83→3b9dc837 | **CB 误指，自纠**：报告全部版本均无 3f9dc83，§一/§2.3 两处均为 3b9dc83（合法 7 位前缀）；全仓唯一出现处是 v30 本节自身描述——**疑似 CB b/f 误读** | `git show 19e600d` 报告 L31/L68；`git log -S "3f9dc83"` 仅命中 20b49fc |
+| 2 | 非 growth 预留=全额 ⇒ "预留必然失败" ⇒ 必须捆绑压 maxTokens | **部分成立（断言收紧）**：前提✓（request_plan.cpp:262-266 + 设计文 §6.2）；但 **ring 模式准入显式将设备 KV 维度清零（pressure.cpp:2691-2705 "Zero the dimension"）⇒ 预留>池不会触发拒绝**；README:218 口径即"超池去 growth=保输出"。三种拒绝形态（400/429/排队）照收为 A/B 观察项；压 maxTokens **降为保险/第二臂**（repo 口径 ≤40,960，CB 的 ≤20,000 更严） | pressure.cpp:2691-2705；engine_core.h:1907-1911/1931-1936/2203-2211 |
+| 3 | 抬池 49,152 降级 | **证实** | 014459.log CMD `--kv-capacity 49152` + req#38 output 4,071 仍被砍 |
+| 4 | "墙位与 tb 无关，由租约覆盖决定" | **证实**（措辞微调：精确式保留 −87 项：40,960−16,647−87=24,226） | 011659.log L6029/L13772 |
+| 5 | KVMem 证据未复现 | **自核通过 + 指路**：该日志为 llama.cpp 格式（无 done 行，用 n_gen 进度行）——n_gen 199→2,737（131 条，文件止于末行无停止行）⇒ "至少 2,737 token 连续未断"成立；TELE 自纠速度区间 10-23 → **24-66 t/s**（原为误读） | serve_20261010_023405.log L18-205 |
+
+**收敛结论**：撞墙主因（`--kv-lease-growth` bounded completion）、W1-W5 与墙解耦照排、修法方向（去 growth，ring 准入保证不拒绝；压 maxTokens 为第二臂保险）——**三方（日志/源码/官方口径）与双方（CB/TELE）完全收敛**。进入施工（挂账 38）。
 
 ---
 
@@ -1220,7 +1229,7 @@ negative control: PASS (refused as required)
 | 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **全链路闭环**（§三·十二 §3 + §5）：①施工 L1/L2 通过（804+335 对象 SHA-256 零不匹配）；②**实机验证通过**（TeleAgent 执行）：20K/40K 起服成功、**40K+视觉并存成立**（free 898.4 MiB）、**真实识图成功**、`modalities.vision=true`。产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，比官方版小 202.5 MiB |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
-| 38 | ★**A/B 验证：去 `--kv-lease-growth`**（+ 配套压 DSH maxTokens ≈20,000），同 prompt 验证墙消失 | 📋 **待用户批准起服**（§三·十五 §5 #2）：判据 = 同任务不再在 ~4,050 处被砍；观察 429/排队不返回/400 三种非墙形态；启动器改一行、零编译 |
+| 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | 🔨 **施工完成（2026-10-10 晚，CB）→ 待用户起服**：launcher hemostat 改三档（on=仅 recover-invariant★ / legacy=growth 对照臂 / off）；4 个 bat 同步去 growth。判据 = 同任务不再在 ~4,050 处被砍；观察 429/排队不返回/400 三种非墙形态（ring 准入清零 KV 维度 ⇒ 预留>池不拒绝，TELE 复审 #2）。**起服归用户**（先腾 GPU：非引擎占用 ~2.8 GB）；**日志判定归 TELE** |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

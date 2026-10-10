@@ -378,6 +378,14 @@ def validate(combo, exe=None):
         warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
                      f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
     _kv = str(combo.get("kvcap", "51200"))
+    try:
+        if int(str(combo.get("conc", "1"))) > 1:
+            warns.append("★架构约束：KVMem 环（NINFER_KV_WINDOW）只支持 --max-concurrency 1"
+                         "（环无法回收另一 lane 的设备页，并发>1 启动即拒，2026-10-11 实测）。"
+                         "要多并发必须放弃 KVMem 环（unset NINFER_KV_WINDOW => 池必须 ≥ 逻辑上下文，"
+                         "本卡不可行）——并发与 256K 深度/检索互斥，保持 1。")
+    except ValueError:
+        pass
     if _kv.isdigit() and int(_kv) >= 55296:
         warns.append("★贴边池（≥55,296）：需桌面空闲到引擎可约 ~1.95 GiB（关浏览器/Overlay 等 ~1 GB 占用），"
                      "否则启动即缺 ~24 MiB 拒启（2026-10-11 实测两次：55,296 当晚成功、次日 +25 MiB 负载即败）。"

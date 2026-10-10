@@ -37,6 +37,7 @@
 | 2026-10-10 | v27 | **ngram 实测**（`trigger 29` 完成，TeleAgent 独立起服两臂）：MTP+ngram（默认 15）vs MTP-only（`--ngram-draft-tokens 0`），8 类任务单轮；decode 均值 104.26 vs 101.41（**+2.7%**），接受率 49.6% vs 48.1%（**+1.5pt**）⇒ **ngram 净贡献≈0（配对差异 stdev 13.2 远大于均值 2.9，无统计显著性）**；两臂同 8 任务、同思考参数（high/16000）、唯一差异为 ngram 宽度 |
 | 2026-10-10 | v28 | ★**视觉塔实机验证闭环**（挂账 35 完成；**TeleAgent 起服执行，CodeBuddy 补录**）：① 20K 池 + `--vision-cpu` 起服成功（引擎识别 `+vision` 组件；weights 12.3 GiB，free 963.4 MiB）；② ★**40K 大池 + 视觉并存成功**（KV 40,960 tokens，free 898.4 MiB）⇒ "嫁接省 212 MB 转给 KV 池"的设计**成立**（官方 Q8MTP 版做不到）；③ 文字推理正常（decode 75.9，MTP 接受 27.3%）；④ ★**真实识图成功**（准确描述"条纹渐变 + 同心圆环"；prompt 318 tokens 含 21 图像 token；TTFT 15.7s = CPU 编码）；⑤ `/v1/models` 返回 `modalities.vision=true`。代价：图片压到 256 merged tokens、CPU 编码慢、**40K+视觉需干净 GPU** |
 | — | — | ⚠️ **越权说明（2026-10-10 用户核准保留）**：上述 v27 由 **TeleAgent 越权提交**（本应归 CodeBuddy 维护构建史）——实测数据真实、结论成立，用户裁决**保留**；但属违规操作，已记档。后续构建史仍归 CodeBuddy 维护，TeleAgent 不代录。 |
+| 2026-10-10 | v29 | **本机 DSH 实证**（§三·十四，补两篇 H 盘文档审核的不可复核项）：本机 DSH 是 **Tauri**（非 Electron/asar，v0.11.0），主逻辑明文在 `.dsh\profiles\core-017\node_modules\@deepseek-ai\*`；H 盘文档四项机制声称**逐字/机制实锤**（DEFAULT_MAX_TOKENS=32768、idleWatchdog 逐次重装、"已达到输出 token 上限"+"继续"文案、thinkingTokenBudgetField 未设）；⭐ **ninfer 活配置**（cordis.patch.yml：18787/v1、maxOutputTokens 32768 > tb 16000）⇒ **撞墙定案分支 B**，W1-W4 补丁是解药；挂账 37：DSH 临时止血**待 TELE 研究后实施**（前置：pi-ai 适配器预算值来源未确认）；工具 `refs/_tools/search_dsh_strings.cjs` 入库 |
 
 ---
 
@@ -1079,6 +1080,60 @@ negative control: PASS (refused as required)
 
 **遗留**：单轮测量（8 任务 × 1 轮）；若要排除噪声底，可同臂多轮测极差（对结论无实质影响，因差异已在噪声内）。
 
+## 三·十四、2026-10-10 · 本机 DSH 实证（补 H 盘文档审核的不可复核项）+ 撞墙分支定案
+
+**背景**：审核两篇 H 盘文档（tancau 对比 + DSH 撞墙讨论）时，DSH asar 取证（§11）标记为"不可独立复核"（`C:\Program Files\DSH Desktop` 不存在）。**用户指出本机桌面装有 DSH** ⇒ 补取证。
+
+### 1. 载体更正：本机 DSH 是 **Tauri**，不是 Electron/asar
+
+```
+[EVIDENCE] C:\Users\PC\Desktop\Deepseek Harness Desktop\  → deepseek-harness-desktop.exe 23.9 MB
+           resources\ 下只有 node_modules + JSON，无 app.asar
+           C:\Users\PC\.dsh\dsh-tauri-ui\ + dsh-tauri-running-changes\  ⇒ Tauri 应用（v0.11.0 setup）
+[EVIDENCE] 主逻辑是明文 node 包：C:\Users\PC\.dsh\profiles\core-017\node_modules\@deepseek-ai\*
+           （core-020 亦存在，现役 profile 待 TELE 研究裁定）
+```
+
+⇒ H 盘文档的"asar 字节位"针对另一版本/安装，**载体描述过时，但不影响任何机制结论**。
+
+### 2. 文档声称逐项实锤（本机源码逐字验证，四项全中）
+
+| H 盘文档声称 | 本机实测 | 判定 |
+|---|---|---|
+| `DEFAULT_MAX_TOKENS = 32768` | `dsh-llm-pi-ai/lib/index.js` 内 `const DEFAULT_MAX_TOKENS = 32768` | ✅ 逐字 |
+| watchdog 只由事件产出重装 | `dsh-timeout/lib/index.js:85` `idleWatchdog`：timer 仅在 `next()` 未决时存在，每次产出才重装（"consumer think time does not count"） | ✅ 机制一致 |
+| length → "已达到输出 token 上限" + "发送'继续'" | `dsh-client-ui-chat/lib/client.js:5527-5528` **逐字命中** | ✅ 逐字 |
+| `thinkingTokenBudgetField` 默认不发 | 字段机制存在（schema + 三种拼写 `thinking_token_budget/thinking_budget/thinking_budget_tokens`），**ninfer provider 配置未设置** ⇒ 不发送 | ✅ 与文档一致 |
+
+### 3. ⭐ 决定性发现：ninfer 的活配置（`profiles/core-017/cordis.patch.yml`）
+
+```
+[EVIDENCE] ninfer provider：baseURL http://127.0.0.1:18787/v1、reasoning medium
+           maxOutputTokens: 32768（请求级）、maxTokens: 65536、contextWindow: 229376（224K 档）
+           kvmem provider（第二档）：18200/v1、maxOutputTokens 32768、contextWindow 184320
+           默认模型：provider ninfer / qwen3.8-27b / reasoningEffort medium
+```
+
+**⇒ 撞墙分支定案（文档 §12.2 决策树第 0 步，不用再猜）**：DSH 发送 `max_tokens = 32768 > tb 16000` ⇒ **分支 B**；请求不带 `thinking_budget` ⇒ 服务端 `--default-thinking-budget 16000` 生效 ⇒ 分支 B 正是 **W1（`==`）+ W2（throw）保险丝缺陷的作用区** ⇒ **W1-W4 引擎补丁是解药**（施工单路线成立）。
+
+### 4. 日志侧：本机 `logs/` 无撞墙样本
+
+两份最新日志（vision 40K 池、nongram bench）全是**小上限测试请求**（output 80-400、finish=正常），无 DSH 撞墙会话的 `req# done` 记录 ⇒ §12.3 复现实验待做。
+
+### 5. 临时止血方案（**已设计，待 TELE 研究后实施**——用户裁决）
+
+```
+方案：cordis.patch.yml 的 ninfer 段加 thinkingTokenBudgetField: thinking_budget（+低预算）
+     ⇒ DSH 显式传 per-request 预算（本线引擎 S3 已支持，openai_chat_request.cpp:947-982）
+⚠️ 未决：pi-ai index.js 只有 schema/capability 两处命中，无请求构造逻辑
+     ⇒ 预算"值"从哪取（适配器层/会话设置/reasoningEffort 映射？）尚未确认
+     ⇒ 改 yml 前必须先查清值来源，否则白改或发错值（引擎 S3 语义：0/null = 不设）
+```
+
+### 6. 工具入库
+
+`refs/_tools/search_dsh_strings.cjs` —— 二进制字节级 needle 搜索（exe/asar 通用），本次 Tauri exe 验证所用。
+
 ---
 
 ## 四、待续事项（挂账）
@@ -1119,6 +1174,7 @@ negative control: PASS (refused as required)
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
 | 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **全链路闭环**（§三·十二 §3 + §5）：①施工 L1/L2 通过（804+335 对象 SHA-256 零不匹配）；②**实机验证通过**（TeleAgent 执行）：20K/40K 起服成功、**40K+视觉并存成立**（free 898.4 MiB）、**真实识图成功**、`modalities.vision=true`。产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，比官方版小 202.5 MiB |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
+| 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 📋 **已设计、待实施**（§三·十四 §5）：用户裁决**等 TELE 研究完再动**；前置：确认 pi-ai 适配器的预算"值"来源（index.js 仅 schema，无构造逻辑） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
 

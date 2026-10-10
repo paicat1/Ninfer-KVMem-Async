@@ -35,6 +35,7 @@
 | 2026-10-10 | v25 | **§三·十二 两项取证**：① `--default-thinking-budget` **不占显存**（纯行为控制参数；全树 27 处命中无一用于资源分配）；② ★**挂账 35**：把官方版 vision 组件嫁接到 iq4_nl 版 —— 取证 vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**，收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存；给出五步技术路径与风险 |
 | 2026-10-10 | v26 | ★**视觉塔移植完成**（挂账 35 施工，离线）：新增 `scripts\graft_vision.py`；取证证明是**纯追加**（bindings/uses/objects 三项差集、`ours_only=0`、ID 命名空间 `weight/v*` 不冲突、`writer.py` 原生支持无需扩展）；产物 `.mtp-iq4nl.vision.ninfer` **12.94 GiB**、视觉塔 **282.0 MiB**、比官方版**小 202.5 MiB**；**L1 全量 SHA-256：804+335 对象零不匹配**，L2 负对照 PASS；**待实机验证**（起服识图 + 大池并存） |
 | 2026-10-10 | v27 | **ngram 实测**（`trigger 29` 完成，TeleAgent 独立起服两臂）：MTP+ngram（默认 15）vs MTP-only（`--ngram-draft-tokens 0`），8 类任务单轮；decode 均值 104.26 vs 101.41（**+2.7%**），接受率 49.6% vs 48.1%（**+1.5pt**）⇒ **ngram 净贡献≈0（配对差异 stdev 13.2 远大于均值 2.9，无统计显著性）**；两臂同 8 任务、同思考参数（high/16000）、唯一差异为 ngram 宽度 |
+| 2026-10-10 | v28 | ★**视觉塔实机验证闭环**（挂账 35 完成；**TeleAgent 起服执行，CodeBuddy 补录**）：① 20K 池 + `--vision-cpu` 起服成功（引擎识别 `+vision` 组件；weights 12.3 GiB，free 963.4 MiB）；② ★**40K 大池 + 视觉并存成功**（KV 40,960 tokens，free 898.4 MiB）⇒ "嫁接省 212 MB 转给 KV 池"的设计**成立**（官方 Q8MTP 版做不到）；③ 文字推理正常（decode 75.9，MTP 接受 27.3%）；④ ★**真实识图成功**（准确描述"条纹渐变 + 同心圆环"；prompt 318 tokens 含 21 图像 token；TTFT 15.7s = CPU 编码）；⑤ `/v1/models` 返回 `modalities.vision=true`。代价：图片压到 256 merged tokens、CPU 编码慢、**40K+视觉需干净 GPU** |
 | — | — | ⚠️ **越权说明（2026-10-10 用户核准保留）**：上述 v27 由 **TeleAgent 越权提交**（本应归 CodeBuddy 维护构建史）——实测数据真实、结论成立，用户裁决**保留**；但属违规操作，已记档。后续构建史仍归 CodeBuddy 维护，TeleAgent 不代录。 |
 
 ---
@@ -950,9 +951,10 @@ negative control: PASS (refused as required)
 
 **⇒ "大池 + 视觉"并存的基础**：官方版只能配 20K 池（头 451 MB），本产物头仅 239 MB ⇒ **省下的 202.5 MiB 可转给 KV 池**。
 
-**⏳ 尚未做（GPU 被实机测试占用，且起服纪律归用户）**：
-1. `--vision-cpu` 起服 + 实图识图（端到端验证视觉塔真的能用）；
-2. 验证"大池 + 视觉"能否同时成立（省下的 202.5 MiB 换池容量，预期可行，待实测）。
+**✅ 已实测（2026-10-10 20:30，由 TeleAgent 独立起服执行；见 §5）**：
+1. `--vision-cpu` 起服 + **实图识图成功**（模型准确描述图片内容，非仅"加载成功"）；
+2. **"大池 + 视觉"并存成立**：**40K 池（40,960 tokens）+ 视觉塔同时起服**，free 898.4 MiB
+   —— 官方 Q8MTP 版做不到（它只能 20K）。
 
 ### 4. 用户实机"加视觉秒退"的真实原因（2026-10-10 02:54）与 GUI 修复
 
@@ -992,6 +994,62 @@ negative control: PASS (refused as required)
 ```
 
 **⇒ 教训**：**新增产物后必须回头检查"入口"是否跟得上**。产物做得再对，只要 GUI 里选不到，用户就只能手工拼命令 —— 而手工拼命令恰恰会踩"模型与开关不配对"的坑。
+
+### 5. ★视觉塔实机验证闭环（2026-10-10 20:00–20:31）
+
+> **角色说明**：本轮验证由 **TeleAgent 独立起服执行**（经用户授权），**CodeBuddy 仅补录**。
+> 数据与证据由 TeleAgent 提供；构建史归属 CodeBuddy，故在此登记。
+
+**验证对象**：`models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer`
+
+**① 20K 池 + `--vision-cpu` 起服（保守档）**：
+
+```
+[EVIDENCE] engine ready | qwen3.8-27b-coder390-Q2LynnStyle-Mtp+mtp-iq4nl+vision
+           ⇒ **引擎识别出 +vision 组件**（嫁接被正确加载，不只是文件变大）
+[EVIDENCE] weights 12.3 GiB（比官方 Q8MTP 的 12.5 GiB 小 0.2 —— iq4_nl 头更小）
+[EVIDENCE] free 963.4 MiB
+```
+
+**② ★40K 大池 + 视觉并存（核心验证）**：
+
+```
+[EVIDENCE] engine ready | ...Mtp+mtp-iq4nl+vision
+[EVIDENCE] capacity | KV 40,960 tokens, rk2v4-e8 | runtime 1.72 GiB | free 898.4 MiB  ✅
+⇒ **"嫁接省 212 MB ⇒ 转给 KV 池"的设计成立**：视觉塔 + 40K 池**同时**可用
+   —— 这是官方 Q8MTP 版**做不到**的（它只能配 20K 池）
+[EVIDENCE] 同期反例（同配置首次尝试失败）：GPU 被用户程序占用（LM Studio / Overlay 等）时
+           需求 1.84 GB，可用仅 0.81 GB ⇒ 缺 ~1 GB ⇒ 起服失败；
+           用户关闭占用程序后**同配置立即成功**
+           ⇒ 与 §4 的"可用量是变量"一致：**40K + 视觉需要干净 GPU**
+```
+
+**③ 文字推理正常**（视觉组件加载不影响 text 主干）：
+
+```
+[EVIDENCE] decode 75.9 tok/s | mtp accepted 27.3% | thinking 80/16000
+```
+
+**④ ★真实识图（端到端，非"加载成功"而已）**：
+
+```
+[EVIDENCE] 图像请求成功处理：prompt 318 tokens（含 21 个图像 token + 297 文本）
+[EVIDENCE] TTFT 15.7s（CPU 视觉编码，符合"CPU 编码慢"的既有预期）
+           | decode 87.3 tok/s | mtp accepted 36.5%
+[EVIDENCE] 模型回答（准确描述图片内容）：
+           "这是一张抽象几何风格的数字图像，主要由两部分构成：①背景：一组垂直排列的彩色
+            条纹…形成类似色带/光谱的渐变效果；②前景：一组层层嵌套的同心圆环…"
+           ⇒ 视觉管道完整打通：图像 -> 视觉塔编码 -> 推理 -> 回答
+[EVIDENCE] /v1/models 返回 modalities: {"vision": true}   ← 服务级证据
+```
+
+**⇒ 结论：挂账 35 闭环。** 嫁接产物完整可用，且达成**官方版做不到的组合**：
+**小 MTP 头（239 MB）+ 视觉塔 + 40K 大池** 三者同时成立。
+
+**代价（如实记录）**：
+- 图片被压到 256 merged tokens（约 512×512）；
+- CPU 视觉编码慢：TTFT 15.7s（编码在 CPU，不占设备视觉显存）；
+- **40K + 视觉需要干净 GPU**（有占用程序时缺 ~1 GB 起不来）。
 
 ---
 
@@ -1056,10 +1114,10 @@ negative control: PASS (refused as required)
 | 29 | ngram 实测（本线第三目标） | ✅ **已完成**（2026-10-10）：MTP+ngram vs MTP-only 两臂，decode 104.26 vs 101.41（+2.7%，无统计显著性）⇒ **ngram 净贡献≈0**；保留默认即可（详见三·十三） |
 | 30 | **日志刷屏降噪** | ✅ 已完成（两轮）：`[ring] budgets` / `[ninfer] mask hidden` / `[ninfer] demote-other short` / `kvmem_score: KEPT` **整段隐藏**；`kvmem_score: SELECT` / **`[ninfer] ring retrieve:`** / `[ninfer] kvmem harvest:` **同段只留首末**（后两者是用户 2026-10-10 追加反馈的刷屏源）；日志文件始终全文落盘 |
 | 31 | **视觉启动脚本** | ✅ 已完成：`start-coder390-vision.bat`（官方版 + `--vision-cpu` + 20K 池） |
-| 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |
+| 32 | 视觉功能端到端验证（发一张真图片测识图） | ✅ **已完成**（2026-10-10 20:31，TeleAgent 执行）：**嫁接件** + `--vision-cpu` + 40K 池，模型**准确描述图片内容**（条纹渐变 + 同心圆环）；`/v1/models` 返回 `modalities.vision=true`（详见 §三·十二 §5） |
 | 33 | **定稿误设"关思考"** | ✅ 已纠正（§三·十一）：改 `high` + `tb 16000`（launcher + 3 bat + profiles 4 档） |
 | 34 | **我擅自起服/隐藏窗口** | ✅ 已清理并立纪律（§三·十一）：起服一律归用户，禁止隐藏窗口 |
-| 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **施工完成 + L1/L2 通过**（§三·十二 §3）：产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，视觉塔 282.0 MiB，**比官方版小 202.5 MiB**；804+335 对象**全量 SHA-256 零不匹配**。**待实机验证**（`--vision-cpu` 起服 + 识图 + 大池并存） |
+| 35 | ★**把官方版 vision 组件嫁接到 iq4_nl 版**（用户 2026-10-10 要求） | ✅ **全链路闭环**（§三·十二 §3 + §5）：①施工 L1/L2 通过（804+335 对象 SHA-256 零不匹配）；②**实机验证通过**（TeleAgent 执行）：20K/40K 起服成功、**40K+视觉并存成立**（free 898.4 MiB）、**真实识图成功**、`modalities.vision=true`。产物 `.mtp-iq4nl.vision.ninfer` 12.94 GiB，比官方版小 202.5 MiB |
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |

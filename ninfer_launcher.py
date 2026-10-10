@@ -60,8 +60,9 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-
 #              = 唯一"小 MTP 头 + 有视觉"的组合件；视觉塔 282 MiB，
 #              整体比官方 Q8MTP 版小 202.5 MiB（差额正是 MTP 头 q8_0 -> iq4_nl）；
 #              L1 全量 SHA-256：骨架 804 + 视觉 335 对象零不匹配
-#              **池容量未实测** —— iq4nl 无视觉 40K 实测 free 587.3 MiB，视觉塔约 282 MiB，
-#              理论可行；起不来就把池降到 20480/24576（待实测定稿再定耦合）
+#              **实测（2026-10-10，TeleAgent）：40K 池 + 视觉并存成功**（free 898.4 MiB）、
+#              **真实识图成功**；20K 亦成功（free 963.4 MiB）。代价：图片压 256 merged tokens、
+#              CPU 编码 TTFT ~15.7s；**40K+视觉需干净 GPU**（有占用程序时缺 ~1 GB 起不来）
 #   q8mtp    : 官方 Q8MTP 版（MTP 头 q8_0 = 451 MB，比 iq4nl 多 212 MB）—— 含 vision 组件；
 #              选它时 GUI 会自动把 --kv-capacity 降到 20480（否则 40K 池起不来，实测过）
 #   orig     : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
@@ -87,8 +88,8 @@ MODEL_PATHS = {
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q8mtp"))
 # 选官方 Q8MTP 时自动降到的池（实测：40K 起不来，20K 起服 free 663 MiB）
-# iq4nlvis 不在此表：**没有实测依据，故不臆造自动降池**；改由 validate() 出提示
-# （它比官方版省 212 MB，可能 40K 也起得来 —— 实测定稿后再决定是否加耦合）
+# iq4nlvis **不进此表**：实测它 **40K 池 + 视觉并存成功**（free 898.4 MiB，2026-10-10），
+# 故无需降池 —— 这正是"嫁接省 212 MB 转给 KV 池"的兑现；将来若需限制再按实测数据加。
 MODEL_KVCAP_MAX = {"q8mtp": "20480"}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
@@ -323,7 +324,7 @@ PRESET_PROFILES = {
     # 视觉档（2026-10-10 晚更新：改用嫁接件 iq4nlvis —— 同样的视觉塔，但 MTP 头小 202 MB。
     #   官方 q8mtp 退为参照件：它 40K 起不来，只能 20K；iq4nlvis 理论可配更大池）
     "Coder390-视觉档":       dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),  # 保守（确定能起）
-    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="40960"),  # 试 40K（未实测；起不来就降池）
+    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="40960"),  # ★40K+视觉实测成功（free 898.4 MiB）；需干净 GPU
 }
 
 
@@ -365,9 +366,9 @@ def validate(combo, exe=None):
         warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
                      f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
     _kv = str(combo.get("kvcap", "40960"))
-    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 24576:
-        warns.append("iq4nlvis 的池容量**尚未实测**（视觉塔 282 MiB）。参照：iq4nl 无视觉 40K "
-                     "实测 free 587.3 MiB；若起不来请把池降到 20480/24576。")
+    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 40960:
+        warns.append("iq4nlvis 的**实测上限是 40K 池 + 视觉**（2026-10-10 实测成功，free 898.4 MiB）；"
+                     "超过 40K 未验证。注意需**干净 GPU**：有占用程序时缺 ~1 GB 会起不来。")
     if any(ord(c) > 127 for c in ROOT):
         warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
     return warns

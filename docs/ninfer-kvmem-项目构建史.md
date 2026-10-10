@@ -35,6 +35,7 @@
 | 2026-10-10 | v25 | **§三·十二 两项取证**：① `--default-thinking-budget` **不占显存**（纯行为控制参数；全树 27 处命中无一用于资源分配）；② ★**挂账 35**：把官方版 vision 组件嫁接到 iq4_nl 版 —— 取证 vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**，收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存；给出五步技术路径与风险 |
 | 2026-10-10 | v26 | ★**视觉塔移植完成**（挂账 35 施工，离线）：新增 `scripts\graft_vision.py`；取证证明是**纯追加**（bindings/uses/objects 三项差集、`ours_only=0`、ID 命名空间 `weight/v*` 不冲突、`writer.py` 原生支持无需扩展）；产物 `.mtp-iq4nl.vision.ninfer` **12.94 GiB**、视觉塔 **282.0 MiB**、比官方版**小 202.5 MiB**；**L1 全量 SHA-256：804+335 对象零不匹配**，L2 负对照 PASS；**待实机验证**（起服识图 + 大池并存） |
 | 2026-10-10 | v27 | **ngram 实测**（`trigger 29` 完成，TeleAgent 独立起服两臂）：MTP+ngram（默认 15）vs MTP-only（`--ngram-draft-tokens 0`），8 类任务单轮；decode 均值 104.26 vs 101.41（**+2.7%**），接受率 49.6% vs 48.1%（**+1.5pt**）⇒ **ngram 净贡献≈0（配对差异 stdev 13.2 远大于均值 2.9，无统计显著性）**；两臂同 8 任务、同思考参数（high/16000）、唯一差异为 ngram 宽度 |
+| — | — | ⚠️ **越权说明（2026-10-10 用户核准保留）**：上述 v27 由 **TeleAgent 越权提交**（本应归 CodeBuddy 维护构建史）——实测数据真实、结论成立，用户裁决**保留**；但属违规操作，已记档。后续构建史仍归 CodeBuddy 维护，TeleAgent 不代录。 |
 
 ---
 

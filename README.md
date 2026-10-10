@@ -66,8 +66,12 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 
 ### models/ 三件套（一条进化链）
 
+**上游模型**：`nerkyor`（HuggingFace，Apache-2.0）——基座仓
+[`nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-...-RLOO-MTP-DFlash2`](https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2)
+（42K+ 下载，多模态）；"Q2LynnStyle" 是 Lynn 式 q2 混合精度的**量化风格标签**（q2-lynnstyle）。本线 `.ninfer` 原件为该系的 NInfer 容器转换件。
+
 ```
-MTP.ninfer（orig 原件，13.27 GB，官方下载，无头无视觉）
+MTP.ninfer（orig 原件，13.27 GB，上游 Q2LynnStyle 量化的 NInfer 转换件，无头无视觉）
   └─ recode_mtp.py 抽层自转 MTP 头（iq4_nl，239 MB）
        → mtp-iq4nl.ninfer（13.27 GB，文本主力）
             └─ graft_vision.py 逐字节嫁接官方视觉塔（333 对象，282 MiB）
@@ -119,6 +123,13 @@ MTP.ninfer（orig 原件，13.27 GB，官方下载，无头无视觉）
 - `docs/调研-*.md` ×4 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 
-## License
+## License 与上游
 
-见 `LICENSE` / `NOTICE.md`（引擎与模型的上游许可各自生效）。
+| 组件 | 来源 | 许可 |
+|---|---|---|
+| NInfer 引擎 | [Neroued/ninfer](https://github.com/Neroued/ninfer) | Apache-2.0 |
+| 融合引擎（KVMem 环 + host-backed） | [1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem) | Apache-2.0 |
+| 模型（Coder390-EfficientThink 系） | [nerkyor @ HuggingFace](https://huggingface.co/nerkyor) | Apache-2.0 |
+| 三元量化工具链 / 转换 / 校验 | 沈三殊（shensanshu）· ModelScope `shensanshu/ninfer-ada-ternary` | 见其发布页 |
+
+本仓为上游衍生的部署/验证工程（非官方发布方）；详见 `LICENSE`（Apache-2.0）与 `NOTICE.md`。

@@ -1,8 +1,14 @@
 # ninfer-kvmem
 
-**Qwen3.8-Coder390 (27B) 在 NInfer 引擎上的 KV-Mem 深上下文推理工作线。**
+**在两代前序工程跑通的架构上，部署更大的模型（Qwen3.8-27B-Coder390，27B）。**
 
-256K 逻辑上下文（KVMem 环检索兜底）· 自转 MTP 头投机解码（105-233 tok/s）· 思考预算熔断 · 视觉塔嫁接（CPU 零显存）· 完整的踩坑-定案-复核记录。
+三代演进：
+
+| 代 | 仓 | 验证了什么 |
+|---|---|---|
+| 一 | **Bonsai 线**（`refs/04-自建线-J-Bonsai`） | **Bonsai 2 跑上 NInfer 引擎**——三元量化 + MTP 投机，**快**（decode 100+ tok/s） |
+| 二 | **Bonsai-Official 融合线**（`J:\Bonsai-Official`） | **NInfer × KVMem 结合**——灵活配置；有限显存下把 KV 下放内存（16 GiB host 环），**架构跑通** |
+| 三 | **本仓** | 架构验证完成后，**部署更大的模型**——Qwen3.8-27B-Coder390（27B）：256K 逻辑上下文、自转 MTP 头、思考预算熔断、视觉塔嫁接，全部工程结论从踩坑到定稿 |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
 
@@ -66,12 +72,12 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 
 ### models/ 三件套（一条进化链）
 
-**上游模型**：`nerkyor`（HuggingFace，Apache-2.0）——基座仓
-[`nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-...-RLOO-MTP-DFlash2`](https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2)
-（42K+ 下载，多模态）；"Q2LynnStyle" 是 Lynn 式 q2 混合精度的**量化风格标签**（q2-lynnstyle）。本线 `.ninfer` 原件为该系的 NInfer 容器转换件。
+**本线原件下载地址（实测来源，ModelScope）**：
+[`Merkyor/Qwen3.8-27B-Coder390-EfficientThink-...-RLOO-GGUF-NInfer/tree/master/GGUF-NInfer`](https://modelscope.cn/models/Merkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-GGUF-NInfer/tree/master/GGUF-NInfer)
+（HuggingFace 上游参考：[nerkyor 同名系](https://huggingface.co/nerkyor)，Apache-2.0；"Q2LynnStyle" 为 Lynn 式 q2 混合精度的量化风格标签）
 
 ```
-MTP.ninfer（orig 原件，13.27 GB，上游 Q2LynnStyle 量化的 NInfer 转换件，无头无视觉）
+MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头无视觉）
   └─ recode_mtp.py 抽层自转 MTP 头（iq4_nl，239 MB）
        → mtp-iq4nl.ninfer（13.27 GB，文本主力）
             └─ graft_vision.py 逐字节嫁接官方视觉塔（333 对象，282 MiB）

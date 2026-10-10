@@ -1,6 +1,8 @@
 # NOTICE
 
-本仓 **Bonsai-27B-NInfer-kvmem** 是**上游衍生的部署 / 验证工程**，**非官方发布方**。
+本仓 **ninfer-kvmem** 为**上游衍生的部署/验证工程**（非官方发布方）：在两代前序工程
+（① Bonsai-2 on NInfer → ② NInfer×KVMem 融合）跑通的架构上，部署更大的模型
+（Qwen3.8-27B-Coder390-EfficientThink，27B）。
 
 ## 一、上游组件与许可
 
@@ -8,28 +10,24 @@
 |---|---|---|
 | NInfer（C++20 / CUDA 推理引擎） | `Neroued/ninfer` | Apache-2.0 |
 | NInfer 融合引擎（KVMem 环 + host-backed 复用） | `1314521gjy/ninfer-fusion-kvmem` | Apache-2.0 |
+| 模型（Coder390-EfficientThink 系，GGUF-NInfer 容器） | ModelScope `Merkyor/Qwen3.8-27B-Coder390-EfficientThink-...-RLOO-GGUF-NInfer`；HF `nerkyor` 同名系 | Apache-2.0（见其仓库页） |
 | 三元量化工具链 / 转换 / 校验 | 沈三殊（shensanshu）· ModelScope `shensanshu/ninfer-ada-ternary` | 见其发布页 |
-| 模型制品 `Ternary-Bonsai-2-27B-ninfer-v3.ninfer` | 沈三殊（shensanshu） | 见其发布页 |
+| 视觉塔（嫁接来源） | 上游模型自带 vision 组件（随嫁接件分发） | 随上游 |
 
-本仓的引擎源码（`engine-main` 分支）**原样包含上游源码**，并保留上游 `LICENSE` 与 `NOTICE`。
+## 二、本仓新增（Apache-2.0）
 
-## 二、本仓相对上游的修改
+- `ninfer_launcher.py`（GUI 启动器，8 预设 + 校验告警）
+- `scripts/`（MTP 头自转、视觉嫁接、A/B 与召回探针）
+- `patches/W1-W4_engine_fix.patch`（思考预算熔断修复）
+- `docs/`（构建史 v1-v32、交叉审核报告、调研与教程）
+- `build/`（引擎构建脚本与补丁）
 
-**引擎层（源码树内）**
-- MSVC 编译兼容 ×7（C2326 / C3495 / C2026）—— 让上游源码在 Windows / MSVC / sm_120a 下编得过；
-- **Design C**：thinking 阶段 `stop` 强制进 answer，避免"空正文"；
-- STANDALONE 前端单测开关（绕开上游坏测试 bundle）。
+## 三、模型代际说明
 
-**项目层（本仓新增，非上游）**
-- GUI 启动器（`ninfer_launcher.py`）、日志工具（`serve_tee.py`）、启动脚本；
-- 构建脚本与复现材料（`build/`）、产物身份清单与哈希锚点；
-- 文档：项目构建史、上游评估与复测报告、KVMem 教程。
-
-## 三、许可
-
-- **引擎源码部分**：随上游 **Apache-2.0**（全文见 `LICENSE`）。
-- **项目层文档与工具**：同为本仓作者所有，按 **Apache-2.0** 发布。
-
-## 四、无担保
-
-本工程按"现状"提供，不附带任何明示或暗示的担保。模型输出与性能数字均带条件口径，**不构成对外承诺**。
+```
+MTP.ninfer（orig 原件 = 上表 ModelScope 下载件的 NInfer 容器）
+  └─ recode_mtp.py（自转 MTP 头，iq4_nl）
+       → mtp-iq4nl.ninfer（文本主力）
+            └─ graft_vision.py（嫁接官方视觉塔）
+                 → mtp-iq4nl.vision.ninfer（视觉主力）
+```

@@ -161,13 +161,13 @@ CTX_OPTIONS = {
     "256k": ("256K（★本线定稿 · 模型原生上限）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
-    "51200": ("51200（★本线定稿 2026-10-11 · 50K 稳定档）", ["--kv-capacity", "51200"]),
-    "55296": ("55296（54K · 贴边上限：需干净 GPU ~1.9G 可约，否则启动即拒）", ["--kv-capacity", "55296"]),
-    "40960": ("40960（40K · 旧定稿）", ["--kv-capacity", "40960"]),
-    "49152": ("49152（48K）", ["--kv-capacity", "49152"]),
-    "20480": ("20480（20K · 更省显存）",      ["--kv-capacity", "20480"]),
-    "17920": ("17920（官方默认）",         ["--kv-capacity", "17920"]),
-    "auto":  ("auto（按剩余显存）",   ["--kv-capacity", "auto"]),
+    "51200": ("51200 ★定稿·50K稳定", ["--kv-capacity", "51200"]),
+    "55296": ("55296 贴边·需净GPU", ["--kv-capacity", "55296"]),
+    "49152": ("49152 · 48K", ["--kv-capacity", "49152"]),
+    "40960": ("40960 · 40K旧档", ["--kv-capacity", "40960"]),
+    "20480": ("20480 · 20K省显存", ["--kv-capacity", "20480"]),
+    "17920": ("17920 · 官方默认", ["--kv-capacity", "17920"]),
+    "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
     "32k":     ("32K",  ["--kv-capacity", "32768"]),
     "64k":     ("64K",  ["--kv-capacity", "65536"]),
@@ -329,18 +329,19 @@ PRESET_PROFILES = {
     #     长文档-224K / 并发4-吞吐）已按用户裁决（2026-10-10）**整批删除**：
     #     本线模型无 dflash2 / vision 组件，那些档位选中必失败；且它们引用的是 Bonsai 口径的
     #     旧参数，留着只会与下面的定稿档混淆。Bonsai 相关内容一律不进本线。
-    "Coder390-MTP 定稿":    dict(DEFAULTS),                        # MTP K4 + 256K ctx + ★54K 池 + rk2v4-e8
-    "Coder390-裸解码对照":  dict(DEFAULTS, spec="k0"),              # 无投机（所有 A/B 的对照臂）
-    "Coder390-MTP 省显存":  dict(DEFAULTS, kvcap="20480"),          # 20K 池（余量最大，长上下文靠 host）
-    "Coder390-思考 medium":  dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
-    "Coder390-关思考对照":    dict(DEFAULTS, think="none", tb="none"),   # 仅 A/B 对照：本模型不思考没法用
+    "★定稿 51200稳定（无growth）": dict(DEFAULTS),                 # 51200 池 + hemostat on（无 growth）+ MTP K4 + 256K
+    "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
+    "对照 裸解码 k0":            dict(DEFAULTS, spec="k0"),         # 无投机（所有 A/B 的对照臂）
+    "省显存 20480":              dict(DEFAULTS, kvcap="20480"),     # 20K 池（余量最大，长上下文靠 host）
+    "思考 medium":               dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
+    "关思考对照":                dict(DEFAULTS, think="none", tb="none"),  # 仅 A/B 对照：本模型不思考没法用
     # 视觉档（嫁接件 iq4nlvis：同样的视觉塔，MTP 头小 202 MB；官方 q8mtp 退为参照件）。
     # ★挂账 39：视觉 + hemostat=on（无 growth）触发引擎 scatter 断言 => 视觉预设一律内嵌 hemostat="legacy"。
     #   视觉请求输出短（64-750 tok），碰不到 4,096 撞墙窗 => growth ON 无墙风险（2026-10-11 识图实测成功）。
-    "Coder390-视觉档":       dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480",
-                                  hemostat="legacy"),              # 保守（确定能起）
-    "Coder390-视觉 大池":    dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296",
-                                  hemostat="legacy"),              # ★55K+视觉实测成功（free 490.4 MiB，2026-10-11）
+    "视觉 20480保守（legacy）":   dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480",
+                                      hemostat="legacy"),          # 保守（确定能起）
+    "视觉 大池55296（legacy）":   dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296",
+                                      hemostat="legacy"),          # ★55K+视觉实测成功（free 490.4 MiB，2026-10-11）
 }
 
 
@@ -661,7 +662,7 @@ class LauncherApp:
         ToolTip(preset_box, "按场景一键套用推荐组合（官方线专用）。选择后自动填充下方参数。")
         self.preset_var = tk.StringVar()
         self.preset_cb = ttk.Combobox(preset_box, state="readonly", textvariable=self.preset_var,
-                                      width=22, font=("Microsoft YaHei UI", 9))
+                                     width=34, font=("Microsoft YaHei UI", 9))
         self.preset_cb["values"] = list(PRESET_PROFILES.keys())
         self.preset_cb.bind("<<ComboboxSelected>>", self._apply_preset)
         self.preset_cb.pack(anchor="w", padx=8, pady=4)
@@ -687,7 +688,7 @@ class LauncherApp:
                 self.combo_spec_k.pack(side="left")
                 self._update_spec_k_range()
             else:
-                cb = ttk.Combobox(box, state="readonly", textvariable=self.var[key], width=24,
+                cb = ttk.Combobox(box, state="readonly", textvariable=self.var[key], width=32,
                                   font=("Microsoft YaHei UI", 9))
                 cb["values"] = list(self._label2key[key].keys())
                 cb.bind("<<ComboboxSelected>>", lambda _e: self._on_change())

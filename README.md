@@ -23,37 +23,37 @@
 | **混合投机（dflash2 + MTP + ngram）与调参方法论** | 仓二：K=7 甜点、K≥10 崩塌、**接受率是强语料依赖指标**（不能用合成文本测）、真实负载 748.6 峰值 | 本仓的 MTP K4 + ngram 档位、`test_ab_arm1.py` 的接受率/速度统计方法，全部照此模式验收 |
 | **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
 | **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
-| **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 官方成品不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
+| **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 发放包预编译成品 exe 不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
 | **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 8 预设 + 校验告警 + KV_ENV 注入 |
 
 ### 第一关：让 27B 大模型上车
 
-Bonsai 线跑的是小模型，本仓要上 **Qwen3.8-27B-Coder390**（27B、256K 原生上下文、自带视觉组件）。第一堵点：**引擎没有现成的 MTP 头**。
+Bonsai 线的 Bonsai-2-27B 任务短、无视觉，这颗雷没机会暴露；本仓要上 **Qwen3.8-27B-Coder390**（27B、256K 原生上下文、模型作者已把视觉组件打进容器），长思考一上来就把它踩响了。第一堵点：**引擎没有现成的 MTP 头**。
 
 - 第一次尝试（q8 重打包，头 451 MB，13.49 GB）：**起不来**——显存装不下；
-- 第二次（`recode_mtp.py` 抽层自转头，iq4_nl 量化，头 239 MB）：**成功**——比官方头小 212 MB，省下的空间后来全转给了 KV 池。
+- 第二次（`recode_mtp.py` 抽层自转头，iq4_nl 量化，头 239 MB）：**成功**——比下载件（Merkyor 打包）里的头小 212 MB，省下的显存让更大的高速池成为可能。
 
 ### 第二关：撞墙——思考 30 秒被砍
 
 上车后真实使用立刻撞墙：**agentic 任务思考 30-40 秒就被砍断**（`finish=length`），客户端显示"已达到输出 token 上限"并不停要"继续"——Bonsai 时代的短任务没暴露，27B 的长思考把这颗雷踩响了。
 
-三方取证（引擎日志 + 源码 + 官方 README）定案：`--kv-lease-growth` 在"池 ≪ 逻辑上下文"的深超池构型下，把输出砍在 ~4,096 token 的租约窗口上（bounded completion）。**修复三件套**：定稿移除 growth + 引擎层修掉思考熔断三连缺陷（W1-W4，patch 84 行）+ 客户端保活。
+三方取证（引擎日志 + 源码 + 融合引擎上游的 README）定案：`--kv-lease-growth` 在"高速池 ≪ 逻辑上下文"的深超池构型下，把输出砍在 ~4,096 token 的租约窗口上（bounded completion）。**修复三件套**：定稿移除 growth + 引擎层修掉思考熔断三连缺陷（W1-W4，patch 84 行）+ 客户端保活。
 
 **修复后**：两轮真实 agentic 实测零截断——单请求连续输出 **16,143 token**（旧墙的 4 倍）。
 
 ### 第三关：视觉——282 MiB 视觉塔整体嫁接
 
-27B 容器原本没有视觉。做法不是重转模型，而是**逐字节嫁接**：官方视觉塔 333 个对象（282 MiB，q4/q5/q8/bf16 混合精度）原样搬进自转头容器——`graft_vision.py` 全程格式校验。识图实测 **26.9 秒**（CPU 编码，零设备显存）。
+自转头的 27B 容器原本没有视觉。做法不是重转模型，而是**逐字节嫁接**：模型作者（Merkyor）容器里内置的视觉塔，333 个对象（282 MiB，q4/q5/q8/bf16 混合精度）原样搬进自转头容器——`graft_vision.py` 全程格式校验。识图实测 **26.9 秒**（CPU 编码，零设备显存）。
 
 ### 压榨：每个参数都标定过
 
 | 参数 | 起点 | 终点 | 方法 |
 |---|---|---|---|
-| KV 池 | 40,960 | **51,200**（55K 贴边不可复现、56K 缺 17-50 MiB 实测弃案） | 逐档起服，以启动预约字节数精确定档 |
-| 逻辑上下文 | 128K | **256K** | 模型原生上限，池外 KV 下放 16 GiB 内存环 |
+| 高速池（显存） | 40,960 | **51,200**（55K 贴边不可复现、56K 缺 17-50 MiB 实测弃案） | 逐档起服，以启动预约字节数精确定档 |
+| 逻辑上下文 | 128K | **256K** | 模型原生上限；池外 KV 下放 16 GiB 内存 host 环 |
 | decode | ~100 tok/s | **105-233 tok/s** | MTP 接受率（混合投机） |
 | prefill | — | 1.5-2.2k tok/s | 超池召回被流水化吸收（开销仅 8-23%，零截尾） |
-| 显存 | — | 16 GB 卡跑 27B + 视觉 + 51K 池，free 490 MiB | 池/权重/工作区逐项对账 |
+| 显存总账 | — | 16 GB 卡：权重 12.3 GiB + 高速池/工作区 1.9 GiB + 视觉，free 490 MiB | 权重/池/工作区逐项对账 |
 
 ### 成绩单
 
@@ -62,7 +62,7 @@ Bonsai 线跑的是小模型，本仓要上 **Qwen3.8-27B-Coder390**（27B、256
 | agentic 编程任务 | 思考 30 s 被砍、无限"继续" | **飞机游戏 4m33s 完整跑通（829 行，可直接玩）**、雾铃镇 3D 小镇 **1m39s** |
 | 单请求连续输出 | ~4,096（租约窗口砍断） | **16,143 token** |
 | 逻辑上下文 | 128K | **256K** |
-| KV 池 | 40,960 | **51,200 稳定**（标定上限 55,296） |
+| 高速池（显存热 KV） | 40,960 | **51,200 稳定**（标定上限 55,296；全量 KV = 高速池 + 16 GiB host 环，两级承载 256K） |
 | decode 速度 | ~100 tok/s | **105-233 tok/s** |
 | 视觉 | 无 | **识图 26.9 s**（CPU 编码零显存） |
 
@@ -72,7 +72,7 @@ Bonsai 线跑的是小模型，本仓要上 **Qwen3.8-27B-Coder390**（27B、256
 
 | 项 | 值 |
 |---|---|
-| 引擎 | `self-built-20261008`（官方源码 s6-20261008 @ `3b9dc83` + W1-W4 修复 patch） |
+| 引擎 | `self-built-20261008`（上游融合引擎源码，分支 s6-20261008 @ `3b9dc83` + W1-W4 修复 patch） |
 | 池 | **51,200 token（800 页）**——当前桌面负载下可复现的稳定档 |
 | 上下文 | 256K 逻辑（262,144，模型原生上限）；池外 KV 自动下沉 16 GiB host 环 |
 | 投机 | MTP K4（自转头，iq4_nl 量化，239 MB） |
@@ -105,11 +105,11 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
   --max-concurrency 1 --recover-invariant-failures
 ```
 
-客户端：任何 OpenAI 兼容工具；DSH 接入见 `docs/`（provider 配置示例含 `streamIdleTimeoutMs`）。
+客户端：任何 OpenAI 兼容工具；DSH 接入示例见 `docs/教程-KVMem与短测-给agent与使用者.md` 与构建史（provider 配置含 `streamIdleTimeoutMs: 3600000`）。
 
 ## 仓库结构（诚实的 overlay 定位）
 
-本库**不是**自包含的引擎发行包，而是"**官方引擎源码 + 本线全部工作产物**"的工作区叠加层：
+本库**不是**自包含的引擎发行包，而是"**上游引擎源码 + 本线全部工作产物**"的工作区叠加层：
 
 | 路径 | 内容 | 在库内 |
 |---|---|---|
@@ -131,10 +131,10 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 （HuggingFace 上游参考：[nerkyor 同名系](https://huggingface.co/nerkyor)，Apache-2.0；"Q2LynnStyle" 为 Lynn 式 q2 混合精度的量化风格标签）
 
 ```
-MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头无视觉）
+MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer 容器，无头无视觉）
   └─ recode_mtp.py 抽层自转 MTP 头（iq4_nl，239 MB）
        → mtp-iq4nl.ninfer（13.27 GB，文本主力）
-            └─ graft_vision.py 逐字节嫁接官方视觉塔（333 对象，282 MiB）
+            └─ graft_vision.py 逐字节嫁接模型作者容器内置的视觉塔（333 对象，282 MiB）
                  → mtp-iq4nl.vision.ninfer（13.57 GB，视觉主力）
 ```
 
@@ -152,14 +152,14 @@ MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头�
    **免构建替代**：发放包（沈三殊分发，`refs/01-沈三殊-发放包/00-先读我-总纲.md` 有完整说明）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；模型从同层 `01-模型下载清单（推荐链接）.md` 下载（含地址/体积/sha256/加速法）；
 2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；
 3. **构建**：`build/s6_1208a.bat`（或 VS 环境 + `cmake --build <dir> --target ninfer-serve`；构建要点见 `build/README.md` 与 `build/patches/`）；产物部署到 `engine/self-built-20261008/`；
-4. **模型加工**：下载原件（Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle）→ `python scripts/recode_mtp.py --src ORIGINAL.ninfer --mtp-src Q8MTP.ninfer --mtp-src-format gguf_q8_0 --target-format gguf_iq4_nl --dst ...mtp-iq4nl.ninfer --verify` → `python scripts/graft_vision.py`（嫁接视觉塔）；
+4. **模型加工**：从上表 ModelScope 地址下载 GGUF-NInfer 容器（即 `--mtp-src`，其内置 q8_0 MTP 头与视觉塔）与原件 → `python scripts/recode_mtp.py --src <原件>.ninfer --mtp-src <下载件>.ninfer --mtp-src-format gguf_q8_0 --target-format gguf_iq4_nl --dst ...mtp-iq4nl.ninfer --verify` → `python scripts/graft_vision.py`（从同一下载件嫁接视觉塔）；
 5. **起服验证**：上面的命令行（或 launcher）→ `curl 127.0.0.1:8094/v1/models` → `python scripts/test_ab_arm1.py`（健康探针）。
 
 **复现难度自评：中偏低。** 引擎源码公开（GitHub）、发放包有预编译 exe（免构建路径）、模型下载含 sha256 清单、构建脚本/参数/验收探针全在本库——途径全部明确，主要工作是 CUDA 环境 + 模型下载 + 按 `docs/教程-KVMem与短测-给agent与使用者.md` 起服。唯一非公开件是发放包本身（找作者沈三殊拿，或用 GitHub 源码自构建绕开）。
 
 ## 关键工程结论（全部实测，踩坑沉淀）
 
-- **`--kv-lease-growth` 是撞墙根因**：深超池构型（池 49-55K ≪ 逻辑 256K）下租约窗口（~4,096 tok）无法扩充时输出被砍（bounded completion，`finish_reason=length`）——超池构型要保住输出**不要开它**（官方 README:218 同口径）。已从定稿移除，撞墙清零（两轮 DSH agentic 实测：16,143/11,782 tok 连续输出零截断）。
+- **`--kv-lease-growth` 是撞墙根因**：深超池构型（高速池 49-55K ≪ 逻辑 256K）下租约窗口（~4,096 tok）无法扩充时输出被砍（bounded completion，`finish_reason=length`）——超池构型要保住输出**不要开它**（融合引擎上游 README 第 218 行同口径）。已从定稿移除，撞墙清零（两轮 DSH agentic 实测：16,143/11,782 tok 连续输出零截断）。
 - **池标定**：57,344 ✗（缺 17-50 MiB 随桌面负载波动）/ 55,296 贴边不可复现 / **51,200 稳定**。贴边池的余量以"启动瞬间的 WDDM 可驱逐量"为准，逐日波动。
 - **挂账 39**：视觉请求 + 无 growth → `scatter.cpp:18` 断言（HTTP 500；`--recover-invariant-failures` 兜住引擎）。**视觉场景保持 growth ON**（视觉输出短，碰不到 4,096 墙）。
 - **KVMem 环 = 单并发**：环无法回收另一 lane 的设备页，`--max-concurrency >1` 启动即拒——**并发与 256K 深度/检索互斥**。
@@ -173,7 +173,7 @@ MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头�
 | 状态 | 模型 | 说明 |
 |---|---|---|
 | ✅ **已验证** | Qwen3.8-27B 系（`Coder390-EfficientThink` Q2LynnStyle 量化的 NInfer 容器） | 本仓全部实测（A 臂两轮 DSH agentic、召回探针、视觉识图）都跑在它上面 |
-| 🔶 **理论可装，未验证** | **其他 Qwen 3.8 27B 的 NInfer 容器**（如发放包清单的 `neroued/Qwen3.8-27B-NInfer` 官方转换件） | 引擎吃 `.ninfer` 容器，同构容器应可加载；MTP 头/视觉需按模型重新加工（脚本可复用）——**未跑过，不做承诺** |
+| 🔶 **理论可装，未验证** | **其他 Qwen 3.8 27B 的 NInfer 容器**（如发放包清单的 `neroued/Qwen3.8-27B-NInfer` 上游转换件） | 引擎吃 `.ninfer` 容器，同构容器应可加载；MTP 头/视觉需按模型重新加工（脚本可复用）——**未跑过，不做承诺** |
 | 🔶 **理论可装，未验证** | Qwen 其他系列（如 Qwen3.6-27B/35B 的 NInfer 转换件） | 同上，架构参数（KV 层布局/head_dim）不同构时需先验证 |
 | 🎯 **设计目标** | **Qwen 4 27B 的 Bonsai 格式与 NInfer 格式** | 本仓的池/环/检索/加工链就是为下一代模型着陆预备的：容器一到，重跑加工脚本即可上车 |
 
@@ -206,7 +206,7 @@ MTP.ninfer（orig 原件，13.27 GB，上表下载件的 NInfer 容器，无头�
 |---|---|---|
 | NInfer 引擎 | [Neroued/ninfer](https://github.com/Neroued/ninfer) | Apache-2.0 |
 | 融合引擎（KVMem 环 + host-backed） | [1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem) | Apache-2.0 |
-| 模型（Coder390-EfficientThink 系） | [nerkyor @ HuggingFace](https://huggingface.co/nerkyor) | Apache-2.0 |
+| 模型（Coder390-EfficientThink 系） | ModelScope [Merkyor/...-RLOO-GGUF-NInfer](https://modelscope.cn/models/Merkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-GGUF-NInfer)（实测下载）；HF `nerkyor` 同名系 | Apache-2.0 |
 | 三元量化工具链 / 转换 / 校验 | 沈三殊（shensanshu）· ModelScope `shensanshu/ninfer-ada-ternary` | 见其发布页 |
 
 本仓为上游衍生的部署/验证工程（非官方发布方）；详见 `LICENSE`（Apache-2.0）与 `NOTICE.md`。

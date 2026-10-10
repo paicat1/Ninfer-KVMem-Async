@@ -78,13 +78,20 @@ MTP.ninfer（orig 原件，13.27 GB，官方下载，无头无视觉）
 
 **前置**：Windows · RTX 5080 16 GB（或同档）· 128 GB RAM · VS2022 BuildTools（C++20、CMake、Ninja）· CUDA 13.3 · Python 3.12。
 
-1. **引擎源码**：获取 NInfer 引擎发放包（`refs/01-沈三殊-发放包/` 或上游渠道），得到 `fusion-engine-src` @ 分支 `s6-20261008`（commit `3b9dc83`），放置为 `official-repo/ninfer-fusion-kvmem/`；
+1. **引擎源码（公开 GitHub 仓库）**：
+   ```bat
+   git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git
+   cd ninfer-fusion-kvmem
+   git checkout s6-20261008        # 3b9dc83 —— 本线基线
+   ```
+   放置为 `official-repo/ninfer-fusion-kvmem/`。
+   **免构建替代**：发放包（沈三殊分发，`refs/01-沈三殊-发放包/00-先读我-总纲.md` 有完整说明）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；模型从同层 `01-模型下载清单（推荐链接）.md` 下载（含地址/体积/sha256/加速法）；
 2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；
 3. **构建**：`build/s6_1208a.bat`（或 VS 环境 + `cmake --build <dir> --target ninfer-serve`；构建要点见 `build/README.md` 与 `build/patches/`）；产物部署到 `engine/self-built-20261008/`；
 4. **模型加工**：下载原件（Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle）→ `python scripts/recode_mtp.py --src ORIGINAL.ninfer --mtp-src Q8MTP.ninfer --mtp-src-format gguf_q8_0 --target-format gguf_iq4_nl --dst ...mtp-iq4nl.ninfer --verify` → `python scripts/graft_vision.py`（嫁接视觉塔）；
 5. **起服验证**：上面的命令行（或 launcher）→ `curl 127.0.0.1:8094/v1/models` → `python scripts/test_ab_arm1.py`（健康探针）。
 
-**复现难度自评**：持有引擎发放包 + 同档硬件 = **中**（构建脚本、参数、验收探针齐全，主要工作是模型下载与 CUDA 环境）；无发放包 = **难**（引擎源码获取途径不在本库，见上）。
+**复现难度自评：中偏低。** 引擎源码公开（GitHub）、发放包有预编译 exe（免构建路径）、模型下载含 sha256 清单、构建脚本/参数/验收探针全在本库——途径全部明确，主要工作是 CUDA 环境 + 模型下载 + 按 `docs/教程-KVMem与短测-给agent与使用者.md` 起服。唯一非公开件是发放包本身（找作者沈三殊拿，或用 GitHub 源码自构建绕开）。
 
 ## 关键工程结论（全部实测，踩坑沉淀）
 

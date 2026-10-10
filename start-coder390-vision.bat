@@ -69,7 +69,7 @@ echo [warn  ] close other GPU apps first -- free VRAM swings ~250 MiB and decide
   --max-context 262144 --kv-capacity 20480 --kv-dtype rk2v4-e8 --host-kv-mib 16384 ^
   --prefill-chunk 512 --spec mtp --draft-tokens 4 --vision-cpu ^
   --default-max-tokens 8192 --default-reasoning-effort high --default-thinking-budget 16000 --max-concurrency 1 ^
-  --max-shared-prefixes 0 --recover-invariant-failures ^
+  --max-shared-prefixes 0 --kv-lease-growth --recover-invariant-failures ^
   --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
 
 echo.
@@ -78,7 +78,7 @@ pause
 exit /b 0
 
 :no_model
-echo REFUSE: factory Q8MTP model not found: "%MODEL%"
+echo REFUSE: grafted vision model not found: "%MODEL%"
 echo         That file is the ONLY artifact here carrying a vision component.
 pause
 exit /b 3

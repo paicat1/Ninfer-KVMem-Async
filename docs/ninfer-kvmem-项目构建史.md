@@ -1218,7 +1218,7 @@ negative control: PASS (refused as required)
 | 57,344（896 页） | ❌ | 需 1,982.6 MiB，剩 1,965.2 → **差 17.3 MiB**（临界） |
 | **55,296（864 页）** | ✅ | runtime 1.91 GiB / **free 534.4 MiB** |
 
-**定稿池 40,960 → 55,296**（GUI `KV_POOL_TOKENS`/DEFAULTS 同步，`501e942`）。显存对账：表面空闲 894 MiB 属"引擎已按安全水位拿完后"的稳态——启动瞬间的真实可用由 WDDM 可驱逐量决定（~1.9 GiB），且 runtime free 是推理动态工作区（MTP/workspace），贴边即 B01 风险。
+**定稿池 40,960 → 55,296**（GUI `KV_POOL_TOKENS`/DEFAULTS 同步，`501e942`；**后被 51200 裁决取代**，见下）。显存对账：表面空闲 894 MiB 属"引擎已按安全水位拿完后"的稳态——启动瞬间的真实可用由 WDDM 可驱逐量决定（~1.9 GiB），且 runtime free 是推理动态工作区（MTP/workspace），贴边即 B01 风险。**时间线勘误（TELE 复核）**：55,296 成功（00:11/00:21）与失败（00:48/00:58）**同为 10-11 凌晨、间隔约 30-40 分钟**——非"当晚/次日"，贴边不可复现的窗口比原表述更短。
 
 ### 3. 55K + 视觉三合一 + 识图实测
 
@@ -1259,13 +1259,15 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 **构建**：修改同步至构建侧 clone（Bonsai-Official，两 clone 基线一致性经 git hash 验证——工作区 hash 差异纯 CRLF 表示）；`build-1208a`（Ninja/Release，VS BuildTools 环境 `Launch-VsDevShell.ps1`）增量编译 `[11/11] Linking` 成功；产物部署 `engine\self-built-20261008\ninfer-serve.exe`（旧件备份 `.bak_pre_W1W4`）。**修改留 dirty 于 official-repo 工作区**（回滚 = git checkout），补丁已入库主仓。
 
-### 2. 四重验收（tb=2,000 + xhigh/high，49,152 池，growth OFF）——全过
+### 2. 四重验收（tb=2,000 + xhigh，49,152 池，**growth ON**）——全过
+
+> ⚠️ 口径勘误（TELE 复核 2026-10-11）：验收 run 3 的 CMD 实为 **growth ON**（此前误写 growth OFF）。验收有效性不受影响——思考保险丝（W1/W2）与 KV 租约是独立路径，growth 开关不作用于本验收；如需 growth OFF 口径可补测（保险丝逻辑同构）。另：req#1 请求发的是 `reasoning_effort=high`，引擎日志记为 `xhigh`（effort 映射现象，待查）。
 
 | 探针 | 场景 | 结果 |
 |---|---|---|
-| req#1（high·数学证明） | 思考烧满预算 | **`thinking 2,000/2,000, control 25`** → 正文 1,338 tok → **stop token**（熔断注入路径实测；旧引擎此场景 W2 throw 必死） |
-| req#2-4（xhigh×3） | 思考恰好自然闭合 | `thinking 2,000/2,000, control 0` → 正文直通 **output limit 4,096**、HTTP 200（自然闭合路径实测——旧引擎同样会死在越过瞬间） |
-| W4 探针（流式 + 43.5K prompt） | 长 prefill 保活 | **53 条 SSE 行含 35 个 prompt_progress 事件**（旧引擎流式 progress = 0） |
+| req#1（数学证明） | 思考烧满预算 | **`thinking 2,000/2,000, control 25`** → 正文 1,338 tok → **stop token**（熔断注入路径实测；旧引擎此场景 W2 throw 必死） |
+| req#2-4（×3） | 思考恰好自然闭合 | `thinking 2,000/2,000, control 0` → 正文直通 **output limit 4,096**、HTTP 200（自然闭合路径实测——旧引擎同样会死在越过瞬间） |
+| W4 探针（流式 + **12,657 tok** prompt） | 长 prefill 保活 | **53 条 SSE 行含 35 个 prompt_progress 事件**（旧引擎流式 progress = 0）。⚠️ 口径勘误：原写"43.5K prompt"为字符估算偏差，日志实为 12,657 tok |
 | 全程 | 异常扫描 | invariant failure / scatter / 500 = **0** |
 
 **越界分支说明**：三发 xhigh 均恰好顶格 2,000 未出现 `>2,000`——decode 供给层已有钳制（`model_token_budget_remaining` 的 `>=`），feed 层越界天然不可达 ⇒ W2 删除 throw 是纯安全增益。回归：无回归迹象（prefill/decode 速度、stop 收尾、长度限制全部正常行为）。

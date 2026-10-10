@@ -747,12 +747,27 @@ class LauncherApp:
         self._refresh()
 
     def _apply_model_coupling(self):
-        """模型档联动（2026-10-10 用户要求）：选官方 Q8MTP -> 自动把池降到 20480。
+        """模型/维度联动（表驱动 + 视觉联动）。
 
-        WHY: 官方版 MTP 头是 q8_0（451 MB），比 iq4_nl 多 212 MB —— 40K 池实测起不来
-        （缺 100+ MiB）。用户明确要求"用官方版就降池"，所以这里直接改，并同步下拉显示，
-        避免"界面显示 40K、实际命令 20K"的不一致。
+        a) 池上限联动（2026-10-10 用户要求）：模型在 MODEL_KVCAP_MAX 表中时，
+           池超过上限自动降（同步下拉显示）。表暂空（q8mtp 已移除），机制保留。
+        b) 视觉联动（2026-10-11 用户实测闪退后加入）：开视觉（vision != off）但模型
+           容器无 vision 组件（iq4nl / orig）时，自动切到 iq4nlvis（同系嫁接件）——
+           否则引擎 "Qwen3.5 config: missing component vision" 启动即拒（闪退循环，
+           logs/serve_20261011_0318*.log 四连）。validate 的同名告警保留（防 profile 手改）。
         """
+        vis = str(self.selection.get("vision", "off"))
+        if vis != "off":
+            if self.selection.get("model", "iq4nl") not in VISION_CAPABLE_MODELS:
+                self.selection["model"] = "iq4nlvis"
+                if "model" in self.var and "iq4nlvis" in MODEL_OPTIONS:
+                    self.var["model"].set(MODEL_OPTIONS["iq4nlvis"][0])   # 同步下拉显示
+            # 挂账 39：视觉 + 无 growth -> 图片请求 scatter 断言（HTTP 500）
+            # => 视觉场景强制 legacy（视觉输出短，碰不到 4,096 墙，growth ON 无墙风险）
+            if str(self.selection.get("hemostat", "on")) == "on":
+                self.selection["hemostat"] = "legacy"
+                if "hemostat" in self.var and "legacy" in HEMOSTAT_OPTIONS:
+                    self.var["hemostat"].set(HEMOSTAT_OPTIONS["legacy"][0])
         cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
         if not cap:
             return

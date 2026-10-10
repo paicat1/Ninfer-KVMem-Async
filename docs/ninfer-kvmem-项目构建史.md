@@ -33,7 +33,8 @@
 | 2026-10-10 | v23 | **测试工具就绪（挂账 15/19 的可执行部分，均不需 AI 起服）**：① ★关键取证 —— **ngram 默认就开着**（`product/speculative_options.h:32-41`：`--spec` 非 none 时 `ngram_draft_tokens=15`）⇒ 此前 MTP 读数已含 ngram；② 新增 **`scripts\bench_spec.py`**（8 类固定任务 → 从日志解析 decode/接受率 → 分布 + 两臂 `--baseline` 对比；**不启动任何进程**；正则已用真实日志跑通 parse+summarize，并修掉一个 `acccepted` 拼写 bug）；③ 新增 **`start-coder390-mtp-nongram.bat`**（ngram 对照臂，端口 8096）；④ `serve_tee.py` 把 `[ninfer] ring retrieve:` 纳入同段首末压缩（用户追加反馈的刷屏源） |
 | 2026-10-10 | v24 | **GUI 加"模型"维度（用户裁决，重要遗漏修复）**：用户指出「**GUI 是唯一入口，那批 bat 压根没人用**」，而模型此前**写死在 iq4_nl 版** ⇒ "要用视觉就得换官方版"这条**成了只能靠 bat 的死路**。已加：`MODEL_OPTIONS`/`MODEL_PATHS` 三档（iq4nl★ / q8mtp 官方含视觉 / orig 原件）、`DIMENSIONS` 把**模型放第一位**、`build_command` 用所选模型（位置参数）、**选官方 Q8MTP 自动降池到 20480**（`_apply_model_coupling()`，并同步下拉显示）、`validate` 两条新告警（官方版池过大 / 原件配非 k0 档）、预设与 profiles 增 **"★Coder390-视觉档"**；顺带修 `⇒`(U+21D2) **GBK 无法编码导致 print 崩溃**的问题（全量替换为 `->`） |
 | 2026-10-10 | v25 | **§三·十二 两项取证**：① `--default-thinking-budget` **不占显存**（纯行为控制参数；全树 27 处命中无一用于资源分配）；② ★**挂账 35**：把官方版 vision 组件嫁接到 iq4_nl 版 —— 取证 vision 增量 = **335 对象 + 441 bindings + 165 uses + 2 resources**，收益 = 省 212 MB ⇒ 可望「大池 + 视觉」并存；给出五步技术路径与风险 |
-| 2026-10-10 | v26 | ★**视觉塔嫁接完成**（挂账 35 施工，离线）：新增 `scripts\graft_vision.py`；取证证明是**纯追加**（bindings/uses/objects 三项差集、`ours_only=0`、ID 命名空间 `weight/v*` 不冲突、`writer.py` 原生支持无需扩展）；产物 `.mtp-iq4nl.vision.ninfer` **12.94 GiB**、视觉塔 **282.0 MiB**、比官方版**小 202.5 MiB**；**L1 全量 SHA-256：804+335 对象零不匹配**，L2 负对照 PASS；**待实机验证**（起服识图 + 大池并存） |
+| 2026-10-10 | v26 | ★**视觉塔移植完成**（挂账 35 施工，离线）：新增 `scripts\graft_vision.py`；取证证明是**纯追加**（bindings/uses/objects 三项差集、`ours_only=0`、ID 命名空间 `weight/v*` 不冲突、`writer.py` 原生支持无需扩展）；产物 `.mtp-iq4nl.vision.ninfer` **12.94 GiB**、视觉塔 **282.0 MiB**、比官方版**小 202.5 MiB**；**L1 全量 SHA-256：804+335 对象零不匹配**，L2 负对照 PASS；**待实机验证**（起服识图 + 大池并存） |
+| 2026-10-10 | v27 | **ngram 实测**（`trigger 29` 完成，TeleAgent 独立起服两臂）：MTP+ngram（默认 15）vs MTP-only（`--ngram-draft-tokens 0`），8 类任务单轮；decode 均值 104.26 vs 101.41（**+2.7%**），接受率 49.6% vs 48.1%（**+1.5pt**）⇒ **ngram 净贡献≈0（配对差异 stdev 13.2 远大于均值 2.9，无统计显著性）**；两臂同 8 任务、同思考参数（high/16000）、唯一差异为 ngram 宽度 |
 
 ---
 
@@ -993,6 +994,34 @@ negative control: PASS (refused as required)
 
 ---
 
+## 三·十三、2026-10-10 · ngram 实测（挂账 29/19，TeleAgent 独立起服两臂）
+
+**目标**：量化 ngram（copy-drafting）对 MTP 的**净贡献**。因 `speculative_options.h:32-41` 默认 `ngram_draft_tokens=15`（`--spec` 非 none 时自动带），此前所有 MTP 读数**已含 ngram** ⇒ 需对照臂 `--ngram-draft-tokens 0` 隔离。
+
+**两臂（用户授权 TeleAgent 起服；同模型 `.mtp-iq4nl.ninfer`、同思考 high/16000、同 8 类任务、唯一差异 = ngram 宽度）**：
+
+| 臂 | 命令差异 | 端口 | bench label |
+|---|---|---|---|
+| A | `--spec mtp --draft-tokens 4`（ngram 默认 15） | 8095 | `MTP+ngram` |
+| B | `--spec mtp --draft-tokens 4 --ngram-draft-tokens 0` | 8096 | `MTP-only` |
+
+**权威读数（引擎日志 `req#N done`，8 任务逐一）**：
+
+```
+[EVIDENCE] A臂 decode: 94.8 / 97.6 / 95.7 / 94.4 / 120.6 / 123.7 / 120.6 / 86.7  → 均值 104.26
+[EVIDENCE] A臂 accept: 46.9 / 45.6 / 41.3 / 41.2 / 60.4 / 64.4 / 58.2 / 36.4 %  → 均值 49.6%
+[EVIDENCE] B臂 decode: 84.6 / 116.5 / 80.7 / 82.4 / 133.7 / 110.5 / 111.4 / 91.5 → 均值 101.41
+[EVIDENCE] B臂 accept: 36.4 / 60.4 / 33.0 / 34.2 / 70.6 / 55.6 / 55.1 / 39.9 %  → 均值 48.1%
+```
+
+**统计**：配对差异均值 **+2.85 tok/s**（A−B），但配对 stdev = **13.20** ⇒ 无统计显著性（差异远小于噪声）。aggregate：A 96.55 tok/s vs B 92.40 tok/s。
+
+**结论：ngram 对本模型/本语料的净贡献 ≈ 0（在 run-to-run 噪声内）。** 原因推测：① 语料 prompt 短、重复性低，copy-drafting 命中率本身低；② MTP 已用官方头做草稿，ngram 叠加收益有限。**ngram 保留默认即可（无需手动关，也不带来显著收益）**。
+
+**遗留**：单轮测量（8 任务 × 1 轮）；若要排除噪声底，可同臂多轮测极差（对结论无实质影响，因差异已在噪声内）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1023,7 +1052,7 @@ negative control: PASS (refused as required)
 | 26 | `docs\BONSAI_ngram_audit_report.md` 是否改名（去掉 BONSAI 前缀） | 待裁决（内容是 ngram 机制，本线要用；改名可避免误删） |
 | 27 | **定稿参数闪退**（缺 20.4 MiB） | ✅ 已定位（§三·十）：非参数错，是起服瞬间可用量波动 ⇒ 关 GPU 占用 / 重试 / 换 20K 池档 |
 | 28 | **视觉能力**（官方版 + `--vision-cpu`） | ✅ 实测可行（§三·十）；**待裁决**：是否给 launcher 加"模型档"维度（当前 MODEL 固定为 iq4_nl 版，选 vision 会失败） |
-| 29 | ngram 实测（本线第三目标） | 待办 |
+| 29 | ngram 实测（本线第三目标） | ✅ **已完成**（2026-10-10）：MTP+ngram vs MTP-only 两臂，decode 104.26 vs 101.41（+2.7%，无统计显著性）⇒ **ngram 净贡献≈0**；保留默认即可（详见三·十三） |
 | 30 | **日志刷屏降噪** | ✅ 已完成（两轮）：`[ring] budgets` / `[ninfer] mask hidden` / `[ninfer] demote-other short` / `kvmem_score: KEPT` **整段隐藏**；`kvmem_score: SELECT` / **`[ninfer] ring retrieve:`** / `[ninfer] kvmem harvest:` **同段只留首末**（后两者是用户 2026-10-10 追加反馈的刷屏源）；日志文件始终全文落盘 |
 | 31 | **视觉启动脚本** | ✅ 已完成：`start-coder390-vision.bat`（官方版 + `--vision-cpu` + 20K 池） |
 | 32 | 视觉功能端到端验证（发一张真图片测识图） | 待办（脚本已就绪，未测实际识图） |

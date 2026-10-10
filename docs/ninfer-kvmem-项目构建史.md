@@ -1132,7 +1132,7 @@ negative control: PASS (refused as required)
 
 ### 6. 工具入库
 
-`refs/_tools/search_dsh_strings.cjs` —— 二进制字节级 needle 搜索（exe/asar 通用），本次 Tauri exe 验证所用。
+`scripts/search_dsh_strings.cjs` —— 二进制字节级 needle 搜索（exe/asar 通用），本次 Tauri exe 验证所用。（注：原计划放 `refs/_tools/`，但 `refs/` 整体被 .gitignore 忽略不入库，故移至 `scripts/`。）
 
 ---
 

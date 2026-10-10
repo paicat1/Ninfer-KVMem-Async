@@ -65,7 +65,7 @@ echo [warn  ] close other GPU apps first -- free VRAM swings ~250 MiB and decide
   --prefill-chunk 512 --spec mtp --draft-tokens 4 --ngram-draft-tokens 0 ^
   --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 ^
   --max-concurrency 1 --max-shared-prefixes 0 ^
-  --kv-lease-growth --recover-invariant-failures ^
+  --recover-invariant-failures ^
   --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
 
 echo.

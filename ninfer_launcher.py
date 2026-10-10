@@ -99,8 +99,11 @@ PORT_DEFAULT = 8094
 PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("pythonw", "python")
 
 # 池 token 数（= config 里的 --kv-capacity）。硬约束 = 单请求的【prompt_tokens + 输出(max_tokens) ≤ 池】：
-# 超过则 (a) 未开止血 → worker 崩且不自愈；或 (b) 开了 --kv-lease-growth（E5 止血）→ 被静默截断(finish_reason=length、
+# 超过则 (a) 未开止血 → worker 崩且不自愈；或 (b) 开了 --kv-lease-growth（旧 E5 止血）→ 被静默截断(finish_reason=length、
 # 内容像正常但只有半截)。--default-max-tokens 只是服务端默认上限，不是硬约束。
+# ⚠️ 2026-10-10 夜测定案（构建史 §三·十五，双环境收敛）：growth 在深超池构型下不止截"超池部分"——
+#    租约窗口(~4,096)无法扩充时输出被砍在 ~4,037-4,071（bounded completion），与 max_tokens/tb 无关
+#    ⇒ DSH 撞墙直接根因，已从 "on" 定稿档移除（官方 README:218：超池要保住输出 → 不要开 growth）。
 # P1b (2026-10-09) 定稿值 = 40960（对应 --kv-capacity 40960）。实测：40960 起服成功（runtime 1.71 GiB /
 #   free 449.6 MiB）；49152 缺 49 MiB（临界）、65536 缺 320 MiB。池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。
 #   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
@@ -217,13 +220,17 @@ SAMPLE_OPTIONS = {
     "thinking": ("思考档(1.0/0.95/20)",          ["--presence-penalty", "0", "--temperature", "1.0", "--top-p", "0.95", "--top-k", "20"]),
     "greedy":   ("贪心(greedy)",                 ["--greedy"]),
 }
-# 官方 B01 止血开关（官方出厂件已有、官方启动器未写）：防“超池+大输出租约 -> worker 崩/进程静默退出”。
+# KV 止血档（2026-10-10 定案改三档，构建史 §三·十五）：growth 在深超池下把输出砍在 ~4,096 租约窗口
+# （bounded completion）⇒ DSH 撞墙直接根因，已从定稿移除；"legacy" 仅留作 A/B 对照臂。
 HEMOSTAT_OPTIONS = {
-    "on":  ("开（★本线定稿 · 防 B01 崩溃）", ["--kv-lease-growth", "--recover-invariant-failures"]),
-    "off": ("关（官方 bat 原样）", []),
+    "on":     ("开（★定稿 20261010 · 仅防崩，去 growth）", ["--recover-invariant-failures"]),
+    "legacy": ("旧E5止血(含growth·已判死:超池撞墙)",      ["--kv-lease-growth", "--recover-invariant-failures"]),
+    "off":    ("关（官方 bat 原样）",                       []),
 }
 # 思考预算档：--default-thinking-budget N —— 治“思考墙死循环”（xhigh 思考烧光输出预算 → 空正文）。
-# 这是服务端(argv)级设置；OpenAI chat 端点不解析请求里的 thinking_budget 字段（仅 Anthropic 的 thinking.budget_tokens 读它）。
+# 这是服务端(argv)级设置；20261008 引擎 S3 起 OpenAI chat 端点**已解析**请求里的 thinking_budget 字段
+# （openai_chat_request.cpp:955-982，≥1024、0/null=不设），且请求值优先于服务端默认（translate.cpp:426-428）
+# —— 旧注释“OpenAI 不解析”已过时（2026-10-10 审核发现，构建史 §三·十四）。
 TB_OPTIONS = {
     "none":   ("无（不设上限 · 有思考墙风险）",      []),
     "8000":   ("8000",          ["--default-thinking-budget", "8000"]),
@@ -299,13 +306,13 @@ DIM_TIPS = {
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
-    "tb":     "思考预算上限（--default-thinking-budget，每回合最多思考 token）。治“思考墙死循环”：xhigh 思考烧光输出预算→空正文。越小越省时，审核/批量建议小；长逻辑建议大。⚠ OpenAI 端点不转发请求里的 thinking_budget，只能靠服务端此参数。",
-    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 定稿池 = 40960 tokens；单请求【prompt_tokens + 输出】留在池内可避免 host 往返；开了 --kv-lease-growth 时超池会被静默截断(finish_reason=length)。",
+    "tb":     "思考预算上限（--default-thinking-budget，每回合最多思考 token）。治“思考墙死循环”：xhigh 思考烧光输出预算→空正文。越小越省时，审核/批量建议小；长逻辑建议大。20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。",
+    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 定稿池 = 40960 tokens；单请求【prompt_tokens + 输出】留在池内可避免 host 往返；开了 --kv-lease-growth 时超池会被静默截断(finish_reason=length)。⚠ growth 已判死（深超池下输出被砍在 ~4,096 租约窗口 = DSH 撞墙根因，20261010 定案），hemostat 定稿档已移除之。",
     "vision": "视觉（多模态）。GPU 编码器=默认，视觉塔常驻显存(~1.4G)；overlay=视觉塔驻 pinned 主机内存、仍走 GPU 算（折中，需可驱逐尾部支撑）；cpu=视觉塔走 CPU 线程、无设备视觉显存（引擎自动把 --vision-max-merged 压到 256，每图慢）。显存紧：优先 overlay，其次 cpu；不用视觉就关。",
     "sample": "采样预设。默认 = 官方值 0.7/0.9/20、presence 0。",
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
     "preserve":"保留已关闭回合的 assistant 推理（--preserve-thinking）。多轮长对话要前序思考时开。",
-    "hemostat":"官方 B01 止血：--kv-lease-growth（租约按需增长，掐掉“超池+大输出 -> worker 崩”的触发条件）+ --recover-invariant-failures（出问题只废当前请求、不弄死引擎）。官方出厂件有，官方 bat 未写。",
+    "hemostat":"KV 止血档（20261010 定案改三档）：on=★定稿，仅 --recover-invariant-failures（出问题只废当前请求、不弄死引擎）；legacy=旧 E5（--kv-lease-growth——深超池下把输出砍在 ~4,096 租约窗口 ⇒ DSH 撞墙直接根因，仅留作 A/B 对照臂）；off=全关（官方 bat 原样）。",
 }
 
 # 命名组合预置（首次运行若无配置文件则落盘）

@@ -144,19 +144,19 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 ```
 【我方家族】GitHub 用户 paicat1，三仓逐代迭代（README 开篇三仓表）
-  仓一 paicat1/Bonsai-27B-NInfer
+  仓一 [paicat1/Bonsai-27B-NInfer](https://github.com/paicat1/Bonsai-27B-NInfer)
        （main=项目层 / engine-main=引擎层，两分支一体）
        Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer：Ambolio 移植 +
        CraneBW 内核、改 CMake、自产 v2 制品；Device/Host 双层 KV（被动容量）；
        MTP/DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s；89|120a
-    └─ 仓二 paicat1/Bonsai-27B-NInfer-kvmem
+    └─ 仓二 [paicat1/Bonsai-27B-NInfer-kvmem](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem)
          KVMem 环（主动检索）：显存小池 + 主机卸载、可小于上下文、内容打分
          SELECT、五开关；混合投机 dflash2(K1-15)+MTP(K1-5)+ngram，K=7 甜点
          （K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；
          自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考停止空正文"）+ 双引擎对照；
          GUI 启动器与 serve_tee 自建。极值：prefill 3,820 / decode 748.6 tok/s
          （本机部署/工作副本 = J:\KVMem-GSQ）
-       └─ 仓三 paicat1/Qwen38-27B-NInfer-kvmem【★本仓，origin 即指向它★】
+       └─ 仓三 [paicat1/Qwen38-27B-NInfer-kvmem](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)【★本仓，origin 即指向它★】
             换大模型 Qwen3.8-27B-Coder390-EfficientThink：自转 MTP 头（iq4nl）、
             思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、
             视觉塔嫁接、256K 逻辑上下文；Qwen 4 27B（Bonsai/NInfer 格式）着陆预备
@@ -254,11 +254,11 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 **贡献归属（详见构建史）**：
 
-- **Neroued/ninfer** —— NInfer 引擎基座（本仓引擎的始祖）。
+- **[Neroued/ninfer](https://github.com/Neroued/ninfer)** —— NInfer 引擎基座（本仓引擎的始祖）。
 - **[1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)** —— 融合引擎源码（本线引擎 `self-built-20261008` 的直接出处）；KVMem 环 + host-backed checkpoint 的引擎层实现（含 `ensure_sequence_kv_mapped` 等核心机制——**这些是融合引擎的工作，不是 tancau 提供**）；Bug 手册 B33-B39 病历与 docs/13/14 修法库。
 - **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— KVMem 环算法的原始实现（并入融合引擎）；**本线 W1-W4 修复的 diff 参照**（思考熔断三连缺陷的修法样板）；环复用深度/召回边界/decode 墙的作者级结论（brief，本线页漂移定位的重要参照）。
-- **kvmem/kvmem-qw3（Di Chai）** —— 检索策略层算法（并入融合引擎）。
-- **kvmem/kvmem-llama.cpp（wangleye）** —— 兄弟件整合包：调优默认值对照（D-01..D-08 的来源）、issue #114 修法线索。
+- **[kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai）** —— 检索策略层算法（并入融合引擎）。
+- **[kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（wangleye）** —— 兄弟件整合包：调优默认值对照（D-01..D-08 的来源）、[issue #114](https://github.com/kvmem/kvmem-llama.cpp/issues/114) 修法线索。
 - **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
 - **Merkyor / nerkyor** —— 模型权重（Coder390-EfficientThink 系 NInfer 容器，含内置视觉塔）。
 

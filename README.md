@@ -14,7 +14,7 @@
 
 ---
 
-## 从两仓成果到今天：继承、堵点、压榨、成绩
+## 从两仓成果到今天：继承与全部战役
 
 ### 继承：前两仓留下的武器库
 
@@ -24,26 +24,27 @@
 | **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
 | **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
 | **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 发放包预编译成品 exe 不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
-| **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 8 预设 + 校验告警 + KV_ENV 注入 |
+| **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 10 预设 + 校验告警 + KV_ENV 注入 |
 
-### 第一关：让 27B 大模型上车
+### 全部战役（按 [构建史](docs/ninfer-kvmem-项目构建史.md) 逐节对应）
 
-Bonsai 线的 Bonsai-2-27B 任务短、无视觉，这颗雷没机会暴露；本仓要上 **Qwen3.8-27B-Coder390**（27B、256K 原生上下文、模型作者已把视觉组件打进容器），长思考一上来就把它踩响了。第一堵点：**引擎没有现成的 MTP 头**。
-
-- 第一次尝试（q8 重打包，头 451 MB，13.49 GB）：**起不来**——显存装不下；
-- 第二次（`recode_mtp.py` 抽层自转头，iq4_nl 量化，头 239 MB）：**成功**——比下载件（Merkyor 打包）里的头小 212 MB，省下的显存让更大的高速池成为可能。
-
-### 第二关：撞墙——思考 30 秒被砍
-
-上车后真实使用立刻撞墙：**agentic 任务思考 30-40 秒就被砍断**（`finish=length`），客户端显示"已达到输出 token 上限"并不停要"继续"——Bonsai 时代的短任务没暴露，27B 的长思考把这颗雷踩响了。
-
-三方取证（引擎日志 + 源码 + 融合引擎上游的 README）定案：`--kv-lease-growth` 在"高速池 ≪ 逻辑上下文"的深超池构型下，把输出砍在 ~4,096 token 的租约窗口上（bounded completion）。**修复三件套**：定稿移除 growth + 引擎层修掉思考熔断三连缺陷（W1-W4，patch 84 行）+ 客户端保活。
-
-**修复后**：两轮真实 agentic 实测零截断——单请求连续输出 **16,143 token**（旧墙的 4 倍）。
-
-### 第三关：视觉——282 MiB 视觉塔整体嫁接
-
-自转头的 27B 容器原本没有视觉。做法不是重转模型，而是**逐字节嫁接**：模型作者（Merkyor）容器里内置的视觉塔，333 个对象（282 MiB，q4/q5/q8/bf16 混合精度）原样搬进自转头容器——`graft_vision.py` 全程格式校验。识图实测 **26.9 秒**（CPU 编码，零设备显存）。
+| # | 战役 | 结果 | 构建史 |
+|---|---|---|---|
+| 0 | 建线与 git 基线；首轮技术调研；三轮交叉审核收敛 | 方向与分工定案 | §一/二/三 |
+| 1 | P0 启动层适配 Coder390 + 引擎统一 self-built + 裸解码基线（17 tok/s 成因确定） | 部署链打通 | §三·六 |
+| 2 | P1 MTP 数据侧重打包（q4_0 → q8_0 位级无损，三档验收） | MTP 头可换 | §三·七 |
+| 3 | **MTP 跑通**：官方 Q8MTP 两度显存失败 → 自转 iq4_nl（省 212 MB）→ 起服 A/B；ctx 扫描；三量澄清（max-context / WINDOW / kv-capacity）；256K + 40K 压榨 | **decode 105 → 256K 上下文** | §三·八 |
+| 4 | 启动器定稿（P1b 参数重写，8→10 预设） | 一键起服 | §三·九 |
+| 5 | 视觉可行性 + 定稿参数"闪退"根因（模型容器缺 vision 组件） | 闪退根修（launcher 联动） | §三·十 |
+| 6 | 两处定稿纠错（用户裁决）+ 思考预算占显存取证 + 视觉嫁接挂账 | 参数口径修正 | §三·十一/十二 |
+| 7 | **视觉塔嫁接**：282 MiB（333 对象，q4/q5/q8/bf16 混合）逐字节并入自转头容器；识图 26.9 s | 视觉可用 | §三·十二 + 开篇第三关 |
+| 8 | ngram 实测（两臂对照：+2.7%，无统计显著性） | 保持默认 | §三·十三 |
+| 9 | **DSH 撞墙定案**：`--kv-lease-growth` 深超池 bounded completion（上游 B35 同问题）——三轮交叉审核收敛 | **去 growth，撞墙清零** | §三·十四/十五 |
+| 10 | **W1-W4 引擎施工**（思考熔断三连缺陷，patch 84 行）+ 四重验收 | 潜在缺陷清除 | §三·十七 |
+| 11 | **A 臂闭环**：两轮 DSH agentic 零截断（16,143/11,782 tok）；池上限标定；视觉三合一 | 挂账 38 销账 | §三·十六 |
+| 12 | **自主实验夜**：64K 池标定（graph-allowance）+ **页漂移定案**（多轮 replay 挤出早期页 → decode 3 tok/s）+ **stream 挂起双重缺陷**（挂账 41）+ 挂账 39 销案 | 三类新形态定性 | §三·十七 |
+| 13 | 上游 23 提交逐条评审（无重复；B34/B35/B37 对应）+ sink=5120 实施（skeleton 4→80 页）+ KVMem 源头侦察（issue #114 / tancau brief / 挂账 42 蓝图） | 缓解落地 + 施工设计待审 | §12/§13 |
+| 14 | DSH 联调：自动压缩触发调参（ctx 229,376）+ maxTokens 24,000 封顶 | 长会话工作流闭环 | §三·十七 §8 |
 
 ### 压榨：每个参数都标定过
 
@@ -161,11 +162,11 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
             视觉塔嫁接、256K 逻辑上下文；Qwen 4 27B（Bonsai/NInfer 格式）着陆预备
 
 【上游】
-  1314521gjy/ninfer-fusion-kvmem（引擎源码出处；本线 s6-20261008 @3b9dc837
+  [1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)（引擎源码出处；本线 s6-20261008 @3b9dc837
   → 自编 self-built-20261008；落后其 main 23 提交）
-  tancau/ninfer-kvmem-ring（环算法）＋ kvmem/kvmem-qw3（策略层）→ 已并入该仓
-  NInfer 基座：Neroued/ninfer → ashalliants/ninfer-3090（0.11.0-rtx3090）→ iamwavecut/ninfer-all
-  兄弟仓：kvmem/kvmem-llama.cpp（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
+  [tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)（环算法）＋ [kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（策略层）→ 已并入该仓
+  NInfer 基座：[Neroued/ninfer](https://github.com/Neroued/ninfer) → [ashalliants/ninfer-3090](https://github.com/ashalliants/ninfer-3090)（0.11.0-rtx3090）→ [iamwavecut/ninfer-all](https://github.com/iamwavecut/ninfer-all)
+  兄弟仓：[kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
 ```
 
 - 上游 23 个新提交已逐条评审（构建史 §12）：无引擎行为级变更；B34=页漂移、B35=撞墙、B37=压缩摘要截断已各自对应本线修复或规避；吸收走 cherry-pick（详见 `docs/上游谱系与跟踪纪律-20261011.md`）。
@@ -267,8 +268,11 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 | 组件 | 来源 | 许可 |
 |---|---|---|
-| NInfer 引擎 | [Neroued/ninfer](https://github.com/Neroued/ninfer) | Apache-2.0 |
+| NInfer 引擎基座 | [Neroued/ninfer](https://github.com/Neroued/ninfer)（基线 [ashalliants/ninfer-3090](https://github.com/ashalliants/ninfer-3090)，0.11.0-rtx3090） | Apache-2.0 |
+| KVMem 环（并入融合引擎） | [tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring) | Apache-2.0 |
+| 检索策略层（并入融合引擎） | [kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai） | Apache-2.0 |
 | 融合引擎（KVMem 环 + host-backed） | [1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem) | Apache-2.0 |
+| 兄弟件（对照参照，不并入） | [kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（RC2） | 见其仓 |
 | 模型（Coder390-EfficientThink 系） | ModelScope [Merkyor/...-RLOO-GGUF-NInfer](https://modelscope.cn/models/Merkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-GGUF-NInfer)（实测下载）；HF `nerkyor` 同名系 | Apache-2.0 |
 | 三元量化工具链 / 转换 / 校验 | 沈三殊（shensanshu）· ModelScope `shensanshu/ninfer-ada-ternary` | 见其发布页 |
 

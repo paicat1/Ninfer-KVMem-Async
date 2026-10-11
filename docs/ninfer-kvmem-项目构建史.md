@@ -1643,8 +1643,31 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ### 5. 收尾待办
 
-- [进行中] 本仓全量重编（`build/s6_1208a.bat`，日志 `.temp/build_engine.log`）→ 部署 → 起服/探针（起服归用户）。
+- [x] 本仓全量重编完成（2026-10-12 04:52，`BUILD-EXIT=0`，`[1089/1089]`，`build/s6_1208a.bat`，
+  日志 `.temp/build_engine.log`；配置实测 Release/120a/SM120_NATIVE=ON/APPS=ON/TESTING=OFF）。
+- [x] 部署 + 起服（2026-10-12 07:30，经 `deploy_engine.ps1`：先备份 `infer-serve.exe.bak_20261012_073043`
+  （sha256 `298948C4348B2EAD`）→ 换上自持树产物（sha256 `932859488CE15E39`，1,334,192,640 B）→
+  起服 `start-v1c2-vision64k-graph64.bat`，**可见窗口**；验证：8094 监听 ✓、`/v1/models` HTTP 200 ✓、
+  日志 `warmup complete (517 ms)` + `listening on http://127.0.0.1:8094` ✓。
+- [ ] 已知差异（留档待判）：新 exe 比上版大 16,928,768 B，差异全在 `.nv_fatb`（CUDA fatbin）；
+  `cuobjdump` 对照两侧均 384 个 cubin、全 `sm_120a`、名字集合一致 → 同一批内核的**逐 cubin 体积**不同，
+  源于上版是**多轮增量拼装**（含跨会话增补）而本次是**同一工具链的一次全量干净构建**。
+  若后续发现性能/行为偏移，回退锚 = `infer-serve.exe.bak_20261012_073043`。
 - [ ] 审计口径：本线所有对外材料首段写"物理位置归属"（新接口约定）。
+
+### 6. 更正（2026-10-12 03:5x，实测后自撤）
+
+- **撤回**："挂账45 根因 = 中文 `/showIncludes` 前缀让 ninja 记不到头依赖"。
+  实证：① `CMakeFiles\rules.ninja` 中 CMake 已自动探测本地化前缀
+  （`msvc_deps_prefix = 注意: 包含文件:`）+ 规则 `deps = msvc` ✓；
+  ② 构建中 `.ninja_deps` 持续增长（104 KB @03:54:08）✓ → **头依赖确实被记录**；
+  ③ `VSLANG=1033`（已设在 vcvars 之后）**并未**把 cl 输出切成英文（本段日志 29,857 行中文 / 0 行英文）
+  → 它只影响消息语言，与依赖追踪无关。
+- **挂账45 的真实根因待重定**（候选：非全量构建 / 头文件时间戳被拷贝保留 / 当时用了另一个构建目录）。
+  **决定性实验**（待构建空闲时）：改一个头文件后 `ninja -n`，看 header consumers 是否入队。
+- **纪律不变**：结论出来前，"改头必须全量重编"继续保持。
+- 已同步更正：`build/s6_1208a.bat`（注释）、`docs/规则-跨仓边界-T-NO-FOREIGN-WRITE-CodeBuddy-20261012.md`、
+  `engine-src/PROVENANCE.md`、本史。**本轮更正一律未提交**（遵 TELE 红线 4：停等用户批准）。
 
 ---
 

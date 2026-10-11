@@ -365,6 +365,24 @@ PRESET_PROFILES = {
     #   且功能正常（decode 108.2）——旧 scatter 断言在现役引擎 3b9dc83 已不存在，视觉预设统一改 on。
     "视觉 20480保守":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),
     "视觉 大池55296":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296"),  # 55K+视觉实测成功（free 490.4 MiB，2026-10-11）
+    # 2026-10-12 用户裁决：把"现在这个挺稳的配置"整档固定成预设（★第三个定稿档）。
+    #   = v2.1 起服脚本 start-v21-restorefix-nograph.bat 的逐字配置：
+    #     64K 池 + iq4nlvis 视觉(cpu) + --no-cuda-graph + MTP K4 + 思考 high/16000 + 官方采样(0.7/0.9/20)。
+    #   实测（2026-10-11 23:36 起，连续 ~1 小时多轮）：引擎不崩、decode 越跑越稳（41-212 tok/s）。
+    #   该档还要两个环境变量（异步 demote 深度 / demote profile），见同文件下方 PRESET_ENV。
+    "★64K视觉稳（v2.1实测·nograph）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k", graph="off"),
+}
+
+# ---------------------------------------------------------------
+# 预设专属环境变量（2026-10-12）：只对同名预设追加，其余预设零影响。
+#   KV_ENV 六开关对所有预设生效；这里是"某个档额外要的"两项：
+#     NINFER_ASYNC_DEMOTE_DEPTH=2 = 挂账 46 v2.1 多批 in-flight 深度（实测 10+ 轮零降速）；
+#     NINFER_DEMOTE_PROFILE=1     = demote 批级 profile 日志（纯诊断，不需要可删这一行）。
+PRESET_ENV = {
+    "★64K视觉稳（v2.1实测·nograph）": {
+        "NINFER_ASYNC_DEMOTE_DEPTH": "2",
+        "NINFER_DEMOTE_PROFILE": "1",
+    },
 }
 
 
@@ -459,9 +477,12 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     return exe, argv
 
 
-def env_for_launch(exe=None):
+def env_for_launch(exe=None, profile=None):
+    """profile = 预设名（可选）：把 PRESET_ENV 里该档专属的环境变量一并合入（2026-10-12）。"""
     env = dict(os.environ)
     env.update(KV_ENV)
+    if profile:
+        env.update(PRESET_ENV.get(profile, {}))
     # P0b (2026-10-09): PATH 必须同时含 exe 所在目录 **与 engine\ 根目录**。
     #   理由：自编件在 engine\self-built-20261008\，但它**动态依赖 cublas64_13.dll**
     #   （实测：全文件搜索 1.27GB exe 命中 "cublas64_13"），而该 DLL **只在 engine\ 根**
@@ -961,7 +982,7 @@ class LauncherApp:
         try:
             CREATE_NEW_CONSOLE = 0x00000010
             logfile = os.path.join(LOG_DIR, "serve_" + time.strftime("%Y%m%d_%H%M%S") + ".log")
-            env = env_for_launch(exe)
+            env = env_for_launch(exe, self.profile_cb.get())
             env["SERVE_TEE_MODE"] = "full" if self.logmode_var.get() == "全部" else "slim"
             subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
                              env=env, cwd=ROOT,

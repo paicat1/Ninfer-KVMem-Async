@@ -1541,6 +1541,57 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ---
 
+## 三·二十、2026-10-12 00:2x-02:5x · ★★ 挂账 47 定位并修复 —— 67K 超池崩溃（0xC0000409 静默 abort）
+
+### 0. 一句话
+
+超池请求在**发布阶段**抛错后进入中止路径，中止路径**又抛一次**，撞上 `catch (...) { std::terminate(); }`
+→ 进程**无任何日志地死亡**。现已定位到具体三行并修复：**引擎不再崩**；"让超池请求本身成功"仍需头文件级修复（待裁决）。
+
+### 1. 现场（可复核）
+
+| 项 | 值 |
+|---|---|
+| 退出码 | `serve_tee end (exit=3221226505)` = `0xC0000409` |
+| 系统记录 | 事件日志 01:27:22 Application Error + 01:27:25 WER 1001：`BEX64` / `c0000409` / `P9=7`（FAST_FAIL_FATAL_APP_EXIT = abort）/ 故障模块 `ucrtbase.dll+0x7286e` |
+| 转储 | `%LOCALAPPDATA%\CrashDumps\ninfer-serve.exe.16892.dmp`（259.9 MiB） |
+| 崩溃前日志尾 | `adopt host-backed: frontier=66814 need=1044 usable=1024 host_backed=37` → `demote-other short: freed=0 want=37` → `demote-other short: freed=0 want=48` → **死亡（零行）** |
+| 注意 | 10-11 的旧转储（19828/14388/5772/17492）是 `0xC0000374` 堆损坏 / `0xC0000005`，**与本次不同源** |
+
+### 2. 定位方法（本轮新造，可复用）
+
+1. WER 取异常码 + P9（判定是 abort 而非 CUDA/栈溢出）；
+2. 取 CrashDumps 转储，用自写 minidump 解析器读线程/模块/内存/异常流；
+3. **同批 .obj 重链接并加 `/MAP`** 生成符号表，先证明**新 exe 与部署 exe 的 `.text` 逐字节相同**（否则 RVA 无效）；
+4. 自写 x64 回溯（读各模块 `.pdata` + `UNWIND_INFO` 逐帧展开）取**真调用链**（栈扫描会把 EH 状态数据误当返回地址）；
+5. `find_throw_string.py`：从"抛出点返回地址"反查它 `lea` 的字符串字面量 = **不变式原文**（本方法先在已知异常上校准，命中"KV activation reservation is stale"后用于未知异常）。
+
+工具 6 件已落 `tools/`：`dump_stack.py`、`unwind.py`、`sym_resolve.py`、`find_exception.py`、`find_throw_string.py`、`range_check.py`。
+
+### 3. 根因链（三处，均有符号与字面量为证）
+
+| 层 | 位置 | 事实 |
+|---|---|---|
+| 触发 | `prefill.cpp:449/466`（`start_sequence`）→ `kv_store.h:1101/1105`（`commit_activation`） | 抛 `std::logic_error("KV activation has an unavailable Device page")`：环模式下 prepare→commit 之间 demote/restore 改了 residency，而断言用的是**快照**（`judge_deferred_replicas` 的 `missing > room`、`prepare_activation` 的预留量、`commit_activation` 的复核，三者口径/时点不一致） |
+| 放大 | `materialization.cpp:2355-2358`（catch）→ `:434` → `:1376/1386` | 中止路径对**已被 publish 阶段消费/地址已释放**的 activation 再调 `page_reservation()`，抛 `std::logic_error("KV activation reservation is stale")`（`kv_store.h:1047-1052`） |
+| 致命 | `materialization.cpp:1421` | `catch (...) { std::terminate(); }` → `abort()` → **零日志进程死亡**（ICF 把 `abort_materialization_transfers` 与本函数的终止 funclet 合并到 0x1cd0edd，故栈上只见一个符号） |
+
+### 4. 修复（已增量编译，⏳ 未部署）
+
+- 文件：`src/models/qwen3_5/program/transactions/materialization.cpp`（**仅 .cpp**，故可增量；`BUILD-EXIT=0`，新 exe 1,317,263,872 B @02:30，已 grep 到新日志串在二进制内）。
+- 改动 A（诊断）：新增匿名命名空间 `terminate_with_reason(site, std::exception_ptr)` —— **先 `fprintf` 原因 + `fflush(stderr)` 再 `terminate()`**；5 处裸 `catch (...) { std::terminate(); }` 全部改用它（`release_materialization_staging` ×2、`abort_materialization_transfers`、`publish_pressure_work`、`abort_pressure_work`）。
+- 改动 B（止血）：`abort_materialization_transfers` 的 activation 回滚改走 `abort_restores` lambda —— `page_reservation` 抛错即判定"activation 已被消费/地址已失效"，打印 `activation already consumed` 并**跳过回滚**（语义：那些页已归序列或随地址释放，再 `abort_device_replica` 会误伤活数据）；`restores` 为空直接返回。
+- 补丁：`patches/ledger47_overpool_abort_silent_death.patch`（81+/21-）；备份锚 `J:\Bonsai-Official\_backups\materialization.cpp.bak_20261012_pre_abortfix`（sha256 前缀 `DF7EE2EBA5B7946A`，且该文件改动前在源码仓 `s6-20261008`@`4c4dcfa` 是干净状态，`git checkout --` 亦可回滚）。
+- 效果：超池请求**不再弄死引擎**（转为可读 HTTP 500 + 一行原因）；**引擎侧彻底修**（`commit_activation` reconcile 化 + `judge_deferred_replicas` 环模式恒 defer）需改头文件 ⇒ **全量编译 + 实测**，待用户裁决。
+
+### 5. 同轮登记（2026-10-12 02:5x，用户要求"把现在这个挺稳的配置固定下来"）
+
+- **启动器新增 ★ 预设**：`★64K视觉稳（v2.1实测·nograph）` = `start-v21-restorefix-nograph.bat` 的逐字配置（64K 池 + iq4nlvis 视觉 cpu + `--no-cuda-graph` + MTP K4 + 思考 high/16000 + 官方采样 + `--recover-invariant-failures`）；配套新增 `PRESET_ENV` 机制（该档专属两个环境变量 `NINFER_ASYNC_DEMOTE_DEPTH=2`、`NINFER_DEMOTE_PROFILE=1`，其余预设零影响）。GUI 已在运行的话需**重启启动器**才看得到新档。
+- **`smart_push.ps1` 代理探测改多轮询**：端口表 7897/7890/10809/1080 提取为 `Get-ProxyPort()`，每轮重试前重探（用户可能刚开代理），探测到即换用。
+- **另记一个不同源问题**（回答用户"是不是同一个问题"）：02:12:39 `worker invariant failure: output policy returned an invalid licensed prefix - recovering`（`engine_core.h:1260`，req#27 → HTTP 500）。这是**输出许可/采样侧**的不变式失败，引擎**自愈**（WARN + recovering，进程存活、后续请求正常），与挂账 47（KV 准入/中止路径的静默 abort）**不同源、不同层**。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1586,6 +1637,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s）；**+ 挂账 41 并入：页漂移极端态下页操作深处冻结（req#4）** | ✅ **全链已部署 + 实机验证重大突破（2026-10-11 晚，§三·十九）**：①取消检查点前移（`ledger42_cancel_checkpoint`）②批量 demote K=8（`ledger42_batch_demote`）③**第三步 v2 异步 demote**（`ledger42_v2_async_demote`：PendingDemote 槽 + transfer stream 异步提交 + 下一步收割——20:36 部署）——**超池多轮实测 103-195 tok/s（此前同区 4-6，提升 20-40 倍）、10+ 轮零降速**；后续优化（v2.1 多批 in-flight / 早期页 pin / 异步 restore / 池扩容 / 压缩放宽）见 §三·十九 §4；④DSH 侧辅助已生效：coder390 压缩触发 94K → 41K（contextWindow 163,840——**现按实机数据可渐进放宽**） |
 | 43 | ★**引擎死锁看门狗**（req#4 真形态：客户端**不断开**（TCP Established、零取消信号）时页操作深处同步点永久死等——CPU 0/GPU idle/日志静默，重启才恢复） | 📋 **立项（挂账 42 施工中识别）**：检查点只救"有取消信号"场景；无信号死锁需**步级看门狗**（decode 单步耗时超阈值 → 强制 abort + 该请求失败释放槽位）——阈值标定与误杀风险（合法长步 vs 死锁）待设计；与官方"单元边界采样"哲学（engine_core.h L2406 注释）正交 |
 | 46 | ★**死亡谷**（多轮深堆积的 demote 风暴：decode 1-6 tok/s + host 200-318%，**可自愈爬出**——v2 后的新形态，非死锁） | 📋 **已解剖立档（§三·十九 §3.1，req#61 三段式）**：主因 = demote copy 慢（avg 11.5 / max 33.68 ms）+ 多轮需求暴增（retrieve 仅 3 次——非主因）；解法排序：①**v2.1 多批 in-flight**（填满 PCIe 流水）②**早期页 pin**（减少搬运需求，根本）③步级预算（摊平变浅）④异步 restore（数据降级）⑤压缩触发平衡（压缩=页状态重置） |
+| 47 | ★**超池崩溃 = 静默 abort（exit `0xC0000409` / WER `BEX64` P9=7）**：67,441 token > 65,536 池的请求走 `adopt host-backed` 时进程**无任何日志地死亡**（引擎日志零行，只有退出码） | ✅ **根因定位 + 已修（2026-10-12 02:4x，增量编译 BUILD-EXIT=0，⏳ 待部署）**，详见 §三·二十 + `docs/根因-67K超池崩溃-0xC0000409-materialization中止路径-CodeBuddy-20261012.md`：①链路 = `start_sequence`→`commit_activation` 抛 `"KV activation has an unavailable Device page"`（环模式 residency 是移动靶 vs 快照断言）→ catch 进中止路径 → `abort_materialization_transfers` 对**已被消费的 activation** 再调 `page_reservation()` 抛 `"KV activation reservation is stale"` → `catch (...) { std::terminate(); }` → abort；②修复（patch `ledger47_overpool_abort_silent_death`，仅 materialization.cpp 81+/21-）：5 处裸 `terminate()` 改**带原因打印再终止**，activation 失效时回滚**跳过并打印**；③效果 = 引擎不再崩，超池请求转可读 HTTP 500；④**遗留（需改头文件 = 全量编译 + 实测，待裁决）**：`commit_activation` 的预留量/驻留断言应改 reconcile、`judge_deferred_replicas` 环模式应恒 defer |
 | 45 | ★**构建树依赖追踪缺失（中文 /showIncludes 未识别）**：改头文件（program_impl.h）后 ninja **不重编 header consumers**——各 TU 编译于不同版本头 → 布局混编 → **构造期堆踩踏**（0xC0000005/0xC0000374），三次二分全崩 | 📋 **根因已定（2026-10-11 18:2x）**：本地化（中文"注意: 包含文件"）前缀未被 ninja 识别；**临时纪律 = 本树改头必须全量重编**（清 build-1208a）；**修复候选 = build bat 加 `set VSLANG=1033`**（MSVC 输出英文 "Note: including file" → ninja 识别），待下次增量编译验证；排查过程：三次二分（禁 retire→指针成员→零运行代码全崩）逐层排除运行代码，定位到编译层 |
 | 44 | ★**demote 路径 profile**（host 100% 真凶定位） | ✅ **定案（2026-10-11 17:38，profile 探针实数据；TELE 复核口径修正：27:17 双峰分布，非"严格交替"）**：44 批读数——**copy 双峰 3.4-7.8ms / 0.26-0.6ms（27:17）**（= D2H 同步等待占 compute stream，与 decode kernel 串行互斥）；**prepare/publish/tail/scan 全 0.00**（arena 账本/extent 发布/页存储账本/候选扫描全部无罪）——TELE"账本"推断与 CB"带宽非瓶颈"各对一半：**拷贝排错了队**（真凶 = compute stream 同步 D2H）；探针 = `NINFER_DEMOTE_PROFILE=1`（默认关零开销，批级四段 + since；patch `ledger44_demote_profile`）；42 第三步设计据此修正：v1（仅换流）跳过，**v2 = 跨 decode 步 pending 流水化**（设计稿 `docs/设计-挂账42第三步-v2异步demote-20261011.md`，TELE 复核三缺口已闭环）；**v2 施工完成（2026-10-11 18:2x，全量重编中）**——施工期三次崩溃（0xC0000005/0xC0000374）经三次二分定位 = **挂账 45（依赖追踪缺失致布局混编）**，非 v2 逻辑缺陷 |
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |

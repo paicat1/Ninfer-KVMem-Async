@@ -1,0 +1,159 @@
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/transactions/materialization.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/transactions/materialization.cpp
+index 6d781e1..81046e2 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/transactions/materialization.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/transactions/materialization.cpp
+@@ -7,6 +7,8 @@
+ #include <chrono>
+ #include <cstddef>
+ #include <cstdint>
++#include <cstdio>
++#include <exception>
+ #include <limits>
+ #include <memory>
+ #include <optional>
+@@ -19,6 +21,27 @@
+ 
+ namespace ninfer::models::qwen3_5::detail {
+ 
++namespace {
++// LOCAL FIX (silent-death diagnosis, 2026-10-12): the `catch (...) { std::terminate(); }` guards in
++// this file are noexcept abort paths that must not continue -- but until now they died WITHOUT SAYING
++// WHY. Measured instance: a 67,441-token prompt over a 65,536-token pool killed the engine with WER
++// "BEX64 / 0xc0000409 / P9=7" (FAST_FAIL_FATAL_APP_EXIT, i.e. abort() out of std::terminate) and NOT
++// ONE line in the engine log; localising it took a crash dump, a relink for symbols and an unwind.
++// These paths keep their contract (terminate) and gain the only thing they lacked: the reason, on
++// stderr, before the process goes.
++[[noreturn]] void terminate_with_reason(const char* site, std::exception_ptr error) {
++    try {
++        std::rethrow_exception(error);
++    } catch (const std::exception& failure) {
++        std::fprintf(stderr, "[ninfer] FATAL: %s failed during abort: %s\n", site, failure.what());
++    } catch (...) {
++        std::fprintf(stderr, "[ninfer] FATAL: %s failed during abort: non-std exception\n", site);
++    }
++    std::fflush(stderr);
++    std::terminate();
++}
++} // namespace
++
+ runtime::ContextTransactionReserveStatus
+ ProgramImpl::reserve_materialization(AdmissionCandidate&& plan, PreparedPromptData&& prompt,
+                                      runtime::CancellationFlagView cancellation) {
+@@ -415,7 +438,10 @@ void ProgramImpl::release_materialization_staging(
+         if (work.submitted) {
+             try {
+                 context_completion_.synchronize();
+-            } catch (...) { std::terminate(); }
++            } catch (...) {
++                terminate_with_reason("release_materialization_staging: shared transfer fence",
++                                      std::current_exception());
++            }
+         }
+         abort_pressure_work(work);
+     }
+@@ -426,7 +452,10 @@ void ProgramImpl::release_materialization_staging(
+         if (work.submitted) {
+             try {
+                 context_completion_.synchronize();
+-            } catch (...) { std::terminate(); }
++            } catch (...) {
++                terminate_with_reason("release_materialization_staging: private transfer fence",
++                                      std::current_exception());
++            }
+         }
+         abort_pressure_work(work);
+     }
+@@ -1369,27 +1398,54 @@ void ProgramImpl::abort_materialization_transfers(
+             state_store->abort_transfer(std::move(*transaction.state_restore));
+             transaction.state_restore.reset();
+         }
+-        if (transaction.text_activation || transaction.text_source_restore_reservation) {
+-            DeviceKVPageReservation& reservation =
+-                transaction.text_source_restore_reservation
+-                    ? *transaction.text_source_restore_reservation
+-                    : text_kv_addresses->page_reservation(*transaction.text_activation);
+-            for (const MaterializationTransaction::KVRestorePage& restore :
+-                 transaction.text_restores) {
+-                text_kv_pages->abort_device_replica(restore.logical, reservation);
++        // LOCAL FIX (0xC0000409 silent death, 2026-10-12): the publish attempt
++        // (`start_request` -> `start_sequence` -> `KVAddressSpaceStore::commit_activation`) can CONSUME
++        // the activation before it fails -- on success it moves the row/reservation into the address and
++        // nulls the activation's owner, and its own failure paths can leave the address it was prepared
++        // on released. The reservation lookup below then throws "KV activation reservation is stale"
++        // (kv_store.h:1047-1052), which used to reach `catch (...) { std::terminate(); }` and kill the
++        // process with no log line at all: WER BEX64 / 0xc0000409 / P9=7, measured 2026-10-12 01:27:26
++        // on a 67,441-token prompt over a 65,536-token pool (req#55, after `adopt host-backed`).
++        // A stale activation is not an abort failure: it means the pages this rollback would touch are
++        // NOT the transaction's any more (the sequence owns them, or they went with the released
++        // address), so there is nothing to abort -- and that is what the line below says.
++        const auto abort_restores = [&](KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
++                                        std::optional<KVActivationReservation>& activation,
++                                        std::optional<DeviceKVPageReservation>& source_reservation,
++                                        std::vector<MaterializationTransaction::KVRestorePage>& restores,
++                                        const char* which) {
++            if (restores.empty()) { return; }
++            DeviceKVPageReservation* reservation = nullptr;
++            if (source_reservation) {
++                reservation = &*source_reservation;
++            } else {
++                try {
++                    reservation = &addresses.page_reservation(*activation);
++                } catch (const std::exception& failure) {
++                    std::fprintf(stderr,
++                                 "[ninfer] abort_materialization_transfers: %s activation already "
++                                 "consumed (%s); %zu restore(s) left with the sequence\n",
++                                 which, failure.what(), restores.size());
++                    return;
++                }
++            }
++            for (const MaterializationTransaction::KVRestorePage& restore : restores) {
++                pages.abort_device_replica(restore.logical, *reservation);
+             }
++        };
++        if (transaction.text_activation || transaction.text_source_restore_reservation) {
++            abort_restores(*text_kv_addresses, *text_kv_pages, transaction.text_activation,
++                           transaction.text_source_restore_reservation, transaction.text_restores,
++                           "text");
+         }
+         if (transaction.backend_activation || transaction.backend_source_restore_reservation) {
+-            DeviceKVPageReservation& reservation =
+-                transaction.backend_source_restore_reservation
+-                    ? *transaction.backend_source_restore_reservation
+-                    : backend_kv_addresses->page_reservation(*transaction.backend_activation);
+-            for (const MaterializationTransaction::KVRestorePage& restore :
+-                 transaction.backend_restores) {
+-                backend_kv_pages->abort_device_replica(restore.logical, reservation);
+-            }
++            abort_restores(*backend_kv_addresses, *backend_kv_pages, transaction.backend_activation,
++                           transaction.backend_source_restore_reservation,
++                           transaction.backend_restores, "backend");
+         }
+-    } catch (...) { std::terminate(); }
++    } catch (...) {
++        terminate_with_reason("abort_materialization_transfers", std::current_exception());
++    }
+     transaction.text_restores.clear();
+     transaction.text_restore_destinations.clear();
+     transaction.backend_restores.clear();
+@@ -1791,7 +1847,9 @@ void ProgramImpl::publish_pressure_work(MaterializationTransaction::PressureWork
+         }
+         work.submitted = false;
+         work.completed = true;
+-    } catch (...) { std::terminate(); }
++    } catch (...) {
++        terminate_with_reason("publish_pressure_work", std::current_exception());
++    }
+ }
+ 
+ void ProgramImpl::abort_pressure_work(MaterializationTransaction::PressureWork& work) noexcept {
+@@ -1814,7 +1872,9 @@ void ProgramImpl::abort_pressure_work(MaterializationTransaction::PressureWork&
+         work.main_kv_changes.clear();
+         work.backend_kv_changes.clear();
+         work.submitted = false;
+-    } catch (...) { std::terminate(); }
++    } catch (...) {
++        terminate_with_reason("abort_pressure_work", std::current_exception());
++    }
+ }
+ 
+ ProgramImpl::PhysicalReleaseResult

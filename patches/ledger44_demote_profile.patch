@@ -1,0 +1,212 @@
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+index a6ea68d..d397d22 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+@@ -7,6 +7,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <chrono>
+ #include <cstddef>
+ #include <cstdint>
+ #include <limits>
+@@ -1625,6 +1626,11 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
+         return resident;
+     }
+     for (const std::uint32_t page : logical_pages) {
++        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
++        // loop). A partial restore is semantically safe by design -- pages that never made it
++        // back stay hidden from the mask (the "silently unreadable" contract), and a cancelled
++        // unit should stop paying H2D PCIe traffic immediately.
++        if (decode_cancelled()) { break; }
+         const LogicalKVPageHandle logical = addresses.logical_page(address, page);
+         if (!pages.valid(logical)) { continue; }
+         if (pages.device_resident(logical)) {
+@@ -1939,6 +1945,21 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+                                                    std::uint32_t target_free,
+                                                    std::span<const std::uint32_t> preferred) {
+     if (host_kv_extents == nullptr || !addresses.valid(address) || target_free == 0) { return 0; }
++    // LOCAL (挂账44, 2026-10-11): micro-profile for the demote path. The page-full decode stall
++    // (stable 2.8-6.2 tok/s, host 90-105% after batching) has four candidate host-side sinks --
++    // candidate scan, arena ledger (prepare), the copy launch itself, extent publish, and the
++    // page-store ledger (release/drop). NINFER_DEMOTE_PROFILE=1 arms one line per flushed batch
++    // so the distribution, not a guess, picks the optimization. Zero cost when disabled.
++    static const bool kDemoteProfile = [] {
++        const char* env = std::getenv("NINFER_DEMOTE_PROFILE");
++        return env != nullptr && env[0] == '1';
++    }();
++    const auto now_ms = [] {
++        return std::chrono::duration<double, std::milli>(
++            std::chrono::steady_clock::now().time_since_epoch())
++            .count();
++    };
++    const double profile_start = kDemoteProfile ? now_ms() : 0.0;
+     const std::uint32_t mapped = addresses.mapped_pages(address);
+     const auto is_preferred = [&](std::uint32_t page) {
+         return !preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page);
+@@ -1949,7 +1970,120 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+     std::uint32_t demoted   = 0;
+     std::uint32_t page      = sink_pages;
+     bool second_pass        = false;
++    // LOCAL FIX (挂账42 第二步, 2026-10-11): batch the D2H demotion. The page-full stall inside a
++    // decode step used to pay the full host-side pipeline (prepare -> one copy launch -> publish
++    // -> release -> drop) PER PAGE, so a pool that had to shed 8 pages stopped decode 8 separate
++    // times (measured 2026-10-11: decode oscillated 0.2-15.7 tok/s while host ran 90-200%).
++    // One extent reservation now covers a whole batch: a single arena allocation, one
++    // copy_to_host launch and one publish. The per-page lifecycle predicates are unchanged, so a
++    // batch is safe to interrupt at any boundary: pages are only dropped after their extent is
++    // published, and every failure path keeps the Device replica exactly like the single-page
++    // version did. Copying still runs on the compute stream (async transfer streams are 42-step 3).
++    constexpr std::uint32_t kDemoteBatchPages = 8U;
++    std::vector<LogicalKVPageHandle> batch;
++    batch.reserve(kDemoteBatchPages);
++    double last_flush = profile_start;
++    const auto flush_batch = [&](std::vector<LogicalKVPageHandle>& pending) {
++        if (pending.empty()) { return true; }
++        const std::size_t batch_n = pending.size();
++        const double t_prepare0 = kDemoteProfile ? now_ms() : 0.0;
++        const double since = kDemoteProfile ? t_prepare0 - last_flush : 0.0;
++        std::optional<HostKVExtentReservation> reserved = host_kv_extents->prepare(pages, pending);
++        if (!reserved) {
++            if (pending.size() == 1) {
++                if (kDemoteProfile) {
++                    std::fprintf(stderr,
++                                 "[ninfer] demote profile: batch=%zu arena-full (prepare %.2fms, "
++                                 "since %.1fms)\n",
++                                 batch_n, now_ms() - t_prepare0, since);
++                }
++                return false;   // Host arena full: nothing can be moved
++            }
++            // The arena could not place the whole batch contiguously: fall back to the original
++            // per-page path so fragmentation degrades the batch size instead of stopping demotion.
++            double fallback_prepare = 0.0, fallback_copy = 0.0, fallback_publish = 0.0,
++                   fallback_tail = 0.0;
++            for (const LogicalKVPageHandle logical : pending) {
++                const double p0 = now_ms();
++                std::vector<LogicalKVPageHandle> one{logical};
++                std::optional<HostKVExtentReservation> single = host_kv_extents->prepare(pages, one);
++                if (!single) {
++                    if (kDemoteProfile) {
++                        std::fprintf(stderr,
++                                     "[ninfer] demote profile: batch=%zu arena-full-degraded "
++                                     "(prepare %.2fms)\n",
++                                     batch_n, now_ms() - t_prepare0);
++                    }
++                    return false;
++                }
++                const double p1 = now_ms();
++                const std::vector<DeviceKVPageHandle> sources =
++                    host_kv_extents->device_sources(*single);
++                pages.physical_pool().copy_to_host(sources,
++                                                   host_kv_extents->writable_view(*single),
++                                                   device.stream);
++                const double p2 = now_ms();
++                if (!host_kv_extents->publish(std::move(*single))) {
++                    if (kDemoteProfile) {
++                        std::fprintf(stderr, "[ninfer] demote profile: publish-declined-degraded\n");
++                    }
++                    return false;
++                }
++                const double p3 = now_ms();
++                pages.release_active_reference(logical);
++                if (pages.drop_device_replica(logical)) { ++demoted; }
++                const double p4 = now_ms();
++                fallback_prepare += p1 - p0;
++                fallback_copy += p2 - p1;
++                fallback_publish += p3 - p2;
++                fallback_tail += p4 - p3;
++            }
++            pending.clear();
++            if (kDemoteProfile) {
++                last_flush = now_ms();
++                std::fprintf(stderr,
++                             "[ninfer] demote profile: batch-degraded n=%zu prepare=%.2f copy=%.2f "
++                             "publish=%.2f tail=%.2f demoted=%llu\n",
++                             batch_n, fallback_prepare, fallback_copy, fallback_publish,
++                             fallback_tail, static_cast<unsigned long long>(demoted));
++            }
++            return true;
++        }
++        const double t_prepare1 = kDemoteProfile ? now_ms() : 0.0;
++        const std::vector<DeviceKVPageHandle> sources = host_kv_extents->device_sources(*reserved);
++        // Copy on the compute stream so the D2H is ordered after the kernels that wrote it.
++        pages.physical_pool().copy_to_host(sources, host_kv_extents->writable_view(*reserved),
++                                           device.stream);
++        const double t_copy1 = kDemoteProfile ? now_ms() : 0.0;
++        // A declined publish stops demotion exactly like the prepare refusal above (2026-10-02
++        // contract): the caller breaks, the pages keep their Device replicas and their data.
++        if (!host_kv_extents->publish(std::move(*reserved))) { return false; }
++        const double t_publish1 = kDemoteProfile ? now_ms() : 0.0;
++        for (const LogicalKVPageHandle logical : pending) {
++            pages.release_active_reference(logical);
++            if (pages.drop_device_replica(logical)) { ++demoted; }
++        }
++        const double t_tail1 = kDemoteProfile ? now_ms() : 0.0;
++        pending.clear();
++        if (kDemoteProfile) {
++            last_flush = now_ms();
++            std::fprintf(stderr,
++                         "[ninfer] demote profile: batch=%zu since=%.2f prepare=%.2f copy=%.2f "
++                         "publish=%.2f tail=%.2f demoted=%llu\n",
++                         batch_n, since, t_prepare1 - t_prepare0, t_copy1 - t_prepare1,
++                         t_publish1 - t_copy1, t_tail1 - t_publish1,
++                         static_cast<unsigned long long>(demoted));
++        }
++        return true;
++    };
+     while (demoted < target_free) {
++        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint. A multi-page demotion
++        // inside one decode step could grind on long after its unit was cancelled (the official
++        // design samples cancellations per unit); with the probe firing, stop here -- already
++        // demoted pages are complete publications (copy+publish+drop all done), so returning a
++        // partial count is a safe intermediate state. ensure_ring_room's early verdict then
++        // fails the request instead of letting a cancelled unit keep burning PCIe bandwidth.
++        if (decode_cancelled()) { break; }
+         if (page >= mapped) {
+             if (second_pass) { break; }
+             second_pass = true;
+@@ -1973,35 +2107,24 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+             continue;
+         }
+         if (!pages.host_resident(logical)) {
+-            // The content is not on the Host yet: copy it there first. The Host extent store pins
++            // The content is not on the Host yet: it joins the batch. The Host extent store pins
+             // through `can_pin_source`, which requires the writer reference to be clear; an active
+             // sequence keeps one on every mapped page and these pages are outside the window.
+             pages.set_writer(logical, false);
+-            std::vector<LogicalKVPageHandle> one{logical};
+-            std::optional<HostKVExtentReservation> reserved = host_kv_extents->prepare(pages, one);
+-            if (!reserved) { break; }   // Host arena full: nothing more can be moved
+-            const std::vector<DeviceKVPageHandle> sources =
+-                host_kv_extents->device_sources(*reserved);
+-            // Copy on the compute stream so the D2H is ordered after the kernels that wrote it.
+-            pages.physical_pool().copy_to_host(sources, host_kv_extents->writable_view(*reserved),
+-                                               device.stream);
+-            // LOCAL FIX (2026-10-02): a declined publish stops the demotion exactly like the `prepare`
+-            // refusal above -- `break` skips `release_active_reference` below, so this page keeps its
+-            // Device replica and its data. Never drop a replica that has no Host copy.
+-            if (!host_kv_extents->publish(std::move(*reserved))) {
+-                // No counter here on purpose: this function has no summary line to carry it, and the
+-                // store already named the page and the reason in its own `publish declined` line.
+-                break;
+-            }
++            batch.push_back(logical);
++            if (batch.size() < kDemoteBatchPages) { continue; }
++            if (!flush_batch(batch)) { break; }
+         } else {
+             // Already preserved on the Host (demoted before and then retrieved): no transfer needed.
+             if (!pages.host_replica_current(logical)) { continue; }
+             pages.set_writer(logical, false);
++            pages.release_active_reference(logical);
++            if (!pages.drop_device_replica(logical)) { continue; }
++            ++demoted;
+         }
+-        pages.release_active_reference(logical);
+-        if (!pages.drop_device_replica(logical)) { continue; }
+-        ++demoted;
+     }
++    // Flush the trailing partial batch (scan ran out, target met, or cancellation fired).
++    (void)flush_batch(batch);
+     return demoted;
+ }
+ 

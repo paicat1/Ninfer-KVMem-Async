@@ -231,7 +231,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 10 | 池标定与 64K 起服 | 65,536 池差 213 MiB 拒启；腾显存后仍差 149（WDDM 归还不即时，滴流 ~36 MiB/30s） | runtime 预留（CUDA Graph 驱动态）按 profile 自动算偏大 | `--cuda-graph-allowance-mib 128` 压 graph 预算补缺口 | 64K 起服 25s；decode 101.1（基线 101-104，**零代价**）；launcher 64k 档已绑该参数 |
 | 11 | DSH maxTokens 全额预留 | 单请求 prompt+输出全额预留，65,536 输出上限放大超池面 | 思考计入输出 + DSH 默认 65,536 | DSH `maxTokens` → 24,000（单轮封顶；prompt ≤41,536 时 decode 期永不超池） | 生效验证：实机 started 行 `max output 24,000` |
 | 12 | 长会话"页漂移"降速 | 34-39 轮 agentic 会话后 decode 从 122 → 3 tok/s，host 占用 98-110% | cache replay 逐轮重映射历史页，**最早页被逐渐挤出设备池**（34 轮后 ~330 页滞留 host → decode 每 token host 往返）——是**轮数**触发，与超池深度无关（三组对照：81K/72K/72K 全不掉速 134/126/134） | 缓解：定期新开会话（机制必需）+ 池扩容（28→~38 轮才触发）+ maxTokens 封顶；根治 = 引擎早期页 pin/预取（挂账 42，待修） | 机理两次独立实证（hidden 页判别：不掉速 ≤17 vs 掉速 329-334） |
-| 13 | stream 挂起（挂账 41，**待修**） | 客户端停止读/断开 → 引擎请求永占并发槽（max-concurrency 1 = 服务不可用直到重启） | decode 线程阻塞在同步 send：无超时 + 无断开检测取消 | 已定性可复现（`scripts/test_stream_stall.py`）；修复方向 = send timeout + 断开取消 | 判据签名齐备：CPU delta=0 / GPU idle / TCP Established / 日志静默 |
+| 13 | stream 挂起（挂账 41，**待修**） | 引擎请求 started 后永不 done：日志静默 + CPU 0 / GPU idle + TCP Established，重启才恢复（req#4 现场，DSH"思维断链"） | 根因未定；唯一存活假说 = 取消检查点在 decode 步间、页操作深处不可达（TELE 源码复核） | 两次复现实验均无效（04:19 伪象 + 13:04 请求未达引擎）；下次实验判据 = 引擎 started 行 + 双端日志对时 | 现场单例真实；复现待成 |
 
 > **未解决事项**（与上表闭环对照）：挂账 41（stream 挂起引擎侧修复）、挂账 42（页漂移引擎侧根治）、超池中段正确性依赖检索开关（下节"已知限制"）、W5（KV 池自噬，待实测）。
 

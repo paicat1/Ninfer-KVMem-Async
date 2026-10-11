@@ -1298,9 +1298,11 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 **机理**：每轮 cache replay（99.9% 命中）重新映射历史页，把**最早的页逐渐挤出设备池**；34 轮后 ~330 页早期上下文滞留 host。**不是"prompt > 池"触发（V1a 超池更深却正常），是"会话轮数"触发**。
 ⇒ **"定期新开会话"是机制必需**（不只是纪律）；池大小只延缓（64K 比 51K 多撑 ~8 轮）；根治 = 引擎侧 pin/预取策略（**挂账 42**）。残余变量（xhigh 思考模式、68 messages、DSH 流特征）待 TELE 白天对查 DSH session。
 
-### 3. ⭐ stream 挂起双重缺陷（**挂账 41**，`scripts/test_stream_stall.py` 可控复现）
+### 3. stream 挂起（**挂账 41**）——⚠️ 初判有误，2026-10-11 复核修正
 
-客户端**停止读**（socket 不关）→ 引擎 decode 线程阻塞在同步 send → CPU 0 / GPU idle / 日志静默（20 秒内冻结）；**客户端关闭连接后引擎仍不恢复**（CPU 持续冻结，请求永占并发槽）——`max-concurrency 1` 下 = **整个服务不可用直到进程重启**。与 W1-W5 完全不同的第 6 类缺陷（P1）：**无 send 超时 + 无断开检测/取消**。判据签名：CPU 双采样 delta=0 + GPU idle + TCP Established + 日志静默。昨晚"思维断链"（req#4 挂死）即此形态。
+**真实证据仅一条**：req#4 现场（03:58:36 started 后永不 done + 引擎日志静默 15+ 分钟 + CPU 0 / GPU idle / TCP Established）——DSH 实机"思维断链"挂死，重启才恢复。
+
+**当晚"可控复现"（04:19，`test_stream_stall.py`）无效**：引擎日志（`v1c_vision64k.log` L4637）显示 harness 读段请求 req#3 于 04:19:32 **正常完成全部 4,000 token**（output limit，22.8s）——harness 的 20s 采样窗口没停读、请求已 done；随后 75s"stall"阶段**没有任何引擎侧请求**（无新 started 行）→ "t+40 冻结 / t+80 断开仍冻结"的采样读数是 harness 伪象（请求早已结束，客户端自然收不到数据）。
 
 ### 4. 挂账 39 销案：视觉 × 无 growth 的 scatter 断言已不存在（**证据链经 TELE 复核补全，2026-10-11**）
 
@@ -1427,14 +1429,16 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 - **配套**：挂账 41 修法（issue #114 的 stale-error 清理 + 本线 send timeout）同期施工；
 - **短期缓解维持**：DSH 压缩（ctx 229,376）+ maxTokens 24K + 新会话纪律 + sink=5120。
 
-### 14. 挂账 41 重做实验（320s 版）：定性修正——与挂账 42 合并根因
+### 14. 挂账 41 重做实验（320s 版）——**实验无效，TELE 存疑成立**（2026-10-11 13:40 复核定案）
 
-**实验重做**（`v1c2_resume.bat` no-cuda-graph 引擎 + `test_stream_stall.py` 停读 320s > 300s write timeout）：
-- t+40s 正常 decode（CPU 50.1↑）→ **t+80s（probe 停读）CPU 冻结 51.5s** → **t+320-400s 仍冻结**；
-- **t+200s probe 侧 TCP 已断（EST=0）而引擎仍冻结**——"断开不恢复"复现（且 >300s write timeout 未生效于冻结路径）；
-- **机理修正**：引擎冻结**不是 send 阻塞**（CPU 冻结 = 卡在页操作的 CUDA 同步等待）——`SseTransport` 的心跳/is_writable/取消机制健全（`http_transport.cpp:205-224`：write 失败→取消、poll 查 is_writable、心跳间隔发送），但**取消检查点（`output.is_cancelled`，openai_chat_http.cpp:200）在 decode 步间**——页漂移极端态下 decode 步冻结在更深处的页操作/同步点，**检查点无法到达**；
-- **挂账 41 定性修正**：与**挂账 42 合并根因**（页漂移深处的页操作同步卡死）——socket/心跳/超时层无病灶（机制健全）；补一个可做的小改：**restore/demote 批次循环内前移取消检查点**（页操作间响应取消）；
-- M4 修正：stale-error 全树扫描完成（无 issue #114 同款点，记录归档）；SSE 心跳/is_writable 机制已存在（无需新增）；**socket 层无施工项**。
+**TELE 复核（审核-阶段0与挂账41）抓出存疑：构建史原声称"320s 停读冻结 51.5s 不恢复"，但引擎日志无该实验任何记录**。复核确认（引擎侧原始日志为准）：
+- `v1c2_resume.log`：12:56:11 req#1（harness 读段，灯塔故事 max output 4,000）**正常完成**（L5067，12:56:53，84.9 tok/s）→ 之后日志**静默至 13:12:22**（恢复验证 req#2，268ms）——**13:04 的 stall 实验请求从未到达引擎**（无 started 行）；
+- harness 侧观测到的"冻结 51.5s / TCP EST=0 / 320s 不恢复"**全部无引擎侧对照**——最可能为 harness 自身故障（连接未建立或建到别处），实验作废；
+- 昨晚 04:19 的首次复现同样无效（§三·十七 §3 修正：读段请求 req#3 正常 done，stall 阶段无引擎侧请求）。
+
+**挂账 41 当前真实状态**：现场真实（req#4 单例：03:58:36 started 永不 done + 引擎静默 15+ 分钟 + CPU 0/GPU idle + TCP Established + 重启才恢复）；**两次可控复现均无效；根因未定**。
+**唯一存活假说**（TELE 源码复核，保留待验）：`SseTransport` 心跳/is_writable/取消机制健全（`http_transport.cpp:205-224`），取消检查点（`output.is_cancelled`，`openai_chat_http.cpp:200`）在 decode 步间——若 decode 步冻结在更深处的页操作/同步点（页漂移极端态），**检查点无法到达** → 与挂账 42 合并根因仍成立，但**未经复现证实**。
+**复现路径修正**（下次实验必做）：harness 需保证读段在中途真正停读（读段 output 上限设大 + 定时器停读，避免读完）；引擎侧以 started 行出现为请求到达判据；双端日志对时后再下结论。
 
 ---
 
@@ -1479,8 +1483,8 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
 | 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
 | 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十八 §4，证据链经 TELE 复核补全）**：初版仅起服/文本探针（证据链断裂，TELE 审核-v32 抓出）；**12:19 补实测**——新引擎 + 无 growth + 真实图片请求（media 1）→ HTTP 200/stop/识图非空/零 scatter，销案成立；launcher 维持视觉 on（无 growth） |
-| 41 | ★**引擎缺陷：stream 阻塞挂起 + 断开不取消**（双缺陷，P1） | 📋 **已定性可复现**（§三·十八 §3）：客户端停读 → send 阻塞无超时；关闭连接 → 引擎仍不恢复，请求永占并发槽（max-concurrency 1 = 服务不可用直到重启）。判据签名齐备（CPU 0/GPU idle/日志静默）。修复方向：send timeout + 断开检测取消 |
-| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s） | 📋 **机理已定案**（§三·十八 §2）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取策略；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |：growth ON 视觉正常（v28+本次识图）；recover-invariant 兜住引擎。规避 = 视觉场景用 legacy 档（launcher 视觉预设已内嵌 + validate 告警）。**根修待引擎施工批**（与 W1-W5 同批或单独） |
+| 41 | ★**引擎缺陷：stream 挂起**（req#4 现场真实：started 永不 done + 引擎静默 + TCP Established + 重启才恢复） | ⚠️ **现场真实 / 复现未成 / 根因未定**（§14 复核定案）：两次可控复现实验均无效（04:19 伪象 + 13:04 请求未达引擎，TELE 复核抓出）；唯一存活假说 = 取消检查点在 decode 步间、页操作深处不可达（TELE 源码复核）→ 待复现证实；下次实验判据 = 引擎 started 行 + 双端日志对时 |
+| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s） | 📋 **机理已定案**（§三·十八 §2）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取策略；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |

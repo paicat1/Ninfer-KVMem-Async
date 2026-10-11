@@ -173,7 +173,7 @@ KVCAP_OPTIONS = {
     "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
     "32k":     ("32K",  ["--kv-capacity", "32768"]),
-    "64k":     ("64K ★20261011实测·需净GPU+graph32", ["--kv-capacity", "65536", "--cuda-graph-allowance-mib", "32"]),
+    "64k":     ("64K ★20261011实测·需净GPU（配 graph128）", ["--kv-capacity", "65536"]),
     "128k":    ("128K", ["--kv-capacity", "131072"]),
     "150k":    ("150K", ["--kv-capacity", "153600"]),
     "160k":    ("160K", ["--kv-capacity", "163840"]),
@@ -233,6 +233,19 @@ SAMPLE_OPTIONS = {
 }
 # KV 止血档（2026-10-10 定案改三档，构建史 §三·十五）：growth 在深超池下把输出砍在 ~4,096 租约窗口
 # （bounded completion）⇒ DSH 撞墙直接根因，已从定稿移除；"legacy" 仅留作 A/B 对照臂。
+# CUDA Graph 预算档（2026-10-11，构建史 §三·十八 §1）：
+#   机制 = 把"一步 decode 的全部 kernel 序列"录制成图重放，省逐 kernel 启动开销；
+#   预算 = 驱动侧图状态显存。档位越大驻留图越多，runtime 预留越大。
+#   实测（5080）：128 = 64K 池起服过线且 decode 101.1（基线 101-104，batch=1 零代价）——★定稿；
+#   64/32 = 桌面挤时递降（32 = 视觉+64K+桌面 1.4GiB 极限档，2026-10-11 12:18 实测）；
+#   off = --no-cuda-graph 完全禁用（省全部 graph 预算，decode 有损，最后手段）。
+GRAPH_OPTIONS = {
+    "128":  ("128 MiB（★定稿·64K池实测零代价）", ["--cuda-graph-allowance-mib", "128"]),
+    "64":   ("64 MiB（紧凑）",                   ["--cuda-graph-allowance-mib", "64"]),
+    "32":   ("32 MiB（极限·桌面挤时）",           ["--cuda-graph-allowance-mib", "32"]),
+    "off":  ("off（禁用·最后手段，decode 有损）", ["--no-cuda-graph"]),
+    "auto": ("auto（按 profile 自动·大池时或拒启）", []),
+}
 HEMOSTAT_OPTIONS = {
     "on":     ("开（★定稿 20261010 · 仅防崩，去 growth）", ["--recover-invariant-failures"]),
     "legacy": ("旧E5止血(含growth·已判死:超池撞墙)",      ["--kv-lease-growth", "--recover-invariant-failures"]),
@@ -266,6 +279,7 @@ DIMENSIONS = [
     ("kv",     "KV 类型",         KV_OPTIONS),
     ("ctx",    "上下文",          CTX_OPTIONS),
     ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
+    ("graph",  "CUDA Graph 预算", GRAPH_OPTIONS),
     ("hostkv", "主机 KV (MiB)",   HOSTKV_OPTIONS),
     ("prefill","prefill 块",      PREFILL_OPTIONS),
     ("think",  "思考模式",         THINK_OPTIONS),
@@ -300,6 +314,7 @@ DEFAULTS = {
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
+    "graph": "128",
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -314,6 +329,7 @@ DIM_TIPS = {
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
+    "graph":  "CUDA Graph 预算（--cuda-graph-allowance-mib）= decode kernel 图重放的驱动侧显存。★定稿 128（64K 池起服必要条件，decode 101.1 实测零代价）。桌面挤时降 64/32；off 完全禁用（decode 有损，最后手段）。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
@@ -337,8 +353,8 @@ PRESET_PROFILES = {
     # 2026-10-11 凌晨实测（CodeBuddy 自主实验，构建史 §三·十六）：64K 池需 --cuda-graph-allowance-mib 128
     # 才能起（runtime 预留差 ~213 MiB，压 graph 预算补齐，batch=1 零性能代价：decode 101.1 vs 基线 101-104）；
     # 视觉+64K+无growth 亦成（free 552 MiB，decode 108.2）。⚠ 桌面须 ≤~1.0 GiB（WDDM 归还不即时）。
-    "大池 64K（需净GPU·graph32）": dict(DEFAULTS, kvcap="64k"),
-    "视觉 64K（需净GPU·graph32）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
+    "大池 64K（需净GPU·graph128）": dict(DEFAULTS, kvcap="64k"),
+    "视觉 64K（需净GPU·graph128）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
     "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
     "对照 裸解码 k0":            dict(DEFAULTS, spec="k0"),         # 无投机（所有 A/B 的对照臂）
     "省显存 20480":              dict(DEFAULTS, kvcap="20480"),     # 20K 池（余量最大，长上下文靠 host）
@@ -426,6 +442,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
+    argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）

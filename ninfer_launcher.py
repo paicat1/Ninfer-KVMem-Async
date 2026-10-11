@@ -337,8 +337,8 @@ PRESET_PROFILES = {
     # 2026-10-11 凌晨实测（CodeBuddy 自主实验，构建史 §三·十六）：64K 池需 --cuda-graph-allowance-mib 128
     # 才能起（runtime 预留差 ~213 MiB，压 graph 预算补齐，batch=1 零性能代价：decode 101.1 vs 基线 101-104）；
     # 视觉+64K+无growth 亦成（free 552 MiB，decode 108.2）。⚠ 桌面须 ≤~1.0 GiB（WDDM 归还不即时）。
-    "大池 64K（需净GPU·graph128）": dict(DEFAULTS, kvcap="64k"),
-    "视觉 64K（需净GPU·graph128）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
+    "大池 64K（需净GPU·graph32）": dict(DEFAULTS, kvcap="64k"),
+    "视觉 64K（需净GPU·graph32）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
     "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
     "对照 裸解码 k0":            dict(DEFAULTS, spec="k0"),         # 无投机（所有 A/B 的对照臂）
     "省显存 20480":              dict(DEFAULTS, kvcap="20480"),     # 20K 池（余量最大，长上下文靠 host）

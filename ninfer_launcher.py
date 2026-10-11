@@ -173,7 +173,7 @@ KVCAP_OPTIONS = {
     "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
     "32k":     ("32K",  ["--kv-capacity", "32768"]),
-    "64k":     ("64K ★20261011实测·需净GPU+graph128", ["--kv-capacity", "65536", "--cuda-graph-allowance-mib", "128"]),
+    "64k":     ("64K ★20261011实测·需净GPU+graph32", ["--kv-capacity", "65536", "--cuda-graph-allowance-mib", "32"]),
     "128k":    ("128K", ["--kv-capacity", "131072"]),
     "150k":    ("150K", ["--kv-capacity", "153600"]),
     "160k":    ("160K", ["--kv-capacity", "163840"]),

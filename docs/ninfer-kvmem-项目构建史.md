@@ -1277,12 +1277,12 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 **⚠️ push 假成功教训（TELE 复核抓出）**：`smart_push.ps1` 在工作区有未跟踪文件时**拒推且 exit 0**（输出"Commit first, then rerun"，无 FAIL 字样）——4ee93c8 起 13 个提交滞留本地（006cb2a/f12ee6d 等），靠 `git status -sb` 的 ahead 计数才发现。**push 成功的唯一判据 = push 后 `git status -sb` 显示 ahead 0**；grep 'PUSH OK' 不可靠（拒绝分支根本不含该词）。已删临时 bat 后真推（97f5214..3a08ebb）。
 
-## 三·十七、2026-10-11 04:00-04:30 · CodeBuddy 自主实验夜（用户睡觉全权授权）：64K 池标定成功 + 掉速机理定案（页漂移）+ stream 挂起双重缺陷 + 挂账 39 销案
+## 三·十八、2026-10-11 04:00-04:30 · CodeBuddy 自主实验夜（用户睡觉全权授权）：64K 池标定成功 + 掉速机理定案（页漂移）+ stream 挂起双重缺陷 + 挂账 39 销案
 
 ### 1. 64K 池标定成功（补 §三·十六 的"65,536 缺 378 MiB"结论——条件变了）
 
 三步过线：① 用户腾桌面（1,270 → 704 MiB）；② 发现 **WDDM 显存归还不即时**（腾 542 MiB，available 只 +100，滴流 ~36 MiB/30s）；③ **压 `--cuda-graph-allowance-mib 128`**（需求侧砍 128 MiB）→ 25 秒 READY，余量 750 MiB。
-**探针验证**：decode **101.1 tok/s**（基线 101-104，**graph128 零性能代价**——batch=1 只用 batch1 图）；output 4,197 越过旧墙带 finish=stop；**视觉+64K 同样成功**（free 552 MiB，decode 108.2）。
+**探针验证**：decode **101.1 tok/s**（基线 101-104，graph128 与基线差 −8% 内——**非零代价，精确化**）；output 4,197 越过旧墙带 finish=stop；**视觉+64K 起服成功**（V1c capacity 行 free 373.5 MiB；文本探针 decode 108.2——⚠️ 当时未发图片请求，图片验证后补于 §4）。
 ⚠️ 起服须桌面 ≤ ~1.0 GiB；`--mtp-spec-draft-tokens` 是**不存在的参数**（正确为 `--spec mtp --draft-tokens 4`，探针试错留证 `serve_20261011_ab_a2_fail_usage.log`）。
 
 ### 2. ⭐ 掉速机理定案 = 长会话"页漂移"（推翻"深超池 = decode 灾难"的普遍化结论）
@@ -1302,9 +1302,11 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 客户端**停止读**（socket 不关）→ 引擎 decode 线程阻塞在同步 send → CPU 0 / GPU idle / 日志静默（20 秒内冻结）；**客户端关闭连接后引擎仍不恢复**（CPU 持续冻结，请求永占并发槽）——`max-concurrency 1` 下 = **整个服务不可用直到进程重启**。与 W1-W5 完全不同的第 6 类缺陷（P1）：**无 send 超时 + 无断开检测/取消**。判据签名：CPU 双采样 delta=0 + GPU idle + TCP Established + 日志静默。昨晚"思维断链"（req#4 挂死）即此形态。
 
-### 4. 挂账 39 销案：视觉 × 无 growth 的 scatter 断言已不存在
+### 4. 挂账 39 销案：视觉 × 无 growth 的 scatter 断言已不存在（**证据链经 TELE 复核补全，2026-10-11**）
 
-V1b（vision + 51,200 + hemostat=on）起服成功；V1c（**vision + 64K + on + graph128**）全功能验证（decode 108.2）——`scatter.cpp:18` 断言在现役引擎 3b9dc83 不复现。**launcher 三处联动全部更新**（validate 告警移除 / `_apply_model_coupling` 强制 legacy 逻辑删除 / 视觉预设 legacy→on）⇒ **growth 彻底退出所有路径**。
+V1b（vision + 51,200 + hemostat=on）起服成功；V1c（**vision + 64K + on + graph**）文本探针 decode 108.2——⚠️ **TELE 复核（审核-v32）指出初版证据链断裂：起服/文本探针不触发 scatter（断言在图片请求路径），"新引擎 + 无 growth + 图片请求"当时零实测**。
+**补实测（12:19，`scripts/test_ledger39_vision.py`）**：新引擎（g3b9dc83-dirty，W1-W4）+ 无 growth + **真实图片请求**（`media 1, prepared 52.0 ms`，640×360 PNG）→ **HTTP 200 / finish=stop / 识图内容非空 / grep scatter=0**（`logs/serve_20261011_v1c2_resume.log` req#1）——**断言不复现，销案成立（证据链补全）**。同轮 graph 128→64→32 递降实测（12:17 差 28 MiB → graph32 过线），launcher 64K 档参数同步为 32。
+**launcher 三处联动更新维持**（validate 告警移除 / `_apply_model_coupling` 强制 legacy 逻辑删除 / 视觉预设 on）⇒ **growth 彻底退出所有路径**。
 
 ### 5. DSH maxTokens 65,536 → 24,000（core-020，用户睡前已批"改"）
 
@@ -1316,9 +1318,9 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ### 7. 实机验证（2026-10-11 09:00-10:00，用户 DSH 实测，V1c 引擎）：三定一再现
 
-- **撞墙保持清零**：42 请求（含 35-39 轮 agentic 大会话，prompt 一路涨到 **118,024**）**零 output-limit 截断**；req#40 输出 16,304 一气呵成（2m27s）。
+- **撞墙保持清零**：实机会话 51 个编号请求（req#1-51，08:38-10:29；含 35-39 轮 agentic 大会话，prompt 一路涨到 **118,024**）**零 output-limit 截断**（3 条 output-limit 全在探针 req#1-3 的 max-output 小请求）；req#40 输出 16,304 一气呵成（2m27s）。
 - **maxTokens 24K 生效实锤**：started 行 `max output 24,000`（DSH 重启后 yml 生效）。
-- **稳定性**：vision + 64K + 无 growth 连跑 5.5h+，无真 ERROR（15 条"ERROR"计数系 grep 误计，实为 prompt exceeds WARNING）。
+- **稳定性**：vision + 64K + 无 growth 连跑 5.5h+（08:38-10:29 会话 + 空闲），无真 ERROR（"ERROR"字样 grep 计数 19 条，均含 "no error line" 类字样的正常日志行，非错误）。
 - **⚠️ 页漂移第二次独立实证**：req#42（39 轮、prompt 118K = 1,844 页 vs 池 1,024）decode 2-12 tok/s + host 98-110%——与昨晚 34 轮形态逐字同款；64K 池把临界轮数 28 → ~38（**只延缓未根治**，坐实挂账 42 根治方向 = 引擎早期页 pin/预取）。
 - **README 新增"已解决问题档案"章节**（13 项闭环：问题→现象→根因→方案→验证）+ 挂账 39 口径同步。
 
@@ -1353,7 +1355,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 **⭐ 根因级缓解 = `NINFER_KV_SINK`（docs/13 D-01）**：源码 `context.cpp:2033` `proto_kv_sink_pages()`——**StreamingLLM-style attention sink：首批页永不 demote、永远保持 selected**；`demote_kv_pages_to_host` 扫描从 `page = sink_pages` 起（L1950）——**sink 是 demotion 唯一不碰的区域**。引擎默认 **4 页 = 256 token** ⇒ 从第 257 token 起老页毫无保护 = 页漂移的机制根源。
 官方数据（docs/13 §3.1）：兄弟件 RC2 默认 **5120/5120 tokens**；**sink 0→10240 把"最深埋针取回"从 221.66 s 降到 1.4 s（158 倍）**；官方 agent 表面骨架实测需求 **2,808 token = 44 页**（context.cpp:2466 注释，实验-骨架体量实测-20261005.md）。
 
-**实施**（一行 env，官方推荐启动器层）：`NINFER_KV_SINK=5120` 进 launcher KV_ENV（五开关 → **六开关**）。验证：banner `skeleton=80`（4→80 页）✓；探针 decode **98.1**（零代价）✓。
+**实施**（一行 env，官方推荐启动器层）：`NINFER_KV_SINK=5120` 进 launcher KV_ENV（五开关 → **六开关**）。验证：banner `skeleton=80`（4→80 页）✓；探针 decode **98.1**（同探针对照 106.6 → 98.1，**−8%**，非零代价——精确化）。
 **待实测判定**：sink 80 页只保护头部 5,120 token，深层页漂移的缓解幅度需 DSH 34+ 轮会话复测（官方 221s→1.4s 的数据是"单点深层取回"，连续 decode 的改善幅度待量）。
 **结论修正**：不需要给官方提 issue——**官方（Bonsai 线）已系统立案且给了修法库**（docs/13 D-01..D-08 调优方向 + docs/14 P-01..P-08 可移植补丁清单 + docs/06-Bug手册）；我们对齐官方口径即可，剩余工作 = 读 docs/14 逐条移植评估。
 
@@ -1413,7 +1415,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 - **结论一：复用深度由降级顺序决定，不由池大小决定**——"把池调大不是方案，只是把悬崖挪到更高处"（与本线 64K 池"只延缓"实测互证）；
 - **结论二：会话>池时"落袋"与"降级"互斥**——落袋要求 `[0,frontier)` 全设备驻留（capture.cpp:63-115），服务超池会话必须降级同区间——**两者不可兼得 ⇒ 超池会话存不下新锚** ⇒ **本线实测闭环：122K 会话 `capture install=0` 次**（落袋从不发生 → `spare_prefix_pages` 无对象可保 → A 修法失效 → FIFO 从 sink 后全漂 → hidden 931）；
 - **结论三：九次静默死亡根因** = `HostKVExtentStore::publish`（noexcept）把"陈旧 host 副本挂不上"判死刑（`std::terminate`）+ 调用方 `(void)` 丢弃返回值——**已修（`618cf7b`）**：publish 改可失败（`std::nullopt` + declined 日志）、池耗尽两处 untyped throw 改 typed `ContextCacheExhausted`、`fail_all_locked` 补日志；
-- **修法 A 已落地（`618cf7b`）**：`demote_kv_pages_to_host` 新增 `spare_prefix_pages`——第一遍降级跳过 `[0, 最深待发布 capture)`；**本线 s6 树已含 A+C**（grep 实证 context.cpp:1837 / paged_kv_cache.cpp:395）——但如上，落袋从不发生时 A 失效；
+- **修法 A 已落地（tancau 仓 `618cf7b`）**：`demote_kv_pages_to_host` 新增 `spare_prefix_pages`——第一遍降级跳过 `[0, 最深待发布 capture)`；**本线 s6 树含 C 不含 A**（2026-10-11 TELE 复核纠正：s6 树 `spare_prefix_pages` grep=0——此前"已含 A+C"系本线 grep 未区分 pattern 命中源，`publish declined` 日志串的命中被误记为 A；C=`ContextCacheExhausted` 来自官方线 `8183da8`，s6 已含，paged_kv_cache.cpp:395）；
 - **修法 B（唯一真解）未做**：**host-backed anchor**——"checkpoints 引用 ring 已有 host 页而不是拷贝"——"唯一真正解开 depth=f(池) 耦合"（KVMEM-PORT-PLAN.md 计划内一直未做）——**= 挂账 42 的施工蓝图**（引擎深度改动：capture 按引用引用 host 页 + 取回时 H2D）；
 - **`NINFER_KV_WINDOW` 是死旋钮**（brief §5）：ring 的"窗口/recency 选择"从未实现，实际策略 = 无脑 FIFO + sink——**本线 KV_ENV 的 WINDOW 唯一真实作用 = 允许池<上下文的门**（引擎侧窗口语义不存在）；
 - **Phase 3（worker 隔离、分层 restore）无限期 park**（"无由头开高风险项"）——**本线现在有由头**（页漂移 3 tok/s + sequence 风暴 + 挂账 41）：分层 restore = 作者预留的挂账 42 方案名；
@@ -1467,7 +1469,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
 | 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
-| 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十七 §4）**：V1b/V1c 实测断言在现役引擎 3b9dc83 不复现；launcher 三处联动已更新，视觉统一 on（无 growth） |
+| 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十八 §4，证据链经 TELE 复核补全）**：初版仅起服/文本探针（证据链断裂，TELE 审核-v32 抓出）；**12:19 补实测**——新引擎 + 无 growth + 真实图片请求（media 1）→ HTTP 200/stop/识图非空/零 scatter，销案成立；launcher 维持视觉 on（无 growth） |在现役引擎 3b9dc83 不复现；launcher 三处联动已更新，视觉统一 on（无 growth） |
 | 41 | ★**引擎缺陷：stream 阻塞挂起 + 断开不取消**（双缺陷，P1） | 📋 **已定性可复现**（§三·十七 §3）：客户端停读 → send 阻塞无超时；关闭连接 → 引擎仍不恢复，请求永占并发槽（max-concurrency 1 = 服务不可用直到重启）。判据签名齐备（CPU 0/GPU idle/日志静默）。修复方向：send timeout + 断开检测取消 |
 | 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s） | 📋 **机理已定案**（§三·十七 §2）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取策略；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |：growth ON 视觉正常（v28+本次识图）；recover-invariant 兜住引擎。规避 = 视觉场景用 legacy 档（launcher 视觉预设已内嵌 + validate 告警）。**根修待引擎施工批**（与 W1-W5 同批或单独） |
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |

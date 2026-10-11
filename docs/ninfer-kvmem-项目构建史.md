@@ -1427,6 +1427,15 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 - **配套**：挂账 41 修法（issue #114 的 stale-error 清理 + 本线 send timeout）同期施工；
 - **短期缓解维持**：DSH 压缩（ctx 229,376）+ maxTokens 24K + 新会话纪律 + sink=5120。
 
+### 14. 挂账 41 重做实验（320s 版）：定性修正——与挂账 42 合并根因
+
+**实验重做**（`v1c2_resume.bat` no-cuda-graph 引擎 + `test_stream_stall.py` 停读 320s > 300s write timeout）：
+- t+40s 正常 decode（CPU 50.1↑）→ **t+80s（probe 停读）CPU 冻结 51.5s** → **t+320-400s 仍冻结**；
+- **t+200s probe 侧 TCP 已断（EST=0）而引擎仍冻结**——"断开不恢复"复现（且 >300s write timeout 未生效于冻结路径）；
+- **机理修正**：引擎冻结**不是 send 阻塞**（CPU 冻结 = 卡在页操作的 CUDA 同步等待）——`SseTransport` 的心跳/is_writable/取消机制健全（`http_transport.cpp:205-224`：write 失败→取消、poll 查 is_writable、心跳间隔发送），但**取消检查点（`output.is_cancelled`，openai_chat_http.cpp:200）在 decode 步间**——页漂移极端态下 decode 步冻结在更深处的页操作/同步点，**检查点无法到达**；
+- **挂账 41 定性修正**：与**挂账 42 合并根因**（页漂移深处的页操作同步卡死）——socket/心跳/超时层无病灶（机制健全）；补一个可做的小改：**restore/demote 批次循环内前移取消检查点**（页操作间响应取消）；
+- M4 修正：stale-error 全树扫描完成（无 issue #114 同款点，记录归档）；SSE 心跳/is_writable 机制已存在（无需新增）；**socket 层无施工项**。
+
 ---
 
 ## 四、待续事项（挂账）

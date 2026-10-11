@@ -30,7 +30,7 @@ except socket.timeout:
     pass
 print('[probe] read %d bytes of stream, now STOP reading (socket stays open)...' % got)
 t0 = time.time()
-time.sleep(75)  # engine should hang during this window if bug present
-print('[probe] 75s elapsed. closing socket now (RST/FIN) -> engine should cancel & recover.')
+time.sleep(320)  # > engine write timeout (300 s): engine should cancel the request by itself
+print('[probe] 320s elapsed. closing socket now (RST/FIN) -> engine should cancel & recover.')
 s.close()
 print('[probe] done. check engine log/CPU for: hang during window, recovery after close.')

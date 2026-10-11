@@ -141,20 +141,30 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 ## 上游谱系（谁是谁，禁用"官方"统称）
 
 ```
-【基座】Neroued/ninfer（NInfer 始祖）
-   └─ ashalliants/ninfer-3090（0.11.0-rtx3090 基线）── iamwavecut/ninfer-3090（同版存档）
+【我方家族】GitHub 用户 paicat1，三仓逐代迭代（README 开篇三仓表）
+  仓一 paicat1/Bonsai-27B-NInfer
+       （main=项目层 / engine-main=引擎层，两分支一体）
+       Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer：Ambolio 移植 +
+       CraneBW 内核、改 CMake、自产 v2 制品；Device/Host 双层 KV（被动容量）；
+       MTP/DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s；89|120a
+    └─ 仓二 paicat1/Bonsai-27B-NInfer-kvmem
+         KVMem 环（主动检索）：显存小池 + 主机卸载、可小于上下文、内容打分
+         SELECT、五开关；混合投机 dflash2(K1-15)+MTP(K1-5)+ngram，K=7 甜点
+         （K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；
+         自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考停止空正文"）+ 双引擎对照；
+         GUI 启动器与 serve_tee 自建。极值：prefill 3,820 / decode 748.6 tok/s
+         （本机部署/工作副本 = J:\KVMem-GSQ）
+       └─ 仓三 paicat1/Qwen38-27B-NInfer-kvmem【★本仓，origin 即指向它★】
+            换大模型 Qwen3.8-27B-Coder390-EfficientThink：自转 MTP 头（iq4nl）、
+            思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、
+            视觉塔嫁接、256K 逻辑上下文；Qwen 4 27B（Bonsai/NInfer 格式）着陆预备
 
-【KVMem 算法层·两源】tancau/ninfer-kvmem-ring（环）＋ kvmem/kvmem-qw3（Di Chai 策略层）
-        ↓ 均已并入
-【融合仓·本线直接上游】1314521gjy/ninfer-fusion-kvmem ★Bonsai 线★
-   = 基线 + tancau 环 + qw3（NOTICE.md §1 署名链）
-    ├─ ★ 本仓（j-ninfer-kvmem）：s6-20261008 @3b9dc837 → 自编 self-built-20261008
-    │     ＋自有层：launcher / 文档 / 探针 / MSVC 编译修正 —— **实质是 Bonsai 线的 fork**
-    └─ paicat1/Bonsai-27B-NInfer-kvmem —— ⚠️ 我方早期发布仓（非"下游社区"：其 P-01
-        补丁与我方 5b07bc1 同源），docs/14 对本线 = 考古自己，移植前先去重
-
-【兄弟件】kvmem/kvmem-llama.cpp（RC2）= iamwavecut/ninfer-all + KVMem 整合包
-    └─ 本机 J:\KVMem-GSQ 对照线（18200）—— ⚠️ 我方部署（行为对照臂，非上游/非代码参考）
+【外部上游】（输入源，非权威；回馈对象）
+  Bonsai 线 1314521gjy/ninfer-fusion-kvmem（引擎源码出处；本线 s6-20261008 @3b9dc837
+  → 自编 self-built-20261008；落后其 main 23 提交）
+  tancau/ninfer-kvmem-ring（环算法）＋ kvmem/kvmem-qw3（策略层）→ 已并入 Bonsai 线
+  NInfer 始祖：Neroued/ninfer → ashalliants/ninfer-3090（0.11.0-rtx3090）→ iamwavecut/ninfer-all
+  兄弟件：kvmem/kvmem-llama.cpp（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
 ```
 
 - **指代纪律**：禁用"官方"统称——必须点名：**Bonsai 线**（直接上游，唯一活跃跟踪对象）/ **兄弟件 RC2**（平级参照，看调优默认值与 issues）/ **NInfer 原始仓**（基座）/ **tancau 环线**、**qw3 策略层**（算法语义）；

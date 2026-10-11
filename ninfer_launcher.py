@@ -168,7 +168,7 @@ KVCAP_OPTIONS = {
     "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
     "32k":     ("32K",  ["--kv-capacity", "32768"]),
-    "64k":     ("64K",  ["--kv-capacity", "65536"]),
+    "64k":     ("64K ★20261011实测·需净GPU+graph128", ["--kv-capacity", "65536", "--cuda-graph-allowance-mib", "128"]),
     "128k":    ("128K", ["--kv-capacity", "131072"]),
     "150k":    ("150K", ["--kv-capacity", "153600"]),
     "160k":    ("160K", ["--kv-capacity", "163840"]),
@@ -213,7 +213,8 @@ MAXOUT_OPTIONS = {
 # weights 12.3→12.5 GiB、runtime 1.44 GiB、free 663.4 MiB，**设备视觉显存占用为零**；
 # 代价：图片被压到 256 merged tokens（约 512x512）、CPU 编码慢（one to a few seconds）。
 # iq4nlvis + 视觉：★2026-10-11 实测 55,296 池 + --vision-cpu 成功（free 490.4 MiB；DSH 识图 26.9s 正常）。
-#   ⚠️ 挂账 39：视觉 + hemostat=on（无 growth）触发 scatter 断言 => 视觉请配 legacy 档。
+#   挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + hemostat=on 起服且功能正常
+#   （scatter 断言在现役引擎 3b9dc83 不存在），视觉无需再强制 growth（growth 已判死）。
 VISION_OPTIONS = {
     "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需含视觉模型）", ["--vision"]),
     "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存；需含视觉模型）", ["--vision", "--vision-residency", "overlay"]),
@@ -328,18 +329,21 @@ PRESET_PROFILES = {
     #     本线模型无 dflash2 / vision 组件，那些档位选中必失败；且它们引用的是 Bonsai 口径的
     #     旧参数，留着只会与下面的定稿档混淆。Bonsai 相关内容一律不进本线。
     "★定稿 51200稳定（无growth）": dict(DEFAULTS),                 # 51200 池 + hemostat on（无 growth）+ MTP K4 + 256K
+    # 2026-10-11 凌晨实测（CodeBuddy 自主实验，构建史 §三·十六）：64K 池需 --cuda-graph-allowance-mib 128
+    # 才能起（runtime 预留差 ~213 MiB，压 graph 预算补齐，batch=1 零性能代价：decode 101.1 vs 基线 101-104）；
+    # 视觉+64K+无growth 亦成（free 552 MiB，decode 108.2）。⚠ 桌面须 ≤~1.0 GiB（WDDM 归还不即时）。
+    "大池 64K（需净GPU·graph128）": dict(DEFAULTS, kvcap="64k"),
+    "视觉 64K（需净GPU·graph128）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
     "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
     "对照 裸解码 k0":            dict(DEFAULTS, spec="k0"),         # 无投机（所有 A/B 的对照臂）
     "省显存 20480":              dict(DEFAULTS, kvcap="20480"),     # 20K 池（余量最大，长上下文靠 host）
     "思考 medium":               dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
     "关思考对照":                dict(DEFAULTS, think="none", tb="none"),  # 仅 A/B 对照：本模型不思考没法用
     # 视觉档（嫁接件 iq4nlvis：同样的视觉塔，MTP 头小 202 MB；官方 q8mtp 退为参照件）。
-    # ★挂账 39：视觉 + hemostat=on（无 growth）触发引擎 scatter 断言 => 视觉预设一律内嵌 hemostat="legacy"。
-    #   视觉请求输出短（64-750 tok），碰不到 4,096 撞墙窗 => growth ON 无墙风险（2026-10-11 识图实测成功）。
-    "视觉 20480保守（legacy）":   dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480",
-                                      hemostat="legacy"),          # 保守（确定能起）
-    "视觉 大池55296（legacy）":   dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296",
-                                      hemostat="legacy"),          # ★55K+视觉实测成功（free 490.4 MiB，2026-10-11）
+    # ★挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + hemostat=on（无 growth）起服成功
+    #   且功能正常（decode 108.2）——旧 scatter 断言在现役引擎 3b9dc83 已不存在，视觉预设统一改 on。
+    "视觉 20480保守":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),
+    "视觉 大池55296":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296"),  # 55K+视觉实测成功（free 490.4 MiB，2026-10-11）
 }
 
 
@@ -393,10 +397,8 @@ def validate(combo, exe=None):
     if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 55296:
         warns.append("iq4nlvis 的**实测上限是 55,296 池 + 视觉**（2026-10-11 实测成功，free 490.4 MiB）；"
                      "更高未验证（57,344 起服即失败：差 17.3 MiB）。需干净 GPU。")
-    if _vis != "off" and str(combo.get("hemostat", "on")) == "on":
-        warns.append("★挂账 39：视觉 + KV止血档on（无 growth）会触发引擎 scatter 断言 -> 图片请求 HTTP 500"
-                     "（2026-10-11 实测 scatter.cpp:18；recover-invariant 兜住引擎但请求失败）。"
-                     "视觉请把止血档切到 legacy（growth ON）——视觉输出短，不会撞 4,096 墙。")
+    # 挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + on 起服且功能正常，告警移除。
+    # growth 已判死（超池撞墙根因），视觉不再需要 legacy 联动。
     if any(ord(c) > 127 for c in ROOT):
         warns.append("项目路径含非 ASCII 字符——引擎会以 invalid UTF-8 byte 启动即挂")
     return warns
@@ -762,12 +764,8 @@ class LauncherApp:
                 self.selection["model"] = "iq4nlvis"
                 if "model" in self.var and "iq4nlvis" in MODEL_OPTIONS:
                     self.var["model"].set(MODEL_OPTIONS["iq4nlvis"][0])   # 同步下拉显示
-            # 挂账 39：视觉 + 无 growth -> 图片请求 scatter 断言（HTTP 500）
-            # => 视觉场景强制 legacy（视觉输出短，碰不到 4,096 墙，growth ON 无墙风险）
-            if str(self.selection.get("hemostat", "on")) == "on":
-                self.selection["hemostat"] = "legacy"
-                if "hemostat" in self.var and "legacy" in HEMOSTAT_OPTIONS:
-                    self.var["hemostat"].set(HEMOSTAT_OPTIONS["legacy"][0])
+        # 挂账 39 已销案（2026-10-11 凌晨）：视觉 + on（无 growth）实测正常，不再强制 legacy
+        # （growth 已判死，任何路径不再默认带 --kv-lease-growth）。
         cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
         if not cap:
             return

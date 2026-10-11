@@ -138,6 +138,29 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
                  → mtp-iq4nl.vision.ninfer（13.57 GB，视觉主力）
 ```
 
+## 上游谱系（谁是谁，禁用"官方"统称）
+
+```
+【基座】Neroued/ninfer（NInfer 始祖）
+   └─ ashalliants/ninfer-3090（0.11.0-rtx3090 基线）── iamwavecut/ninfer-3090（同版存档）
+
+【KVMem 算法层·两源】tancau/ninfer-kvmem-ring（环）＋ kvmem/kvmem-qw3（Di Chai 策略层）
+        ↓ 均已并入
+【融合仓·本线直接上游】1314521gjy/ninfer-fusion-kvmem ★Bonsai 线★
+   = 基线 + tancau 环 + qw3（NOTICE.md §1 署名链）
+    ├─ ★ 本仓（j-ninfer-kvmem）：s6-20261008 @3b9dc837 → 自编 self-built-20261008
+    │     ＋自有层：launcher / 文档 / 探针 / MSVC 编译修正 —— **实质是 Bonsai 线的 fork**
+    └─ paicat1/Bonsai-27B-NInfer-kvmem —— ⚠️ 我方早期发布仓（非"下游社区"：其 P-01
+        补丁与我方 5b07bc1 同源），docs/14 对本线 = 考古自己，移植前先去重
+
+【兄弟件】kvmem/kvmem-llama.cpp（RC2）= iamwavecut/ninfer-all + KVMem 整合包
+    └─ 本机 J:\KVMem-GSQ 对照线（18200）—— ⚠️ 我方部署（行为对照臂，非上游/非代码参考）
+```
+
+- **指代纪律**：禁用"官方"统称——必须点名：**Bonsai 线**（直接上游，唯一活跃跟踪对象）/ **兄弟件 RC2**（平级参照，看调优默认值与 issues）/ **NInfer 原始仓**（基座）/ **tancau 环线**、**qw3 策略层**（算法语义）；
+- **跟踪纪律**：大排查前先 `git fetch` Bonsai 线翻 `docs/06-Bug手册` 新条目（我们踩的坑大多已被其立案：B34=页漂移、B35=撞墙、B37=压缩摘要）；调优对照 `docs/13`（D-01..D-08）；修法对照 `docs/14`（P-01..P-08，**先对照我方 `5b07bc1`/`a25012b`/`3b9dc83` 去重**）；**永不盲目 merge**，吸收走 cherry-pick 评审制（详见 `docs/上游谱系与跟踪纪律-20261011.md`）；
+- **落后快照（2026-10-11）**：落后 23 提交，已读其核心（B33-B39 病历 + 两份修法文档），引擎树变更以 tests 为主，s6 定稿基线保持。
+
 ## 从零复现指南
 
 **前置**：Windows · RTX 5080 16 GB（或同档）· 128 GB RAM · VS2022 BuildTools（C++20、CMake、Ninja）· CUDA 13.3 · Python 3.12。

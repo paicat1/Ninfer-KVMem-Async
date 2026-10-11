@@ -89,10 +89,11 @@ Bonsai 线的 Bonsai-2-27B 任务短、无视觉，这颗雷没机会暴露；�
 
 选预设 **★定稿 51200稳定（无growth）** → 起服 → `http://127.0.0.1:8094/v1`（OpenAI 兼容）。
 
-命令行等价（⚠️ **KV_ENV 五开关缺一不可**：缺 `NINFER_KV_WINDOW` 引擎拒启，缺其余"起得来但静默答错"）：
+命令行等价（⚠️ **KV_ENV 六开关缺一不可**：缺 `NINFER_KV_WINDOW` 引擎拒启，缺其余"起得来但静默答错"；`NINFER_KV_SINK=5120` = attention-sink 骨架页，2026-10-11 官方 D-01 对标新增，banner `skeleton=80` 为生效判据）：
 
 ```bat
 set NINFER_KV_WINDOW=32768
+set NINFER_KV_SINK=5120
 set NINFER_KV_RETRIEVE=8192
 set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
@@ -117,7 +118,7 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 | `build/` | 引擎构建脚本（`s6_1208a.bat` 等）+ 3 份引擎补丁 + 产物清单 | ✅ |
 | `scripts/` | 模型加工（`recode_mtp.py` 自转 MTP 头、`graft_vision.py` 视觉嫁接）+ 探针（`test_ab_arm1.py`/`probe_recall*.py`） | ✅ |
 | `patches/` | **W1-W4 引擎修复**（84 行，含四重验收） | ✅ |
-| `ninfer_launcher.py` | GUI 唯一入口（8 预设、校验告警、KV_ENV 注入） | ✅ |
+| `ninfer_launcher.py` | GUI 唯一入口（10 预设、校验告警、KV_ENV 六开关注入） | ✅ |
 | `serve_tee.py`、`start-coder390*.bat` | 起服工具 | ✅ |
 | `official-repo/` | **引擎源码**（嵌套 clone，s6-20261008） | ❌ 未跟踪（来源见复现指南） |
 | `engine/` | 构建产物二进制（~6.5 GB） | ❌ 本地构建 |

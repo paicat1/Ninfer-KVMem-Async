@@ -3,7 +3,7 @@
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $ninja  = "J:\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
-$build  = "J:\Bonsai-Official\.temp\build-120a"
+$build  = "J:\ninfer-kvmem\.temp\build-120a"
 
 Set-Location $build
 # 全图扫描（不带 target）：-k 0 不因单错停止，一次暴露全部错误；默认 target=all

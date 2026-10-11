@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $ninja  = "J:\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
-$build  = "J:\Bonsai-Official\.temp\build-120a"
+$build  = "J:\ninfer-kvmem\.temp\build-120a"
 
 Set-Location $build
 # 用 cmd 初始化 vcvars 环境，然后跑 ninja -k 0（把所有编译错误一次暴露，不因单个失败停止）

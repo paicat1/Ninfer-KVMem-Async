@@ -20,7 +20,7 @@
 |---|---|
 | **`engine-main` 分支（推荐）** | 引擎源码**快照** = 上游 20261008 全树 + 本项目全部补丁。`git clone -b engine-main <repo>` 一条命令拿齐；**已含补丁，无需再打** |
 | **`build/patches/`（看过程 / 从上游起步）** | 我们对上游的**全部改动**（3 个补丁 + 用法说明）。要"逐步 diff"或"从上游原始源码复现"用这条 |
-| 本机开发用 | `official-repo\infer-fusion-kvmem\src-tree\fusion-engine-src`（本机 clone，**不入库**） |
+| 本机开发用 | `engine-src\src-tree\fusion-engine-src`（本机 clone，**不入库**） |
 
 ## 三、构建步骤
 
@@ -42,11 +42,11 @@
 |---|---|---|---|---|
 | 1 | `s6_1208a.bat` | 10 | vcvars64（MSVC 环境） | `j:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat` |
 | 2 | `s6_1208a.bat` | 11 / 12 | `CMAKE` / `NINJA` | `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe` / `…\CMake\Ninja\ninja.exe` |
-| 3 | `s6_1208a.bat` | 13 | `SRC`（引擎源码树） | `J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem\src-tree\fusion-engine-src` |
-| 4 | `s6_1208a.bat` | 14 | `BUILD`（中间目录，可任意） | `J:\Bonsai-Official\.temp\build-1208a` |
+| 3 | `s6_1208a.bat` | 13 | `SRC`（引擎源码树） | `J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src` |
+| 4 | `s6_1208a.bat` | 14 | `BUILD`（中间目录，可任意） | `J:\ninfer-kvmem\.temp\build-1208a` |
 | 5 | `s6_1208a.bat` | 15 | `PATH` 里的 CUDA bin | `J:\Bonsai\landing\cuda-13.3\bin` |
-| 6 | `s6_1208a.bat` | 18 | `nvcc` / vcpkg toolchain / `vcpkg_installed` | `J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe` · `J:/vcpkg/scripts/buildsystems/vcpkg.cmake` · `J:/Bonsai-Official/.temp/build-120a/vcpkg_installed` |
-| 7 | `s6_configure.bat` | 3 / 4 / 5 / 6 / 7 / 9 | vcvars · `CMAKE`/`NINJA` · `SRC` · `BUILD` · nvcc/vcpkg | 同 1–6；`BUILD` 默认 `J:\Bonsai-Official\.temp\build-120a` |
+| 6 | `s6_1208a.bat` | 18 | `nvcc` / vcpkg toolchain / `vcpkg_installed` | `J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe` · `J:/vcpkg/scripts/buildsystems/vcpkg.cmake` · `J:/ninfer-kvmem/.temp/build-120a/vcpkg_installed` |
+| 7 | `s6_configure.bat` | 3 / 4 / 5 / 6 / 7 / 9 | vcvars · `CMAKE`/`NINJA` · `SRC` · `BUILD` · nvcc/vcpkg | 同 1–6；`BUILD` 默认 `J:\ninfer-kvmem\.temp\build-120a` |
 | 8 | `s6_build.bat` | 3 / 4 / 5 / 6 | vcvars · `CMAKE` · `BUILD` · `PATH` | 同 1–5；`BUILD` 默认 `…\.temp\build-120a` |
 | 9 | `s6_build_runtime.bat` | 3 / 4 / 5 | vcvars · `CMAKE` · `BUILD`（写在内联命令行里） | 同上 |
 | 10 | `s6_1208a_test.ps1` | 11 / 12 / 13 / 14 | `vcvars` · `cmake` · `src` · `build` | `…\BuildTools\…\vcvars64.bat` · `…\cmake.exe` · `…\fusion-engine-src` · `…\.temp\build-1208a` |

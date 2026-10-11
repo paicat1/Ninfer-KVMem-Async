@@ -12,6 +12,10 @@ models/
 # 上游引擎源码 clone（复现输入，自带 .git）
 official-repo/
 
+# 本仓自持引擎源码树（2026-10-12 解耦：本仓只在本仓内构建，自带 .git）
+# 说明见 engine-src/PROVENANCE.md；铁律 T-NO-FOREIGN-WRITE
+engine-src/
+
 # 参考资料区（第三方 / 前序输入物料，不入库）
 refs/
 

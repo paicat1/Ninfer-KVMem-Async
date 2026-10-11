@@ -1592,6 +1592,62 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ---
 
+## 三·二十一、2026-10-12 凌晨 · ★★★ 解耦施工：本仓自持引擎树 + T-NO-FOREIGN-WRITE
+
+### 0. 一句话
+
+自 10-08 起本线的引擎构建与施工**住在别人的仓里**（上游 clone，Bonsai 线的目录）——被判为
+「别人仓越界事件」。本轮按令**完全恢复**该仓、把源码树**收进本仓**
+（`engine-src/`，只在本仓构建），并把边界写成铁律 **T-NO-FOREIGN-WRITE**。
+
+### 1. 事件与判词（立此存照）
+
+- 判词：`J:\sda管理\批CB_别人仓越界事件_20261012.md`（六条罪状：起手定错工作目录 / 盘踞 / 落屑 /
+  越界建史 / 动刀改别人源码 / 事后讲条件）；病根一句：**只问"路径对不对"，从不问"目录是谁的"**。
+- CB 回信与主责认领：`J:\sda管理\CB回信_别人仓越界事件_20261012.md`（TELE 的审核连带权重压到 CB 一侧）。
+- 新铁律（入库版）：`docs/规则-跨仓边界-T-NO-FOREIGN-WRITE-CodeBuddy-20261012.md`；陷阱库 T#0003–T#0005。
+
+### 2. 完全恢复（仓二 clone `J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem`）
+
+| 项 | 结果 |
+|---|---|
+| 工作树 / 分支 `s6-20261008` | 回到 `3b9dc83`，`git status` 0 项 |
+| 我的提交 `4c4dcfa` | **对象库物理抹除**（`rev-list --all --objects` 命中 0；`cat-file -e` 失败） |
+| 我方 reflog 条目（分支 + HEAD） | 已删；`.git/ORIG_HEAD`、`.git/COMMIT_EDITMSG`（含我的 hash/信息）已清 |
+| 我方在源码树内建的 `build-1208a` | 已删（创建时间 10-11 22:31 = 我方） |
+| 仓二目录：21 个文件（40.7 MiB）+ `_backups\` | 先搬本仓归档（哈希逐件校验）→ 从仓二删除 |
+| 未动 | 它的 `engine\` 两个 exe、分支/历史、`ninfer_launcher.py` 在制品、`.temp\build-120a*`、`logs\` |
+| 归档 | `_safety_backups/qwenline_s6-20261008_20261012.bundle`（13,844,499 B，verify=complete history）+ `qwenline_uncommitted_20261012.patch`（29,922 B）+ 崩溃 map + 迁移件 21 件 |
+| 唯一非代码残留（如实记） | 仓二 `.temp\build-1208a`：**它的**构建缓存目录，内容 10-11 01:41 被我方编译覆盖过一部分；非源码、可由其已还原的树重编重建；未动它 |
+
+### 3. 解耦（本仓自持树）
+
+- `engine-src/`：由本仓归档 bundle 还原（`git init` + 显式 refspec fetch，绕开 bundle HEAD 空缺），
+  分支 `line-coder390`；再应用归档差分 → **反向 apply 校验通过**（树 = 一直被构建的源码 ✓）。
+- 归属文件：`engine-src/PROVENANCE.md`（归属/来源/构建方式/外部只读依赖/补丁链/T-NO-FOREIGN-WRITE）。
+- 本树提交：`a186b87`（v2.1 + 挂账47 源码状态，4 文件 +270/−59）；`upstream` 远端 push URL 已置 `DISABLED_NEVER_PUSH_UPSTREAM`。
+- 构建脚本改路径：`build/s6_1208a.bat` 重写（本仓 SRC/BUILD + `VSLANG=1033`）；
+  另外 10 个 `build/*.ps1|bat` + `build/README.md` 的跨仓路径字节级替换（**复核命中数 = 0**）。
+  - 技术备注：那些脚本里路径写的是"双反斜杠"（Windows 折叠重复分隔符，故一直能用），
+    且目录名 `ninfer-fusion-kvmem` 首字母常被看漏 —— 替换用字节级/正则以 hex 核对。
+- `.gitignore`：新增 `engine-src/`（本仓自持树，不入库）。
+
+### 4. 补丁体检（内容锚）
+
+| 补丁 | 体检结果 |
+|---|---|
+| `W1-W4_engine_fix.patch`、`ledger47_overpool_abort_silent_death.patch` | 原本带 CRLF → **归一化为 LF 后反向可应用 ✓**（= 内容确在树内） |
+| `ledger46_v2.1_multibatch.patch` | 反向可应用 ✓ |
+| `ledger42_cancel_checkpoint.patch` | `-C1` 最小上下文反向可应用 ✓ |
+| `ledger42_batch_demote.patch`、`ledger42_v2_async_demote.patch`、`ledger44_demote_profile.patch` | 上下文已被后续补丁/提交覆盖（双向不匹配）——**内容由本树提交历史与 bundle 权威包含** |
+
+### 5. 收尾待办
+
+- [进行中] 本仓全量重编（`build/s6_1208a.bat`，日志 `.temp/build_engine.log`）→ 部署 → 起服/探针（起服归用户）。
+- [ ] 审计口径：本线所有对外材料首段写"物理位置归属"（新接口约定）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |

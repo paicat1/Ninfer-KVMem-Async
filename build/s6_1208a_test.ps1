@@ -10,8 +10,8 @@
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $cmake  = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-$src    = "J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem\src-tree\fusion-engine-src"
-$build  = "J:\Bonsai-Official\.temp\build-1208a"
+$src    = "J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src"
+$build  = "J:\ninfer-kvmem\.temp\build-1208a"
 $target = "ninfer_qwen3_5_frontend_test"
 
 Write-Output "=== RECONFIGURE IN PLACE (BUILD_TESTING=ON) ==="

@@ -1400,6 +1400,31 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 **待批可吸收项**：635a277 的 src-tree 两个构建输入文件（cherry-pick 或手动同步）——吸收后本线编译树与 Bonsai 仓 sha256 0 差异纪律达成；同时 KV_ENV 的 `NINFER_KV_RING=1` 标注为死开关（保留无害，删除防误导）。
 
+### 13. KVMem 源头侧（kvmem org + tancau 环线）新动态侦察（2026-10-11，含 clone 本机）
+
+**侦察范围**：https://github.com/kvmem/kvmem-llama.cpp （commits + issues 全量）、https://github.com/tancau/ninfer-kvmem-ring （3 个 10-06 verdict 提交 + 浅克隆本机 `refs/community/tancau-ninfer-kvmem-ring/`）。
+
+**① kvmem/kvmem-llama.cpp**：
+- **issue #114（10-10，open）**：Windows 11 原生、RTX 5060 Ti 16G、多轮 agent 会话（5 tools/thinking/max 16,000）——**上下文涨超池（53,248）后 `cudaMallocHost` pinned 分配 ~1.8 GiB 失败**（错误文本自证：Windows 上 pinned host 映射进 GPU 地址空间与显存竞争）→ 两种死法：run1 "capture skipped" 后 **`recurrent.cu:184` 的 `CUDA_CHECK(cudaGetLastError())` 吃到 stale OOM → abort（skip 分支没清错误状态）**；run2 直接 worker crash → HTTP 500 → FATAL 全局停机。**与本线挂账 41/42 同族（超池后 host 路径缺陷），且修法线索明确：skip 分支补 `cudaGetLastError()` 清理**——本线引擎同源同患，挂账 41 施工期一并核查；
+- issue #113（工具调用）：4 条评论（updated 10-10，内容待细读）；issue #110/#109 为社区实测回执（5070Ti 90-100 tok/s / 3050 8G 可跑 rc3-prism.3）；
+- 主仓 RC2（10-08）后**无代码提交**（docs only，README 标题改双后端）；llama.cpp backend 另有 `v0.16.0-rc3-prism.3` 发版线。
+
+**② tancau/ninfer-kvmem-ring（环作者）**——10-06 三个 verdict 提交 + `docs/maintainer/ring-reuse-depth-and-failure-brief.md`（118-150K 会话实测读码结论，**正是本线挂账 42 的作者级施工书**）：
+- **结论一：复用深度由降级顺序决定，不由池大小决定**——"把池调大不是方案，只是把悬崖挪到更高处"（与本线 64K 池"只延缓"实测互证）；
+- **结论二：会话>池时"落袋"与"降级"互斥**——落袋要求 `[0,frontier)` 全设备驻留（capture.cpp:63-115），服务超池会话必须降级同区间——**两者不可兼得 ⇒ 超池会话存不下新锚** ⇒ **本线实测闭环：122K 会话 `capture install=0` 次**（落袋从不发生 → `spare_prefix_pages` 无对象可保 → A 修法失效 → FIFO 从 sink 后全漂 → hidden 931）；
+- **结论三：九次静默死亡根因** = `HostKVExtentStore::publish`（noexcept）把"陈旧 host 副本挂不上"判死刑（`std::terminate`）+ 调用方 `(void)` 丢弃返回值——**已修（`618cf7b`）**：publish 改可失败（`std::nullopt` + declined 日志）、池耗尽两处 untyped throw 改 typed `ContextCacheExhausted`、`fail_all_locked` 补日志；
+- **修法 A 已落地（`618cf7b`）**：`demote_kv_pages_to_host` 新增 `spare_prefix_pages`——第一遍降级跳过 `[0, 最深待发布 capture)`；**本线 s6 树已含 A+C**（grep 实证 context.cpp:1837 / paged_kv_cache.cpp:395）——但如上，落袋从不发生时 A 失效；
+- **修法 B（唯一真解）未做**：**host-backed anchor**——"checkpoints 引用 ring 已有 host 页而不是拷贝"——"唯一真正解开 depth=f(池) 耦合"（KVMEM-PORT-PLAN.md 计划内一直未做）——**= 挂账 42 的施工蓝图**（引擎深度改动：capture 按引用引用 host 页 + 取回时 H2D）；
+- **`NINFER_KV_WINDOW` 是死旋钮**（brief §5）：ring 的"窗口/recency 选择"从未实现，实际策略 = 无脑 FIFO + sink——**本线 KV_ENV 的 WINDOW 唯一真实作用 = 允许池<上下文的门**（引擎侧窗口语义不存在）；
+- **Phase 3（worker 隔离、分层 restore）无限期 park**（"无由头开高风险项"）——**本线现在有由头**（页漂移 3 tok/s + sequence 风暴 + 挂账 41）：分层 restore = 作者预留的挂账 42 方案名；
+- **81920 锚之谜**：检索锚 = 32K 绝对步长 grid（32768/65536/98304…，frontend.cpp:575-582），by design；**召回边界实测**（Phase 1）：早期锚精确（2.5K，7/7）+ tail 窗口精确 + **深溢出 mid-anchor（45/52/59K）可能掉**——与本线"silently unreadable"互证（作者召回免责同构）；
+- **性能档案**（docs/performance/qwen3.8-27b.md，5090）：corpus 300 请求零 spill/驱逐（auto 池 131K-314K ≥ 会话深度——大池下无页漂移，互证）；DFlash2 output-limit 高发（75 中 35-39）；vision overlay window 借内存机制（gap p99 340-670ms）——本线未用（--vision-cpu）。
+
+**③ 挂账 42 施工蓝图（综合作者方案 + 本线实测，待批）**：
+- **正解 B：host-backed anchor（capture 按引用 host 页）**——解 depth=f(池) 耦合，长会话不再页漂移；工作量 = 引擎深度（capture/transactions 层），tancau 已给出设计定位（KVMEM-PORT-PLAN）但未实现——**本线自研即首实现者**；
+- **配套**：挂账 41 修法（issue #114 的 stale-error 清理 + 本线 send timeout）同期施工；
+- **短期缓解维持**：DSH 压缩（ctx 229,376）+ maxTokens 24K + 新会话纪律 + sink=5120。
+
 ---
 
 ## 四、待续事项（挂账）

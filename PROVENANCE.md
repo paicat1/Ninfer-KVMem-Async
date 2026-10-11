@@ -22,8 +22,13 @@
 - 脚本：`J:\ninfer-kvmem\build\s6_1208a.bat`（本仓路径，不再引用任何别的仓）
 - 构建目录：`J:\ninfer-kvmem\.temp\build-1208a`（本仓，`.gitignore` 已排除）
 - 日志：`J:\ninfer-kvmem\.temp\build_engine.log`
-- 关键环境：`VSLANG=1033`（MSVC 输出英文 `Note: including file`，ninja 才能识别头依赖 —
-  挂账45 根因是中文 `/showIncludes` 前缀未被 ninja 识别，导致改头不重编消费者）
+- 关键环境：`VSLANG=1033`（**仅为可读性**，2026-10-12 实测它并未把 cl 切成英文输出）
+- **更正（2026-10-12 03:5x，实测）**：先前"挂账45 根因 = 中文 `/showIncludes` 前缀未被 ninja 识别"
+  的说法**不成立**：CMake 已自动探测本地化前缀（`CMakeFiles/rules.ninja` 的 `msvc_deps_prefix`）+
+  规则 `deps = msvc`，且 `.ninja_deps` 在构建中持续增长（104 KB @03:54）→ **头依赖确实被记录**。
+  挂账45 真实根因待重定（候选：非全量构建 / 头文件时间戳被拷贝保留 / 另一个构建目录）；
+  决定性实验（改头后 `ninja -n` 看 consumer 是否入队）待构建空闲时做。
+  **结论出来前，"改头必须全量重编"纪律继续保持。**
 
 ## 三、外部只读依赖（不是"别人的仓"，是工具链）
 

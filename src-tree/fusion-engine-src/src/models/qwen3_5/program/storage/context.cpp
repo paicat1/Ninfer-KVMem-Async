@@ -1625,6 +1625,15 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
         }
         return resident;
     }
+    // LOCAL FIX (挂账46 第四步, 2026-10-12): batch the H2D restore onto the transfer stream.
+    // Measured (2026-10-12 00:16-00:28): the death-valley trough (decode 1.4-11 tok/s, host at
+    // ~100% of the window) is THIS loop issuing one copy_from_host + one block-table publish PER
+    // PAGE on the COMPUTE stream -- every page serialises against the decode kernels (128 pages
+    // per step, every step). The demote side already batches; restore was the remaining serial
+    // page path. Fix: issue every page copy on transfer_streams (parallel to the decode kernels;
+    // capture.cpp / disk_tier.cpp precedent) and wait ONCE after the loop -- this step's attention
+    // must read the pages, so one batch wait is required; per-page serialisation is not.
+    std::uint32_t restore_submitted = 0;
     for (const std::uint32_t page : logical_pages) {
         // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
         // loop). A partial restore is semantically safe by design -- pages that never made it
@@ -1646,8 +1655,20 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
         pages.physical_pool().resize_reservation(reservation, 1);
         const HostKVAllocationConstView source =
             host_kv_extents->view(replica.extent).subview(replica.page_offset, 1);
-        if (addresses.restore_page_from_host(address, page, source, reservation, device.stream)) {
+        // 挂账46 第四步: copy + publish on the transfer stream (rank 0; the single-GPU build is
+        // the only configuration this tree ships).
+        if (addresses.restore_page_from_host(address, page, source, reservation,
+                                             transfer_streams[0])) {
             resident.push_back(page);
+            ++restore_submitted;
+        }
+    }
+    if (restore_submitted != 0) {
+        // Single batch wait (挂账46 第四步): every copy issued above must land before this step's
+        // attention reads the block table -- the publish on the same stream is ordered behind its
+        // copy, so one synchronize covers both. This is ONE wait per step instead of 128.
+        for (std::size_t rank = 0; rank < transfer_streams.size(); ++rank) {
+            CUDA_CHECK(cudaStreamSynchronize(transfer_streams[rank]));
         }
     }
     return resident;
@@ -1961,6 +1982,19 @@ bool async_demote_enabled() {
     }();
     return enabled;
 }
+// LOCAL FIX (挂账46 v2.1): ring depth. 1 = the v2 single-slot blocking path (safe tier);
+// 2..8 = batches in flight (NINFER_ASYNC_DEMOTE_DEPTH, default 2 -- conservative start).
+std::uint32_t async_demote_depth() {
+    static const std::uint32_t depth = [] {
+        const char* env = std::getenv("NINFER_ASYNC_DEMOTE_DEPTH");
+        if (env == nullptr) { return 2U; }
+        const int value = std::atoi(env);
+        if (value < 1) { return 1U; }
+        if (value > 8) { return 8U; }
+        return static_cast<std::uint32_t>(value);
+    }();
+    return depth;
+}
 } // namespace
 
 // LOCAL FIX (挂账42 第三步 v2, 2026-10-11): pending-batch lifecycle. The destructor is the RAII
@@ -1978,13 +2012,39 @@ ProgramImpl::PendingDemote::~PendingDemote() {
     }
 }
 
+// LOCAL FIX (挂账46 v2.1, 2026-10-11): ring lifecycle. Slots are created up-front; the ring keeps
+// at most `slots.size()` batches in flight. The ring's destructor destroys slots in reverse order
+// (std::vector contract), so every pending copy synchronizes while the fences still live -- the v2
+// RAII backstop, unchanged. Depth 1 degenerates to the v2 single-slot path verbatim.
+ProgramImpl::PendingDemoteRing::PendingDemoteRing(ProgramImpl* owner) {
+    const std::uint32_t depth = async_demote_enabled() ? async_demote_depth() : 1U;
+    slots.reserve(depth);
+    for (std::uint32_t i = 0; i < depth; ++i) {
+        slots.push_back(std::make_unique<PendingDemote>(owner));
+    }
+}
+ProgramImpl::PendingDemote* ProgramImpl::PendingDemoteRing::next_submit_slot() {
+    if (live >= slots.size()) { return nullptr; }
+    return slots[(tail + live) % static_cast<std::uint32_t>(slots.size())].get();
+}
+ProgramImpl::PendingDemote* ProgramImpl::PendingDemoteRing::retire_slot() {
+    return live == 0 ? nullptr : slots[tail].get();
+}
+void ProgramImpl::PendingDemoteRing::pop() {
+    if (live == 0) { return; }
+    tail = (tail + 1U) % static_cast<std::uint32_t>(slots.size());
+    --live;
+}
+
 // LOCAL FIX (挂账42 第三步 v2): retire = wait copy -> publish -> release + drop. Called at the
 // head of ensure_ring_room, before the free-page verdict, so the freed pages count. The wait is
 // expected ~0 (the copy flew while the previous decode step ran); the profile line reports it.
-void ProgramImpl::retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages) {
+// v2.1: `wait` = false skips the fence wait -- the caller already queried `ready()` and the
+// same-stream FIFO ordering makes every earlier batch complete with the last record.
+void ProgramImpl::retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages, bool wait) {
     if (!slot.reservation) { return; }
     const double t_wait0 = demote_profile_enabled() ? demote_profile_now_ms() : 0.0;
-    context_completion_.synchronize();
+    if (wait) { context_completion_.synchronize(); }
     const double t_wait1 = demote_profile_enabled() ? demote_profile_now_ms() : 0.0;
     if (slot.submitted && host_kv_extents != nullptr &&
         !host_kv_extents->publish(std::move(*slot.reservation))) {
@@ -2015,18 +2075,18 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
                                                    std::uint32_t sink_pages,
                                                    std::uint32_t target_free,
                                                    std::span<const std::uint32_t> preferred,
-                                                   PendingDemote* async_slot) {
+                                                   PendingDemoteRing* async_ring) {
     if (host_kv_extents == nullptr || !addresses.valid(address) || target_free == 0) { return 0; }
     // LOCAL (挂账44): profile helpers are file-level (shared with retire_pending_demote).
     const bool kDemoteProfile = demote_profile_enabled();
     const auto now_ms = [] { return demote_profile_now_ms(); };
     const double profile_start = kDemoteProfile ? now_ms() : 0.0;
-    // LOCAL FIX (挂账42 第三步 v2): the first batch of this call may go ASYNC when a slot is
-    // provided and idle: copy on transfer_streams, hand the extent to the slot, return. The slot
-    // is retired at the head of the NEXT ensure_ring_room (the wait hides under the decode step
-    // in between). Remaining demand in THIS call stays synchronous so the free-page verdict the
-    // caller relies on is still met by the time we return.
-    const bool async_ok = async_demote_enabled() && async_slot != nullptr && !async_slot->reservation;
+    // LOCAL FIX (挂账42 第三步 v2 / 挂账46 v2.1): full batches go ASYNC while a ring slot is
+    // free: copy on transfer_streams, hand the extent to the slot, return. Slots are retired at
+    // the head of the NEXT ensure_ring_room (the wait hides under the decode step in between, or
+    // is skipped entirely at depth >= 2 -- fence query). Remaining demand in THIS call stays
+    // synchronous so the free-page verdict the caller relies on is still met by the time we return.
+    const bool async_ok = async_demote_enabled() && async_ring != nullptr;
     const std::uint32_t mapped = addresses.mapped_pages(address);
     const auto is_preferred = [&](std::uint32_t page) {
         return !preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page);
@@ -2050,10 +2110,12 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
     std::vector<LogicalKVPageHandle> batch;
     batch.reserve(kDemoteBatchPages);
     double last_flush = profile_start;
-    // flush_batch(pending, submit): submit=true hands the whole batch to async_slot (copy queued
-    // on transfer_streams, no publish/drop here, not counted in `demoted` yet). submit=false is
-    // the original synchronous completion path. Returns false only on a hard stop (arena full).
-    const auto flush_batch = [&](std::vector<LogicalKVPageHandle>& pending, bool submit) {
+    // flush_batch(pending, submit, ring): submit=true hands the whole batch to the ring's next
+    // free slot (copy queued on transfer_streams, no publish/drop here, not counted in `demoted`
+    // yet; ring->live advances). submit=false is the original synchronous completion path.
+    // Returns false only on a hard stop (arena full).
+    const auto flush_batch = [&](std::vector<LogicalKVPageHandle>& pending, bool submit,
+                                 PendingDemoteRing* ring) {
         if (pending.empty()) { return true; }
         const std::size_t batch_n = pending.size();
         const double t_prepare0 = kDemoteProfile ? now_ms() : 0.0;
@@ -2121,10 +2183,13 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
         }
         const double t_prepare1 = kDemoteProfile ? now_ms() : 0.0;
         if (submit) {
-            // ASYNC SUBMIT (挂账42 第三步 v2): order the transfer after every queued compute
-            // write (capture.cpp precedent), queue the D2H on the transfer stream and hand the
-            // extent to the slot. No publish, no drop -- the batch retires on the next
-            // ensure_ring_room, after the copy has flown under the decode step in between.
+            // ASYNC SUBMIT (挂账42 第三步 v2 / 挂账46 v2.1): order the transfer after every
+            // queued compute write (capture.cpp precedent), queue the D2H on the transfer stream
+            // and hand the extent to the ring's next free slot. No publish, no drop -- the batch
+            // retires on a later ensure_ring_room, after the copy has flown under the decode step
+            // in between. Every batch records the SAME fence on the SAME stream: FIFO ordering
+            // makes the depth >= 2 non-blocking retire sound (last record done => all done).
+            PendingDemote* async_slot = ring->next_submit_slot();
             context_source_ready_.record(compute_streams);
             context_source_ready_.wait(transfer_streams);
             const std::vector<DeviceKVPageHandle> sources =
@@ -2135,6 +2200,7 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
             async_slot->reservation.emplace(std::move(*reserved));
             async_slot->handles = std::move(pending);
             async_slot->submitted = true;
+            ring->live += 1U;
             pending.clear();
             if (kDemoteProfile) {
                 last_flush = now_ms();
@@ -2208,13 +2274,14 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
             pages.set_writer(logical, false);
             batch.push_back(logical);
             if (batch.size() < kDemoteBatchPages) { continue; }
-            // First full batch of this call goes async (if a slot is free); everything after it
-            // completes synchronously so the caller's free-page verdict still holds on return.
-            if (async_ok && !async_slot->reservation) {
-                if (!flush_batch(batch, true)) { break; }
+            // v2.1: every full batch goes async while a ring slot is free; everything after the
+            // ring fills completes synchronously so the caller's free-page verdict still holds
+            // on return (v2 contract -- only the "free extra batches" count grew from 1 to depth).
+            if (async_ok && async_ring->next_submit_slot() != nullptr) {
+                if (!flush_batch(batch, true, async_ring)) { break; }
                 continue;
             }
-            if (!flush_batch(batch, false)) { break; }
+            if (!flush_batch(batch, false, nullptr)) { break; }
         } else {
             // Already preserved on the Host (demoted before and then retrieved): no transfer needed.
             if (!pages.host_replica_current(logical)) { continue; }
@@ -2225,7 +2292,7 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
         }
     }
     // Flush the trailing partial batch (scan ran out, target met, or cancellation fired).
-    (void)flush_batch(batch, false);
+    (void)flush_batch(batch, false, nullptr);
     return demoted;
 }
 
@@ -2539,11 +2606,28 @@ ProgramImpl::retained_device_kv_pages(const SharedPrefixHandle& shared) const no
 void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                                    const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
                                    std::span<const std::uint32_t> preferred,
-                                   PendingDemote* async_slot) {
-    // LOCAL FIX (挂账42 第三步 v2): retire the previous batch FIRST -- before the free-page
-    // verdict below, so its pages count as freed. The copy flew during the decode step between
-    // this call and the previous one, so the wait is expected ~0 (profile reports it).
-    if (async_slot != nullptr) { retire_pending_demote(*async_slot, pages); }
+                                   PendingDemoteRing* async_ring) {
+    // LOCAL FIX (挂账42 第三步 v2 / 挂账46 v2.1): retire pending batches FIRST -- before the
+    // free-page verdict below, so their pages count as freed. Depth 1 keeps the v2 blocking wait
+    // (the copy flew during the decode step between calls; the wait is expected ~0). Depth >= 2
+    // is NON-blocking: retire only when the context fence reports every submitted copy landed
+    // (same-stream FIFO: the last record completing implies all earlier batches did). Unfinished
+    // batches simply stay in the ring -- the next call queries again.
+    if (async_ring != nullptr && async_ring->live > 0) {
+        if (async_ring->multi()) {
+            if (context_completion_.ready()) {
+                while (async_ring->live > 0) {
+                    retire_pending_demote(*async_ring->retire_slot(), pages, /*wait=*/false);
+                    async_ring->pop();
+                }
+            }
+        } else {
+            while (async_ring->live > 0) {
+                retire_pending_demote(*async_ring->retire_slot(), pages, /*wait=*/true);
+                async_ring->pop();
+            }
+        }
+    }
     // No-op unless the ring is active: with a pool that covers the logical context every page is
     // resident anyway, and a demotion pass would be pure overhead on the hot path.
     if (proto_kv_window_pages() == 0 ||
@@ -2575,7 +2659,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t target_free = want_free > free_now ? want_free - free_now : 0U;
     if (target_free == 0) {
         (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred,
-                                      async_slot);
+                                      async_ring);
         return;
     }
     // Cold pages first: inactive addresses are pure cache, so drain them before touching this
@@ -2586,7 +2670,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t target2 = want_free > free_after ? want_free - free_after : 0U;
     const std::uint32_t freed_own =
         demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred,
-                                async_slot);
+                                async_ring);
     // LOCAL FIX (B01 ring early verdict): both demotions used to have their return value dropped, so
     // a ring that could free nothing carried on into `ensure_mapped_to_tokens` and failed later --
     // as the paged-KV reservation invariant, as an engine death, or (measured 2026-10-04, community

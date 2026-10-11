@@ -1146,14 +1146,33 @@ private:
     // corrupts the heap at construction. Fixed by a FULL rebuild of build-1208a; every later
     // header change in this tree must assume no header dependency tracking and rebuild fully.
     // Heap slots (not inline members): a stable pointer indirection for the batch state.
-    std::unique_ptr<PendingDemote> pending_demote_text_ =
-        std::make_unique<PendingDemote>(this);
-    std::unique_ptr<PendingDemote> pending_demote_backend_ =
-        std::make_unique<PendingDemote>(this);
+    // LOCAL FIX (挂账46 v2.1, 2026-10-11): N-slot ring -- several batches in flight so the PCIe
+    // pipe stays full (death-valley fix; design docs/设计-挂账46-v2.1多批in-flight-20261011.md).
+    // Depth from NINFER_ASYNC_DEMOTE_DEPTH (1..8, default 2). Depth 1 = the v2 single-slot
+    // blocking path verbatim (safe tier). Retire at depth >= 2 is NON-blocking (context fence
+    // query; same-stream FIFO: the last record completing implies every earlier batch landed).
+    // Slots are heap objects owned by the ring; the ring destroys them in reverse order, so
+    // in-flight copies synchronize while the fences still live (v2 RAII contract, unchanged).
+    struct PendingDemoteRing {
+        std::vector<std::unique_ptr<PendingDemote>> slots;
+        std::uint32_t tail = 0;   // next retire position
+        std::uint32_t live = 0;   // batches in flight
+        explicit PendingDemoteRing(ProgramImpl* owner);   // reads NINFER_ASYNC_DEMOTE_DEPTH
+        PendingDemote* next_submit_slot();                // nullptr when full
+        PendingDemote* retire_slot();                     // front slot (live > 0)
+        void pop();                                       // after a completed retire
+        [[nodiscard]] bool multi() const { return slots.size() > 1U; }
+    };
+    std::unique_ptr<PendingDemoteRing> pending_demote_text_ =
+        std::make_unique<PendingDemoteRing>(this);
+    std::unique_ptr<PendingDemoteRing> pending_demote_backend_ =
+        std::make_unique<PendingDemoteRing>(this);
     // Retire a pending batch: wait for its copy, publish the extent, release + drop each page.
     // Safe at any boundary: a page that vanished (sequence gone) is skipped, and a declined
     // publish keeps every device replica (2026-10-02 contract) -- the batch is simply retryable.
-    void retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages);
+    // `wait` = true blocks on the context fence (depth-1 v2 semantics); false requires the fence
+    // already queried ready (v2.1 non-blocking retire -- same-stream FIFO makes it sound).
+    void retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages, bool wait);
     std::vector<TokenId> materialization_ledger_;
     qwen3_5::detail::ResidentPrefixIdentity materialization_identity_;
     qwen3_5::detail::PrefixShortlistDigests materialization_prefix_digests_;
@@ -1670,7 +1689,7 @@ private:
     void ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                           const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
                           std::span<const std::uint32_t> preferred,
-                          PendingDemote* async_slot = nullptr);
+                          PendingDemoteRing* async_ring = nullptr);
 
     // LOCAL PROTOTYPE (KVMem-style ring): demote the oldest Device-resident pages (skipping the
     // attention sink and, on the first pass, `preferred`) until at least `target_free` Device pages
@@ -1680,7 +1699,7 @@ private:
                                           const KVAddressSpaceHandle& address,
                                           std::uint32_t sink_pages, std::uint32_t target_free,
                                           std::span<const std::uint32_t> preferred,
-                                          PendingDemote* async_slot = nullptr);
+                                          PendingDemoteRing* async_ring = nullptr);
     // LOCAL PROTOTYPE (KVMem-style ring): release Device pages held by OTHER (inactive) addresses
     // until `target_free` more Device pages are free. Inactive addresses are pure cache in ring mode
     // (reuse of a host-demoted source is declined), so their Device replicas can go without affecting

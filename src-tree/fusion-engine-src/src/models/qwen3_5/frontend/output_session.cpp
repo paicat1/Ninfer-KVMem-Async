@@ -520,10 +520,13 @@ runtime::OutputDecision OutputSession::preview_model(std::span<const TokenId> to
         if (impl_->preview_state.in_reasoning) { ++impl_->preview_state.reasoning_tokens; }
         if (impl_->preview_semantic.in_reasoning) {
             ++impl_->preview_semantic.model_thinking_tokens;
-            if (impl_->preview_semantic.budget &&
-                impl_->preview_semantic.model_thinking_tokens > *impl_->preview_semantic.budget) {
-                throw std::logic_error("model output exceeded the licensed thinking budget");
-            }
+            // W2 fix (2026-10-11, per tancau 24c8ea5): the old per-token `> budget`
+            // throw aborted the whole request the instant one chunk stepped over the
+            // budget, which also made the chunk-boundary fuse (below) unreachable --
+            // once past the budget, `==` can never hold again. Crossing is no longer
+            // an invariant violation: keep feeding to the end of the chunk and let
+            // the boundary fuse (now `>=`) fire ApplyTargetControl there. The total
+            // output budget (total_budget_remaining above) remains the backstop.
             feed_semantic_thinking(impl_->preview_semantic, decoded.bytes);
         }
 
@@ -578,7 +581,11 @@ runtime::OutputDecision OutputSession::preview_model(std::span<const TokenId> to
         return complete(count, limit_reason);
     }
     if (impl_->preview_semantic.in_reasoning && impl_->preview_semantic.budget &&
-        impl_->preview_semantic.model_thinking_tokens == *impl_->preview_semantic.budget) {
+        impl_->preview_semantic.model_thinking_tokens >= *impl_->preview_semantic.budget) {
+        // W1 fix (2026-10-11, per tancau 24c8ea5): `==` only fired when the counter
+        // landed exactly on the budget; a chunk that stepped past it (multi-token
+        // chunk) skipped past forever and the fuse could never fire again. `>=`
+        // fires on or after the budget, which also covers the W2 crossing case.
         impl_->preview_semantic.control_pending = true;
         return complete(count, FinishReason::None, runtime::ContinuationAction::ApplyTargetControl);
     }
@@ -649,11 +656,16 @@ runtime::OutputDecision OutputSession::preview_control(std::span<const TokenId> 
         feed_token_bytes(impl_->preview_state, presentation_bytes, impl_->policy,
                          impl_->preview_output, static_cast<std::uint32_t>(index + 1), nullptr);
     }
+    // W3 fix (2026-10-11, per tancau 24c8ea5): a canonical control span that failed
+    // to close the thinking phase used to abort the whole request. The span's whole
+    // purpose IS to close it, so when the template drifted we close it declaratively
+    // instead of killing the request; the control tokens themselves publish as
+    // special tokens (empty bytes) and everything downstream keeps flowing.
     if (impl_->preview_semantic.in_reasoning) {
-        throw std::logic_error("canonical thinking control did not close the thinking phase");
+        impl_->preview_semantic.in_reasoning = false;
     }
     if (impl_->split_reasoning && impl_->preview_state.in_reasoning) {
-        throw std::logic_error("canonical thinking control did not close the reasoning channel");
+        impl_->preview_state.in_reasoning = false;
     }
     impl_->preview_semantic.control_pending = false;
     impl_->preview_semantic.applied         = true;

@@ -1068,6 +1068,10 @@ public:
     [[nodiscard]] PendingBatch decode(std::span<const SequenceHandle> sequences,
                                       std::span<const runtime::RoundBudget> budgets,
                                       runtime::ExecutionTiming* failed_timing = nullptr);
+    // LOCAL FIX (挂账42/41, 2026-10-11): per-unit cancellation probe for the storage-layer page
+    // operation loops (see ProgramImpl::decode_cancel_probe_). Runtime arms it before each decode
+    // round / prefill step with a value-captured snapshot and clears it right after the call.
+    void set_decode_cancel_probe(std::function<bool()> probe);
     // Advance each live sequence with its exact target-owned token row. This does not sample or
     // advance sampler RNG/occurrence state; callers own output publication and budget accounting.
     // Each optional execution split is relative to its row's forced-token span.

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -1625,6 +1626,11 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
         return resident;
     }
     for (const std::uint32_t page : logical_pages) {
+        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
+        // loop). A partial restore is semantically safe by design -- pages that never made it
+        // back stay hidden from the mask (the "silently unreadable" contract), and a cancelled
+        // unit should stop paying H2D PCIe traffic immediately.
+        if (decode_cancelled()) { break; }
         const LogicalKVPageHandle logical = addresses.logical_page(address, page);
         if (!pages.valid(logical)) { continue; }
         if (pages.device_resident(logical)) {
@@ -1932,13 +1938,95 @@ std::uint32_t ProgramImpl::demote_other_addresses_to_host(KVAddressSpaceStore& a
     return freed;
 }
 
+namespace {
+// LOCAL (挂账44): shared demote-path profile helpers (NINFER_DEMOTE_PROFILE=1 arms; zero cost off).
+bool demote_profile_enabled() {
+    static const bool enabled = [] {
+        const char* env = std::getenv("NINFER_DEMOTE_PROFILE");
+        return env != nullptr && env[0] == '1';
+    }();
+    return enabled;
+}
+double demote_profile_now_ms() {
+    return std::chrono::duration<double, std::milli>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+// LOCAL FIX (挂账42 第三步 v2): async demote switch. Default ON; NINFER_ASYNC_DEMOTE=0 falls
+// back to the fully synchronous batch path (risk backstop + A/B control arm).
+bool async_demote_enabled() {
+    static const bool enabled = [] {
+        const char* env = std::getenv("NINFER_ASYNC_DEMOTE");
+        return env == nullptr || env[0] != '0';
+    }();
+    return enabled;
+}
+} // namespace
+
+// LOCAL FIX (挂账42 第三步 v2, 2026-10-11): pending-batch lifecycle. The destructor is the RAII
+// backstop for every abandon path (throw / cancellation / engine shutdown): the in-flight copy
+// must land before the extent pin is released, or the transfer would write into recycled arena
+// memory. After that the batch is simply "not demoted" -- every page keeps its Device replica,
+// so the next scan retries it (design 6.3).
+ProgramImpl::PendingDemote::~PendingDemote() {
+    if (submitted && owner != nullptr) {
+        try {
+            owner->context_completion_.synchronize();
+        } catch (...) {
+            std::terminate();
+        }
+    }
+}
+
+// LOCAL FIX (挂账42 第三步 v2): retire = wait copy -> publish -> release + drop. Called at the
+// head of ensure_ring_room, before the free-page verdict, so the freed pages count. The wait is
+// expected ~0 (the copy flew while the previous decode step ran); the profile line reports it.
+void ProgramImpl::retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages) {
+    if (!slot.reservation) { return; }
+    const double t_wait0 = demote_profile_enabled() ? demote_profile_now_ms() : 0.0;
+    context_completion_.synchronize();
+    const double t_wait1 = demote_profile_enabled() ? demote_profile_now_ms() : 0.0;
+    if (slot.submitted && host_kv_extents != nullptr &&
+        !host_kv_extents->publish(std::move(*slot.reservation))) {
+        // Declined publish: keep every Device replica (2026-10-02 contract) and drop the pin.
+        slot.reservation.reset();
+        slot.handles.clear();
+        slot.submitted = false;
+        return;
+    }
+    slot.reservation.reset();
+    for (const LogicalKVPageHandle logical : slot.handles) {
+        if (!pages.valid(logical) || !pages.device_resident(logical)) { continue; }
+        pages.release_active_reference(logical);
+        (void)pages.drop_device_replica(logical);
+    }
+    slot.handles.clear();
+    slot.submitted = false;
+    if (demote_profile_enabled()) {
+        std::fprintf(stderr, "[ninfer] demote profile: retire wait=%.2fms publish+drop=%.2fms\n",
+                     t_wait1 - t_wait0,
+                     demote_profile_now_ms() - t_wait1);
+    }
+}
+
 std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresses,
                                                    LogicalKVPageStore& pages,
                                                    const KVAddressSpaceHandle& address,
                                                    std::uint32_t sink_pages,
                                                    std::uint32_t target_free,
-                                                   std::span<const std::uint32_t> preferred) {
+                                                   std::span<const std::uint32_t> preferred,
+                                                   PendingDemote* async_slot) {
     if (host_kv_extents == nullptr || !addresses.valid(address) || target_free == 0) { return 0; }
+    // LOCAL (挂账44): profile helpers are file-level (shared with retire_pending_demote).
+    const bool kDemoteProfile = demote_profile_enabled();
+    const auto now_ms = [] { return demote_profile_now_ms(); };
+    const double profile_start = kDemoteProfile ? now_ms() : 0.0;
+    // LOCAL FIX (挂账42 第三步 v2): the first batch of this call may go ASYNC when a slot is
+    // provided and idle: copy on transfer_streams, hand the extent to the slot, return. The slot
+    // is retired at the head of the NEXT ensure_ring_room (the wait hides under the decode step
+    // in between). Remaining demand in THIS call stays synchronous so the free-page verdict the
+    // caller relies on is still met by the time we return.
+    const bool async_ok = async_demote_enabled() && async_slot != nullptr && !async_slot->reservation;
     const std::uint32_t mapped = addresses.mapped_pages(address);
     const auto is_preferred = [&](std::uint32_t page) {
         return !preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page);
@@ -1949,7 +2037,148 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
     std::uint32_t demoted   = 0;
     std::uint32_t page      = sink_pages;
     bool second_pass        = false;
+    // LOCAL FIX (挂账42 第二步, 2026-10-11): batch the D2H demotion. The page-full stall inside a
+    // decode step used to pay the full host-side pipeline (prepare -> one copy launch -> publish
+    // -> release -> drop) PER PAGE, so a pool that had to shed 8 pages stopped decode 8 separate
+    // times (measured 2026-10-11: decode oscillated 0.2-15.7 tok/s while host ran 90-200%).
+    // One extent reservation now covers a whole batch: a single arena allocation, one
+    // copy_to_host launch and one publish. The per-page lifecycle predicates are unchanged, so a
+    // batch is safe to interrupt at any boundary: pages are only dropped after their extent is
+    // published, and every failure path keeps the Device replica exactly like the single-page
+    // version did. Copying still runs on the compute stream (async transfer streams are 42-step 3).
+    constexpr std::uint32_t kDemoteBatchPages = 8U;
+    std::vector<LogicalKVPageHandle> batch;
+    batch.reserve(kDemoteBatchPages);
+    double last_flush = profile_start;
+    // flush_batch(pending, submit): submit=true hands the whole batch to async_slot (copy queued
+    // on transfer_streams, no publish/drop here, not counted in `demoted` yet). submit=false is
+    // the original synchronous completion path. Returns false only on a hard stop (arena full).
+    const auto flush_batch = [&](std::vector<LogicalKVPageHandle>& pending, bool submit) {
+        if (pending.empty()) { return true; }
+        const std::size_t batch_n = pending.size();
+        const double t_prepare0 = kDemoteProfile ? now_ms() : 0.0;
+        const double since = kDemoteProfile ? t_prepare0 - last_flush : 0.0;
+        std::optional<HostKVExtentReservation> reserved = host_kv_extents->prepare(pages, pending);
+        if (!reserved) {
+            if (pending.size() == 1) {
+                if (kDemoteProfile) {
+                    std::fprintf(stderr,
+                                 "[ninfer] demote profile: batch=%zu arena-full (prepare %.2fms, "
+                                 "since %.1fms)\n",
+                                 batch_n, now_ms() - t_prepare0, since);
+                }
+                return false;   // Host arena full: nothing can be moved
+            }
+            // The arena could not place the whole batch contiguously: fall back to the original
+            // per-page path so fragmentation degrades the batch size instead of stopping demotion.
+            double fallback_prepare = 0.0, fallback_copy = 0.0, fallback_publish = 0.0,
+                   fallback_tail = 0.0;
+            for (const LogicalKVPageHandle logical : pending) {
+                const double p0 = now_ms();
+                std::vector<LogicalKVPageHandle> one{logical};
+                std::optional<HostKVExtentReservation> single = host_kv_extents->prepare(pages, one);
+                if (!single) {
+                    if (kDemoteProfile) {
+                        std::fprintf(stderr,
+                                     "[ninfer] demote profile: batch=%zu arena-full-degraded "
+                                     "(prepare %.2fms)\n",
+                                     batch_n, now_ms() - t_prepare0);
+                    }
+                    return false;
+                }
+                const double p1 = now_ms();
+                const std::vector<DeviceKVPageHandle> sources =
+                    host_kv_extents->device_sources(*single);
+                pages.physical_pool().copy_to_host(sources,
+                                                   host_kv_extents->writable_view(*single),
+                                                   device.stream);
+                const double p2 = now_ms();
+                if (!host_kv_extents->publish(std::move(*single))) {
+                    if (kDemoteProfile) {
+                        std::fprintf(stderr, "[ninfer] demote profile: publish-declined-degraded\n");
+                    }
+                    return false;
+                }
+                const double p3 = now_ms();
+                pages.release_active_reference(logical);
+                if (pages.drop_device_replica(logical)) { ++demoted; }
+                const double p4 = now_ms();
+                fallback_prepare += p1 - p0;
+                fallback_copy += p2 - p1;
+                fallback_publish += p3 - p2;
+                fallback_tail += p4 - p3;
+            }
+            pending.clear();
+            if (kDemoteProfile) {
+                last_flush = now_ms();
+                std::fprintf(stderr,
+                             "[ninfer] demote profile: batch-degraded n=%zu prepare=%.2f copy=%.2f "
+                             "publish=%.2f tail=%.2f demoted=%llu\n",
+                             batch_n, fallback_prepare, fallback_copy, fallback_publish,
+                             fallback_tail, static_cast<unsigned long long>(demoted));
+            }
+            return true;
+        }
+        const double t_prepare1 = kDemoteProfile ? now_ms() : 0.0;
+        if (submit) {
+            // ASYNC SUBMIT (挂账42 第三步 v2): order the transfer after every queued compute
+            // write (capture.cpp precedent), queue the D2H on the transfer stream and hand the
+            // extent to the slot. No publish, no drop -- the batch retires on the next
+            // ensure_ring_room, after the copy has flown under the decode step in between.
+            context_source_ready_.record(compute_streams);
+            context_source_ready_.wait(transfer_streams);
+            const std::vector<DeviceKVPageHandle> sources =
+                host_kv_extents->device_sources(*reserved);
+            pages.physical_pool().copy_to_host(sources, host_kv_extents->writable_view(*reserved),
+                                               transfer_streams);
+            context_completion_.record(transfer_streams);
+            async_slot->reservation.emplace(std::move(*reserved));
+            async_slot->handles = std::move(pending);
+            async_slot->submitted = true;
+            pending.clear();
+            if (kDemoteProfile) {
+                last_flush = now_ms();
+                std::fprintf(stderr,
+                             "[ninfer] demote profile: batch=%zu submit (prepare=%.2f launch=%.2f "
+                             "since=%.2f)\n",
+                             batch_n, t_prepare1 - t_prepare0, now_ms() - t_prepare1, since);
+            }
+            return true;
+        }
+        const std::vector<DeviceKVPageHandle> sources = host_kv_extents->device_sources(*reserved);
+        // Copy on the compute stream so the D2H is ordered after the kernels that wrote it.
+        pages.physical_pool().copy_to_host(sources, host_kv_extents->writable_view(*reserved),
+                                           device.stream);
+        const double t_copy1 = kDemoteProfile ? now_ms() : 0.0;
+        // A declined publish stops demotion exactly like the prepare refusal above (2026-10-02
+        // contract): the caller breaks, the pages keep their Device replicas and their data.
+        if (!host_kv_extents->publish(std::move(*reserved))) { return false; }
+        const double t_publish1 = kDemoteProfile ? now_ms() : 0.0;
+        for (const LogicalKVPageHandle logical : pending) {
+            pages.release_active_reference(logical);
+            if (pages.drop_device_replica(logical)) { ++demoted; }
+        }
+        const double t_tail1 = kDemoteProfile ? now_ms() : 0.0;
+        pending.clear();
+        if (kDemoteProfile) {
+            last_flush = now_ms();
+            std::fprintf(stderr,
+                         "[ninfer] demote profile: batch=%zu since=%.2f prepare=%.2f copy=%.2f "
+                         "publish=%.2f tail=%.2f demoted=%llu\n",
+                         batch_n, since, t_prepare1 - t_prepare0, t_copy1 - t_prepare1,
+                         t_publish1 - t_copy1, t_tail1 - t_publish1,
+                         static_cast<unsigned long long>(demoted));
+        }
+        return true;
+    };
     while (demoted < target_free) {
+        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint. A multi-page demotion
+        // inside one decode step could grind on long after its unit was cancelled (the official
+        // design samples cancellations per unit); with the probe firing, stop here -- already
+        // demoted pages are complete publications (copy+publish+drop all done), so returning a
+        // partial count is a safe intermediate state. ensure_ring_room's early verdict then
+        // fails the request instead of letting a cancelled unit keep burning PCIe bandwidth.
+        if (decode_cancelled()) { break; }
         if (page >= mapped) {
             if (second_pass) { break; }
             second_pass = true;
@@ -1973,35 +2202,30 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
             continue;
         }
         if (!pages.host_resident(logical)) {
-            // The content is not on the Host yet: copy it there first. The Host extent store pins
+            // The content is not on the Host yet: it joins the batch. The Host extent store pins
             // through `can_pin_source`, which requires the writer reference to be clear; an active
             // sequence keeps one on every mapped page and these pages are outside the window.
             pages.set_writer(logical, false);
-            std::vector<LogicalKVPageHandle> one{logical};
-            std::optional<HostKVExtentReservation> reserved = host_kv_extents->prepare(pages, one);
-            if (!reserved) { break; }   // Host arena full: nothing more can be moved
-            const std::vector<DeviceKVPageHandle> sources =
-                host_kv_extents->device_sources(*reserved);
-            // Copy on the compute stream so the D2H is ordered after the kernels that wrote it.
-            pages.physical_pool().copy_to_host(sources, host_kv_extents->writable_view(*reserved),
-                                               device.stream);
-            // LOCAL FIX (2026-10-02): a declined publish stops the demotion exactly like the `prepare`
-            // refusal above -- `break` skips `release_active_reference` below, so this page keeps its
-            // Device replica and its data. Never drop a replica that has no Host copy.
-            if (!host_kv_extents->publish(std::move(*reserved))) {
-                // No counter here on purpose: this function has no summary line to carry it, and the
-                // store already named the page and the reason in its own `publish declined` line.
-                break;
+            batch.push_back(logical);
+            if (batch.size() < kDemoteBatchPages) { continue; }
+            // First full batch of this call goes async (if a slot is free); everything after it
+            // completes synchronously so the caller's free-page verdict still holds on return.
+            if (async_ok && !async_slot->reservation) {
+                if (!flush_batch(batch, true)) { break; }
+                continue;
             }
+            if (!flush_batch(batch, false)) { break; }
         } else {
             // Already preserved on the Host (demoted before and then retrieved): no transfer needed.
             if (!pages.host_replica_current(logical)) { continue; }
             pages.set_writer(logical, false);
+            pages.release_active_reference(logical);
+            if (!pages.drop_device_replica(logical)) { continue; }
+            ++demoted;
         }
-        pages.release_active_reference(logical);
-        if (!pages.drop_device_replica(logical)) { continue; }
-        ++demoted;
     }
+    // Flush the trailing partial batch (scan ran out, target met, or cancellation fired).
+    (void)flush_batch(batch, false);
     return demoted;
 }
 
@@ -2314,7 +2538,12 @@ ProgramImpl::retained_device_kv_pages(const SharedPrefixHandle& shared) const no
 // early verdict inside so no caller can forget it.
 void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                                    const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
-                                   std::span<const std::uint32_t> preferred) {
+                                   std::span<const std::uint32_t> preferred,
+                                   PendingDemote* async_slot) {
+    // LOCAL FIX (挂账42 第三步 v2): retire the previous batch FIRST -- before the free-page
+    // verdict below, so its pages count as freed. The copy flew during the decode step between
+    // this call and the previous one, so the wait is expected ~0 (profile reports it).
+    if (async_slot != nullptr) { retire_pending_demote(*async_slot, pages); }
     // No-op unless the ring is active: with a pool that covers the logical context every page is
     // resident anyway, and a demotion pass would be pure overhead on the hot path.
     if (proto_kv_window_pages() == 0 ||
@@ -2345,7 +2574,8 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t free_now    = free_pages(pages);
     const std::uint32_t target_free = want_free > free_now ? want_free - free_now : 0U;
     if (target_free == 0) {
-        (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred);
+        (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred,
+                                      async_slot);
         return;
     }
     // Cold pages first: inactive addresses are pure cache, so drain them before touching this
@@ -2355,7 +2585,8 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t free_after = free_pages(pages);
     const std::uint32_t target2 = want_free > free_after ? want_free - free_after : 0U;
     const std::uint32_t freed_own =
-        demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred);
+        demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred,
+                                async_slot);
     // LOCAL FIX (B01 ring early verdict): both demotions used to have their return value dropped, so
     // a ring that could free nothing carried on into `ensure_mapped_to_tokens` and failed later --
     // as the paged-KV reservation invariant, as an engine death, or (measured 2026-10-04, community
@@ -2507,10 +2738,10 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
         // token frontier (proto_pages_for_tokens converts) and decides right here -- with these exact
         // numbers -- whether the pages this step must map can be freed at all.
         ensure_ring_room(*text_kv_addresses, *text_kv_pages, sequence.kv->text, main_tokens,
-                         preferred);
+                         preferred, pending_demote_text_.get());
         if (has_backend) {
             ensure_ring_room(*backend_kv_addresses, *backend_kv_pages, *sequence.kv->backend,
-                             backend_tokens, {});
+                             backend_tokens, {}, pending_demote_backend_.get());
         }
     }
     text_kv_addresses->ensure_mapped_to_tokens(sequence.kv->text, main_tokens, device.stream);

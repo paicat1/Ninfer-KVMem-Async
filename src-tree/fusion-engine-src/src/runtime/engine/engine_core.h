@@ -1545,9 +1545,17 @@ private:
             throw std::logic_error("prefill request has no sequence handle");
         }
         setup.finish();
+        // LOCAL FIX (挂账42/41): prefill runs the same ensure_sequence_kv_mapped chain (ring
+        // demote/restore inside), so arm the same probe for this unit's snapshot.
+        instance_.program->set_decode_cancel_probe(
+            [cancelled_at_unit_start]() {
+                for (const bool flag : cancelled_at_unit_start) { if (flag) { return true; } }
+                return false;
+            });
         ProgramCallScope program_call(*this);
         auto progress =
             instance_.program->advance_prefill(*request->sequence, &program_call.failed_timing());
+        instance_.program->set_decode_cancel_probe(nullptr);
         program_call.finish(progress.timing);
         resolve_prefill_progress(request, std::move(progress), cancelled_at_unit_start);
         // A completed prefill already re-arms admission (owner cleared above). Re-arm again when
@@ -2032,9 +2040,22 @@ private:
                           const std::array<bool, kMaximumConcurrency>& cancelled_at_unit_start) {
         nvtx::ScopedRange decode_range(nvtx::Name::Decode, nvtx::Category::Decode,
                                        static_cast<std::uint64_t>(membership.size));
+        // LOCAL FIX (挂账42/41): arm the storage-layer page-loop probe with THIS unit's
+        // cancellation snapshot (value-captured -- the probe must never observe a dangling
+        // reference after this frame returns). Loops inside demote/restore break at page
+        // boundaries when it fires.
+        instance_.program->set_decode_cancel_probe(
+            [membership, cancelled_at_unit_start]() {
+                for (const std::uint32_t lane : membership.lane_span()) {
+                    if (lane < cancelled_at_unit_start.size() &&
+                        cancelled_at_unit_start[lane]) { return true; }
+                }
+                return false;
+            });
         ProgramCallScope program_call(*this);
         auto pending = instance_.program->decode(
             membership.sequence_span(), membership.budget_span(), &program_call.failed_timing());
+        instance_.program->set_decode_cancel_probe(nullptr);
         program_call.finish(pending.execution_timing());
         commit_pending(std::move(pending), membership.lane_span(), true, cancelled_at_unit_start);
         publish_runtime_stats();

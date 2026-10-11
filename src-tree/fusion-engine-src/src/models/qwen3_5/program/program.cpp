@@ -492,6 +492,12 @@ PendingBatch Program::decode(std::span<const SequenceHandle> sequences,
     return impl_->decode(sequences, budgets, failed_timing);
 }
 
+// LOCAL FIX (挂账42/41, 2026-10-11): see program.h -- forwards the per-unit cancellation probe
+// down to the implementation so the demote/restore page loops can observe it.
+void Program::set_decode_cancel_probe(std::function<bool()> probe) {
+    impl_->set_decode_cancel_probe(std::move(probe));
+}
+
 runtime::ExecutionTiming
 Program::append_forced_tokens(std::span<const SequenceHandle> sequences,
                               std::span<const TokenId> row_major_tokens, std::uint32_t row_stride,

@@ -1440,6 +1440,17 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 **唯一存活假说**（TELE 源码复核，保留待验）：`SseTransport` 心跳/is_writable/取消机制健全（`http_transport.cpp:205-224`），取消检查点（`output.is_cancelled`，`openai_chat_http.cpp:200`）在 decode 步间——若 decode 步冻结在更深处的页操作/同步点（页漂移极端态），**检查点无法到达** → 与挂账 42 合并根因仍成立，但**未经复现证实**。
 **复现路径修正**（下次实验必做）：harness 需保证读段在中途真正停读（读段 output 上限设大 + 定时器停读，避免读完）；引擎侧以 started 行出现为请求到达判据；双端日志对时后再下结论。
 
+**§14.1 第三次复现（13:56，v3 规模修正版）——"send 阻塞"证伪，挂账 41 并入挂账 42**：
+- v3 修正三连：output 16,000（req#4 规模；SSE 全载荷 ~270KB > OS 接收缓冲 ~64KB——4K/16KB 规模物理上不可能堵）、20s 应用层真停读（socket 保持打开）、判据 A = 引擎 started 行；
+- 结果：**停读后引擎满负荷继续算**（CPU-delta 20+ s/20s）→ 16,000 token 全部生成完毕 **req#2 done**（1m34.6s）→ close 后恢复探针 **HTTP 200**——零冻结、零残留；
+- **结论**：① send 路径在干净态 16K 规模下**不阻塞**（引擎/内核缓冲吸收全部载荷）——send timeout 修复项作废；② "断开不取消"在请求已 done 后无意义；③ req#4 现场的根因唯一收敛到 **页漂移极端态下页操作深处的同步点冻结**（118K prompt vs 本实验干净态——两态差异即分界变量）——**挂账 41 正式并入挂账 42**（修复方向唯一：restore/demote 批次循环内前移取消检查点 + 页漂移根治 pin/轮界预取）；socket/心跳/超时层无病灶（TELE 源码复核 + 本实验双重确认）；
+- **方法论**：三次实验（伪象→未达引擎→规模修正证伪）——可控复现的**规模计算**必须先做（载荷 vs 缓冲），否则实验设计本身可能物理上不可能触发目标现象。
+
+**§14.2 bat 直起引擎必带六开关 + PATH（13:43-13:51 三次起服失败教训）**：
+- launcher GUI 起服经 `env_for_launch()` 注入 KVMem 六开关 + engine 目录 PATH；**手写 bat 漏掉 → 引擎拒启**：`--kv-capacity must be at least --max-context (set NINFER_KV_WINDOW=...)`——且报错被 ~900 行 help 输出淹没（grep "unknown argument" 类常规搜索扑空，真实错误行是"must be at least"句式）；
+- 修法：bat 内 `set NINFER_KV_WINDOW/SINK/RETRIEVE/RING/HOST_PAGEABLE/REUSE_HOSTBACKED` + `set PATH=engine;engine\self-built-...;%PATH%`（cublas64_13.dll 在 engine 根）；`_v1c2_resume.tmp.bat` 已固化完整版；
+- 起服 tee 用法：**参数模式** `python serve_tee.py <log> <cmd...>`（非管道模式）。
+
 ---
 
 ## 四、待续事项（挂账）
@@ -1483,8 +1494,8 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
 | 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
 | 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十八 §4，证据链经 TELE 复核补全）**：初版仅起服/文本探针（证据链断裂，TELE 审核-v32 抓出）；**12:19 补实测**——新引擎 + 无 growth + 真实图片请求（media 1）→ HTTP 200/stop/识图非空/零 scatter，销案成立；launcher 维持视觉 on（无 growth） |
-| 41 | ★**引擎缺陷：stream 挂起**（req#4 现场真实：started 永不 done + 引擎静默 + TCP Established + 重启才恢复） | ⚠️ **现场真实 / 复现未成 / 根因未定**（§14 复核定案）：两次可控复现实验均无效（04:19 伪象 + 13:04 请求未达引擎，TELE 复核抓出）；唯一存活假说 = 取消检查点在 decode 步间、页操作深处不可达（TELE 源码复核）→ 待复现证实；下次实验判据 = 引擎 started 行 + 双端日志对时 |
-| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s） | 📋 **机理已定案**（§三·十八 §2）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取策略；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |
+| 41 | ★**引擎缺陷：stream 挂起**（req#4 现场真实：started 永不 done + 引擎静默 + TCP Established + 重启才恢复） | 🔀 **并入挂账 42**（§14.1 第三次复现定案）：v3 规模修正版（16K output/270KB 载荷/20s 真停读）证伪"send 阻塞"——停读下引擎满负荷干完 16K + 恢复探针 200；根因唯一收敛 = 页漂移极端态下页操作深处同步点冻结（TELE 假说）；修复方向 = 取消检查点前移 + 页漂移根治；socket/心跳/超时层无病灶（双重确认） |
+| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s）；**+ 挂账 41 并入：页漂移极端态下页操作深处冻结（req#4）** | 📋 **机理已定案**（§三·十八 §2 + §14.1）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取 + **restore/demote 循环内前移取消检查点**（一并修 41）；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |

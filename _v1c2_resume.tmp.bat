@@ -2,6 +2,7 @@
 title ninfer-serve V1c2 resume (vision 64K, no growth, graph128)
 cd /d J:\ninfer-kvmem
 set NINFER_KV_WINDOW=32768
+set NINFER_KV_SINK=5120
 set NINFER_KV_RETRIEVE=8192
 set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1

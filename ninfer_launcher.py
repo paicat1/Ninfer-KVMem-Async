@@ -107,16 +107,21 @@ PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("python
 #   55K + 视觉（iq4nlvis + --vision-cpu）同样成功（free 490.4 MiB）。
 # ★ 用户裁决（2026-10-11）：定稿 = **51200（800 页）**——55,296 为贴边上限，次日桌面负载 +25 MiB
 #   即拒启（缺 23.6 MiB，`55k_underload_failed.log`），不可复现；51200 对其释放 55.6 MiB，日常稳定。
-#   池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。起服必须带 KV_ENV 五开关（缺 NINFER_KV_WINDOW 直接拒启）。
+#   池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。起服必须带 KV_ENV 六开关（缺 NINFER_KV_WINDOW 直接拒启）。
 #   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
 #   （--host-kv-mib 16384）；实测 20,203 tokens prompt 检索答案正确（ring retrieve restored=128）。
 KV_POOL_TOKENS = 51200
 
-# KVMem 五开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
+# KVMem 六开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
 # ⚠️ NINFER_KV_WINDOW 同时是"允许 --kv-capacity < --max-context"的开关（serve_options.cpp:1124-1132）：
 #    不设它，引擎强制要求 kv-capacity ≥ max-context 并拒绝启动（--kv-capacity must be at least --max-context）。
+# ★ NINFER_KV_SINK（2026-10-11 官方 D-01 对标，docs/13）：attention-sink 骨架页（demotion 唯一不碰的区域，
+#    context.cpp:1946/2033）。引擎默认 4 页=256 token ⇒ 老页毫无保护，多轮 replay 逐轮挤出早期上下文
+#    （页漂移，122K 会话 hidden 931 页）。官方实测 sink 0→10240 把"深层埋针取回" 221.66s => 1.4s；
+#    官方 agent 表面实测需求 2,808 token=44 页（context.cpp:2466 注释）。取 5120（80 页，RC2 同款默认）。
 KV_ENV = {
     "NINFER_KV_WINDOW":          "32768",
+    "NINFER_KV_SINK":            "5120",
     "NINFER_KV_RETRIEVE":        "8192",
     "NINFER_KV_RING":            "1",
     "NINFER_HOST_PAGEABLE":      "1",

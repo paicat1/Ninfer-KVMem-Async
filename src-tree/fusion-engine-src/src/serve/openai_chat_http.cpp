@@ -51,7 +51,12 @@ void HttpServer::handle_chat_completions(const httplib::Request& req, httplib::R
         const ninfer::GenerationObservationOptions observation{
             .phase_timings   = true,
             .live_timings    = request.stream && request.timings_per_token,
-            .prompt_progress = request.stream && request.return_progress,
+            // W4 fix (2026-10-11, per tancau 24c8ea5): prompt-progress used to be
+            // gated behind the client opt-in `return_progress`, so a streaming
+            // client that never opted in (DSH) got ZERO SSE lines during a long
+            // prefill and its idle watchdog could starve. Progress events are an
+            // additive top-level field that OpenAI-compatible clients ignore.
+            .prompt_progress = request.stream,
         };
         prepared = service_->prepare(request.generation,
                                      request.stream ? GenerationConsumerMode::Streaming
@@ -114,7 +119,10 @@ void HttpServer::handle_chat_completions(const httplib::Request& req, httplib::R
     }
 
     try {
-        const bool return_progress   = request.return_progress;
+        // W4 fix (2026-10-11): always emit prompt-progress on streams (see the
+        // observation note above); clients that never opted in still need the
+        // SSE keepalive during long prefills.
+        const bool return_progress   = request.stream;
         const bool timings_per_token = request.timings_per_token;
         auto stream                  = std::make_shared<HttpGenerationStream>(std::move(prepared));
         auto encoder = std::make_shared<OpenAIChatStream>(identity, request.include_usage,

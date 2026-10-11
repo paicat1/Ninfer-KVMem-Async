@@ -1122,6 +1122,38 @@ private:
     RankStreams transfer_streams;
     RankFenceSet context_source_ready_;
     RankFenceSet context_completion_;
+
+    // LOCAL FIX (挂账42 第三步 v2, 2026-10-11): async demote -- one pending batch per KV store
+    // (design: docs/设计-挂账42第三步-v2异步demote-20261011.md). A batch is submitted on the
+    // transfer stream and RETURNS; the next ensure_ring_room retires it (the wait is covered by
+    // the decode step in between). Declared AFTER context_completion_ on purpose: members are
+    // destroyed in reverse order, so pending batches synchronize while the fences still live.
+    struct PendingDemote {
+        ProgramImpl* owner = nullptr;
+        std::optional<HostKVExtentReservation> reservation;   // extent pin (RAII)
+        std::vector<LogicalKVPageHandle> handles;             // prepared pages
+        bool submitted = false;                               // copy queued on transfer_streams
+        explicit PendingDemote(ProgramImpl* o) noexcept : owner(o) {}
+        ~PendingDemote();                                     // abort = synchronize + release pin
+        PendingDemote(const PendingDemote&)            = delete;
+        PendingDemote& operator=(const PendingDemote&) = delete;
+        PendingDemote(PendingDemote&&)                 = delete;
+        PendingDemote& operator=(PendingDemote&&)      = delete;
+    };
+    // 2026-10-11 18:1x ROOT CAUSE of the bisect crashes: the build tree's dependency tracking did
+    // not recompile header consumers (localized /showIncludes output was not recognised), so
+    // different TUs compiled against different revisions of this header -- a layout mix that
+    // corrupts the heap at construction. Fixed by a FULL rebuild of build-1208a; every later
+    // header change in this tree must assume no header dependency tracking and rebuild fully.
+    // Heap slots (not inline members): a stable pointer indirection for the batch state.
+    std::unique_ptr<PendingDemote> pending_demote_text_ =
+        std::make_unique<PendingDemote>(this);
+    std::unique_ptr<PendingDemote> pending_demote_backend_ =
+        std::make_unique<PendingDemote>(this);
+    // Retire a pending batch: wait for its copy, publish the extent, release + drop each page.
+    // Safe at any boundary: a page that vanished (sequence gone) is skipped, and a declined
+    // publish keeps every device replica (2026-10-02 contract) -- the batch is simply retryable.
+    void retire_pending_demote(PendingDemote& slot, LogicalKVPageStore& pages);
     std::vector<TokenId> materialization_ledger_;
     qwen3_5::detail::ResidentPrefixIdentity materialization_identity_;
     qwen3_5::detail::PrefixShortlistDigests materialization_prefix_digests_;
@@ -1213,6 +1245,31 @@ private:
                                 runtime::CancellationFlagView cancellation);
 
     std::array<CudaEventTimer, 3> context_transfer_timers_;
+
+    // LOCAL FIX (挂账42/41, 2026-10-11): cancellation probe for the page-operation loops
+    // (demote_kv_pages_to_host / restore_kv_pages_from_host). The official cancellation design
+    // samples once per execution unit (engine_core.h snapshot_cancellations) and commits at
+    // worker boundaries -- a multi-page demote/restore inside ONE decode step never observes it
+    // (measured: req#4 hung at 118K prompt with the loop deep in page ops). The runtime sets a
+    // per-unit probe (value-captured snapshot) before decode/prefill; the loops break at page
+    // boundaries when it fires, so an already-cancelled unit stops burning PCIe/Host time and
+    // ensure_ring_room's existing early verdict fails the request instead of grinding on.
+    // Scope note: this rescues the "cancelled signal exists but the step cannot observe it" case.
+    // A client that NEVER disconnects (req#4: TCP Established, no signal) needs a step-level
+    // watchdog -- tracked separately (挂账43), not covered here.
+    std::function<bool()> decode_cancel_probe_;
+
+public:
+    // Runtime installs this before each decode round / prefill step (value-captured snapshot;
+    // probe must not outlive it). Null probe = never cancelled (single-shot engine paths).
+    void set_decode_cancel_probe(std::function<bool()> probe) {
+        decode_cancel_probe_ = std::move(probe);
+    }
+    [[nodiscard]] bool decode_cancelled() const {
+        return decode_cancel_probe_ != nullptr && decode_cancel_probe_();
+    }
+
+private:
 
     // Hybrid prefix cache (null in Legacy mode).
     std::unique_ptr<HybridPrefixCache> hybrid_;
@@ -1612,7 +1669,8 @@ private:
     // causal-scoring lane ask a full pool for pages with nothing left to demote.
     void ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                           const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
-                          std::span<const std::uint32_t> preferred);
+                          std::span<const std::uint32_t> preferred,
+                          PendingDemote* async_slot = nullptr);
 
     // LOCAL PROTOTYPE (KVMem-style ring): demote the oldest Device-resident pages (skipping the
     // attention sink and, on the first pass, `preferred`) until at least `target_free` Device pages
@@ -1621,7 +1679,8 @@ private:
     std::uint32_t demote_kv_pages_to_host(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                                           const KVAddressSpaceHandle& address,
                                           std::uint32_t sink_pages, std::uint32_t target_free,
-                                          std::span<const std::uint32_t> preferred);
+                                          std::span<const std::uint32_t> preferred,
+                                          PendingDemote* async_slot = nullptr);
     // LOCAL PROTOTYPE (KVMem-style ring): release Device pages held by OTHER (inactive) addresses
     // until `target_free` more Device pages are free. Inactive addresses are pure cache in ring mode
     // (reuse of a host-demoted source is declined), so their Device replicas can go without affecting

@@ -1338,6 +1338,25 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 - **恢复实操**：重启后 decode **106.6**（探针实锤）。起服参数微调：`--cuda-graph-allowance-mib 128 → 64`（桌面涨 90 MiB 后 128 不够；batch=1 下 64 等效，launcher 64k 档待同步）。
 - **失误链（CodeBuddy 如实记档）**：① bcd55cf 提交清理临时 bat，误删了还在用的 V1c 启动脚本 → "重启"开了空窗口；② READY 轮询匹配到**追加日志里的旧 listening 行** → 误报已就绪（serve_tee 追加模式教训：**就绪轮询必须用新日志文件**）；③ 二次显存差 90 MiB → graph64 补齐。
 
+### 10. ⭐ 官方早已立案此族问题 + sink 根因级缓解（D-01，一行 env）
+
+**上游 origin/main（Bonsai 线）在 s6-20261008 之后新增 15+ 提交，bug 集与本线实测逐一对应**：
+
+| 上游立案 | 本线对应实测 |
+|---|---|
+| **B34"深层历史冷取回爆炸"**（e800392） | **页漂移**（34-39 轮 → decode 3 tok/s） |
+| B35"输出租约在池<上下文档位静默截断"（2e38810） | **撞墙**（bounded completion，挂账 38 销账） |
+| B33"上下文缓存排不下 ⇒ HTTP 429"（e50e13c） | 超池排队形态（TELE 复审 #2 预判的观察项） |
+| B37"默认输出上限 8192 截断压缩摘要"（30320b8） | DSH 压缩摘要场景（headroom 65,536 的上游同款问题） |
+| B39"前缀缓存卡住不涨"（8e1e30e，issue #7） | cache replay 机制族 |
+
+**⭐ 根因级缓解 = `NINFER_KV_SINK`（docs/13 D-01）**：源码 `context.cpp:2033` `proto_kv_sink_pages()`——**StreamingLLM-style attention sink：首批页永不 demote、永远保持 selected**；`demote_kv_pages_to_host` 扫描从 `page = sink_pages` 起（L1950）——**sink 是 demotion 唯一不碰的区域**。引擎默认 **4 页 = 256 token** ⇒ 从第 257 token 起老页毫无保护 = 页漂移的机制根源。
+官方数据（docs/13 §3.1）：兄弟件 RC2 默认 **5120/5120 tokens**；**sink 0→10240 把"最深埋针取回"从 221.66 s 降到 1.4 s（158 倍）**；官方 agent 表面骨架实测需求 **2,808 token = 44 页**（context.cpp:2466 注释，实验-骨架体量实测-20261005.md）。
+
+**实施**（一行 env，官方推荐启动器层）：`NINFER_KV_SINK=5120` 进 launcher KV_ENV（五开关 → **六开关**）。验证：banner `skeleton=80`（4→80 页）✓；探针 decode **98.1**（零代价）✓。
+**待实测判定**：sink 80 页只保护头部 5,120 token，深层页漂移的缓解幅度需 DSH 34+ 轮会话复测（官方 221s→1.4s 的数据是"单点深层取回"，连续 decode 的改善幅度待量）。
+**结论修正**：不需要给官方提 issue——**官方（Bonsai 线）已系统立案且给了修法库**（docs/13 D-01..D-08 调优方向 + docs/14 P-01..P-08 可移植补丁清单 + docs/06-Bug手册）；我们对齐官方口径即可，剩余工作 = 读 docs/14 逐条移植评估。
+
 ---
 
 ## 四、待续事项（挂账）

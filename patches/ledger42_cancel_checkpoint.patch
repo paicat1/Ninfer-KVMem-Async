@@ -1,0 +1,111 @@
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/program_impl.h b/src-tree/fusion-engine-src/src/models/qwen3_5/program/program_impl.h
+index 2d4fda1..b681cae 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/program_impl.h
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/program_impl.h
+@@ -1214,6 +1214,31 @@ private:
+ 
+     std::array<CudaEventTimer, 3> context_transfer_timers_;
+ 
++    // LOCAL FIX (挂账42/41, 2026-10-11): cancellation probe for the page-operation loops
++    // (demote_kv_pages_to_host / restore_kv_pages_from_host). The official cancellation design
++    // samples once per execution unit (engine_core.h snapshot_cancellations) and commits at
++    // worker boundaries -- a multi-page demote/restore inside ONE decode step never observes it
++    // (measured: req#4 hung at 118K prompt with the loop deep in page ops). The runtime sets a
++    // per-unit probe (value-captured snapshot) before decode/prefill; the loops break at page
++    // boundaries when it fires, so an already-cancelled unit stops burning PCIe/Host time and
++    // ensure_ring_room's existing early verdict fails the request instead of grinding on.
++    // Scope note: this rescues the "cancelled signal exists but the step cannot observe it" case.
++    // A client that NEVER disconnects (req#4: TCP Established, no signal) needs a step-level
++    // watchdog -- tracked separately (挂账43), not covered here.
++    std::function<bool()> decode_cancel_probe_;
++
++public:
++    // Runtime installs this before each decode round / prefill step (value-captured snapshot;
++    // probe must not outlive it). Null probe = never cancelled (single-shot engine paths).
++    void set_decode_cancel_probe(std::function<bool()> probe) {
++        decode_cancel_probe_ = std::move(probe);
++    }
++    [[nodiscard]] bool decode_cancelled() const {
++        return decode_cancel_probe_ != nullptr && decode_cancel_probe_();
++    }
++
++private:
++
+     // Hybrid prefix cache (null in Legacy mode).
+     std::unique_ptr<HybridPrefixCache> hybrid_;
+     std::array<HybridLaneState, kMaximumConcurrency> hybrid_lanes_;
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+index a6ea68d..40f35bf 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+@@ -1625,6 +1625,11 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
+         return resident;
+     }
+     for (const std::uint32_t page : logical_pages) {
++        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
++        // loop). A partial restore is semantically safe by design -- pages that never made it
++        // back stay hidden from the mask (the "silently unreadable" contract), and a cancelled
++        // unit should stop paying H2D PCIe traffic immediately.
++        if (decode_cancelled()) { break; }
+         const LogicalKVPageHandle logical = addresses.logical_page(address, page);
+         if (!pages.valid(logical)) { continue; }
+         if (pages.device_resident(logical)) {
+@@ -1950,6 +1955,13 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+     std::uint32_t page      = sink_pages;
+     bool second_pass        = false;
+     while (demoted < target_free) {
++        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint. A multi-page demotion
++        // inside one decode step could grind on long after its unit was cancelled (the official
++        // design samples cancellations per unit); with the probe firing, stop here -- already
++        // demoted pages are complete publications (copy+publish+drop all done), so returning a
++        // partial count is a safe intermediate state. ensure_ring_room's early verdict then
++        // fails the request instead of letting a cancelled unit keep burning PCIe bandwidth.
++        if (decode_cancelled()) { break; }
+         if (page >= mapped) {
+             if (second_pass) { break; }
+             second_pass = true;
+diff --git a/src-tree/fusion-engine-src/src/runtime/engine/engine_core.h b/src-tree/fusion-engine-src/src/runtime/engine/engine_core.h
+index a393047..8953cb5 100644
+--- a/src-tree/fusion-engine-src/src/runtime/engine/engine_core.h
++++ b/src-tree/fusion-engine-src/src/runtime/engine/engine_core.h
+@@ -1545,9 +1545,17 @@ private:
+             throw std::logic_error("prefill request has no sequence handle");
+         }
+         setup.finish();
++        // LOCAL FIX (挂账42/41): prefill runs the same ensure_sequence_kv_mapped chain (ring
++        // demote/restore inside), so arm the same probe for this unit's snapshot.
++        instance_.program->set_decode_cancel_probe(
++            [cancelled_at_unit_start]() {
++                for (const bool flag : cancelled_at_unit_start) { if (flag) { return true; } }
++                return false;
++            });
+         ProgramCallScope program_call(*this);
+         auto progress =
+             instance_.program->advance_prefill(*request->sequence, &program_call.failed_timing());
++        instance_.program->set_decode_cancel_probe(nullptr);
+         program_call.finish(progress.timing);
+         resolve_prefill_progress(request, std::move(progress), cancelled_at_unit_start);
+         // A completed prefill already re-arms admission (owner cleared above). Re-arm again when
+@@ -2032,9 +2040,22 @@ private:
+                           const std::array<bool, kMaximumConcurrency>& cancelled_at_unit_start) {
+         nvtx::ScopedRange decode_range(nvtx::Name::Decode, nvtx::Category::Decode,
+                                        static_cast<std::uint64_t>(membership.size));
++        // LOCAL FIX (挂账42/41): arm the storage-layer page-loop probe with THIS unit's
++        // cancellation snapshot (value-captured -- the probe must never observe a dangling
++        // reference after this frame returns). Loops inside demote/restore break at page
++        // boundaries when it fires.
++        instance_.program->set_decode_cancel_probe(
++            [membership, cancelled_at_unit_start]() {
++                for (const std::uint32_t lane : membership.lane_span()) {
++                    if (lane < cancelled_at_unit_start.size() &&
++                        cancelled_at_unit_start[lane]) { return true; }
++                }
++                return false;
++            });
+         ProgramCallScope program_call(*this);
+         auto pending = instance_.program->decode(
+             membership.sequence_span(), membership.budget_span(), &program_call.failed_timing());
++        instance_.program->set_decode_cancel_probe(nullptr);
+         program_call.finish(pending.execution_timing());
+         commit_pending(std::move(pending), membership.lane_span(), true, cancelled_at_unit_start);
+         publish_runtime_stats();

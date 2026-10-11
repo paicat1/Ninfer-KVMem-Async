@@ -49,7 +49,7 @@ Bonsai 线的 Bonsai-2-27B 任务短、无视觉，这颗雷没机会暴露；�
 
 | 参数 | 起点 | 终点 | 方法 |
 |---|---|---|---|
-| 高速池（显存） | 40,960 | **51,200**（55K 贴边不可复现、56K 缺 17-50 MiB 实测弃案） | 逐档起服，以启动预约字节数精确定档 |
+| 高速池（显存） | 40,960 | **51,200 稳定**（55K 贴边不可复现、56K 缺 17-50 MiB 弃案；**64K 实测成功**——需 `--cuda-graph-allowance-mib 64/128` + 净 GPU，2026-10-11） | 逐档起服，以启动预约字节数精确定档 |
 | 逻辑上下文 | 128K | **256K** | 模型原生上限；池外 KV 下放 16 GiB 内存 host 环 |
 | decode | ~100 tok/s | **105-233 tok/s** | MTP 接受率（混合投机） |
 | prefill | — | 1.5-2.2k tok/s | 超池召回被流水化吸收（开销仅 8-23%，零截尾） |
@@ -62,7 +62,7 @@ Bonsai 线的 Bonsai-2-27B 任务短、无视觉，这颗雷没机会暴露；�
 | agentic 编程任务 | 思考 30 s 被砍、无限"继续" | **飞机游戏 4m33s 完整跑通（829 行，可直接玩）**、雾铃镇 3D 小镇 **1m39s** |
 | 单请求连续输出 | ~4,096（租约窗口砍断） | **16,143 token** |
 | 逻辑上下文 | 128K | **256K** |
-| 高速池（显存热 KV） | 40,960 | **51,200 稳定**（标定上限 55,296；全量 KV = 高速池 + 16 GiB host 环，两级承载 256K） |
+| 高速池（显存热 KV） | 40,960 | **51,200 稳定**（标定 55,296 贴边 / **64K 实测成功**；全量 KV = 高速池 + 16 GiB host 环，两级承载 256K） |
 | decode 速度 | ~100 tok/s | **105-233 tok/s** |
 | 视觉 | 无 | **识图 26.9 s**（CPU 编码零显存） |
 
@@ -108,7 +108,7 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 
 客户端：任何 OpenAI 兼容工具；DSH 接入示例见 `docs/教程-KVMem与短测-给agent与使用者.md` 与构建史（provider 配置含 `streamIdleTimeoutMs: 3600000`）。
 
-## 仓库结构（诚实的 overlay 定位）
+## 仓库结构
 
 本库**不是**自包含的引擎发行包，而是"**上游引擎源码 + 本线全部工作产物**"的工作区叠加层：
 
@@ -139,7 +139,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
                  → mtp-iq4nl.vision.ninfer（13.57 GB，视觉主力）
 ```
 
-## 上游谱系（谁是谁，禁用"官方"统称）
+## 上游仓库
 
 ```
 【我方家族】GitHub 用户 paicat1，三仓逐代迭代（README 开篇三仓表）
@@ -160,17 +160,15 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
             思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、
             视觉塔嫁接、256K 逻辑上下文；Qwen 4 27B（Bonsai/NInfer 格式）着陆预备
 
-【外部上游】（输入源，非权威；回馈对象）
-  Bonsai 线 1314521gjy/ninfer-fusion-kvmem（引擎源码出处；本线 s6-20261008 @3b9dc837
+【上游】
+  1314521gjy/ninfer-fusion-kvmem（引擎源码出处；本线 s6-20261008 @3b9dc837
   → 自编 self-built-20261008；落后其 main 23 提交）
-  tancau/ninfer-kvmem-ring（环算法）＋ kvmem/kvmem-qw3（策略层）→ 已并入 Bonsai 线
-  NInfer 始祖：Neroued/ninfer → ashalliants/ninfer-3090（0.11.0-rtx3090）→ iamwavecut/ninfer-all
-  兄弟件：kvmem/kvmem-llama.cpp（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
+  tancau/ninfer-kvmem-ring（环算法）＋ kvmem/kvmem-qw3（策略层）→ 已并入该仓
+  NInfer 基座：Neroued/ninfer → ashalliants/ninfer-3090（0.11.0-rtx3090）→ iamwavecut/ninfer-all
+  兄弟仓：kvmem/kvmem-llama.cpp（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
 ```
 
-- **指代纪律**：禁用"官方"统称——必须点名：**Bonsai 线**（直接上游，唯一活跃跟踪对象）/ **兄弟件 RC2**（平级参照，看调优默认值与 issues）/ **NInfer 原始仓**（基座）/ **tancau 环线**、**qw3 策略层**（算法语义）；
-- **跟踪纪律**：大排查前先 `git fetch` Bonsai 线翻 `docs/06-Bug手册` 新条目（我们踩的坑大多已被其立案：B34=页漂移、B35=撞墙、B37=压缩摘要）；调优对照 `docs/13`（D-01..D-08）；修法对照 `docs/14`（P-01..P-08，**先对照我方 `5b07bc1`/`a25012b`/`3b9dc83` 去重**）；**永不盲目 merge**，吸收走 cherry-pick 评审制（详见 `docs/上游谱系与跟踪纪律-20261011.md`）；
-- **落后快照（2026-10-11）**：落后 23 提交，已读其核心（B33-B39 病历 + 两份修法文档），引擎树变更以 tests 为主，s6 定稿基线保持。
+- 上游 23 个新提交已逐条评审（构建史 §12）：无引擎行为级变更；B34=页漂移、B35=撞墙、B37=压缩摘要截断已各自对应本线修复或规避；吸收走 cherry-pick（详见 `docs/上游谱系与跟踪纪律-20261011.md`）。
 
 ## 从零复现指南
 
@@ -180,8 +178,9 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
    ```bat
    git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git
    cd ninfer-fusion-kvmem
-   git checkout s6-20261008        # 3b9dc83 —— 本线基线
+   git checkout engine-v0.11.0-kvmem-20261008   # 2852f6f9 —— 上游 tag（本线 fork-point）
    ```
+   ⚠️ **复现性缺口**：本线基线 s6-20261008 @ `3b9dc83` = 上游 tag + **3 个本地提交**（`5b07bc1` MSVC 编译修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE）+ W1-W4 patch——**这 3 个提交尚未整理进 `patches/`**（待办）；复现引擎行为请以 `build/` 构建脚本 + `patches/` 现有内容为准。
    放置为 `official-repo/ninfer-fusion-kvmem/`。
    **免构建替代**：发放包（沈三殊分发，`refs/01-沈三殊-发放包/00-先读我-总纲.md` 有完整说明）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；模型从同层 `01-模型下载清单（推荐链接）.md` 下载（含地址/体积/sha256/加速法）；
 2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；
@@ -194,7 +193,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 ## 关键工程结论（全部实测，踩坑沉淀）
 
 - **`--kv-lease-growth` 是撞墙根因**：深超池构型（高速池 49-55K ≪ 逻辑 256K）下租约窗口（~4,096 tok）无法扩充时输出被砍（bounded completion，`finish_reason=length`）——超池构型要保住输出**不要开它**（融合引擎上游 README 第 218 行同口径）。已从定稿移除，撞墙清零（两轮 DSH agentic 实测：16,143/11,782 tok 连续输出零截断）。
-- **池标定**：57,344 ✗（缺 17-50 MiB 随桌面负载波动）/ 55,296 贴边不可复现 / **51,200 稳定**。贴边池的余量以"启动瞬间的 WDDM 可驱逐量"为准，逐日波动。
+- **池标定**：57,344 ✗（缺 17-50 MiB 随桌面负载波动）/ 55,296 贴边不可复现 / **51,200 稳定**；**65,536 实测成功**（2026-10-11，需 `--cuda-graph-allowance-mib 64~128` + 桌面 ≤~1.0 GiB——WDDM 归还不即时，逐日波动）。
 - **挂账 39（已销案，2026-10-11）**：视觉请求 + 无 growth 曾触发 `scatter.cpp:18` 断言（HTTP 500）——现役引擎已不复现（V1b/V1c 实测）；视觉统一 hemostat=on（无 growth），growth 已退出所有路径。
 - **KVMem 环 = 单并发**：环无法回收另一 lane 的设备页，`--max-concurrency >1` 启动即拒——**并发与 256K 深度/检索互斥**。
 - **W1-W4 已修**（思考预算熔断三连缺陷 + 流式保活），patch 与四重验收见 `patches/`。
@@ -247,14 +246,22 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 - **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v32 完整历程（每个决策的证据链），**先读这个**；
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；
 - `docs/审核-*.md` ×8 —— TeleAgent 与 CodeBuddy 双向交叉审核记录；
-- `docs/调研-*.md` ×4 —— tancau 同源引擎对比、撞墙机制、目标路径；
+- `docs/调研-*.md` ×3 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 
 ## 致谢
 
-- **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— 本线今天解决的核心问题全部以其同源引擎的公开修复与实测为参照：思考预算熔断三连缺陷（W1-W3）的修法来源、KV 租约撞墙（bounded completion）的对照定案、`ensure_sequence_kv_mapped` 调用点与语义的核对基准。没有这份先行工作，W1-W4 的修复与撞墙定位不会有这么快的收敛。
+**贡献归属（详见构建史）**：
+
+- **Neroued/ninfer** —— NInfer 引擎基座（本仓引擎的始祖）。
+- **[1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)** —— 融合引擎源码（本线引擎 `self-built-20261008` 的直接出处）；KVMem 环 + host-backed checkpoint 的引擎层实现（含 `ensure_sequence_kv_mapped` 等核心机制——**这些是融合引擎的工作，不是 tancau 提供**）；Bug 手册 B33-B39 病历与 docs/13/14 修法库。
+- **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— KVMem 环算法的原始实现（并入融合引擎）；**本线 W1-W4 修复的 diff 参照**（思考熔断三连缺陷的修法样板）；环复用深度/召回边界/decode 墙的作者级结论（brief，本线页漂移定位的重要参照）。
+- **kvmem/kvmem-qw3（Di Chai）** —— 检索策略层算法（并入融合引擎）。
+- **kvmem/kvmem-llama.cpp（wangleye）** —— 兄弟件整合包：调优默认值对照（D-01..D-08 的来源）、issue #114 修法线索。
 - **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
-- **Neroued / 1314521gjy / nerkyor（ModelScope: Merkyor）** —— NInfer 引擎、融合引擎与模型上游。
+- **Merkyor / nerkyor** —— 模型权重（Coder390-EfficientThink 系 NInfer 容器，含内置视觉塔）。
+
+**本线自有工作**（构建史 §一至§十七）：Qwen3.8-27B 上车路径（自转 MTP 头 + 视觉嫁接）、W1-W4 patch 施工与四重验收、growth 撞墙取证与定案、页漂移/sequence 重建风暴/stream 挂起三类形态的发现与实测、池标定（51,200/64K/graph64）、DSH 联调（压缩触发调参、maxTokens 封顶）、A/B 方法论与探针脚本。前两仓血缘见开篇三仓表。
 
 ## License 与上游
 

@@ -1330,6 +1330,14 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 - ⚠️ 顺带发现：`qwen3.8-27b128k` 条目 `contextWindow: 131077`（L75）为 typo（应为 131,072），非现役条目未动。
 - ⚠️ 页漂移引擎侧根治（pin/轮界预取）仍立项（挂账 42）——DSH 压缩只保护 DSH 客户端。
 
+### 9. sequence 重建风暴（新形态 #3）+ 恢复实操 + 起服失误链（如实记档）
+
+- **手动压缩后仍个位数 decode**（用户实测）：req#50 prompt **10,591**（压缩生效，97K→10.6K，不超池！）却 prefill 49.9（25 倍慢）/ decode 3.5 / TTFT 3m32s；req#51 prefill 30（**host 498%**）→ decode 0.4-3.8。
+- **根因**：multi-turn sequence 跨请求存活（cache replay 基础）；压缩改写 messages 前缀 → replay 失配（cache 0.0%）→ 引擎在 **1,946 页老 sequence**（span 纹丝不动、hidden 931）上回退/重建，清理/重映射**不流水化** → host 线程组爆炸 → 全瘫。**压缩后第一轮必中**；唯一恢复手段 = 重启引擎（sequence 状态清空）。
+- **挂账 42 底座升级**：sequence/页生命周期管理（释放异步化 + rewind 批量化 + 漂移页 pin）——比单点修复更系统，证据链齐备（`serve_20261011_v1c_rewind_storm_evidence.log`）。
+- **恢复实操**：重启后 decode **106.6**（探针实锤）。起服参数微调：`--cuda-graph-allowance-mib 128 → 64`（桌面涨 90 MiB 后 128 不够；batch=1 下 64 等效，launcher 64k 档待同步）。
+- **失误链（CodeBuddy 如实记档）**：① bcd55cf 提交清理临时 bat，误删了还在用的 V1c 启动脚本 → "重启"开了空窗口；② READY 轮询匹配到**追加日志里的旧 listening 行** → 误报已就绪（serve_tee 追加模式教训：**就绪轮询必须用新日志文件**）；③ 二次显存差 90 MiB → graph64 补齐。
+
 ---
 
 ## 四、待续事项（挂账）

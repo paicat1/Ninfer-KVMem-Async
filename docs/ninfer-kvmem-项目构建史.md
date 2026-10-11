@@ -40,6 +40,7 @@
 | 2026-10-10 | v29 | **本机 DSH 实证**（§三·十四，补两篇 H 盘文档审核的不可复核项）：本机 DSH 是 **Tauri**（非 Electron/asar，v0.11.0），主逻辑明文在 `.dsh\profiles\core-017\node_modules\@deepseek-ai\*`；H 盘文档四项机制声称**逐字/机制实锤**（DEFAULT_MAX_TOKENS=32768、idleWatchdog 逐次重装、"已达到输出 token 上限"+"继续"文案、thinkingTokenBudgetField 未设）；⭐ **ninfer 活配置**（cordis.patch.yml：18787/v1、maxOutputTokens 32768 > tb 16000）⇒ ~~撞墙定案分支 B~~（**⚠️ 此结论已由 v30 勘误**，见 §三·十五）；挂账 37：DSH 临时止血**待 TELE 研究后实施**（前置：pi-ai 适配器预算值来源未确认）；工具 `refs/_tools/search_dsh_strings.cjs` 入库 |
 | 2026-10-10 | v30 | **勘误 + 交叉审核**（§三·十五）：**自纠 v29 两处错误**（① "分支 B→W1/W2 主嫌"漏了思考 token 计入输出——输出在 ~4,096 被租约窗口先砍，思考到不了 tb，W1/W2 无机会触发；② "logs/ 无撞墙样本"未查凌晨 00-02 六份主运行）；**挂账 37 改判**（对本墙无效）；**TELE 撞墙定案（`--kv-lease-growth` bounded completion）交叉审核证实**——凌晨日志 req#8/32/38 墙位 4,060/4,070/4,071 逐字、22 次 output-limit 中 15 次落 ~4,096 带、README:218（347ca35）/paged-kv-cache.md:432-439/账本 L83/116/177/198 全部逐字、5 启动器全开；对 TELE 报告 5 条修正（⭐建议 #1 必须捆绑压 DSH maxTokens≈20,000，因非 growth= prompt+输出全额预留 `request_plan.cpp:262-266`）；挂账 38：A/B 验证待用户起服；**收入 TeleAgent 审核报告**（署名 TeleAgent，经 CodeBuddy 交叉审核入库） |
 | 2026-10-11 | v31 | **A 臂闭环 + 池标定 + 视觉三合一 + 挂账 39**（§三·十六）：**挂账 38 完成销账**（TELE 复核三问定案、4 处数字修正按修正版入库——"会话期 retrieve 0 条"实为 115 条全部常驻零截尾）；DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、非墙形态 0 次）；**池上限标定 55,296**（64K 缺 378 MiB / 56K 差 17.3 MiB），定稿池 40960→55296（launcher `501e942` 冒烟全绿）；**55K+视觉三合一**（识图 26.9s 成功）；★**挂账 39**：非 growth×视觉 token scatter 断言（HTTP 500，recover 兜住；规避=视觉用 legacy 档，launcher 预设内嵌+validate 告警）；streamIdleTimeoutMs=3600000 写入 patch 层（升级安全，备份留存）；视觉塔精度四问（q4/q5 混合为 CPU 最优，38%+43% 占比实测）；KV 五开关教训（缺 NINFER_KV_WINDOW 拒启）；探针脚本 `test_ab_arm1.py`/`probe_recall.py` 入库 |
+| 2026-10-11 | v32 | **CodeBuddy 自主实验夜**（§三·十七，用户睡觉全权授权）：① 64K 池标定成功（WDDM 滴流 + `--cuda-graph-allowance-mib 128` 压 graph 预算，decode 101.1 零代价；视觉+64K 亦成）；② ⭐**掉速机理定案 = 长会话页漂移**（34 轮 replay 把 ~330 页早期上下文挤出设备池 → decode 每 token host 往返 = 3 tok/s；三组对照实验证明"深超池"本身不掉速 134/126/134，是**轮数**触发；挂账 42）；③ ⭐**stream 挂起双重缺陷**（停读 → send 阻塞；断开 → 也不恢复 = 服务不可用直到重启；挂账 41 P1）；④ **挂账 39 销案**（V1b/V1c 实测 scatter 断言已不存在，launcher 三处联动更新，growth 彻底退出所有路径）；⑤ DSH maxTokens → 24,000（备份先行，生效待 DSH 重启）；⑥ 终极配置 V1c 定稿：vision + 64K + on + graph128 |
 
 ---
 
@@ -1276,6 +1277,51 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 
 **⚠️ push 假成功教训（TELE 复核抓出）**：`smart_push.ps1` 在工作区有未跟踪文件时**拒推且 exit 0**（输出"Commit first, then rerun"，无 FAIL 字样）——4ee93c8 起 13 个提交滞留本地（006cb2a/f12ee6d 等），靠 `git status -sb` 的 ahead 计数才发现。**push 成功的唯一判据 = push 后 `git status -sb` 显示 ahead 0**；grep 'PUSH OK' 不可靠（拒绝分支根本不含该词）。已删临时 bat 后真推（97f5214..3a08ebb）。
 
+## 三·十七、2026-10-11 04:00-04:30 · CodeBuddy 自主实验夜（用户睡觉全权授权）：64K 池标定成功 + 掉速机理定案（页漂移）+ stream 挂起双重缺陷 + 挂账 39 销案
+
+### 1. 64K 池标定成功（补 §三·十六 的"65,536 缺 378 MiB"结论——条件变了）
+
+三步过线：① 用户腾桌面（1,270 → 704 MiB）；② 发现 **WDDM 显存归还不即时**（腾 542 MiB，available 只 +100，滴流 ~36 MiB/30s）；③ **压 `--cuda-graph-allowance-mib 128`**（需求侧砍 128 MiB）→ 25 秒 READY，余量 750 MiB。
+**探针验证**：decode **101.1 tok/s**（基线 101-104，**graph128 零性能代价**——batch=1 只用 batch1 图）；output 4,197 越过旧墙带 finish=stop；**视觉+64K 同样成功**（free 552 MiB，decode 108.2）。
+⚠️ 起服须桌面 ≤ ~1.0 GiB；`--mtp-spec-draft-tokens` 是**不存在的参数**（正确为 `--spec mtp --draft-tokens 4`，探针试错留证 `serve_20261011_ab_a2_fail_usage.log`）。
+
+### 2. ⭐ 掉速机理定案 = 长会话"页漂移"（推翻"深超池 = decode 灾难"的普遍化结论）
+
+| 对照实验（`scripts/test_multiturn_overflow.py` 等） | 配置 | 超池深度 | decode |
+|---|---|---|---|
+| 单轮深超池 | 标准件 + 64K 池 | 246 页（81,264 tok） | **134.5** ✓ |
+| 多轮 + cache replay | 标准件 + 64K 池 | 101 页（72K） | **125.8** ✓ |
+| V1a 完全复刻昨晚 | **vision + 51,200 + growth** | 327 页（72K） | **134.0** ✓ |
+| 昨晚掉速现场（req#34，34 轮） | vision + 51,200 + growth | ~150-330 页 | **3 tok/s** ✗ |
+
+**判别特征**：decode 期 `mask hidden` 页数——不掉速组 hidden ≤ 17；掉速组 **稳定 329-334 页**（每步 attend 需 330 页在 host → 每 token host 往返 → host 98-101%）。
+**机理**：每轮 cache replay（99.9% 命中）重新映射历史页，把**最早的页逐渐挤出设备池**；34 轮后 ~330 页早期上下文滞留 host。**不是"prompt > 池"触发（V1a 超池更深却正常），是"会话轮数"触发**。
+⇒ **"定期新开会话"是机制必需**（不只是纪律）；池大小只延缓（64K 比 51K 多撑 ~8 轮）；根治 = 引擎侧 pin/预取策略（**挂账 42**）。残余变量（xhigh 思考模式、68 messages、DSH 流特征）待 TELE 白天对查 DSH session。
+
+### 3. ⭐ stream 挂起双重缺陷（**挂账 41**，`scripts/test_stream_stall.py` 可控复现）
+
+客户端**停止读**（socket 不关）→ 引擎 decode 线程阻塞在同步 send → CPU 0 / GPU idle / 日志静默（20 秒内冻结）；**客户端关闭连接后引擎仍不恢复**（CPU 持续冻结，请求永占并发槽）——`max-concurrency 1` 下 = **整个服务不可用直到进程重启**。与 W1-W5 完全不同的第 6 类缺陷（P1）：**无 send 超时 + 无断开检测/取消**。判据签名：CPU 双采样 delta=0 + GPU idle + TCP Established + 日志静默。昨晚"思维断链"（req#4 挂死）即此形态。
+
+### 4. 挂账 39 销案：视觉 × 无 growth 的 scatter 断言已不存在
+
+V1b（vision + 51,200 + hemostat=on）起服成功；V1c（**vision + 64K + on + graph128**）全功能验证（decode 108.2）——`scatter.cpp:18` 断言在现役引擎 3b9dc83 不复现。**launcher 三处联动全部更新**（validate 告警移除 / `_apply_model_coupling` 强制 legacy 逻辑删除 / 视觉预设 legacy→on）⇒ **growth 彻底退出所有路径**。
+
+### 5. DSH maxTokens 65,536 → 24,000（core-020，用户睡前已批"改"）
+
+ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-pre-maxtok24k`。语义：单轮输出封顶 24K（实测单轮峰值 23,260 刚好覆盖）⇒ prompt ≤ 41,536 时 decode 期永不超池，把"超池慢速"从单轮维度锁死（页漂移仍需会话纪律/挂账 42 根治）。**生效待 DSH 重启**（改配置不影响运行中的 DSH）。
+
+### 6. 终极配置定稿（引擎留跑中，用户醒来即用）
+
+**V1c = vision + 64K 池 + hemostat on（无 growth）+ graph128**：视觉可用、会话容忍 64K、无撞墙、无 graph 性能损失——launcher 预设"视觉 64K（需净GPU·graph128）"/"大池 64K（需净GPU·graph128）"已入库。
+
+### 7. 实机验证（2026-10-11 09:00-10:00，用户 DSH 实测，V1c 引擎）：三定一再现
+
+- **撞墙保持清零**：42 请求（含 35-39 轮 agentic 大会话，prompt 一路涨到 **118,024**）**零 output-limit 截断**；req#40 输出 16,304 一气呵成（2m27s）。
+- **maxTokens 24K 生效实锤**：started 行 `max output 24,000`（DSH 重启后 yml 生效）。
+- **稳定性**：vision + 64K + 无 growth 连跑 5.5h+，无真 ERROR（15 条"ERROR"计数系 grep 误计，实为 prompt exceeds WARNING）。
+- **⚠️ 页漂移第二次独立实证**：req#42（39 轮、prompt 118K = 1,844 页 vs 池 1,024）decode 2-12 tok/s + host 98-110%——与昨晚 34 轮形态逐字同款；64K 池把临界轮数 28 → ~38（**只延缓未根治**，坐实挂账 42 根治方向 = 引擎早期页 pin/预取）。
+- **README 新增"已解决问题档案"章节**（13 项闭环：问题→现象→根因→方案→验证）+ 挂账 39 口径同步。
+
 ---
 
 ## 四、待续事项（挂账）
@@ -1318,7 +1364,9 @@ q4_g64_fp16 43.4% + q5_g64_fp16 38.0% + q8_g32_fp16 16.1% + q6 0.5% + bf16 2.1% 
 | 36 | `--default-thinking-budget` 是否占显存 | ✅ 已取证（§三·十二）：**不占**（纯行为控制参数；全树 27 处命中无一用于资源分配） |
 | 37 | **DSH 临时止血**（cordis.patch.yml 加 `thinkingTokenBudgetField`） | 🔄 **改判（§三·十五 §3）**：对本墙（引擎租约 bounded completion）**无效**——tb 全试过墙位不变；仅对租约修复后的"思考墙"（W1/W2）场景有意义；前置（pi-ai 值来源）仍未确认 |
 | 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
-| 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | 📋 **已定性 + 已规避**（§三·十六 §4）：growth ON 视觉正常（v28+本次识图）；recover-invariant 兜住引擎。规避 = 视觉场景用 legacy 档（launcher 视觉预设已内嵌 + validate 告警）。**根修待引擎施工批**（与 W1-W5 同批或单独） |
+| 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十七 §4）**：V1b/V1c 实测断言在现役引擎 3b9dc83 不复现；launcher 三处联动已更新，视觉统一 on（无 growth） |
+| 41 | ★**引擎缺陷：stream 阻塞挂起 + 断开不取消**（双缺陷，P1） | 📋 **已定性可复现**（§三·十七 §3）：客户端停读 → send 阻塞无超时；关闭连接 → 引擎仍不恢复，请求永占并发槽（max-concurrency 1 = 服务不可用直到重启）。判据签名齐备（CPU 0/GPU idle/日志静默）。修复方向：send timeout + 断开检测取消 |
+| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s） | 📋 **机理已定案**（§三·十七 §2）：缓解 = 定期新开会话（机制必需）+ 池扩容（延缓）；根治 = 引擎侧 pin/预取策略；残余变量（xhigh/messages 数/DSH 流）待 TELE 对查 session |：growth ON 视觉正常（v28+本次识图）；recover-invariant 兜住引擎。规避 = 视觉场景用 legacy 档（launcher 视觉预设已内嵌 + validate 告警）。**根修待引擎施工批**（与 W1-W5 同批或单独） |
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |
 | 19 | **ngram 实测**（本线第三目标） | 🔶 **已备好，待起服执行**（2026-10-10）：★**ngram 本来就默认开着** —— `product/speculative_options.h:32-41`：只要 `--spec` 非 none，`ngram_draft_tokens` 默认 **15**（"copy drafting rides along with every drafter"）⇒ 此前的 MTP 读数**已含 ngram 贡献**。要测净贡献须跑对照臂 `start-coder390-mtp-nongram.bat`（`--ngram-draft-tokens 0`）。测试脚本 `scripts\bench_spec.py` 已就绪并用真实日志验证过 |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |

@@ -161,7 +161,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 - **`--kv-lease-growth` 是撞墙根因**：深超池构型（高速池 49-55K ≪ 逻辑 256K）下租约窗口（~4,096 tok）无法扩充时输出被砍（bounded completion，`finish_reason=length`）——超池构型要保住输出**不要开它**（融合引擎上游 README 第 218 行同口径）。已从定稿移除，撞墙清零（两轮 DSH agentic 实测：16,143/11,782 tok 连续输出零截断）。
 - **池标定**：57,344 ✗（缺 17-50 MiB 随桌面负载波动）/ 55,296 贴边不可复现 / **51,200 稳定**。贴边池的余量以"启动瞬间的 WDDM 可驱逐量"为准，逐日波动。
-- **挂账 39**：视觉请求 + 无 growth → `scatter.cpp:18` 断言（HTTP 500；`--recover-invariant-failures` 兜住引擎）。**视觉场景保持 growth ON**（视觉输出短，碰不到 4,096 墙）。
+- **挂账 39（已销案，2026-10-11）**：视觉请求 + 无 growth 曾触发 `scatter.cpp:18` 断言（HTTP 500）——现役引擎已不复现（V1b/V1c 实测）；视觉统一 hemostat=on（无 growth），growth 已退出所有路径。
 - **KVMem 环 = 单并发**：环无法回收另一 lane 的设备页，`--max-concurrency >1` 启动即拒——**并发与 256K 深度/检索互斥**。
 - **W1-W4 已修**（思考预算熔断三连缺陷 + 流式保活），patch 与四重验收见 `patches/`。
 - **超池口径（B28）**：超池 prompt 的中段答案按"未核实"对待——`NINFER_KV_RETRIEVE` 检索开关是保命符。
@@ -178,6 +178,28 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 🎯 **设计目标** | **Qwen 4 27B 的 Bonsai 格式与 NInfer 格式** | 本仓的池/环/检索/加工链就是为下一代模型着陆预备的：容器一到，重跑加工脚本即可上车 |
 
 > 加工链与容器解耦：换任何 NInfer 容器，只需重跑 `recode_mtp.py`（MTP 头自转）与 `graft_vision.py`（视觉嫁接）两个脚本——参数与验收探针全部现成。
+
+## 已解决问题档案（按时间序）
+
+> 每行都是一次真实踩坑的完整闭环：问题 → 现象 → 根因 → 解决 → 验证。证据链详见 `docs/ninfer-kvmem-项目构建史.md`。
+
+| # | 问题 | 现象 | 根因 | 解决方案 | 测试与验证 |
+|---|---|---|---|---|---|
+| 1 | 27B 大模型上车 | MTP 头格式引擎不兼容，无法加载 | 官方容器 MTP 头为 gguf_q4_0（引擎不支持） | `recode_mtp.py` 自转 MTP 头为 iq4_nl（小 202 MB） | decode 105 tok/s；SHA-256 骨架 804 对象零不匹配 |
+| 2 | 视觉塔缺位 | 基础件无视觉能力 | 视觉塔未随容器发放 | `graft_vision.py` 整体嫁接 282 MiB 视觉塔（q4/q5 混合，CPU 编码最优配比） | 真实识图成功（"条纹渐变+同心圆环"）；modalities.vision=true |
+| 3 | worker 崩溃不自愈（B01） | 超池+大输出请求 → worker 崩/进程静默退出，后续请求全挂 | 租约预留失败路径无兜底 | `--recover-invariant-failures`：出问题只废当前请求 | 深超池探针引擎存活、请求级失败 |
+| 4 | E5 growth 止血旗反杀（**DSH 撞墙**） | 输出总在 ~4,037-4,071 被砍（"30 秒墙"），DSH 显示"已达输出上限"+"继续"死循环 | `--kv-lease-growth` 深超池下租约窗口（~4,096）无法扩充 → bounded completion（finish=length）——**是截断不是限速**，与 max_tokens/tb 均无关 | **去 growth**（官方 README:218 同口径）；A/B 实测定案 | 撞墙清零：两轮 DSH agentic 16,143/11,782 tok 零截断；22 次墙位截断 → 0 |
+| 5 | 思考墙死循环 | xhigh 思考烧光输出预算 → 空正文 | 思考 token 计入输出预算（包含关系） | `--default-thinking-budget 16000`；引擎 S3 起 OpenAI 端点解析 per-request `thinking_budget`（请求值优先） | 中档思考正常收尾；探针 medium 2-4K 自然 stop |
+| 6 | W1-W4 保险丝/保活缺陷 | 越预算 throw、熔断 `==` 永不触发、交接拒绝、progress 被门控（DSH watchdog 误杀风险） | 引擎防御路径三连缺陷 + 流式空 choice | patch 修复（`patches/W1-W4_engine_fix.patch`，W2/W3 先于 W1 验收） | 四重验收（构建史施工批） |
+| 7 | 视觉塔闪退循环 | 开视觉起服 → `missing component vision` 四连拒启 | 模型件（iq4nl）无 vision 组件，与视觉开关配对错误 | launcher 联动：开视觉自动切 iq4nlvis 嫁接件 | 联动后起服成功；validate 告警防手改 |
+| 8 | KV 五开关缺一静默答错 | 缺任何一个：起得来、缓存命中率高、**中段答错、零报错** | KVMem 环/检索/window 开关缺一即静默退化 | launcher 固定注入 `KV_ENV` 五开关（含 `NINFER_KV_WINDOW`——缺它直接拒启） | 20,203 tok 超池 prompt 检索答案正确（restored=128） |
+| 9 | 挂账 39：视觉 × 无 growth | 视觉请求 HTTP 500（`scatter.cpp:18` 断言） | 引擎旧版 scatter 路径缺陷 | 引擎更新后不复现；launcher 三处联动撤除（视觉统一 on） | V1b/V1c 起服 + decode 108.2 功能验证，销案 |
+| 10 | 池标定与 64K 起服 | 65,536 池差 213 MiB 拒启；腾显存后仍差 149（WDDM 归还不即时，滴流 ~36 MiB/30s） | runtime 预留（CUDA Graph 驱动态）按 profile 自动算偏大 | `--cuda-graph-allowance-mib 128` 压 graph 预算补缺口 | 64K 起服 25s；decode 101.1（基线 101-104，**零代价**）；launcher 64k 档已绑该参数 |
+| 11 | DSH maxTokens 全额预留 | 单请求 prompt+输出全额预留，65,536 输出上限放大超池面 | 思考计入输出 + DSH 默认 65,536 | DSH `maxTokens` → 24,000（单轮封顶；prompt ≤41,536 时 decode 期永不超池） | 生效验证：实机 started 行 `max output 24,000` |
+| 12 | 长会话"页漂移"降速 | 34-39 轮 agentic 会话后 decode 从 122 → 3 tok/s，host 占用 98-110% | cache replay 逐轮重映射历史页，**最早页被逐渐挤出设备池**（34 轮后 ~330 页滞留 host → decode 每 token host 往返）——是**轮数**触发，与超池深度无关（三组对照：81K/72K/72K 全不掉速 134/126/134） | 缓解：定期新开会话（机制必需）+ 池扩容（28→~38 轮才触发）+ maxTokens 封顶；根治 = 引擎早期页 pin/预取（挂账 42，待修） | 机理两次独立实证（hidden 页判别：不掉速 ≤17 vs 掉速 329-334） |
+| 13 | stream 挂起（挂账 41，**待修**） | 客户端停止读/断开 → 引擎请求永占并发槽（max-concurrency 1 = 服务不可用直到重启） | decode 线程阻塞在同步 send：无超时 + 无断开检测取消 | 已定性可复现（`scripts/test_stream_stall.py`）；修复方向 = send timeout + 断开取消 | 判据签名齐备：CPU delta=0 / GPU idle / TCP Established / 日志静默 |
+
+> **未解决事项**（与上表闭环对照）：挂账 41（stream 挂起引擎侧修复）、挂账 42（页漂移引擎侧根治）、超池中段正确性依赖检索开关（下节"已知限制"）、W5（KV 池自噬，待实测）。
 
 ## 已知限制
 

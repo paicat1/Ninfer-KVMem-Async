@@ -6,7 +6,7 @@ param(
     [switch]$Restart
 )
 $ErrorActionPreference = 'Stop'
-$target = 'J:\ninfer-kvmem\engine\self-built-20261008\infer-serve.exe'
+$target = 'J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe'
 $logDir = 'J:\ninfer-kvmem\engine\self-built-20261008\_deploy_log'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 

@@ -1453,6 +1453,55 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ---
 
+## 三·十九、2026-10-11 14:35-21:10 · ★★ 挂账 42 全链施工 + 挂账 44 定案 —— 异步页流水（v2）实机验证重大突破
+
+### 0. 一句话
+
+**超池（>64K 池）解码从"页漂移深谷个位数 tok/s"到"全速无感"**：用户实机多轮会话（62-67.5K prompt）decode **103-195 tok/s**（此前同区 4-6 tok/s，**提升 20-40 倍**），连续 10+ 轮零降速（此前第二轮即掉个位数）。机制 = **页搬运（D2H/H2D）与 decode kernel 流水并行**（批量攒页 + transfer stream 异步提交 + 下一步收割），decode 永不等页。
+
+### 1. 施工三连（挂账 42 全链 + 44 定案）
+
+| 步 | 内容 | patch | 时间 |
+|---|---|---|---|
+| 第一步 | **取消检查点前移**：`demote_kv_pages_to_host`/`restore_kv_pages_from_host` 循环内页边界 `decode_cancelled()` break + `ProgramImpl` 谓词成员 + `engine_core.h` 按单元快照 set/clear（TELE 锚点核对通过） | `ledger42_cancel_checkpoint.patch` | 14:35 |
+| 第二步 | **批量 demote**：`kDemoteBatchPages=8`——单 extent 覆盖整批（一次 arena 分配），碎片化自动降级逐页；拷贝仍在 compute stream | `ledger42_batch_demote.patch` | 15:43 |
+| 44 | **demote 路径 profile 定案**：真凶 = **compute stream 同步 D2H**（慢峰 3.4-7.8ms/批，快慢双峰分布 10-20 倍差距；页账本/arena/发布全无罪） | `ledger44_demote_profile.patch` | 17:39 |
+| 第三步 v2 | **异步 demote**：`PendingDemote` 槽（每 KV store 一，heap 间接稳定指针）——首批满批 copy 提交 **transfer_streams**（capture.cpp 先例：先排序在所有已入队 compute 写之后）后**立即返回**；下一步 `ensure_ring_room` **先收割**（wait copy ≈0ms——等待已被上一步 kernel 时间覆盖 → publish → release + drop）；RAII 析构同步（extent pin 释放前 transfer 必须 land）；`NINFER_ASYNC_DEMOTE=0` 回退同步批量（风险后门 + A/B 对照臂） | `ledger42_v2_async_demote.patch`（完整增量 623 行，含全链 + W 对齐） | 18:36 设计 → 20:30 编译 → 20:36 部署 |
+
+### 2. 同批合入：W1-W4 上游对齐（tancau 24c8ea5）
+
+现役 exe 同含 W1-W4 修正的上游对齐版（`output_session.cpp` + `openai_chat_http.cpp`）：
+- **W1**：思考预算熔断 `==` → `>=`（多 token chunk 跨过预算不再永久跳过熔断）；
+- **W2**：取消 per-token `> budget` 抛异常（跨越预算不再 abort 整个请求，交给边界熔断 ApplyTargetControl）；
+- **W3**：控制段 canonical 处理修正；
+- **W4**：**prompt-progress 强制流式开启**（DSH 类客户端未 opt-in 也收 SSE keepalive——长 prefill 不再饿死 idle watchdog）。
+
+### 3. 实机验证（用户 21:04-21:07 多轮会话，req#45-54）
+
+| req | prompt | decode |
+|---|---|---|
+| #45 | ~60K | 118.7 |
+| #46 | ~61K | 113.0 |
+| #47 | 62,200 | **194.8** |
+| #48 | 62,408 | 123.4 |
+| #49 | 64,244（超池） | 111.3 |
+| #50 | 65,670（超池） | 135.6 |
+| #51 | 66,689 | 103.6 |
+| #52 | 67,195 | 111.5 |
+| #53 | 67,532（output 2,325） | 50.8（长输出含 thinking） |
+| #54 | — | 118.6 |
+
+- 全程 TTFT < 2s、无深谷、零降速——**"第二轮就掉个位数"的历史终结**；
+- 用户实机观察：上下文 46%（75K）仍见 200-300 T/s 瞬时（客户端口径，含 MTP 5-token 步）；自动压缩后 27% 仍 100+；第 3/4/5 轮继续零降速。
+
+### 4. 命名与后续
+
+- 用户命名 **"DECODEMEM"**（精神 = 页自由流动、解码永不等页）；精确机制名 = **异步页流水（Async Page Pipeline）**——不是"解码下放到内存"，是"**页搬运与解码解耦并行**"；
+- **后续优化空间**（按优先级）：v2.1 多批 in-flight（同步批也异步化，更深超池）→ 早期页 pin（少搬无效页）→ 异步 restore（检索召回流水化）→ 池扩容（64K→96K，惩罚变小后边际收益升高）→ DSH 压缩触发放宽（按实机数据渐进：先 ~68K 触发，稳后再宽）；
+- **开关台账**：`NINFER_ASYNC_DEMOTE`（默认 1=ON；0=同步批量回退）、`NINFER_DEMOTE_PROFILE`（默认 0=OFF；1=profile 采样）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1495,7 +1544,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 38 | ★**A/B 验证：去 `--kv-lease-growth`**（首臂单变量：maxTokens 保持 65,536） | ✅ **完成销账**（§三·十六 §1，TELE 复核通过）：施工 `97f5214` + 4 探针 + DSH 两轮 agentic 实测零墙（16,143/11,782 tok，墙位截断 0 次、三种非墙形态 0 次）；TELE 4 处数字修正已按修正版入库 |
 | 39 | ★**引擎缺陷：非 growth × 视觉 token = scatter 断言**（`scatter.cpp:18`，图片请求 HTTP 500） | ✅ **销案（§三·十八 §4，证据链经 TELE 复核补全）**：初版仅起服/文本探针（证据链断裂，TELE 审核-v32 抓出）；**12:19 补实测**——新引擎 + 无 growth + 真实图片请求（media 1）→ HTTP 200/stop/识图非空/零 scatter，销案成立；launcher 维持视觉 on（无 growth） |
 | 41 | ★**引擎缺陷：stream 挂起**（req#4 现场真实：started 永不 done + 引擎静默 + TCP Established + 重启才恢复） | 🔀 **并入挂账 42**（§14.1 第三次复现定案）：v3 规模修正版（16K output/270KB 载荷/20s 真停读）证伪"send 阻塞"——停读下引擎满负荷干完 16K + 恢复探针 200；根因唯一收敛 = 页漂移极端态下页操作深处同步点冻结（TELE 假说）；修复方向 = 取消检查点前移 + 页漂移根治；socket/心跳/超时层无病灶（双重确认） |
-| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s）；**+ 挂账 41 并入：页漂移极端态下页操作深处冻结（req#4）** | 🔨 **第一步已部署（15:26 新 exe 上线），第二步已编译部署待实机验证**：①取消检查点前移（patch `ledger42_cancel_checkpoint`，TELE 锚点核对；验证 = 探针无回归 96.9 vs 101.9 + 冷启动后正常）；②**demote 批量化**（patch `ledger42_batch_demote`：逐页 prepare→copy→publish→drop 全流水改 **K=8 页一批**——单次 arena 分配 + 一次 copy_to_host + 整批 publish + arena 碎片退化逐页；编译 EXITCODE=0；2 轮探针 demote 量太小未证收益，**收益验证 = 白天实机 host%/速度对比**）；③异步 transfer stream（demote 改专用流 + 事件同步）= 第三步未施工；④DSH 侧辅助已生效：coder390 压缩触发 94K → **41K**（contextWindow 163,840，三处同改——初改时 node 行号覆盖坏 L64 条目头导致 DSH 启动失败，已备份恢复+js-yaml 验证） |
+| 42 | ★**长会话页漂移**：cache replay 逐轮把最早页挤出设备池（34 轮 → ~330 页滞留 host → decode 每 token host 往返 = 3 tok/s）；**+ 挂账 41 并入：页漂移极端态下页操作深处冻结（req#4）** | ✅ **全链已部署 + 实机验证重大突破（2026-10-11 晚，§三·十九）**：①取消检查点前移（`ledger42_cancel_checkpoint`）②批量 demote K=8（`ledger42_batch_demote`）③**第三步 v2 异步 demote**（`ledger42_v2_async_demote`：PendingDemote 槽 + transfer stream 异步提交 + 下一步收割——20:36 部署）——**超池多轮实测 103-195 tok/s（此前同区 4-6，提升 20-40 倍）、10+ 轮零降速**；后续优化（v2.1 多批 in-flight / 早期页 pin / 异步 restore / 池扩容 / 压缩放宽）见 §三·十九 §4；④DSH 侧辅助已生效：coder390 压缩触发 94K → 41K（contextWindow 163,840——**现按实机数据可渐进放宽**） |
 | 43 | ★**引擎死锁看门狗**（req#4 真形态：客户端**不断开**（TCP Established、零取消信号）时页操作深处同步点永久死等——CPU 0/GPU idle/日志静默，重启才恢复） | 📋 **立项（挂账 42 施工中识别）**：检查点只救"有取消信号"场景；无信号死锁需**步级看门狗**（decode 单步耗时超阈值 → 强制 abort + 该请求失败释放槽位）——阈值标定与误杀风险（合法长步 vs 死锁）待设计；与官方"单元边界采样"哲学（engine_core.h L2406 注释）正交 |
 | 45 | ★**构建树依赖追踪缺失（中文 /showIncludes 未识别）**：改头文件（program_impl.h）后 ninja **不重编 header consumers**——各 TU 编译于不同版本头 → 布局混编 → **构造期堆踩踏**（0xC0000005/0xC0000374），三次二分全崩 | 📋 **根因已定（2026-10-11 18:2x）**：本地化（中文"注意: 包含文件"）前缀未被 ninja 识别；**临时纪律 = 本树改头必须全量重编**（清 build-1208a）；**修复候选 = build bat 加 `set VSLANG=1033`**（MSVC 输出英文 "Note: including file" → ninja 识别），待下次增量编译验证；排查过程：三次二分（禁 retire→指针成员→零运行代码全崩）逐层排除运行代码，定位到编译层 |
 | 44 | ★**demote 路径 profile**（host 100% 真凶定位） | ✅ **定案（2026-10-11 17:38，profile 探针实数据；TELE 复核口径修正：27:17 双峰分布，非"严格交替"）**：44 批读数——**copy 双峰 3.4-7.8ms / 0.26-0.6ms（27:17）**（= D2H 同步等待占 compute stream，与 decode kernel 串行互斥）；**prepare/publish/tail/scan 全 0.00**（arena 账本/extent 发布/页存储账本/候选扫描全部无罪）——TELE"账本"推断与 CB"带宽非瓶颈"各对一半：**拷贝排错了队**（真凶 = compute stream 同步 D2H）；探针 = `NINFER_DEMOTE_PROFILE=1`（默认关零开销，批级四段 + since；patch `ledger44_demote_profile`）；42 第三步设计据此修正：v1（仅换流）跳过，**v2 = 跨 decode 步 pending 流水化**（设计稿 `docs/设计-挂账42第三步-v2异步demote-20261011.md`，TELE 复核三缺口已闭环）；**v2 施工完成（2026-10-11 18:2x，全量重编中）**——施工期三次崩溃（0xC0000005/0xC0000374）经三次二分定位 = **挂账 45（依赖追踪缺失致布局混编）**，非 v2 逻辑缺陷 |

@@ -209,7 +209,12 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 1. **引擎源码**——源码必须落在 **`engine-src\src-tree\fusion-engine-src\`**（`build\s6_1208a.bat` 第 34 行的 `SRC` 读这里）。两选一：
 
-   **A. 本库快照（推荐）**：`repro/` 带一份自持源码树 bundle（**含完整 git 历史**）：
+   **A0. 本仓 `engine-main` 分支（最直接 · 与前两仓同构；需本仓读取权限）**：本仓 = **双分支一体**（`main`=项目层 / **`engine-main`**=引擎层；tag **`engine-20261013`**）：
+   ```bat
+   git clone -b engine-main https://github.com/paicat1/Qwen38-27B-NInfer-kvmem.git engine-src
+   ```
+
+   **A. 本库快照 bundle（离线备选 · 含完整 git 历史）**：`repro/` 带一份自持源码树 bundle：
    ```bat
    git clone repro\qwenline_line-coder390_20261013_r2.bundle engine-src
    cd engine-src && git checkout line-coder390 && cd ..

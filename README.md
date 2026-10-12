@@ -2,6 +2,15 @@
 
 **在两代前序工程跑通的架构上，部署更大的模型（Qwen3.8-27B-Coder390，27B）。**
 
+> ## ★ 2026-10-13 07:15 · 新峰 463.9（H1 基线 · agentic 首战）
+>
+> 晨间首场 **agentic 会话**（tools 30 / 28 轮；引擎 `build 35173e0` = 基线 `H1_54fix_20261013`，64K 池 / draft4 / depth1）：
+> - **decode 峰值 463.9 tok/s，连续 ≥6 窗保持 451–464**（07:15:47–07:16:12：463.9/459.7/461.8/457.5/451.0/451.8，随后 245.0；host ~98%）；
+>   **req#2：题面 8,303 → 输出 23,869 tok，TTFT 5.1 s，prefill 2.23k，req 级 decode 258.2（混合投机）**；
+> - 中段多轮：**cache 99.3–100%（private endpoint）**，TTFT 311 ms–1.1 s（req#3–#26）；**4 次超池零故障**（`unavailable Device page` / `recovery` / HTTP 500 全 0 ✓）；
+> - **同会话后段 07:25:32 起进入谷**（decode 2.6–3.2 tok/s、host 94–106%、GPU 100%；截至 07:26 仍在谷中）——挂账 46 现场版；
+> 现场日志 `logs\test_54fix1d.log`（07:15:24 会话起）。
+>
 > ## ★ 2026-10-11 20:39-21:18 · 重大突破：异步页流水（Async Page Pipeline）首战
 >
 > **超池解码从"个位数深谷"到"稳定高位"**——v2 引擎 20:39 起服、20:43 首战、21:04 多轮：
@@ -202,13 +211,13 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
    **A. 本库快照（推荐）**：`repro/` 带一份自持源码树 bundle（**含完整 git 历史**）：
    ```bat
-   git clone repro\qwenline_line-coder390_20261013.bundle engine-src
+   git clone repro\qwenline_line-coder390_20261013_r2.bundle engine-src
    cd engine-src && git checkout line-coder390 && cd ..
    ```
    快照 = 分支 `line-coder390` @ `da5a710`（**2026-10-13 打 · 当前基线**，tag `H1_20261013_baseline`；含挂账 54 修复 `35173e0`，iterate-1 `c800106` 已 revert）；
-   sha256 = `B25CD543DF11B4A8B0C9DDF502828B58EBBEC155C2292001F185767E3BC7DEFD`；仓库根含 `PROVENANCE.md`（血缘/分叉记录）与 `patches/`。
+   sha256 = `9BF92C8C565F4289EC0417604A060E9E3B9C7BC9C3BBF09E954183248256E9EE`（**含 `refs/tags/H1_20261013_baseline`**）；仓库根含 `PROVENANCE.md`（血缘/分叉记录）与 `patches/`。
    *（已实测：`git bundle verify` 通过 + 真克隆一次核对 `src-tree` / `PROVENANCE.md` / `patches/` 均在。）*
-   *（2026-10-12 版快照 `repro\qwenline_line-coder390_20261012.bundle` @ `79457af` 仍在库中保留。）*
+   *（旧快照仍在库中保留：`repro\qwenline_line-coder390_20261012.bundle` @ `79457af`；以及首切版 `…_20261013.bundle`（不带 tag，sha `B25CD543…`）。）*
 
    **B. 从公开上游自建（可溯源）**：`git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git` →
    `git checkout engine-v0.11.0-kvmem-20261008`（**`2852f6f`**，上游 tag，已核对存在于 `official-repo/ninfer-fusion-kvmem`）→ 放到 `engine-src\src-tree\fusion-engine-src\` →

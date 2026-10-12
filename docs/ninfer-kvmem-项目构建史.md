@@ -1999,6 +1999,15 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 谷=0：夜间 ~2h 压力未见真谷（唯一解析"谷"=交界假阳性）✓；均 300：round1 **344.6**（最佳）✓、深轮 165–221 ✗；
 无卡顿：**✗ 有反例**（冻结 ×2）。→ **未达标**；下一专项=冻结根因。
 
+### 6. 晨间 agentic 首战（2026-10-13 07:15–，H1 基线，现场）
+
+- 条件：`54fix1d` 实例（engine `build 35173e0` = H1 基线；64K 池 / rk2v4-e8 / vision / draft4 / depth1）；**agentic 会话形态**（tools 30，28 轮）——正是挂账 54 的原复现形态。
+- **新峰**：decode **463.9 tok/s**，连续 ≥6 窗 451–464（07:15:47–07:16:12，host ~98%）；**req#2：8,303→23,869 tok，TTFT 5.1 s，prefill 2.23k，req 级 decode 258.2（混合投机）**。
+- 中段（req#3–#26）：**cache 99.3–100%（private endpoint）**、TTFT 311 ms–1.1 s。
+- **挂账 54（agentic 形态首测）**：28 轮 / 4 次超池 ⇒ `unavailable Device page`=0、`recovery rebuilt`=0、HTTP 500=0 ✓（`activation reconcile`=0，修复路径仍未触发）；对照组结论待同日复跑。
+- **挂账 46 现场**：**07:25:32 起入谷**（decode 2.6–3.2、host 94–106%、GPU 100%；截至 07:26 仍在谷中）——与 §三·十九/§三·二十六 同族；日志 `logs\test_54fix1d.log`。
+- 判定更新：**"均 300"出现达标段**（450+ 持续 ≥30 s；单请求 258）——方向获正面证据 ✓；谷/冻结仍为双重拦路 ✗。
+
 ---
 
 ## 四、待续事项（挂账）

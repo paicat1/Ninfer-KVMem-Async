@@ -136,16 +136,18 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 
 | 路径 | 内容 | 在库内 |
 |---|---|---|
-| `docs/` | **构建史（v1-v32 完整历程）**、8 份交叉审核报告、4 份调研、教程 | ✅ |
-| `build/` | 引擎构建脚本（`s6_1208a.bat` 等）+ 3 份引擎补丁 + 产物清单 | ✅ |
-| `scripts/` | 模型加工（`recode_mtp.py` 自转 MTP 头、`graft_vision.py` 视觉嫁接）+ 探针（`test_ab_arm1.py`/`probe_recall*.py`） | ✅ |
-| `patches/` | **W1-W4 引擎修复**（84 行，含四重验收） | ✅ |
+| `docs/` | **构建史（v1-v32 完整历程）**、12 份交叉审核报告、3 份调研、教程 | ✅ |
+| `build/` | 引擎构建脚本（`s6_1208a.bat` 等）+ 3 份基线补丁（`build/patches/0001-0003`）+ 产物清单 | ✅ |
+| `scripts/` | 模型加工（`recode_mtp.py` 自转 MTP 头、`graft_vision.py` 视觉嫁接）+ 探针（`test_ab_arm1.py`/`probe_recall*.py`）+ 死亡谷测量（`valley_bench.py`/`valley_history.py`，2026-10-12 自 `tools/` 迁入） | ✅ |
+| `patches/` | **8 个引擎补丁**（W1-W4 修复 + ledger42×3 / 44 / 46×2 / 47） | ✅ |
+| `repro/` | **源码树 bundle 快照**（分支 `line-coder390` @ `79457af`，2026-10-12 打）+ 版本台账副本 `MANIFEST.txt` | ✅ |
 | `ninfer_launcher.py` | GUI 唯一入口（10 预设、校验告警、KV_ENV 六开关注入） | ✅ |
 | `serve_tee.py`、`start-coder390*.bat` | 起服工具 | ✅ |
-| `official-repo/` | **引擎源码**（嵌套 clone，s6-20261008） | ❌ 未跟踪（来源见复现指南） |
+| `engine-src/` | **引擎源码树工作副本**（构建实际读取 `engine-src\src-tree\fusion-engine-src`；根含 `PROVENANCE.md` 与完整 git 历史） | ❌ 未跟踪（入库快照 = `repro/*.bundle`） |
+| `official-repo/` | 公开上游对照 clone（**本线构建不读它** —— 构建读 `engine-src/`） | ❌ 未跟踪 |
 | `engine/` | 构建产物二进制（~6.5 GB） | ❌ 本地构建 |
 | `models/` | 模型三件套（~40 GB，见下） | ❌ 外部下载+本库脚本加工 |
-| `refs/` | 发放包与 Bonsai 线参考材料 | ❌ |
+| `refs/` | 发放包与 Bonsai 线参考材料（**未入库** → 外发复现者拿不到，见复现指南） | ❌ |
 
 ### models/ 三件套（一条进化链）
 
@@ -194,23 +196,41 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 ## 从零复现指南
 
-**前置**：Windows · RTX 5080 16 GB（或同档）· 128 GB RAM · VS2022 BuildTools（C++20、CMake、Ninja）· CUDA 13.3 · Python 3.12。
+**前置**：Windows · RTX 5080 16 GB（或同档）· 128 GB RAM · VS2022 BuildTools（C++20、CMake、Ninja）· vcpkg（本机 `J:\vcpkg`）· CUDA 13.3 · Python 3.12。
 
-1. **引擎源码（公开 GitHub 仓库）**：
+1. **引擎源码**——源码必须落在 **`engine-src\src-tree\fusion-engine-src\`**（`build\s6_1208a.bat` 第 34 行的 `SRC` 读这里）。两选一：
+
+   **A. 本库快照（推荐）**：`repro/` 带一份自持源码树 bundle（**含完整 git 历史**）：
    ```bat
-   git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git
-   cd ninfer-fusion-kvmem
-   git checkout engine-v0.11.0-kvmem-20261008   # 2852f6f9 —— 上游 tag（本线 fork-point）
+   git clone repro\qwenline_line-coder390_20261012.bundle engine-src
+   cd engine-src && git checkout line-coder390 && cd ..
    ```
-   ⚠️ **复现性缺口**：本线基线 s6-20261008 @ `3b9dc83` = 上游 tag + **3 个本地提交**（`5b07bc1` MSVC 编译修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE）+ W1-W4 patch——**这 3 个提交尚未整理进 `patches/`**（待办）；复现引擎行为请以 `build/` 构建脚本 + `patches/` 现有内容为准。
-   放置为 `official-repo/ninfer-fusion-kvmem/`。
-   **免构建替代**：发放包（沈三殊分发，`refs/01-沈三殊-发放包/00-先读我-总纲.md` 有完整说明）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；模型从同层 `01-模型下载清单（推荐链接）.md` 下载（含地址/体积/sha256/加速法）；
-2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；
-3. **构建**：`build/s6_1208a.bat`（或 VS 环境 + `cmake --build <dir> --target ninfer-serve`；构建要点见 `build/README.md` 与 `build/patches/`）；产物部署到 `engine/self-built-20261008/`；
-4. **模型加工**：从上表 ModelScope 地址下载 GGUF-NInfer 容器（即 `--mtp-src`，其内置 q8_0 MTP 头与视觉塔）与原件 → `python scripts/recode_mtp.py --src <原件>.ninfer --mtp-src <下载件>.ninfer --mtp-src-format gguf_q8_0 --target-format gguf_iq4_nl --dst ...mtp-iq4nl.ninfer --verify` → `python scripts/graft_vision.py`（从同一下载件嫁接视觉塔）；
+   快照 = 分支 `line-coder390` @ `79457af`（2026-10-12 打，含当日全部修复：v2 异步页流水、挂账47、死亡谷回归修、ledger46 v2.1）；
+   sha256 = `D31F1714FE81393F1488F29BB9FCF8E0DC509D343FEF06BFB5E4388D3DAB1C54`；仓库根含 `PROVENANCE.md`（血缘/分叉记录）与 `patches/`。
+   *（已实测：`git bundle verify` 通过 + 真克隆一次核对 `src-tree` / `PROVENANCE.md` / `patches/` 均在。）*
+
+   **B. 从公开上游自建（可溯源）**：`git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git` →
+   `git checkout engine-v0.11.0-kvmem-20261008`（**`2852f6f`**，上游 tag，已核对存在于 `official-repo/ninfer-fusion-kvmem`）→ 放到 `engine-src\src-tree\fusion-engine-src\` →
+   依序应用 `build/patches/0001-0003`（= 基线上 3 个本地提交：`5b07bc1` MSVC 修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE，**已整理入库**）+ `patches/` 下 8 个补丁。
+   ⚠️ *B 为**未逐步实测**路径，以 A 为准。*
+
+   **免构建替代**：发放包（沈三殊分发）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；
+   总纲 `refs/01-沈三殊-发放包/00-先读我-总纲（必下与选下）.md`、下载清单 `…\01-模型下载清单（推荐链接）.md`（含地址/体积/sha256/加速法）；
+   ⚠️ **`refs/` 未入库**，需自己取得（找作者沈三殊拿）。
+
+2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；其余补丁按需（`patches/` 共 8 个：ledger42×3 / ledger44 / ledger46×2 / ledger47 / W1-W4）。
+
+3. **构建**：`build\s6_1208a.bat`（或 VS 环境 + `cmake --build <dir> --target ninfer-serve`；要点见 `build/README.md` 与 `build/patches/`）；产物部署到 `engine/self-built-20261008/`。
+
+4. **模型加工**：从上表 ModelScope 地址下载 GGUF-NInfer 容器（即 `--mtp-src`，其内置 q8_0 MTP 头与视觉塔）与原件 →
+   `python scripts/recode_mtp.py --src <原件>.ninfer --mtp-src <下载件>.ninfer --mtp-src-format gguf_q8_0 --target-format gguf_iq4_nl --dst ...mtp-iq4nl.ninfer --verify` →
+   `python scripts/graft_vision.py`（从同一下载件嫁接视觉塔）。
+
 5. **起服验证**：上面的命令行（或 launcher）→ `curl 127.0.0.1:8094/v1/models` → `python scripts/test_ab_arm1.py`（健康探针）。
 
-**复现难度自评：中偏低。** 引擎源码公开（GitHub）、发放包有预编译 exe（免构建路径）、模型下载含 sha256 清单、构建脚本/参数/验收探针全在本库——途径全部明确，主要工作是 CUDA 环境 + 模型下载 + 按 `docs/教程-KVMem与短测-给agent与使用者.md` 起服。唯一非公开件是发放包本身（找作者沈三殊拿，或用 GitHub 源码自构建绕开）。
+**换机/换目录必改的绝对路径**（本库 34 个文件写死 `J:\`；主要集中处）：`build\s6_1208a.bat`（`SRC` / `VCPKG_ROOT` / CUDA 13.3 —— 本机在 `J:\Bonsai\landing\cuda-13.3`，**外部线目录·只读引用**）、`build\*.ps1` 与 `build\s6*.bat`、`deploy_engine.ps1`、`start-*.bat`、`ninfer_launcher.py`、`scripts\*.py`。
+
+**复现难度自评：中偏低（A 路全程实测）。** 引擎源码两路可得（本库 bundle 快照已实测可克隆 / 公开上游 + 补丁为未验证路径）、发放包有预编译 exe（免构建路径）、模型下载含 sha256 清单、构建脚本/参数/验收探针全在本库——途径全部明确，主要工作是 CUDA 环境 + 模型下载 + 按 `docs/教程-KVMem与短测-给agent与使用者.md` 起服。唯一非公开件是发放包本身（找作者沈三殊拿，或用源码自建绕开）。
 
 ## 关键工程结论（全部实测，踩坑沉淀）
 
@@ -267,7 +287,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 - **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v32 完整历程（每个决策的证据链），**先读这个**；
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；
-- `docs/审核-*.md` ×8 —— TeleAgent 与 CodeBuddy 双向交叉审核记录；
+- `docs/审核-*.md` ×12 —— TeleAgent 与 CodeBuddy 双向交叉审核记录；
 - `docs/调研-*.md` ×3 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 

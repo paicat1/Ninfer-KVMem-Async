@@ -1983,11 +1983,25 @@ bool async_demote_enabled() {
     return enabled;
 }
 // LOCAL FIX (挂账46 v2.1): ring depth. 1 = the v2 single-slot blocking path (safe tier);
-// 2..8 = batches in flight (NINFER_ASYNC_DEMOTE_DEPTH, default 2 -- conservative start).
+// 2..8 = batches in flight (NINFER_ASYNC_DEMOTE_DEPTH).
+// DEFAULT CHANGED TO 1 (2026-10-12, measured -- depth >= 2 is a REGRESSION):
+//   A/B on this host, same binary, depth switched by env only, prompt 41-55K tokens (crosses the
+//   32768-token ring window so the overflow/retrieve/demote path is active):
+//     depth=1 -> prefill 1.40-1.61k tok/s; whole run ~1.5 min; decode 79.6 tok/s at 41K.
+//     depth=2 -> prefill 34-77 tok/s wall (one 512-token chunk per ~15 s); host path 48-110%
+//                occupied; GPU util 100% but only ~77 W and 2-3% memory bandwidth (= overhead-bound,
+//                not compute); 55K prefill did not finish in 20+ min.
+//     depth=2 + content scoring OFF (NINFER_TERNARY_KVMEM_SCORE=0) -> still slow => the scoring is
+//                NOT the cause; the async multi-batch path is.
+//   Mechanism (fits every number): with depth >= 2 a batch is submitted async and retired only when
+//   a later ensure_ring_room sees the completion fence ready. Until then its pages are neither
+//   device-free nor host-published, so the caller's free-page verdict sees less free space than at
+//   depth 1 (which blocks and frees inside the same call) and demotes MORE next time =>
+//   self-amplifying host traffic => the valley. Depth 1 keeps the v2 semantics verbatim.
 std::uint32_t async_demote_depth() {
     static const std::uint32_t depth = [] {
         const char* env = std::getenv("NINFER_ASYNC_DEMOTE_DEPTH");
-        if (env == nullptr) { return 2U; }
+        if (env == nullptr) { return 1U; }
         const int value = std::atoi(env);
         if (value < 1) { return 1U; }
         if (value > 8) { return 8U; }

@@ -1098,11 +1098,38 @@ public:
             if (!pages_->device_resident(logical)) {
                 // ROUTE 3: checked above -- Host replica present, Device replica deferred.
                 if (activation.defer_missing_replicas_) { continue; }
-                throw std::logic_error("KV activation has an unavailable Device page");
+                // RECONCILE (挂账54 fix 1, 2026-10-13): under the ring, residency is a MOVING TARGET --
+                // a demote that ran between prepare_activation and this commit can take a page this
+                // activation expects, and the old code failed the WHOLE request on the paging
+                // invariant (measured: over-pool session, `adopt host-backed` + `demote-other short:
+                // freed=0 ... noresident=3 partial=1` -> this throw -> recovery -> HTTP 500).
+                // A page with a CURRENT Host replica is fully recoverable: the ring restores pages on
+                // demand from free pool pages (kRingSlackPages exists for exactly that), and the remap
+                // path re-installs the mask before the next attention read. So: defer it and continue.
+                // A page with NO replica at all still throws -- that is real corruption.
+                // Reservation accounting is deliberately NOT touched: `expected` validates the
+                // reservation against PREPARE-time missing pages only; a commit-time loss has no
+                // reserved slot and the restore path does not need one. (Unverified corner, recorded
+                // in the 挂账54 checklist: a later materialize attempt for this address could look for
+                // a budget slot -- watch the next run's log for it.)
+                if (pages_->host_resident(logical)) {
+                    static std::uint32_t last_deferred_page = 0xFFFFFFFFU;
+                    if (page != last_deferred_page) {
+                        last_deferred_page = page;
+                        std::fprintf(stderr,
+                                     "[ninfer] activation reconcile: page=%u lost to demote under the "
+                                     "ring; Host replica present -> defer to on-demand restore\n",
+                                     page);
+                    }
+                    continue;
+                }
+                throw std::logic_error("KV activation has an unavailable Device page (no replica, page " +
+                                       std::to_string(page) + ")");
             }
             if (pages_->address_references(logical) == 1 &&
                 !pages_->can_set_writer(logical, true)) {
-                throw std::logic_error("KV activation has an unavailable Device page");
+                throw std::logic_error("KV activation has an unavailable Device page (writer blocked, page " +
+                                       std::to_string(page) + ")");
             }
         }
         address.reservation = std::move(activation.page_reservation_);

@@ -296,14 +296,14 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 **贡献归属（详见构建史）**：
 
 - **[Neroued/ninfer](https://github.com/Neroued/ninfer)** —— NInfer 引擎基座（本仓引擎的始祖）。
-- **[1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)** —— 融合引擎源码（本线引擎 `self-built-20261008` 的直接出处）；KVMem 环 + host-backed checkpoint 的引擎层实现（含 `ensure_sequence_kv_mapped` 等核心机制——**这些是融合引擎的工作，不是 tancau 提供**）；Bug 手册 B33-B39 病历与 docs/13/14 修法库。
+- **[1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)** —— 融合引擎源码（本线引擎 `self-built-20261008` 的直接出处）；KVMem 环 + host-backed checkpoint 的引擎层实现（含 `ensure_sequence_kv_mapped` 等核心机制）；Bug 手册 B33-B39 病历与 docs/13/14 修法库。
 - **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— KVMem 环算法的原始实现（并入融合引擎）；**本线 W1-W4 修复的 diff 参照**（思考熔断三连缺陷的修法样板）；环复用深度/召回边界/decode 墙的作者级结论（brief，本线页漂移定位的重要参照）。
 - **[kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai）** —— 检索策略层算法（并入融合引擎）。
 - **[kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（wangleye）** —— 兄弟件整合包：调优默认值对照（D-01..D-08 的来源）、[issue #114](https://github.com/kvmem/kvmem-llama.cpp/issues/114) 修法线索。
 - **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
 - **Merkyor / nerkyor** —— 模型权重（Coder390-EfficientThink 系 NInfer 容器，含内置视觉塔）。
 
-**本线自有工作**（构建史 §一至§十七）：Qwen3.8-27B 上车路径（自转 MTP 头 + 视觉嫁接）、W1-W4 patch 施工与四重验收、growth 撞墙取证与定案、页漂移/sequence 重建风暴/stream 挂起三类形态的发现与实测、池标定（51,200/64K/graph64）、DSH 联调（压缩触发调参、maxTokens 封顶）、A/B 方法论与探针脚本。前两仓血缘见开篇三仓表。
+**本线自有工作**（构建史 §一至§十七）：Qwen3.8-27B 上车路径（自转 MTP 头 + 视觉嫁接）、W1-W4 patch 施工与四重验收、growth 撞墙取证与定案、页漂移/sequence 重建风暴/stream 挂起三类形态的发现与实测、**异步页流水（v2 搬运层）施工与首战 333 tok/s**（上游全材料审计未发现同款实现，见 `docs/上游谱系与跟踪纪律-20261011.md` §6.5）、池标定（51,200/64K/graph64）、DSH 联调（压缩触发调参、maxTokens 封顶）、A/B 方法论与探针脚本。前两仓血缘见开篇三仓表。
 
 ## License 与上游
 

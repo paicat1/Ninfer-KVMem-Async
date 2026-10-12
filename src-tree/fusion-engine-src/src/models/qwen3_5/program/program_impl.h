@@ -1133,6 +1133,11 @@ private:
         std::optional<HostKVExtentReservation> reservation;   // extent pin (RAII)
         std::vector<LogicalKVPageHandle> handles;             // prepared pages
         bool submitted = false;                               // copy queued on transfer_streams
+        // LOCAL FIX (挂账46 v2.1 depth>=2, 2026-10-12): pages this batch CLAIMED for demotion.
+        // Folded into the DEMAND computation only -- never into the hard free verdict (see
+        // context.cpp ensure_ring_room). Released when the batch is popped, whatever the retire
+        // actually dropped (declined publish / vanished pages simply get re-demanded next call).
+        std::uint32_t claimed_pages = 0;
         explicit PendingDemote(ProgramImpl* o) noexcept : owner(o) {}
         ~PendingDemote();                                     // abort = synchronize + release pin
         PendingDemote(const PendingDemote&)            = delete;
@@ -1157,6 +1162,8 @@ private:
         std::vector<std::unique_ptr<PendingDemote>> slots;
         std::uint32_t tail = 0;   // next retire position
         std::uint32_t live = 0;   // batches in flight
+        // LOCAL FIX (挂账46 v2.1 depth>=2, 2026-10-12): sum of claimed_pages over the live slots.
+        std::uint32_t claimed_pages = 0;
         explicit PendingDemoteRing(ProgramImpl* owner);   // reads NINFER_ASYNC_DEMOTE_DEPTH
         PendingDemote* next_submit_slot();                // nullptr when full
         PendingDemote* retire_slot();                     // front slot (live > 0)

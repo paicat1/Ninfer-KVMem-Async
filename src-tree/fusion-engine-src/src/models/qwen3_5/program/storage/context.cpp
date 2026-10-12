@@ -2212,9 +2212,11 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
                                                transfer_streams);
             context_completion_.record(transfer_streams);
             async_slot->reservation.emplace(std::move(*reserved));
+            async_slot->claimed_pages = static_cast<std::uint32_t>(pending.size());
             async_slot->handles = std::move(pending);
             async_slot->submitted = true;
             ring->live += 1U;
+            ring->claimed_pages += async_slot->claimed_pages;   // 挂账46 v2.1 depth>=2 fix
             pending.clear();
             if (kDemoteProfile) {
                 last_flush = now_ms();
@@ -2628,16 +2630,26 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     // (same-stream FIFO: the last record completing implies all earlier batches did). Unfinished
     // batches simply stay in the ring -- the next call queries again.
     if (async_ring != nullptr && async_ring->live > 0) {
+        // LOCAL FIX (挂账46 v2.1 depth>=2, 2026-10-12): each popped batch RELEASES its claim,
+        // whatever the retire actually dropped -- a declined publish or a vanished page keeps its
+        // Device replica and simply gets re-demanded on the next call (one extra round, never
+        // optimistic). The demand fold-in below reads this counter.
         if (async_ring->multi()) {
             if (context_completion_.ready()) {
                 while (async_ring->live > 0) {
-                    retire_pending_demote(*async_ring->retire_slot(), pages, /*wait=*/false);
+                    PendingDemote* slot = async_ring->retire_slot();
+                    const std::uint32_t claimed = slot->claimed_pages;
+                    retire_pending_demote(*slot, pages, /*wait=*/false);
+                    async_ring->claimed_pages -= claimed;
                     async_ring->pop();
                 }
             }
         } else {
             while (async_ring->live > 0) {
-                retire_pending_demote(*async_ring->retire_slot(), pages, /*wait=*/true);
+                PendingDemote* slot = async_ring->retire_slot();
+                const std::uint32_t claimed = slot->claimed_pages;
+                retire_pending_demote(*slot, pages, /*wait=*/true);
+                async_ring->claimed_pages -= claimed;
                 async_ring->pop();
             }
         }
@@ -2670,7 +2682,15 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     }
     const std::uint32_t want_free   = need + kRingSlackPages + wanted_extra;
     const std::uint32_t free_now    = free_pages(pages);
-    const std::uint32_t target_free = want_free > free_now ? want_free - free_now : 0U;
+    // LOCAL FIX (挂账46 v2.1 depth>=2, 2026-10-12): batches already in flight have been CLAIMED
+    // for demotion, so fold their pages into the free figure used for the DEMAND only (they become
+    // free when the retire lands). Without this, depth >= 2 re-demands pages that are already on
+    // their way out and self-amplifies host traffic (mechanism note at async_demote_depth()).
+    // The hard verdict further down keeps using the REAL free count -- a failed retire is simply
+    // re-demanded on the next call.
+    const std::uint32_t in_flight   = async_ring != nullptr ? async_ring->claimed_pages : 0U;
+    const std::uint32_t demand_free = free_now + in_flight;
+    const std::uint32_t target_free = want_free > demand_free ? want_free - demand_free : 0U;
     if (target_free == 0) {
         (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred,
                                       async_ring);
@@ -2681,7 +2701,10 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t freed_cold =
         demote_other_addresses_to_host(addresses, pages, address, target_free);
     const std::uint32_t free_after = free_pages(pages);
-    const std::uint32_t target2 = want_free > free_after ? want_free - free_after : 0U;
+    const std::uint32_t in_flight_after =
+        async_ring != nullptr ? async_ring->claimed_pages : 0U;   // 挂账46 v2.1: still-claimed pages
+    const std::uint32_t demand_after = free_after + in_flight_after;
+    const std::uint32_t target2 = want_free > demand_after ? want_free - demand_after : 0U;
     const std::uint32_t freed_own =
         demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred,
                                 async_ring);
@@ -2692,7 +2715,21 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     // Decide HERE, where the numbers are known.
     // `need` is the hard requirement: pages this step must map. The slack and the preferred restores
     // are best effort (retrieval quality), so falling short of `want_free` warns instead of failing.
-    const std::uint32_t free_final = free_pages(pages);
+    std::uint32_t free_final = free_pages(pages);
+    // LOCAL FIX (挂账46 v2.1 depth>=2, 2026-10-12): the hard verdict trusts the REAL free count
+    // only (in-flight pages are never folded in here). If it falls short while batches are still
+    // in flight, settle them (blocking) and re-read before failing -- so a request is never failed
+    // that a completed retire would have satisfied, and a failed retire still fails the request.
+    if (free_final < need && async_ring != nullptr && async_ring->live > 0) {
+        while (async_ring->live > 0) {
+            PendingDemote* slot = async_ring->retire_slot();
+            const std::uint32_t claimed = slot->claimed_pages;
+            retire_pending_demote(*slot, pages, /*wait=*/true);
+            async_ring->claimed_pages -= claimed;
+            async_ring->pop();
+        }
+        free_final = free_pages(pages);
+    }
     if (free_final < need) {
         // ContextCacheExhausted is a std::bad_alloc (include/ninfer/types.h:867), so the worker's
         // out-of-memory path fails this request and keeps serving -- it is not gated by

@@ -55,6 +55,7 @@ def main():
     ap.add_argument('--payload-kb', type=int, default=6)
     ap.add_argument('--max-tokens', type=int, default=1500)
     ap.add_argument('--compact-tokens', type=int, default=66000)
+    ap.add_argument('--compact-kb', type=int, default=150)
     ap.add_argument('--timeout', type=int, default=3600)
     args = ap.parse_args()
 
@@ -69,10 +70,17 @@ def main():
         else:
             seed += 7919
             if est_tokens(history) >= args.compact_tokens:
-                keep = history[-4:]
-                history = [{'role': 'user',
-                            'content': '[前文摘要] 已在本地完成若干轮故障排查与代码修改；继续当前任务。'}] + keep
-                print('  ** compact: history -> last %d messages, est %d tok **' % (len(history), est_tokens(history)))
+                # The DSH client compacts to a still-large rewritten conversation (measured: cache-0
+                # full refills of 40-48K tokens right before the valley). So the compacted context
+                # keeps a ~compact-kb body -- NOT a small reset.
+                keep = history[-2:]
+                summary = ('[前文摘要] 先前会话已完成若干轮排查与代码修改，关键状态：ring 池近满、'
+                           'host KV 有部分页；历史详情见下列压缩正文。\n\n')
+                history = [{'role': 'user', 'content': summary + make_text(args.compact_kb, seed + 555)},
+                           {'role': 'assistant', 'content': '[已接收压缩正文]'},
+                           ] + keep
+                print('  ** compact: rebuild to %d KB body, est %d tok **' % (
+                    args.compact_kb, est_tokens(history)))
             payload = make_text(max(1, args.payload_kb + (round_index % 3)), seed)
             prompt = payload + ('\n\n[round %d/agentic] 基于上下文继续：先分析这段材料的模式，'
                                 '然后给出下一步操作清单（分点、尽量具体）。' % round_index)

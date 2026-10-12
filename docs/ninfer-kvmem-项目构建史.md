@@ -1909,6 +1909,62 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 ---
 
+## 三·二十七、2026-10-13 凌晨 · ring 块分时测量（诊断版）施工 + 编译通过
+
+### 0. 一句话
+
+按 §三·二十六 §3「下一步 = 给 retrieve / restore 侧加 profile」动刀：在 `ensure_sequence_kv_mapped` 的 ring 块
+加 **5 个计时点 + `other` 段**（+97 行，仅 `context.cpp`），**零逻辑改动** ✓；增量编译 **BUILD-EXIT=0** ✓；
+新 exe 就绪、**部署/起服归用户**（R1 ✓）。**它要解决的问题 = "下一刀该修哪段"** ✗（不是修缺陷本身）。
+
+### 1. 清单与 TELE 复核（全通过 ✓）
+
+- 清单（CB 23:27 版）5 个计时点：①`select_retrieval_pages` ②`ensure_ring_room`×2 ③`ensure_mapped_to_tokens`×2
+  ④`restore_kv_pages_from_host` ⑤`install_resident_selection`×2；门控**复用 `NINFER_DEMOTE_PROFILE=1`**（44 模板；关闭态零开销 ✓）。
+- TELE 复核件 = `J:\sda管理\TELE复核_ring测量清单_20261012.md`（**核对全部通过，可放行** ✓，附 R1–R4）。
+- R1–R4 落实：
+
+| 要求 | 落实 |
+|---|---|
+| R2 限频 | 每窗口（默认 256 次调用；`NINFER_RING_PROFILE_WINDOW` 可调）**一行**汇总；单次调用 ≥150 ms 才多一行 `STALL`；**绝无每步/每 chunk 打印** ✓ |
+| R3 预置动作 | 汇总行含 `other`（入口→退出 − 五段之和）；五段皆不占 >20% 时行尾直接打印 `[!] no segment > 20% -> widen instrument / three-arm run` ✓ |
+| R1 起服归属 | 新 exe = `.temp\build-1208a\apps\ninfer-serve.exe`（现役 `engine\self-built-20261008` **未动** ✓）；部署/起服 = 用户动作 ✓ |
+| R4 | 本测量只是"下一刀"侦察；过线判定仍按 §9.4（6 轮钉死负载、≥4/6）✓ |
+
+### 2. 改动与编译证据（[EVIDENCE]）
+
+- **改动**：建树 `engine-src` 提交 **`36c6dbf`**（+97 行，仅 `context.cpp`；**头文件未碰** ✓，门控关 = 零开销 ✓）；
+- **编译**（`.temp\build_engine.log` 本次 run，起点行 269396）：
+  `[2/61] Scanning … context.cpp` ✓ → **`[7/11] Building CXX object … context.cpp.obj`（obj mtime = 2026-10-13 00:45:29）** ✓ →
+  `[9/11]–[11/11]` 三条 exe 重链（`ninfer-serve.exe` 00:45:32，1.27 GiB）✓；**error = 0 / BUILD-EXIT=0** ✓；
+- **既有告警（非本次引入 ✗）**：`host_kv_store.h(212)` warning C4477（`%u` 打 `const uint64_t`）——仅因该头被本 TU 包含而重现；
+  **明账：该行大值会被截断，是否修待用户裁决** ✗；
+- **施工注**：中途两处编辑（辅助块 / mark(4)）因**同文件多处编辑并行**发生竞态而丢失，已按"同文件一律串行"重做并落库 ✓（教训入库 SDA ✓）。
+
+### 3. 起服后的预期表现（照日志原文）
+
+```
+[ninfer] ring profile window: calls=256 avg ms sel=… rr=… mp=… rs=… mk=… other=… | max ms …
+[ninfer] ring profile STALL: one call …ms (…)              ← 仅当某次调用 ≥150 ms
+…（行尾）… no segment > 20% -> widen instrument / three-arm run   ← R3 预置动作
+```
+
+### 4. 读数 → 下一刀（预置分支，防事后发挥 ✓）
+
+| 读数 | 下一刀 |
+|---|---|
+| restore / ring_room 占大头 | 搬运动线（召回/降级路径）继续 |
+| select / mask 占大头 | 评分 / 掩码线 |
+| 都不占（other 大头） | 范围外扩（ring 块外的调用方）或 §9.5 三臂 |
+
+### 5. 本次挂账动作
+
+- **挂账 11 销案（作废）**：官方 Q8MTP 交叉验证 = **本卡不可行** ✗——①件已按用户 10-11 裁决删除（13.78 GB，重下 = 一整夜 ✗）；
+  ②按其配置需 ≥17–18 GiB > 16 GiB（用户实算 ✓）。**替代（零下载）** = 补丁 diff 与投机解码路径的读码对照 + 现役引擎 MTP on/off 两臂复测（随时可跑 ✓）。
+- **挂账 46 状态保持**：v2.1 施工完成 ✓（§三·二十四）、待长跑复核 ✗；本测量即为复核提供读数 ✓。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1923,7 +1979,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 | 8 | KVMem 检索判活（`kvmem_score: SELECT`） | ✅ 已在 Coder390 上确认（P0c） |
 | 9 | 实测起服（裸解码基线） | ✅ 已完成（**55.7–55.9 tok/s**，P0c-2） |
 | 10 | GUI 默认引擎统一 self-built（含 PATH 修复） | ✅ 已实施并入库（P0b，`a96d6af`；TELE 复审通过） |
-| 11 | 关键结论（MTP 收益）用 official 交叉验证 | 待办（用户已同意该做法） |
+| 11 | 关键结论（MTP 收益）用 official 交叉验证 | ❌ **作废（2026-10-13）**：官方 Q8MTP 件已按用户 10-11 裁决删除（重下 = 一整夜 ✗）；且按其配置需 ≥17–18 GiB > 16 GiB，本卡装不下 ✗ ⇒ 此路不可行。替代（零下载）= 补丁 diff 与投机解码路径的读码对照 + 现役引擎 MTP on/off 两臂复测（见 §三·二十七 §5） |
 | 12 | **Step 8/9：起服测 MTP** | ✅ **已完成**（2026-10-09 23:09，用 `.mtp-iq4nl.ninfer` 成功起服；`.mtp-q8.ninfer` 因显存不足起不来 —— 详见三·八） |
 | 13 | 提交 `scripts\recode_mtp.py` + 产物登记 | 待审核 + 用户批准（脚本已含 iq4_nl 扩展与跨文件取数） |
 | 14 | **扫 ctx 找最大可用值** | ✅ **已完成并更正**（2026-10-09 23:40）：真正上限是**逻辑上下文 131072（128K）**（§4.2；实测 20,203 tokens prompt 答案正确）；§4.1 的"24K"系误用（把 window 当成了 max-context） |

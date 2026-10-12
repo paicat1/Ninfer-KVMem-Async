@@ -1671,6 +1671,244 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ---
 
+## 三·二十二、2026-10-12 晚 · ★★★ 新故障：32K 池跑超池 agent 会话 → 模型 tool-call 死循环 + 引擎 device page 不变式失败
+
+### 0. 一句话
+
+用户用 **32K 池 + rk8v4** 起服跑一次长 agent 会话（145 消息，prompt 40.5K→49.6K ✗ **全程超池**）：
+模型**连续几十轮吐 `malformed_tool_call` 死循环** ✗，随后引擎报
+`worker invariant failure: KV activation has an unavailable Device page` → 自动恢复 → 该请求 **HTTP 500** ✗
+（**引擎本体没死** ✓，挂账47 的止血按设计生效 ✓）。**教训一句话：池必须 ≥ prompt；32K 池跑不了这种会话** ✗。
+
+### 1. 近两次会话对照（A/B 变量清晰，证据可复核）
+
+| 项 | B = `logs\serve_20261012_192102.log`（19:21:12→19:37:22，干净停） | A = `logs\serve_20261012_200253.log`（20:02:53→，写本史时仍在跑） |
+|---|---|---|
+| 模型 | `.mtp-iq4nl.ninfer`（**无视觉**） | `.mtp-iq4nl.vision.ninfer` + `--vision-cpu` |
+| 池 / 精度 | `--kv-capacity 32768` / `rk8v4` | 同（32768 / rk8v4） |
+| graph 预算 | **64** | **32** |
+| 思考 | medium | high + **`--preserve-thinking`** |
+| 容量行 | `KV 32,768 tokens, rk8v4, explicit | pages 512/4,096 | runtime 1.60 GiB | free 427.6 MiB` | `… runtime 1.57 GiB | free 496.5 MiB` |
+| prompt 规模 | 最大 24,729 ✓ **池内** | 40,505 → 42,768 → **49,558** ✗ **全超池** |
+| 结果 | 零故障 ✓；`ring retrieve restored=128` ✓；因**给无视觉模型发图**被 `HTTP 400 vision disabled` 拒（×2 ✓）后停服 | **invariant failure + HTTP 500** ✗；`tool markup recovered` **59** 次 ✗；`mask hidden` **5,100** 行 ✗；`demote-other short` **628** 次 ✗ |
+
+### 2. 故障现场（原文 · [EVIDENCE]）
+
+```
+[EVIDENCE] logs\serve_20261012_200253.log:30
+2026-10-12 20:03:04.014  WARN  CUDA graphs used 66.1 MiB but the KV sizing allowed 32.0 MiB;
+leave more room with --kv-headroom-mib or --cuda-graph-allowance-mib, or a smaller --kv-capacity
+
+[EVIDENCE] 同上 :5175（20:06:58 起每 ≤30s 重复）
+prompt exceeds the resident Device KV pool: prompt 40505 tokens (633 pages) > pool 32768 tokens (512 pages).
+Part of the prompt is therefore not resident, and the MIDDLE of such a prompt has been measured to go missing
+with no error line, HTTP 200 and a plausible wrong answer; the root cause is not localized.
+… raise --kv-capacity to at least the prompt's token count (measured: prompt >= pool is the condition that reproduces it) …
+
+[EVIDENCE] 同上 :13333 附近（20:10:27，故障现场）
+req#70 done | openai-chat | tool calls 1 | prompt 49,558 | cache 49,532 (99.9%, private endpoint) | TTFT 583 ms
+req#70 tool markup recovered | undeclared tool, kept 1
+req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinking medium, budget 16,000 | tools 30 | preserve thinking
+[ninfer] adopt host-backed: frontier=49663 need=776 usable=512 host_backed=274
+[ninfer] demote-other short: freed=0 want=274 slots=1 invalid=0 noresident=3 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+2026-10-12 20:10:27.534  WARN  engine | worker invariant failure: KV activation has an unavailable Device page - recovering
+2026-10-12 20:10:27.544  WARN  engine | recovery rebuilt the context stores: cleanup left 0 main / 508 backend Device KV pages,
+0 Device and 0 Host StateImages and 30081024 Host KV bytes without an owner
+2026-10-12 20:10:27.544  ERROR req#71 failed during generation | openai-chat | HTTP 500 | internal error
+2026-10-12 20:10:29.478  INFO  throughput | 5.0s | … | running 0 | batch 1.00 | host 39.5% (2.0s)   ← 引擎继续服务 ✓
+```
+
+### 3. 证据链与根因判断（分级：确证 / 候选）
+
+1. **触发（确证）**：prompt 40.5K→49.6K **> 池 32,768** ✗ → 引擎自报"中段可能丢失：无报错行、HTTP 200、答案看似合理" ✗
+   ⇒ `mask hidden` 5,100 行 ✓ = 中段被反复隐藏；`demote/adopt` 高频（628 / 116）✓。
+2. **恶化（确证）**：`demote-other short: freed=0 want=274 … noresident=3 … partial=1` ✗
+   = 要腾 274 页，**一页都没腾出来** ✗，且已出现"不在设备上的页"与"半态页" ✗ → 下一次 activation 撞上不可用页 ✗。
+3. **故障（确证）**：`KV activation has an unavailable Device page` ✗ → 止血恢复 ✓（清账留 508 backend 页 ✓，
+   但 **30,081,024 B Host KV 无主** ✗）→ 该请求 HTTP 500 ✗（= 用户看到的"处理失败"）。
+4. **加重因素（候选，未做单变量对照，不写成定论）**：`CUDA graphs used 66.1 MiB but the KV sizing allowed 32.0 MiB` ✗
+   = 小池档把 graph 预算压到 32 ✗、实际用 66.1 ✗ → 设备内存比 KV sizing 的假设更紧 ✗，可能是"页不可用"的诱因之一。
+   旁证：**B 用 graph=64 未报警** ✓。
+5. **模型侧（确证）**：`tool markup recovered | undeclared tool` **59 次** ✗ + 用户侧观察的
+   **几十轮 `malformed_tool_call` 死循环** ✗ = 上下文残缺后 tool-call 生成退化并卡死 ✓
+   （用户原话：连续 60+ 轮"我的 tool call 又变成 malformed_tool_call"）。
+6. **对照（确证）**：B 会话 prompt ≤ 24,729 ✓（**池内**）→ 同池同精度**零故障** ✓
+   ⇒ **"prompt ≥ 池"才是复现条件** ✓（与引擎自报口径逐字一致 ✓）。
+
+### 4. 教训与处方
+
+- **池必须 ≥ prompt** ✓：本会话最大 prompt 49,558 ✓ → **51,200 定稿池就够** ✓（32,768 才不够 ✗）。
+  agent 会话（145 消息 + `--preserve-thinking` ✗）上下文长得快 ✓ ⇒ 池按**预期最大 prompt** 选，不按平均选 ✓。
+- **小池别压 graph** ✗：`--cuda-graph-allowance-mib 32` 在小池上超支（66.1 vs 32 ✗）→ 给 ≥64/128 ✓
+  或用 `--kv-headroom-mib` 让引擎自己留 ✓（引擎 WARN 原文即此建议 ✓）。
+- **超池期间的答案一律不可信** ✓：引擎自报"无报错行、HTTP 200、答案看似合理" ✗ → 按未核实处理 ✓。
+- **止血有效（本次确认）** ✓：挂账47 的修复让引擎**不再静默崩** ✓，而是请求级恢复 + 可读 HTTP 500 ✓。
+- **与 67K 超池崩溃（挂账47 起源）同族** ✓：根因同为"prompt > 池"✗，区别 = 这次止血把它挡在请求级 ✓。
+
+### 5. 新挂账（本次新增）
+
+- **★48 · 恢复路径每次留下 ~28.7 MiB Host KV 无主** ✗（`30081024 Host KV bytes without an owner`）——
+  反复恢复是否累积泄漏 ✗ 待测（下次同类故障时对比 host 占用）。
+- **★49 · 小池（≤32K）+ graph 32 的 sizing 超支** ✗：sizing 是否该用**实测 graph 用量**（66.1）而非配置值（32）✗ —— 待与上游核对。
+- 挂账45（依赖追踪真实根因）仍待重定 ✓（决定性实验：改头后 `ninja -n` ✓）。
+
+---
+
+## 三·二十三、2026-10-12 晚 · 研究报告索引 + 「池 × KV 精度」联合结论（接 §三·二十二）
+
+### 1. 研究报告索引（今天入库的调研/报告类，全部在库内）
+
+| # | 文件 | 一句话 | 状态 |
+|---|---|---|---|
+| **R1** | `docs/精算-显存账与KV池-四档GSQ-RCO模型对照-CodeBuddy-20261012.md` | **显存账 × 模型档 × KV 池容量**：四档 GSQ-RCO（IQ2_XS/S、IQ3_XXS/S）× 五档 KV 精度矩阵；§7.4「池 ↔ 死亡谷」机制公式；附录 KV 精度调研证据（KVTuner/KVQuant/llama.cpp 等） | v2.1（含 4 处修正记录） |
+| **R2** | `docs/死亡谷-批0日志统计与修复核对-CodeBuddy-20261012.md` | 批 0（103 日志 / 135 MiB）谷统计：主生产日志 **50 次谷 / 1710 s / host 峰值 645%**；修复版受控负载 **0 次入谷**；depth≥2 判定为**回归**（已改默认 depth=1） | 批 0 完成；批 1/2/3 待跑 |
+| R3 | `docs/长程-20261012-死亡谷定位与v2.1验证.md` | 死亡谷定位闭环 + v2.1 验证数据（41K/83K/125K 全通过） | 已闭环 |
+| R4 | `docs/_research/网络调研-视觉塔与MTP显存动态调换-先例与原理-20261012.md` | 视觉塔与 MTP 显存动态调换的先例与原理（纯网络调研） | 参考件 |
+| R5 | `docs/全库通读索引与时间线-CodeBuddy-20261012.md` | 全库通读索引 + 时间线 + 上游全动态登记 | 索引件 |
+| R6 | `docs/通读摘要-审核与流程批-CodeBuddy-20261012.md` | 审核与流程批通读摘要 | 索引件 |
+
+> 维护口径：本索引随每轮施工补录（同本史纪律）；R1/R2 是「KV 池 × 精度」结论的直接依据，R3–R6 为配套索引/调研件。
+
+### 2. 联合结论：那次 32K 故障，在《精算》里早有预算线（三点收敛）
+
+把 §三·二十二 的实机故障与 R1 的表对照 —— **这是本轮最有价值的一条**：
+
+1. **配置本身越线（确证）** ✗：R1 §5「同预算换精度」给出 `k8v4/rk8v4` 的池预算 = **28,800 贴边 / 26,624 稳定**；
+   故障会话用的是 **32,768 @ rk8v4** = **比贴边线还多 ~4,000 token（512 页 × 1.59 MiB = 814 MiB，超 717 MiB 预算 ≈97 MiB）** ✗。
+   ⇒ 故障不是运气差，是**池开在该精度的预算之外**。
+2. **谷负担被放大 ~12 倍（确证，与实机吻合）** ✗：R1 §7.4 公式 `谷负担 ∝ (上下文 − 池) × 每 token 字节`，
+   表内 `28.8K + k8v4` = 现状的 **12.8×**。实机侧逐项对上：`demote-other short` **628 次**、
+   `freed=0 want=274`、`mask hidden` **5,100 行**、prompt 40.5K→49.6K 全超池。
+3. **故障形态升级为新的（确证）** ✗：以往超池只表现为"谷（慢）"，这次在越线配置下升级为
+   `KV activation has an unavailable Device page` → 恢复 → HTTP 500（+ 挂账 48 的 28.7 MiB Host KV 无主）。
+   ⇒ **"池小 + KV 高"不只慢，还能触发设备页账不变式失败**（与 R1 §7.4 "最差组合"判断一致）。
+
+**两条认知修正**：
+- R1 §7.3 曾因谷负担 ×5–13 建议"暂缓缩池换 KV 精度"；R2 已放宽（v2.1 默认 depth=1 落地，灾难性放大项移除）。
+  **但本次实机故障给出新约束**：缩池换精度时**必须留在该精度的预算线内**——k8v4 只能 ≤28.8K 贴边 / 26.6K 稳定，
+  **不是 32K**。
+- 故障会话还叠加 `--preserve-thinking` + 145 消息 ⇒ prompt 49.6K（比池大 52%）。
+  即池同时受**两个方向**约束：**≥ 预期最大 prompt** 且 **≤ 该精度预算**。
+  算术：49.6K prompt 在 k8v4 下需 774 页 × 1.59 = **1,231 MiB**，在 rk2v4 下只要 **642 MiB**（差 589 MiB）
+  ⇒ **现模型上"大 prompt + k8v4"物理不可行**；要两者兼得只能**换更小的模型档**（R1 §7 的换模型路线）。
+
+---
+
+## 三·二十四、2026-10-12 晚 · 挂账46 v2.1「在飞页计入裁决」施工完成 + 挂账45 判定（证伪）
+
+### 1. 施工（2 文件 +49 −5，照 §9 清单逐条）
+
+- `program_impl.h`：`PendingDemote.claimed_pages` + `PendingDemoteRing.claimed_pages` ✓
+- `context.cpp`：提交点记认领（`handles` 移动前）✓；收割两分支 `pop()` 前释放认领 ✓；
+  需求两处折入（`demand_free = free_now + in_flight`）✓；硬校验**只认实际 free** ✓ +
+  抛错前**阻塞收割一次**再判 ✓。
+- 不碰：提交攒批 / profile / 取消检查点 / W 修正 / 44 ✓（SDA 最小改动纪律 ✓）。
+
+### 2. 全量重编（21:00:30 → 21:41:44）
+
+- 清 `.temp/build-1208a`（8.68 GiB）→ 从零全量 → `[1089/1089]` + **`BUILD-EXIT=0`** ✓ + 零错误行 ✓。
+- ⚠️ 事故（已入陷阱 T#0011 + PROTOCOL 窗口 SOP 违反记录）：`schtasks` 托管 → 后台优先级被 Win11 调度到
+  **4 个 E 核**（17 个编译进程、总 CPU 31% ✗）→ 21:21 提 `AboveNormal` → 25 秒内 **16 核全 100%** ✓。
+- 产物：`ninfer-serve.exe` = 1,333,879,296 B，sha256
+  `FA407599CC9DDCC000175DB34D1097BB000A9E26994C36B9462814CAE35449D9` ✓。
+- 版本仓：`engine/lineage/G3_default_depth2_inflight_fix.exe` + MANIFEST 一行（2026-10-12 21:46）✓。
+
+### 3. 挂账45 判定（决定性实验，已完成）：**证伪** ✓✓
+
+- 方法：构建完成后基线干跑（`ninja -n`）→ touch 一个**非生成头**（`storage/host_kv_store.h`）→ 再干跑 →
+  **恢复 mtime** ✓。
+- 结果：**基线 7 边 → touch 后 24 边** ✓；新增的 17 条正是该头的消费者
+  （`program_impl.cpp` / `program.cpp` / `pressure.cpp` / `context_work.cpp` / `pressure_planner.cpp` …）✓
+  ⇒ **头依赖被正确追踪** ✓。
+- 基线那 7 边 = `Stamping NINFER build id from git` + 依赖 build-id 头的 3 个 app TU + 3 个链接 ✓（与头无关 ✓）。
+- ⇒ **挂账45（"改头不重编消费者"）不成立** ✓；"改头必须全量重编"的纪律**可以松绑为增量**
+  （**待 TELE 复核后改纪律** ✓；本轮首轮仍按 TELE P3 走全量 ✓）。mtime 已恢复原值（03:35:12），无副作用 ✓。
+
+### 4. 待续
+
+- [ ] 8095 臂（G3 + `NINFER_ASYNC_DEMOTE_DEPTH=2` + profile）与 8094 基线臂（G2 + ★64K视觉稳 + preserve-thinking）
+  各跑 **6 轮**，按 §9.4 口径判过线（单轮 <4m 或 谷内 decode ≥20；批次 ≥4/6）✓。
+- [ ] 挂账 48（恢复路径 28.7 MiB Host KV 无主）/ 49（小池 graph sizing 超支）现场数据随本次 A/B 一并采集 ✓。
+
+---
+
+## 三·二十五、2026-10-12 晚 · ★ 更正 §三·二十三 §2 + 新挂账 54：设备页故障**在 depth=1 安全档也复现**
+
+### 1. 实机反例（臂1 基线日志，depth=1）
+
+`logs/serve_20261012_arm1_baseline_8094.log`（★64K视觉稳档：64K 池 + rk2v4-e8 + nograph + preserve-thinking，**depth=1**）
+
+```
+[EVIDENCE] 22:09:31.574  prompt exceeds the resident Device KV pool: prompt 72669 tokens (1136 pages) > pool 65536 tokens (1024 pages)
+[EVIDENCE] 22:09:31.5xx  adopt host-backed: frontier=72190 need=1128 usable=1024 host_backed=114
+[EVIDENCE] 22:09:31.5xx  demote-other short: freed=0 want=114 slots=1 invalid=0 noresident=1254 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[EVIDENCE] 22:09:31.634  WARN  engine | worker invariant failure: KV activation has an unavailable Device page - recovering
+[EVIDENCE] 22:09:31.661  WARN  engine | recovery rebuilt the context stores: cleanup left 0 main / 1020 backend Device KV pages,
+                        0 Device and 0 Host StateImages and 7077888 Host KV bytes without an owner
+[EVIDENCE] 22:09:31.661  ERROR req#40 failed during generation | openai-chat | HTTP 500 | internal error
+```
+
+同段统计（本次会话到 22:45）：`prompt exceeds` **9** 次 / `demote-other short` **493** 次（其中 `freed=0` **491** ✗）/
+`mask hidden` **55,980** 行 ✗ / `adopt host-backed` 24 / profile 批 **538**；解码 0.6 → 12.6 → 31.8 → 75.3 → 78.7 tok/s（**谷+自愈提速** ✓）。
+
+### 2. 结论更正（撤回 §三·二十三 §2 的因果表述）
+
+- **撤回**："故障 = 配置越线（32,768 @ rk8v4）" 的**单因表述** ✗。
+- **正确表述**：**触发条件 = `prompt > 池`（超池）** ✓；32K+k8v4 时更早更容易撞 ✗（合并了"池小 + KV 大"双重压力 ✓），
+  但在**推荐的 64K + rk2v4 + nograph + depth=1** 配置上，72.7K prompt 同样撞 ✓（9 次超池里 1 次升级为 500）。
+- **新增关键症状**：`noresident=1254` ✗ —— **被标为"不在设备"的页数（1254）> 池容量（1024）** ✓，
+  页账已自相矛盾 ⇒ 下一次 activation 撞上不可用页 ✓。这是比"freed=0"更锐利的线索 ✓。
+- 因此**设备页故障是独立的第三战场**（与"谷"、"异步流水"并列）✓：本轮的 depth≥2 修法解决**谷** ✓；
+  这个页账/activation 故障需要单独修 ✓（→ 挂账 54）。
+
+### 3. 新挂账
+
+- **★54 · 超池 ⇒ 页账不一致 ⇒ activation 失败（depth=1 亦复现）** ✗：
+  触发面 = `prompt > 池`（本卡不可避免：DSH 会话 prompt 常 45-73K ✓，而 64K 已是 rk2v4 的天花板 ✓）；
+  症状 = `noresident` > 池容量 + `freed=0` + `KV activation has an unavailable Device page` + 请求级 500；
+  **影响**：9 次超池里 1 次升级为 500（约 11% ✗），且**每次超池的答案都不可信**（中段隐藏 ✗）。
+  **方向（待设计）**：① activation 前的**页账一致性自检**（`noresident` 与池容量比对 ⇒ 不一致即先做本地 reconcile，
+  而不是等 activation 撞墙 ✓）；② `demote-other short` 的 `freed=0` 路径是否应把"无页可腾"升级为
+  可读的请求级错误（而非继续推进到 invariant 失败 ✓）；③ 与挂账 48（恢复后 Host KV 无主，本次 6.75 MiB）同源排查 ✓。
+
+---
+
+## 三·二十六、2026-10-12 深夜 · 臂A/臂B 实测对照（**归因受限**）+ 硬结论：瓶颈已不在 demote 拷贝
+
+### 1. 两臂数字（**时长不同 / 负载未钉死 ⇒ 只作展示，不作严格归因** ✗）
+
+| 指标 | 臂1 = G2 + DEPTH 1（≈40 min） | 臂2 = G3 + DEPTH 2 + 本轮修法（≈25 min） |
+|---|---|---|
+| throughput 窗 / `decode<20` 窗 | 478 / **77（16%）** | 202 / **98（48%）** ✗ |
+| decode min / median / max | 0.2 / **108.7** / 339.2 | 0.2 / **31.2** / 298 ✗ |
+| 最长连续谷段 | 285 s（57 窗） | **200 s（40 窗，写本节时仍在谷中）** ✗ |
+| 谷内 decode | 3–12 tok/s | **0.2–2.4 tok/s** ✗ |
+| `unavailable Device page` / HTTP 500 | 1 / 1 | **0 / 0** ✓ |
+| `ring retrieve` / `harvest` / `SELECT` | 2,260 / 3,071 / 3,069 | **68 / 130 / 128** ✓✓ |
+| `demote-other short`（其中 `freed=0`） | 493（491） | **76（76）** ✓ |
+| `mask hidden` | 55,980 | **4,584** ✓ |
+| demote profile 批数 | 538 | **26** ✓ |
+| profile copy 时间 | min 0.19 / median 3.31 / max 13.36 ms | **0.34–1.80 ms** ✓✓ |
+| req prefill | median ≈1.31k tok/s | **min 8.4 / median 114.5** ✗（旧 depth≥2 回归 tell 仍在） |
+
+### 2. 硬结论（与负载无关的部分）
+
+- **修法在需求侧有效** ✓：retrieve / harvest / demote / mask-hidden 全线大幅下降 ✓，且 **零** `unavailable
+  Device page` / **零** HTTP 500 ✓（对比臂1 的 1/1 ✓）。
+- **但谷没被打掉、端到端更差** ✗：谷内 **copy 已经很快（0.34–1.80 ms）** ✓ 且**空闲页充足（`free=816` / pool 1024）** ✓
+  ⇒ **瓶颈已不在 demote 拷贝** ✗ ⇒ 残余成本在**别的环节**。
+  旁证：`kvmem_score: SELECT … n_blocks≈1070 budget=512 kept=512 skip≈560 runs=21–25` ✗ = 每个 prefill chunk
+  反复全扫（含 retrieve/restore 侧，现 demote profile **覆盖不到**）。
+- **归因限制（如实标注）** ✗：两臂负载**未钉死**（用户实际操作，非固定题面）⇒"更差"只作**观察**，不作因果 ✗。
+  严格归因需 §9.5（三臂 + pinned 负载；设计稿已备，未落盘未执行 ✓）。
+
+### 3. 下一步（待设计；在此之前不动任何代码/参数 ✗）
+
+- **给 retrieve / restore 侧加 profile** ✓（当前谷内的成本已经"看不见"了）；
+- 拿到 profile 证据再决定改哪里（不发散 ✗）。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |
@@ -1722,6 +1960,13 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 40 | 56K 池重试 + 召回路径实测（`probe_recall.py`/`probe_recall3.py`） | 🔄 **大半完成（2026-10-11 01:52 三轮异构探针）**：A(60K 填池)→B(60K 挤占)→C(60K 前缀复用内容+新问题，`--max-shared-prefixes 0` 保证无捷径)——**三轮全超池（60,424 tok > 49,152）且全部成功**；**真召回实测**：430 条 ring retrieve restored=128/128 零截尾（页号追至 945 页全覆盖），**召回被 prefill 流水化吸收**——超池 prefill 1.21-1.45k tok/s vs 不超池 ~1.5-1.57k（开销 ~8-23%，单次实验含噪声）；60K TTFT 50.1s vs 理论不超池 ~46s（往返差 ~4-8s）；"prompt exceeds"×3、答案按 B28 口径当未核实。**遗留**：异构探针单次样本，定论需多轮。**56K 终判弃案**（两次探测缺 17.3 → 43 MiB，WDDM 可驱逐量随桌面状态波动、关网页后反而更差）——本卡实际序列：57,344 ✗ / 55,296 贴边不可复现 / **51,200 定稿**（当前负载余 ~42 MiB）/ 49,152 最稳（余 ~70 MiB）；launcher 已加 KVMem 环×并发>1 架构约束告警（环只支持单序列，并发与 256K 深度/检索互斥） |
 | 19 | **ngram 实测**（本线第三目标） | ✅ **销账（2026-10-11 14:07 对照实测）**：MTP+ngram15（默认）vs MTP+ngram0（`--ngram-draft-tokens 0` 对照臂）同探针（prompt 12,418）——**decode 101.9 vs 102.3，净贡献 ≈ 0**（故事型输出无重复模式可猜，copy drafting 猜不中）；ngram 无拖累 ⇒ **保持默认开启**（真实代码会话有重复片段或受益，DSH 实测不可控不强求）；`bench_spec.py` 备而未用（单变量对照用同款 A 臂探针更干净） |
 | 20 | schannel CRL 致 push 失败（`http.schannelCheckRevoke=false` 经环境变量绕过） | ⚠️ 环境问题已解并记录；建议补进推送流程说明 |
+| **48** | ★**恢复路径每次留 ~28.7 MiB Host KV 无主**（`30081024 Host KV bytes without an owner`，2026-10-12 20:10:27 实测） | 📋 **新挂账（2026-10-12 立，见 §三·二十二 §5）**：反复恢复是否累积泄漏待测 —— 下次同类故障时对比 host 占用 |
+| **49** | ★**小池（≤32K）+ graph 32 的 KV sizing 超支**（`CUDA graphs used 66.1 MiB but the KV sizing allowed 32.0 MiB`） | 📋 **新挂账（2026-10-12 立）**：sizing 是否该用**实测** graph 用量而非配置值 —— 待与上游核对；旁证：同池 graph=64 的那轮无此警告 |
+| **50** | ★**启动器缺"池 ≤ 该 KV 精度预算线"校验**（本次故障直接诱因：32,768 @ rk8v4 越线 ≈97 MiB） | 📋 **新挂账（2026-10-12 立，见 §三·二十三 §2）**：R1 §5 表已给出全部档位预算（k8v4 = 28,800 贴边 / 26,624 稳定），launcher `validate()` 加两条告警即可：①池 > 该精度预算线 ②池 < 预期 prompt（`--preserve-thinking` 会话要留余量） |
+| **51** | ★**KV 精度 A/B（预算内三档）**：55.3K+rk2v4 / 41.3K+rk4v4 / 28.8K+k8v4 —— 回答"KV 精度汇率" | 📋 **待跑（R1 §8 清单第 1 步；R2 §三已放行）**：必须用修复版（G2，默认 depth=1）；同一条 DSH agentic 任务；⚠️ 三档谷负担 = 1× / 5.3× / 12.8×（R1 §7.4），须同时记录谷指标 |
+| **52** | ★**批 1 池扫描**（40,960 / 51,200 / 55,296 / 65,536 × 同负载）—— 验 R1 §7.4 曲线单调性与拐点 | 📋 **待跑（R2 §四）**：工具 `tools/valley_bench.py`（入谷判据：decode < 20 且 ≥2 个 5s 窗口）；产出"池配置 → 谷指标"受控对照表 |
+| **53** | ★**GSQ-RCO 实载验证**（IQ3_XXS 先行；`gguf_blocks_v1` 已在 `src/ops/.../formats.cpp` 登记） | 📋 **待办（R1 §7/§8；R2 §三·2 好消息）**：实载核对 `loading weights` ≈9.9 GiB；通过后再评估 IQ2_XS（容量极）/ IQ3_S（质量极）——**这是"大池 + 好 KV"唯一可行路线**（§三·二十三 §2 算术）。2026-10-12 晚更新：用户已下载 `models/swift15_iq3s_mtp.ninfer`（**10-12 20:10, 11.91 GiB = IQ3_S 档，与《精算》表逐字吻合** ✓），等 GPU 空闲做实载 ✓ |
+| **54** | ★**超池 ⇒ 页账不一致 ⇒ activation 失败**（`noresident=1254 > 池容量 1024` ✗ + `freed=0` + `KV activation has an unavailable Device page`，**depth=1 安全档亦复现**） | 📋 **新挂账（2026-10-12 立，见 §三·二十五）**：触发面 = `prompt > 池`（DSH 会话 45-73K prompt vs 本卡 64K 池天花板）；实测 9 次超池中 1 次升级为请求级 500（~11%），且**超池期间答案一律不可信**；方向 = ①activation 前加页账一致性自检 + 本地 reconcile ②`demote-other short` 的 `freed=0` 路径升级为可读的请求级错误（不再推进到 invariant 失败）③与挂账 48（恢复后 Host KV 无主）同源排查 |
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。
 > —— 施工/审核分工：**施工 + 构建史 = CodeBuddy**；**审核报告 = TeleAgent**（各自 commit/push；commit 前保留 T-COMMIT-APPROVAL 展示环节）。

@@ -1,0 +1,4 @@
+# engine lineage store (from 2026-10-12). One line per version. Never overwrite.
+2026-10-12 08:10  tag=G_clean_93285948  sha256=932859488CE15E3934A17AA140885B0F252CCF5AD6FE454115F58BEB47AF200D  size=1334192640  note=repo full clean build (v2.1 DEPTH default 2 + ledger47 fix)
+2026-10-12 08:34  tag=G2_default_depth1  sha256=0BCF764682AC236425EC5D37E02F8EDE1A76500BB22DB87DB663FD393CF12647  size=1334192640  note=G + async_demote_depth default 2->1 (death-valley fix, measured)
+2026-10-12 21:46  tag=G3_default_depth2_inflight_fix  sha256=FA407599CC9DDCC000175DB34D1097BB000A9E26994C36B9462814CAE35449D9  size=1333879296  note=ledger46 v2.1 depth>=2 fix: in-flight pages folded into DEMAND (claimed_pages); hard verdict stays on real free + blocking settle before failing

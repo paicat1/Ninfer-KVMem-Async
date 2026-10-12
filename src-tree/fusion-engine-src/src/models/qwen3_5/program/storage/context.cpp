@@ -1634,17 +1634,6 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
     // capture.cpp / disk_tier.cpp precedent) and wait ONCE after the loop -- this step's attention
     // must read the pages, so one batch wait is required; per-page serialisation is not.
     std::uint32_t restore_submitted = 0;
-    // ITERATE-1 (2026-10-13, measured): the batch wait below used to drain the SHARED transfer
-    // stream, i.e. every demote copy queued ahead of this restore (ring profile 2026-10-13:
-    // rs avg 44-57 ms/call, max ~160 ms at depth). A dedicated restore stream makes the wait
-    // cover only this batch's own copies. Correctness unchanged: the wait stays a host-side sync
-    // before the mask install, and restores never outlive this call (nothing drains them via
-    // transfer_streams elsewhere -- see synchronize_transfer_streams callers).
-    static cudaStream_t host_restore_stream = [] {
-        cudaStream_t made = nullptr;
-        CUDA_CHECK(cudaStreamCreateWithFlags(&made, cudaStreamNonBlocking));
-        return made;
-    }();
     for (const std::uint32_t page : logical_pages) {
         // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
         // loop). A partial restore is semantically safe by design -- pages that never made it
@@ -1666,10 +1655,10 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
         pages.physical_pool().resize_reservation(reservation, 1);
         const HostKVAllocationConstView source =
             host_kv_extents->view(replica.extent).subview(replica.page_offset, 1);
-        // 挂账46 第四步 (kept): copy + publish on ONE stream so the single batch wait covers both.
-        // ITERATE-1 (2026-10-13): that stream is the dedicated restore stream (see above).
+        // 挂账46 第四步: copy + publish on the transfer stream (rank 0; the single-GPU build is
+        // the only configuration this tree ships).
         if (addresses.restore_page_from_host(address, page, source, reservation,
-                                             host_restore_stream)) {
+                                             transfer_streams[0])) {
             resident.push_back(page);
             ++restore_submitted;
         }
@@ -1678,9 +1667,9 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
         // Single batch wait (挂账46 第四步): every copy issued above must land before this step's
         // attention reads the block table -- the publish on the same stream is ordered behind its
         // copy, so one synchronize covers both. This is ONE wait per step instead of 128.
-        // ITERATE-1: wait ONLY on the restore stream (was: drain the shared transfer stream --
-        // that wait included every demote copy queued ahead of this batch).
-        CUDA_CHECK(cudaStreamSynchronize(host_restore_stream));
+        for (std::size_t rank = 0; rank < transfer_streams.size(); ++rank) {
+            CUDA_CHECK(cudaStreamSynchronize(transfer_streams[rank]));
+        }
     }
     return resident;
 }

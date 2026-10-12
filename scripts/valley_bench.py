@@ -9,9 +9,9 @@
               输出：入谷时刻、谷内最低 decode、host 峰值、谷时长。
 
 用法：
-  python tools\\valley_bench.py drive --tag g_d2 --port 8094 --rounds 3 --filler-kb 220 --max-tokens 3000
-  python tools\\valley_bench.py parse --tag g_d2                 # 解析 logs\\test_<tag>.log
-  python tools\\valley_bench.py parse --log logs\\test_x.log --since "08:30:00"
+  python scripts\\valley_bench.py drive --tag g_d2 --port 8094 --rounds 3 --filler-kb 220 --max-tokens 3000
+  python scripts\\valley_bench.py parse --tag g_d2                 # 解析 logs\\test_<tag>.log
+  python scripts\\valley_bench.py parse --log logs\\test_x.log --since "08:30:00"
 """
 import argparse
 import json

@@ -1965,6 +1965,42 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 ---
 
+## 三·二十八、2026-10-13 凌晨 · 事故重建全链 + 54 实测 + ring 测量首跑 + 停工冻结发现
+
+### 1. 事故重建（留存机制焊死，两轮自动验证）
+
+- `build\s6_1208a.bat` 三处改造：`BUILD`/`LOG` 参数化；`BUILD-EXIT` 行加 `%DATE% %TIME%` 时间戳；构建完成自动调用
+  `tools\archive_build_output.ps1`（拷贝 exe → `_safety_backups\exe_lineage_<日期>\` + sha256 + 追加 `engine\lineage\MANIFEST.txt`）。
+- 新建 `tools\retire_dir.ps1`（删除门：**只报告、永不删**）、`build\_rebuild_54_20261013.bat`（新目录/独立日志）。
+- **验证（自动，不靠记忆）**：全量重编 **28.4 分钟**（2:00:39→2:29:03，BUILD-EXIT=0 带时间戳）与增量重编 **~2 分钟**
+  各自动归档 + 台账行各一条：`auto_20261013_022905_35173e0`（sha `F8267B60…`）、`auto_20261013_025429_c800106`（sha `A070A62D…`）。
+
+### 2. 54 修复实测（超池 18+ 事件零故障；修复路径未被触发）
+
+- 条件：64K 池 / depth=1 / vision / rk2v4-e8 / prefill512 / draft4；负载 = 超池探针 + valley_bench 变题面（55K→170K）。
+- 处理组：**全 200**；`unavailable Device page`=0 / `recovery rebuilt`=0 / 500=0；**`activation reconcile`=0**（修复条件未出现）。
+- 对照组（G3，无 54 修复）：8 事件同样全零 ⇒ 本负载不触发原故障（原 11% 率属 agentic 形态）。A/B 未决。
+
+### 3. ring 五段测量首次跑通（28 窗口）
+
+- `sel/mp/mk`≈0；`rr` avg 0.29–3.77 / max 48；**`rs`(restore) avg 0.005–56.5 / max 159.8（深超池窗 ≈70-97%）**；`other`=0.000。
+- 分支判定 = **搬运动线** ✓（非评分线）。原始行：`logs\test_54fix1*.log`。
+
+### 4. 两刀实验与停工冻结发现
+
+- **iterate-1**（restore 独立 H2D 流，`c800106`）：TTFT 44.7s→11m14s 判为回归 → **已 revert（`da5a710`）**；
+  **修正**：同形态"prefill 爬行 + host 150%+ + 冻结"在未改动版复现（d12）⇒ 归因削弱，待受控复测 ✗。
+- **停工冻结（新，最高优先）**：d12 轮2（112K）prefill 76.9 tok/s → **host 0% 冻结 >40 分钟不恢复** ✗；
+  证据 `.temp\freeze_d12_20261013_snapshot.log`。与挂账 43（无取消信号死锁）同族嫌疑。
+- draft 扫描（3/7/12）因口径混杂（误用 `.temp` 内 iterate-1 二进制）**仅存档不判**。
+
+### 5. 验收对照（用户线：谷=0 / 均≈300 / 无卡顿）
+
+谷=0：夜间 ~2h 压力未见真谷（唯一解析"谷"=交界假阳性）✓；均 300：round1 **344.6**（最佳）✓、深轮 165–221 ✗；
+无卡顿：**✗ 有反例**（冻结 ×2）。→ **未达标**；下一专项=冻结根因。
+
+---
+
 ## 四、待续事项（挂账）
 
 | # | 事项 | 状态 |

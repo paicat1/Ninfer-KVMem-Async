@@ -202,12 +202,13 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
    **A. 本库快照（推荐）**：`repro/` 带一份自持源码树 bundle（**含完整 git 历史**）：
    ```bat
-   git clone repro\qwenline_line-coder390_20261012.bundle engine-src
+   git clone repro\qwenline_line-coder390_20261013.bundle engine-src
    cd engine-src && git checkout line-coder390 && cd ..
    ```
-   快照 = 分支 `line-coder390` @ `79457af`（2026-10-12 打，含当日全部修复：v2 异步页流水、挂账47、死亡谷回归修、ledger46 v2.1）；
-   sha256 = `D31F1714FE81393F1488F29BB9FCF8E0DC509D343FEF06BFB5E4388D3DAB1C54`；仓库根含 `PROVENANCE.md`（血缘/分叉记录）与 `patches/`。
+   快照 = 分支 `line-coder390` @ `da5a710`（**2026-10-13 打 · 当前基线**，tag `H1_20261013_baseline`；含挂账 54 修复 `35173e0`，iterate-1 `c800106` 已 revert）；
+   sha256 = `B25CD543DF11B4A8B0C9DDF502828B58EBBEC155C2292001F185767E3BC7DEFD`；仓库根含 `PROVENANCE.md`（血缘/分叉记录）与 `patches/`。
    *（已实测：`git bundle verify` 通过 + 真克隆一次核对 `src-tree` / `PROVENANCE.md` / `patches/` 均在。）*
+   *（2026-10-12 版快照 `repro\qwenline_line-coder390_20261012.bundle` @ `79457af` 仍在库中保留。）*
 
    **B. 从公开上游自建（可溯源）**：`git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git` →
    `git checkout engine-v0.11.0-kvmem-20261008`（**`2852f6f`**，上游 tag，已核对存在于 `official-repo/ninfer-fusion-kvmem`）→ 放到 `engine-src\src-tree\fusion-engine-src\` →
@@ -274,7 +275,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 12 | 长会话"页漂移"降速 | 34-39 轮 agentic 会话后 decode 从 122 → 3 tok/s，host 占用 98-110% | cache replay 逐轮重映射历史页，**最早页被逐渐挤出设备池**（34 轮后 ~330 页滞留 host → decode 每 token host 往返）——是**轮数**触发，与超池深度无关（三组对照：81K/72K/72K 全不掉速 134/126/134） | 缓解：定期新开会话（机制必需）+ 池扩容（28→~38 轮才触发）+ maxTokens 封顶；**根治 = 挂账 42 全链**（取消检查点前移 + 批量 demote + **v2 异步 demote**）＝ 已部署 + 实机验证 ✓（超池多轮 103-195 tok/s、10+ 轮零降速，见 §三·十九；v2.1 多批 in-flight 已施工 ✓ §三·二十四） | 机理两次独立实证（hidden 页判别：不掉速 ≤17 vs 掉速 329-334） |
 | 13 | stream 挂起（原挂账 41） | 引擎请求 started 后永不 done：日志静默 + CPU 0 / GPU idle + TCP Established，重启才恢复（req#4 现场，DSH"思维断链"） | 🔀 **已并入挂账 42**（第三次复现定案，v3 规模修正版证伪"send 阻塞"）：根因唯一收敛 = **页漂移极端态下页操作深处同步点冻结**（§14.1） | 无"取消信号"死锁形态另立 **挂账 43**（步级看门狗，待设计 ✗）；挂账 42 全链部署后未再复现（待长跑观察） | 第三次复现定案：16K output / 270KB 载荷 / 20s 真停读（v3 规模修正版）✓ |
 
-> **未解决事项**（与构建史挂账表闭环）：**挂账 43**（无取消信号死锁·步级看门狗，待设计）、**挂账 46**（死亡谷：v2.1 多批 in-flight 已施工 ✓（§三·二十四），待长跑复核）、**挂账 48**（恢复路径 Host KV 无主，待测泄漏）、**挂账 49**（小池 + graph 32 的 sizing 超支，待与上游核对）、**挂账 54**（超池 ⇒ 页账不一致 ⇒ activation 失败，**depth=1 亦复现** ✗，§三·二十五）、**W5**（KV 池自噬，待实测）、超池中段正确性依赖检索开关（下节"已知限制"）。**已销：挂账 41 / 42**（42 全链部署 + 实机验证 ✓；41 并入 42 ✓）。
+> **未解决事项**（与构建史挂账表闭环）：**挂账 43**（无取消信号死锁·步级看门狗，待设计）、**挂账 46**（死亡谷：v2.1 多批 in-flight 已施工 ✓（§三·二十四），待长跑复核）、**挂账 48**（恢复路径 Host KV 无主，待测泄漏）、**挂账 49**（小池 + graph 32 的 sizing 超支，待与上游核对）、**挂账 54**（超池 ⇒ 页账不一致 ⇒ activation 失败，**depth=1 亦复现** ✗，§三·二十五）、**挂账 55**（新 · 2026-10-13 凌晨：间歇性 prefill 冻结 —— host 旋转 150%+ 后 0% 不恢复 >40 分钟，2 次命中；与 43 同族嫌疑，证据见 §三·二十八）、**W5**（KV 池自噬，待实测）、超池中段正确性依赖检索开关（下节"已知限制"）。**已销：挂账 41 / 42**（42 全链部署 + 实机验证 ✓；41 并入 42 ✓）。
 
 ## 已知限制
 

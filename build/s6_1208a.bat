@@ -32,8 +32,8 @@ set "PATH=J:\vcpkg\downloads\tools\ninja-1.13.2-windows;J:\Bonsai\landing\cuda-1
 set "VCPKG_ROOT=J:\vcpkg"
 set "VCPKG_TARGET_TRIPLET=x64-windows"
 set "SRC=J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src"
-set "BUILD=J:\ninfer-kvmem\.temp\build-1208a"
-set "LOG=J:\ninfer-kvmem\.temp\build_engine.log"
+if not defined BUILD set "BUILD=J:\ninfer-kvmem\.temp\build-1208a"
+if not defined LOG set "LOG=J:\ninfer-kvmem\.temp\build_engine.log"
 if not exist "%BUILD%" mkdir "%BUILD%"
 
 REM append (not overwrite): every resumed run leaves a trace
@@ -49,5 +49,6 @@ if not exist "%BUILD%\build.ninja" echo CONFIGURE-MISSING-BUILD-NINJA >> "%LOG%"
 if exist "%BUILD%\build.ninja" echo CONFIGURE-OK >> "%LOG%"
 echo [build] full graph, 16 jobs ... >> "%LOG%"
 cmake --build "%BUILD%" --parallel 16 >> "%LOG%" 2>&1
-echo BUILD-EXIT=%ERRORLEVEL% >> "%LOG%"
+echo BUILD-EXIT=%ERRORLEVEL% %DATE% %TIME% >> "%LOG%"
 echo BUILD-EXIT=%ERRORLEVEL%
+if exist "%BUILD%\apps\ninfer-serve.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\scripts\archive_build_output.ps1" -Source "%BUILD%\apps\ninfer-serve.exe" -Log "%LOG%"

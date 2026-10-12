@@ -1973,6 +1973,96 @@ double demote_profile_now_ms() {
                std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }
+// Ring-block segment profile (2026-10-13): armed by the SAME NINFER_DEMOTE_PROFILE=1 gate as the
+// 挂账44 helpers above; zero cost when off. "other" = entry-to-entry total minus the five segments,
+// so a run where no segment owns the time is visible instead of silent.
+// Output discipline: ONE summary line per window (NINFER_RING_PROFILE_WINDOW, default 256 calls)
+// plus ONE line for any single call >= 150 ms -- never one line per step.
+struct RingProfileWindow {
+    double marks[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    double prev_entry_ms = 0.0;
+    std::uint32_t calls = 0;
+    double sel = 0.0, rr = 0.0, mp = 0.0, rs = 0.0, mk = 0.0, other = 0.0;
+    double m_sel = 0.0, m_rr = 0.0, m_mp = 0.0, m_rs = 0.0, m_mk = 0.0, m_other = 0.0;
+};
+RingProfileWindow g_ring_profile;
+std::uint32_t ring_profile_window_calls() {
+    static const std::uint32_t n = [] {
+        const char* env = std::getenv("NINFER_RING_PROFILE_WINDOW");
+        if (env != nullptr) {
+            const long v = std::strtol(env, nullptr, 10);
+            if (v >= 8 && v <= 100000) { return static_cast<std::uint32_t>(v); }
+        }
+        return 256U;
+    }();
+    return n;
+}
+void ring_profile_enter() {
+    if (!demote_profile_enabled()) { return; }
+    g_ring_profile.prev_entry_ms = demote_profile_now_ms();
+    g_ring_profile.marks[0] = g_ring_profile.marks[1] = g_ring_profile.marks[2] =
+        g_ring_profile.marks[3] = g_ring_profile.marks[4] = 0.0;
+}
+void ring_profile_mark(const int idx) {
+    if (!demote_profile_enabled() || idx < 1 || idx > 5) { return; }
+    g_ring_profile.marks[idx - 1] = demote_profile_now_ms();
+}
+void ring_profile_window_end() {
+    if (!demote_profile_enabled()) { return; }
+    // A call that skipped any boundary (non-ring path) is ignored and must not disturb the window.
+    if (!(g_ring_profile.prev_entry_ms > 0.0 && g_ring_profile.marks[0] > 0.0 &&
+          g_ring_profile.marks[4] > 0.0)) {
+        return;
+    }
+    const double now_ms = demote_profile_now_ms();
+    const double s[5] = {
+        std::max(0.0, g_ring_profile.marks[0] - g_ring_profile.prev_entry_ms),
+        std::max(0.0, g_ring_profile.marks[1] - g_ring_profile.marks[0]),
+        std::max(0.0, g_ring_profile.marks[2] - g_ring_profile.marks[1]),
+        std::max(0.0, g_ring_profile.marks[3] - g_ring_profile.marks[2]),
+        std::max(0.0, g_ring_profile.marks[4] - g_ring_profile.marks[3])};
+    const double total = std::max(0.0, now_ms - g_ring_profile.prev_entry_ms);
+    const double other = std::max(0.0, total - (s[0] + s[1] + s[2] + s[3] + s[4]));
+    g_ring_profile.sel += s[0];
+    g_ring_profile.rr += s[1];
+    g_ring_profile.mp += s[2];
+    g_ring_profile.rs += s[3];
+    g_ring_profile.mk += s[4];
+    g_ring_profile.other += other;
+    if (s[0] > g_ring_profile.m_sel) { g_ring_profile.m_sel = s[0]; }
+    if (s[1] > g_ring_profile.m_rr) { g_ring_profile.m_rr = s[1]; }
+    if (s[2] > g_ring_profile.m_mp) { g_ring_profile.m_mp = s[2]; }
+    if (s[3] > g_ring_profile.m_rs) { g_ring_profile.m_rs = s[3]; }
+    if (s[4] > g_ring_profile.m_mk) { g_ring_profile.m_mk = s[4]; }
+    if (other > g_ring_profile.m_other) { g_ring_profile.m_other = other; }
+    if (total >= 150.0) {
+        std::fprintf(stderr,
+                     "[ninfer] ring profile STALL: one call %.1f ms (sel=%.1f rr=%.1f mp=%.1f "
+                     "rs=%.1f mk=%.1f other=%.1f)\n",
+                     total, s[0], s[1], s[2], s[3], s[4], other);
+    }
+    ++g_ring_profile.calls;
+    if (g_ring_profile.calls < ring_profile_window_calls()) { return; }
+    const double c = static_cast<double>(g_ring_profile.calls);
+    const double avg_total =
+        (g_ring_profile.sel + g_ring_profile.rr + g_ring_profile.mp + g_ring_profile.rs +
+         g_ring_profile.mk + g_ring_profile.other) / c;
+    const double dom = std::max({g_ring_profile.sel, g_ring_profile.rr, g_ring_profile.mp,
+                                 g_ring_profile.rs, g_ring_profile.mk}) / c;
+    std::fprintf(stderr,
+                 "[ninfer] ring profile window: calls=%u avg ms sel=%.3f rr=%.3f mp=%.3f rs=%.3f "
+                 "mk=%.3f other=%.3f | max ms sel=%.1f rr=%.1f mp=%.1f rs=%.1f mk=%.1f "
+                 "other=%.1f%s\n",
+                 g_ring_profile.calls, g_ring_profile.sel / c, g_ring_profile.rr / c,
+                 g_ring_profile.mp / c, g_ring_profile.rs / c, g_ring_profile.mk / c,
+                 g_ring_profile.other / c, g_ring_profile.m_sel, g_ring_profile.m_rr,
+                 g_ring_profile.m_mp, g_ring_profile.m_rs, g_ring_profile.m_mk,
+                 g_ring_profile.m_other,
+                 (avg_total > 0.0 && dom <= 0.20 * avg_total)
+                     ? " | [!] no segment > 20% -> widen instrument / three-arm run"
+                     : "");
+    g_ring_profile = RingProfileWindow{};
+}
 // LOCAL FIX (挂账42 第三步 v2): async demote switch. Default ON; NINFER_ASYNC_DEMOTE=0 falls
 // back to the fully synchronous batch path (risk backstop + A/B control arm).
 bool async_demote_enabled() {
@@ -2850,6 +2940,7 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
                          b_skeleton, b_evidence, b_recent, b_free, pool,
                          (b_skeleton + b_evidence + b_recent + b_free) == pool ? "yes" : "NO");
         }
+        ring_profile_enter();
         const std::uint32_t mapped_now = text_kv_addresses->mapped_pages(sequence.kv->text);
         if (budget != 0 && mapped_now > sink_pages &&
             (mapped_now != sequence.ring_scored_mapped || sequence.ring_keep.empty())) {
@@ -2869,6 +2960,7 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
         preferred.erase(std::remove_if(preferred.begin(), preferred.end(),
                                        [&](std::uint32_t page) { return page >= mapped_now; }),
                         preferred.end());
+        ring_profile_mark(1);
         // B01: room is made by the shared helper, which every mapping site now uses. It takes the
         // token frontier (proto_pages_for_tokens converts) and decides right here -- with these exact
         // numbers -- whether the pages this step must map can be freed at all.
@@ -2878,15 +2970,18 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
             ensure_ring_room(*backend_kv_addresses, *backend_kv_pages, *sequence.kv->backend,
                              backend_tokens, {}, pending_demote_backend_.get());
         }
+        ring_profile_mark(2);
     }
     text_kv_addresses->ensure_mapped_to_tokens(sequence.kv->text, main_tokens, device.stream);
     if (backend_tokens != 0) {
         backend_kv_addresses->ensure_mapped_to_tokens(*sequence.kv->backend, backend_tokens,
                                                       device.stream);
     }
+    ring_profile_mark(3);
     if (ring) {
         const std::vector<std::uint32_t> restored = restore_kv_pages_from_host(
             *text_kv_addresses, *text_kv_pages, sequence.kv->text, preferred);
+        ring_profile_mark(4);
         // LOCAL DIAGNOSTIC (ring retrieve): `preferred` vs `restored` separates three different
         // worlds that used to look identical from the outside --
         //   restored == preferred   -> every wanted page is Device-resident now
@@ -2932,6 +3027,8 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
                                        "mapped");
         }
     }
+    ring_profile_mark(5);
+    ring_profile_window_end();
 }
 
 void ProgramImpl::commit_sequence_kv(SequenceState& sequence, std::uint32_t main_tokens,

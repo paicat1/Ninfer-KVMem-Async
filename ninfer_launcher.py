@@ -443,6 +443,91 @@ def validate(combo, exe=None):
     return warns
 
 
+# ---------------------------------------------------------------
+# 显存需求账（2026-10-12 用户要求：选什么选项，就自动加出显存需求总量）
+#   口径经本机 20+ 次起服日志标定（《精算-显存账与KV池》§0/§1），非拍脑袋：
+#     need = 权重 + 视觉塔(仅 vision=on) + KV池 + 运行时 + CUDA graph   ← “加载前需求”
+#     页 = 64 token；每页 MiB：rk2v4-e8 0.83 / rk4v4-e8·nvfp4 1.11 /
+#                              k8v4·rk8v4 1.59 / int8·fp8 2.11 / bf16 4.08
+#   实测吻合：64K 池 rk2v4-e8 + graph128 → 需求 14.92 GiB，本卡 15.92 GiB
+#   ⇒ 起服前须有 ≈1.0 GiB 空闲（与“64K 池需净 GPU、桌面 ≤~1.0 GiB”实测一致）。
+# ---------------------------------------------------------------
+VRAM_PAGE_MIB = {
+    "rk2v4-e8": 0.83, "rk4v4-e8": 1.11, "nvfp4": 1.11,
+    "k8v4": 1.59, "rk8v4": 1.59, "int8": 2.11, "fp8": 2.11, "bf16": 4.08,
+}
+VRAM_TOKENS_PER_PAGE = 64
+VRAM_WEIGHTS_GIB = {"iq4nl": 12.30, "iq4nlvis": 12.30, "orig": 12.40}
+VRAM_RUNTIME_GIB = 1.66          # 运行时/工作区（实测 runtime 行 1.44~1.66，取上界）
+VRAM_VISION_GPU_GIB = 1.40       # vision=on 视觉塔常驻设备；overlay/cpu 走主机/CPU = 0
+
+_VRAM_GPU_CACHE = {"t": 0.0, "val": (None, None, False)}
+
+
+def _gpu_used_mib(max_age=5.0):
+    """nvidia-smi 实测 (已用 MiB, 总 MiB, 是否有引擎在跑)；5 秒缓存（_refresh 每次选择都调）。"""
+    now = time.time()
+    cached = _VRAM_GPU_CACHE["val"]
+    if cached[0] is not None and now - _VRAM_GPU_CACHE["t"] < max_age:
+        return cached
+    used = total = None
+    try:
+        r = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
+                            "--format=csv,noheader,nounits"],
+                           capture_output=True, text=True, timeout=10)
+        a, b = r.stdout.strip().splitlines()[0].split(",")
+        used, total = int(a.strip()), int(b.strip())
+    except Exception:
+        pass
+    running = False
+    try:
+        r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ninfer-serve*", "/NH"],
+                           capture_output=True, text=True, timeout=10)
+        running = "ninfer-serve" in r.stdout
+    except Exception:
+        pass
+    _VRAM_GPU_CACHE.update({"t": now, "val": (used, total, running)})
+    return used, total, running
+
+
+def vram_account(combo):
+    """按当前选择实时算显存账。返回 (文本, 判定色)；颜色：绿=OK，橙=紧张/不够/未知。"""
+    model = str(combo.get("model", "iq4nl"))
+    dtype = str(combo.get("kv", "rk2v4-e8"))
+    page = VRAM_PAGE_MIB.get(dtype, 0.83)
+    cap = str(combo.get("kvcap", "51200"))
+    # 池值必须经 KVCAP_OPTIONS 取真实 token 数：档位键有 "64k"/"32k" 这类写法，本身不是数字
+    # （真实值在 argv 里 = ["--kv-capacity", "65536"]）。2026-10-12 实测抓到该 bug。
+    _cap_argv = _argv_of(KVCAP_OPTIONS, cap, "51200")
+    cap_num = _cap_argv[1] if len(_cap_argv) >= 2 and _cap_argv[1].isdigit() else None
+    weights = VRAM_WEIGHTS_GIB.get(model, 12.30)
+    vis_gib = VRAM_VISION_GPU_GIB if str(combo.get("vision", "off")) == "on" else 0.0
+    g = str(combo.get("graph", "128"))
+    graph_gib = 0.0 if g == "off" else (int(g) if g.isdigit() else 64) / 1024.0
+    if cap_num is not None:
+        pages = int(cap_num) / float(VRAM_TOKENS_PER_PAGE)
+        pool_gib = pages * page / 1024.0
+        pool_txt = "池 %s tok %.2f" % (cap_num, pool_gib)
+    else:
+        pool_gib = 0.0
+        pool_txt = "池 auto（按剩余显存最大化，无法预算）"
+    need = weights + vis_gib + pool_gib + VRAM_RUNTIME_GIB + graph_gib
+    parts = "权重 %.2f" % weights
+    if vis_gib:
+        parts += " + 视觉塔 %.2f" % vis_gib
+    parts += " + %s + 运行时 %.2f + graph %.2f" % (pool_txt, VRAM_RUNTIME_GIB, graph_gib)
+    used, total, running = _gpu_used_mib()
+    if used is None:
+        return ("显存：需求 ≈ %.2f GiB ＝ %s ｜（nvidia-smi 不可用，余量未知）" % (need, parts), "#b07a20")
+    free = (total - used) / 1024.0
+    margin = free - need
+    verdict = "OK" if margin > 0.35 else ("紧张" if margin > 0.05 else "不够")
+    color = "#4a6b4a" if verdict == "OK" else "#b07a20"
+    tail = "｜⚠ 有引擎在跑，可用量含其占用（判余量请先停服）" if running else ""
+    return ("显存：需求 ≈ %.2f GiB ＝ %s ｜ 可用 %.2f（已用 %d/%d MiB）→ 余量 %+.2f 【%s】%s"
+            % (need, parts, free, used, total, margin, verdict, tail), color)
+
+
 def _argv_of(table, value, fallback_key):
     """安全取某维度参数（照老项目 D8）：未知/缺失值回退到默认项，避免裸下标 KeyError 崩 GUI。"""
     ent = table.get(value)
@@ -753,6 +838,12 @@ class LauncherApp:
         self.cmd_box.pack(fill="both", expand=True)
         self.cmd_box.configure(state="disabled")
 
+        # 显存账（2026-10-12 用户要求：选什么选项 → 自动加出显存需求总量；见 vram_account）
+        self.vram = tk.Label(right, text="", bg=self.bg, fg="#2b3a6b",
+                             font=("Microsoft YaHei UI", 9, "bold"),
+                             justify="left", anchor="w", wraplength=560)
+        self.vram.pack(anchor="w", pady=(6, 0))
+
         self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
                                font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=560)
         self.status.pack(anchor="w", pady=(6, 0))
@@ -900,6 +991,12 @@ class LauncherApp:
         self.cmd_box.delete("1.0", "end")
         self.cmd_box.insert("1.0", text)
         self.cmd_box.configure(state="disabled")
+        # 显存账：每次选择变更即重算（vram_account 自带 nvidia-smi 5 秒缓存，不会拖慢 GUI）
+        try:
+            vtxt, vcolor = vram_account(self.selection)
+        except Exception as _e:          # 账算失败也绝不让 GUI 崩（老项目 D8 精神）
+            vtxt, vcolor = "显存：计算失败（%s）" % _e, "#b07a20"
+        self.vram.config(text=vtxt, fg=vcolor)
         warns = validate(self.selection, self._engine_path())
         if warns:
             self.status.config(text="⚠ " + "\n⚠ ".join(warns), fg="#b07a20")

@@ -29,8 +29,8 @@
   {
     "label": "V2+overlay64K（stage0a 实测基线）",
     "path": "J:\\ninfer-kvmem\\_safety_backups\\exe_lineage_20261013\\ninfer-serve.exe.20261013_085713",
-    "tags": ["真谷0", "超池10零故障", "峰406", "TTFTmax57s"],
-    "note": "v2 二进制（sha 0B4D1B65…）+ stage0a 配置：--vision-residency overlay + --kv-capacity 65536 + --cuda-graph-allowance-mib 64 + --spec mtp K4 + reqlog 仪器。实测 102 轮 / 0x500 / 超池 10 次零故障 / 真谷（host 饱和型）0 / TTFT max 57.2s（前一档 464.9s）/ 峰 406.2。配套预设：★64K overlay stage0a 基线；reqlog 旗启动器暂不支持（需另加）",
+    "tags": ["真谷0", "超池11零故障", "峰406", "TTFTmax57s"],
+    "note": "v2 二进制（sha 0B4D1B65…）+ stage0a 配置：--vision-residency overlay + --kv-capacity 65536 + --cuda-graph-allowance-mib 64 + --spec mtp K4 + reqlog 仪器。实测 102 轮 / 0x500 / 超池 11 次零故障（TELE 复核修正 10→11）/ 真谷（host 饱和型）0 / TTFT max 57.2s（前一档 464.9s）/ 峰 406.2（decode median 口径：窗口级 152.7@22:07 / 终态 159.6 / 请求级 225.3）。配套预设：★64K overlay stage0a 基线（reqlog 三旗已进启动器 2026-10-13 夜；on → .temp\\reqlog_serve_<port>.jsonl）",
     "status": "基线",
     "added": "2026-10-13",
     "replaced_by": ""

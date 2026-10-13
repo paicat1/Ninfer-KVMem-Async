@@ -344,6 +344,14 @@ PRESERVE_OPTIONS = {
     "on":  ("开（保留思考）", ["--preserve-thinking"]),
 }
 
+REQLOG_OPTIONS = {
+    # 2026-10-13 夜（TELE 复核缺口 #3 闭环）：Stage 0 请求/区间日志仪器。
+    #   on = 写 .temp\reqlog_serve_<端口>.jsonl（逐窗 host_work / rounds / tok 分解；配套 scripts\stage0_read.py 读数）；
+    #   文件名由 build_command 按端口动态生成（区分多实例）；纯观测，无性能影响。
+    "off": ("关（默认）", []),
+    "on":  ("开·写 .temp\\reqlog_serve_<端口>.jsonl（Stage 0 仪器）", []),
+}
+
 DIMENSIONS = [
     ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（iq4nlvis 含视觉组件，2026-10-11 实测）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
@@ -361,6 +369,7 @@ DIMENSIONS = [
     ("conc",   "并发",            CONC_OPTIONS),
     ("preserve","保留思考",        PRESERVE_OPTIONS),
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
+    ("reqlog", "请求日志（Stage 0 仪器）", REQLOG_OPTIONS),   # 2026-10-13 夜新增
 ]
 
 # 默认组合（P0 2026-10-09 适配 Coder390；P1b 2026-10-09 按实测参数定稿）：
@@ -385,7 +394,7 @@ DEFAULTS = {
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
-    "graph": "128",
+    "graph": "128", "reqlog": "off",
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -411,6 +420,8 @@ DIM_TIPS = {
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
     "preserve":"保留已关闭回合的 assistant 推理（--preserve-thinking）。多轮长对话要前序思考时开。",
     "hemostat":"KV 止血档（20261010 定案改三档）：on=★定稿，仅 --recover-invariant-failures（出问题只废当前请求、不弄死引擎）；legacy=旧 E5（--kv-lease-growth——深超池下把输出砍在 ~4,096 租约窗口 ⇒ DSH 撞墙直接根因，仅留作 A/B 对照臂）；off=全关（官方 bat 原样）。",
+    "reqlog": "请求日志仪器（--request-log-jsonl 三旗，Stage 0）：开 = 逐窗落 .temp\\reqlog_serve_<端口>.jsonl"
+              "（host_work / rounds / tok 分解，配套 scripts\\stage0_read.py 读数）。默认关；纯观测。",
 }
 
 # 命名组合预置（首次运行若无配置文件则落盘）
@@ -444,11 +455,13 @@ PRESET_PROFILES = {
     "★64K视觉稳（v2.1实测·nograph）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k", graph="off"),
     # 2026-10-13 用户令定稿：视觉改 overlay（塔驻 host、打图开窗借设备；5 图零错、首图 prepared 0.3-0.7s、复用 40-60ms）。
     "★视觉 overlay 定稿（2026-10-13·5图零错）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="off"),
-    # 2026-10-13 夜 用户令：stage0a 实况轮（102 轮 / 0×500 / 超池 10 次零故障 / 真谷 0）整档固定为基线。
+    # 2026-10-13 夜 用户令：stage0a 实况轮（102 轮 / 0×500 / 超池 11 次零故障 / 真谷 0）整档固定为基线。
     #   = stage0a 起服逐字：64K 池 + iq4nlvis(overlay) + --cuda-graph-allowance-mib 64 + MTP K4
-    #     + 思考 high/16000 + 官方采样 + hemostat on；reqlog 仪器旗（--request-log-jsonl …）启动器暂不支持，需另加。
-    #   实测：decode median 152.7 / 峰 406.2；TTFT max 57.2s（前档 464.9s）；真谷（host 饱和型）= 0。
-    "★64K overlay stage0a 基线（10-13 实测）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="64"),
+    #     + 思考 high/16000 + 官方采样 + hemostat on + **reqlog 仪器开**（TELE 干跑复算：23/23 旗全等；
+    #     缺的 reqlog 三旗=本预设 reqlog="on" 补齐，文件名按端口 .temp\reqlog_serve_<port>.jsonl）。
+    #   实测：decode median 152.7（窗口级·截至 22:07:47；终态 159.6 / 请求级 225.3）/ 峰 406.2；
+    #     TTFT max 57.2s（前档 464.9s）；真谷（host 饱和型）= 0。
+    "★64K overlay stage0a 基线（10-13 实测）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="64", reqlog="on"),
 }
 
 # ---------------------------------------------------------------
@@ -639,6 +652,9 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(TB_OPTIONS,      combo.get("tb", "none"),       "none")
     argv += _argv_of(CONC_OPTIONS,    combo.get("conc", "1"),        "1")
     argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
+    if combo.get("reqlog", "off") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
+        argv += ["--request-log-jsonl", os.path.join(".temp", "reqlog_serve_%s.jsonl" % port),
+                 "--request-log-max-mib", "256", "--request-log-keep", "2"]
     argv += ["--max-shared-prefixes", "0"]   # 铁律：防打砖
     argv += _argv_of(SAMPLE_OPTIONS,  combo.get("sample", "shipped"), "shipped")
     argv += _argv_of(HEMOSTAT_OPTIONS, combo.get("hemostat", "on"),  "on")   # B01 止血（E5 决定：默认开）
@@ -1319,6 +1335,6 @@ if __name__ == "__main__":
 #   · 更多维度：spec draft 1..15 二级联动、--thinking-budget、--prefill-cublas、
 #     --lookup-ngram、--vision-residency、--kv-headroom-mib、--seed 等
 #   · 日志落盘（serve_tee 等价物，写 logs\serve_<时间戳>.log）
-#   · stage0a 实测旗：--request-log-jsonl / --request-log-max-mib / --request-log-keep（reqlog 仪器）、--max-shared-prefixes 0
+#   · （2026-10-13 夜已补）stage0a reqlog 三旗已进启动器（reqlog 维度）；--max-shared-prefixes 0 早已内置（防打砖），勿误列。
 #   · 端口可改、S3 KVMem 检索证据（kvmem_score: SELECT）采集
 # ---------------------------------------------------------------

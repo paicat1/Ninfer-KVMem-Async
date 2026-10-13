@@ -2318,8 +2318,8 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 ### 22. stage0a 实况轮全量扫描 + Stage 0 首遍对账（2026-10-13 夜，用户令"不跑了你看看"）
 
 **数字（test_stage0a；build `H1_20261013_baseline-1-g27dc746` = v2 + `--vision-residency overlay` + 池 65536 + reqlog；21:01:47 起，截稿仍在跑）**：
-- **req 101+ 完成 / 500=0 / recovery=0 / reconcile=0 / writer-blocked=0 / unavailable=0** ✓；**超池 10 次零故障** ✓（v2 承诺第三次验证）；
-- decode median 152.7 / avg 187.7 / **max 406.2**（≥400 两窗）；prefill median 557.3 / **max 2310**；host_max 108.4%（>100 口径存疑，待查）；**TTFT median 2.2s / max 57.2s**（vs v2test1 轮 464.9s ⇒ 冷轮成本大降，overlay 生效）；cache median 95.8%；输出 max 18,370。
+- **req 101+ 完成 / 500=0 / recovery=0 / reconcile=0 / writer-blocked=0 / unavailable=0** ✓；**超池 11 次零故障** ✓（v2 承诺第三次验证；TELE 终态复核修正 10→11）；
+- decode median 152.7（窗口级·截至 22:07:47；终态 159.6 / 请求级 225.3）/ avg 187.7 / **max 406.2**（≥400 两窗）；prefill median 557.3 / **max 2310**；host_max 108.4%（>100 口径存疑，待查）；**TTFT median 2.2s / max 57.2s**（vs v2test1 轮 464.9s ⇒ 冷轮成本大降，overlay 生效）；cache median 95.8%；输出 max 18,370。
 **阶段桶**：21:00 avg 162.1 → 21:10 259.9 → 21:30 134.5 → 21:50 192.6 → **22:00 avg 247.0 / median 323.1**（收工时高速段）。
 **原因/判据分类（谷口径 v2，新）**：低 decode 窗先分类再算谷——stage0a：**真谷（host 饱和）= 0** ✓ / idle 3 / 重填混合 4 / 未归因（收尾填充）3（raw 10 窗 3.7%）；retro 验 v2test1：**真谷 40 窗 10.8%**（19:15 那条 22 窗原样复现）⇒ 分类器双重验证通过。
 
@@ -2341,12 +2341,27 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 - **用户令**："这次的引擎基线是不是很不错？加入引擎下拉栏吧？值得加吧？" → 判定：值得；已入册（登记条目 + 配套预设 + 配对 env 三件套）。
 - **硬件更正（日志实证）**：本机 = **RTX 5080 sm120**（`test_stage0a.log`：`device profile nvidia-geforce-rtx-5080-sm120`；权重 12.3 GiB + host KV pinned 16 GiB）；文档中出现的 `3090` 均为**上游 fork 名**（`ashalliants/ninfer-3090` 等），非本机——若此前有把本机记为 3090 的表述，作废（以本节为准）。
-- **登记册新条目**（`engine_registry.json`）：**「V2+overlay64K（stage0a 实测基线）」** status=**基线**（默认展示位）；path = v2 归档 exe（sha `0B4D1B65…`，**不做第三份拷贝**——lineage 每份 1.27 GiB，二进制已在案）；tags：真谷0 / 超池10零故障 / 峰406 / TTFTmax57s；note 载配置四件（overlay + kvcap 65536 + graph64 + mtp K4）+ reqlog 仪器说明 + 配套预设名。原 `v2_27dc746` 条目降为**候选**（同一二进制；抬头注明配置条目所在）。
-- **预设新增**（`infer_launcher.py`）：**`★64K overlay stage0a 基线（10-13 实测）`** = DEFAULTS + iq4nlvis + overlay + kvcap 64k + **graph 64**；`PRESET_ENV` 配对 `NINFER_ASYNC_DEMOTE_DEPTH=2` + `NINFER_DEMOTE_PROFILE=1`（PROFILE=1 已由该轮日志 "demote profile" 行实证；DEPTH=2 随 v2.1 定稿配对，未单独取证）；文件尾 TODO 补记 reqlog/`--max-shared-prefixes` 旗（启动器暂不产出，需另加）。
-- **复现口径（诚实项）**：①引擎下拉选的是 **exe**、配置来自**预设** ⇒ 复现实测基线 = 选「V2+overlay64K」+「★64K overlay stage0a 基线」；②**reqlog 仪器旗启动器暂无**（stage0a 系手工起服）；③"真谷 0"= **没被触发**（负载较轻 + cache 中位 95.8%）而非被消灭——冷轮仍在（22:08 一发 cache0 TTFT 43.6s）；④graph=64 vs 更省档：桌面内存紧时用「★64K视觉稳（v2.1·nograph）」。
+- **登记册新条目**（`engine_registry.json`）：**「V2+overlay64K（stage0a 实测基线）」** status=**基线**（默认展示位）；path = v2 归档 exe（sha `0B4D1B65…`，**不做第三份拷贝**——lineage 每份 1.27 GiB，二进制已在案）；tags：真谷0 / 超池11零故障 / 峰406 / TTFTmax57s；note 载配置四件（overlay + kvcap 65536 + graph64 + mtp K4）+ reqlog 仪器说明 + 配套预设名。原 `v2_27dc746` 条目降为**候选**（同一二进制；抬头注明配置条目所在）。
+- **预设新增**（`infer_launcher.py`）：**`★64K overlay stage0a 基线（10-13 实测）`** = DEFAULTS + iq4nlvis + overlay + kvcap 64k + **graph 64**；`PRESET_ENV` 配对 `NINFER_ASYNC_DEMOTE_DEPTH=2` + `NINFER_DEMOTE_PROFILE=1`（PROFILE=1 已由该轮日志 "demote profile" 行实证；DEPTH=2 随 v2.1 定稿配对，未单独取证）；文件尾 TODO 更正（reqlog 三旗同夜已进启动器；`--max-shared-prefixes 0` 早已内置，勿误列）。
+- **复现口径（诚实项）**：①引擎下拉选的是 **exe**、配置来自**预设** ⇒ 复现实测基线 = 选「V2+overlay64K」+「★64K overlay stage0a 基线」；②reqlog 仪器旗：**同夜已补进启动器**（on → `.temp\reqlog_serve_<port>.jsonl`；stage0a 手工名 `reqlog_stage0.jsonl` 为一次性）；③"真谷 0"= **没被触发**（负载较轻 + cache 中位 95.8%）而非被消灭——冷轮仍在（22:08 一发 cache0 TTFT 43.6s）；④graph=64 vs 更省档：桌面内存紧时用「★64K视觉稳（v2.1·nograph）」。
 - **流程小记**：`replace_in_file` 对 `ninfer_launcher.py` 连续报 "path does not exist"（读正常/JSON 正常）⇒ 改用一次性 python 补丁脚本（断言唯一锚点 + AST 校验 + diff 复核；`.temp\patch_launcher_20261013.py`），三处替换全部成功、无副作用。
 
 **收工（22:19，用户令停服）**：终态 = **102 轮 / 0×500**（末次 req#102：62,679 prompt / 17,804 输出 / cache 99.4% / TTFT 980 ms）；引擎 PID 4084 已停、**8094 已释放** ✓（serve_tee/轮询器随停）。本轮 reqlog（`.temp\reqlog_stage0.jsonl`）+ stats（`.temp\v2test1_stats.jsonl`，名标错）史料封存，作 Q1/Q2 底账。
+
+
+### 24. TELE 复核回执 + 整改落地 + Q5 读码首轮定案（2026-10-13 深夜）
+
+**TELE 复核**（22:35，报告落盘 `J:\sda管理\TELE复核_stage0a基线入册_20261013.md`；机械级复算=读码+跑码对账，全程只读）：五提交链（b2e0d44→d3d587b）通过；102 轮 / 0×500 / 真谷 0（host_bound 分类器）/ v2test1 40 窗对照 / 峰 406.2 / stage0_read 快窗分解（15.64×23.17×98.6%）**全部独立复现** ✓；**干跑对比：启动器构造命令 vs stage0a 实战命令 23/23 旗全等**（唯一缺口=reqlog 三旗）；登记册默认位机制 / exe 指向 / 预设键 / AST 全过 ✓；停服干净 ✓。附 3 项小修正 + 1 条操作注意。
+
+**整改（同夜完成）**：①**超池 10→11**（终态复核：11 条事件，含 22:04 的 71,847）——§22/§23 + 登记册 + 预设注释全改；②**decode median 口径**：窗口级 152.7（截至 22:07:47）/ 终态 159.6 / 请求级 225.3——已标注；③**reqlog 三旗进启动器**（缺口 #3 闭环）：新维度「请求日志（Stage 0 仪器）」（默认关；on → `.temp\reqlog_serve_<端口>.jsonl` + max-mib 256 + keep 2），stage0a 预设补 `reqlog="on"`，**干跑 51 项 argv 与实战逐旗全等** ✓；TODO 更正（`--max-shared-prefixes 0` 早已内置）。**操作注意**：旧启动器实例先关再重开；重开前勿在旧窗口点「登记/标注」（旧内存态回写会抹掉今晚条目）。**附**：「v2 转正」= 随本次入册闭环（二进制=归档件、配置=stage0a 条目），从待决清单划掉 ✓。
+
+**Q5 读码首轮定案（只读；file:line 全证）**：
+- **B2（NINFER_KV_WINDOW）**：①窗口**值**只在启动期 residency 规划当数字用（`planning/startup.cpp:145-161`：window_pages+prefill_chunk ×lane +8 slack）；②热路径全部只当 `!=0` 谓词（`storage/context.cpp:2749 / 2876 / 3048`）；③"recent" 预算行**硬编码 0U**（`context.cpp:2935`）；④KVMem 的 sink/recent 带机制存在（`ops/kvmem/qw3/kvmem_store.cpp:66-164`；config `recent_blocks=0` 默认）但 **CLI 未接线**（serve_options.cpp 中 `--kvmem-recent/--kvmem-sink` 零命中）⇒ **recency 在实际配置中从未激活**（与 tancau "窗口旋钮≈开关" 判定同构 ✗）；⑤retrieval 预算自 B32 修复 **AUTO-ON**（`context.cpp:2902-2916`）⇒ 我方 ring = **demote-oldest + sink + retrieval(auto) + hysteresis**，窗口旋钮不改选择策略。
+- **B1（decode 轮 mid-ensure）——定位反转**：①decode **每轮确实走完整 ensure**（`decode.cpp:479` ordinary / `677` MTP-verify / `931` DFlash）；②ring 尾段 = 打分（有 hysteresis：`context.cpp:2945-2957` 仅 mapped 页数变化才重打分）+ `ensure_ring_room`（2967）+ `restore_kv_pages_from_host`（2982）+ 掩码重装 text/backend（3021/3025）；③**但** stage0a 日志现成的 `[ring] profile window` 实测（`NINFER_DEMOTE_PROFILE=1` 已开，每 256 calls 一行）：**avg/次 sel 0.007 / rr 0.002–0.116 / mp 0.006 / rs 0.004–0.184 / mk 0.046–0.213 ms**（typical 合计 ≈0.09 ms）⇒ **远不是 39 ms/轮**；孤峰 max 单次 rr 29.3 / rs 16.8 / mk 42.x ms；④⇒ **tancau"跳过 mid-ensure restore"那把刀在我方不是主税**；39ms/轮在 `program_submit` **本体**（ensure 之外）⇒ **Q7（I3b program_submit 内部分解）升为下一主刀候选**；ring 尾段尖峰留作谷微尖峰可疑项（Q1 标本对照）。
+- **副产品**：`NINFER_DEMOTE_PROFILE=1` + `NINFER_RING_PROFILE_WINDOW`（默认 256 calls/行）= **谷仪表现成组件**——下次武装跑带着，ring 分段自动入档（零新代码）。
+
+**队列更新**：**Q5 ✔ 收口**（B1/B2 定案 + B1 定位反转）；**Q7 升为下一主刀候选**（I3b 设计稿随其后）；Q1 保持武装（下次深堆会话捕标本，带 profile）；Q2 工具就位 ✔；Q3/Q4/Q6 等"开工"令；Q8 不变。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

@@ -2057,6 +2057,19 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - 证据：`logs\ea1c_stats_timeline.jsonl`（全量 /stats）、`.temp\ea1_ea2_ea3_drive.out`（驱动输出）、`.temp\analyze_stall.py`（逐类增量器）。
 - **复现台可复用**：每次压缩重填会再触发一次 ⇒ **I3 修复 A/B 的现成夹具** ✓。
 
+### 5. I3 靶心实弹：500 复现（挂账 54 变体）+ 修复刀口锁定（08:16–08:21）
+
+- drive#5（`ea5_mat` 实例 = H1 二进制 + `NINFER_MAT_DEBUG=1` + ring 窗口 64）；第 23 轮深重填复现爬行（56.4 s，"76.9"签名）；**第 27 轮 = HTTP 500**（实验全程首个引擎级失败，全链已捕获）：
+  `priv BUILD slot=1 reuse_tok=75818`（私有端点分叉复用）→ `adopt host-backed: need=1185 > usable=1024，host_backed=195` →
+  `demote-other short: freed=0 want=195（noresident=1209）`×2 → **`KV activation has an unavailable Device page (writer blocked, page 276)`** →
+  recovery 重建（**182,255,616 B Host KV 无主 = 173.8 MB 孤儿** ← 挂账 48 同源）→ `req#27 HTTP 500`。
+- **判读**：H1（`35173e0`）的 54-fix v1 只 reconcile 了"**无设备副本（可延迟）**"分支（`activation reconcile` 计数 = **0**，从未走到）；**本次死因 = 第二分支"writer blocked"**（`kv_store.h:1129`：`address_references==1 && !can_set_writer` ⇒ 分叉复用后 `references>1` / `source_pins` / `writer_references` 之一阻写 ✗）。
+- **修复刀口（两案，均出自既有文档方向，待选/可双落）**：
+  - **F1** = 扩展 reconcile 覆盖 writer-blocked 分支（保住请求；需语义审查：写者授予只对"将写入的尾页"必要，旧页可只读滑过）；
+  - **F2** = 采用期 `freed=0` 且缺口未补 ⇒ activation 前**可读的请求级错误**（§三·二十五 方向②原文）——避免 invariant 致命路径 + recovery 连坐与孤儿。
+- **MAT_DEBUG 判读**：mat-debug/candgen 行速率 **32–56 行/分恒定**（健康窗与爬行窗同率）⇒ 材质化规划器**非**谷内热源 ✗（排除）；谷内热源仍在 submit/post 未分段区（I3b 仪表目标）。
+- 证据：`logs\test_ea5_mat.log`（全文留档）+ `logs\ea1c_stats_timeline.jsonl`（poller 时间线含 ea5 段）。
+
 ---
 
 ## 四、待续事项（挂账）

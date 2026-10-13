@@ -2129,6 +2129,18 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **D. 我方下一批实验队列（待令；一次一变量）**：P0 vision-resident（A 案对照）→ P1 fast-prefill-kernel → P2 mtp-attention-window 起服试验 → P3 draft 3/4/5 扫 → P4 state-slots 臂 + `TERNARY_KVMEM_SCORE=0` 臂 → P5 读码核实 B1/B2 → P6（视情）prefill-cublas（带质量门）。**边界**：全部为我方自研验证，不搬运代码/参数 ✗。
 
+### 10. 方向定位：我方 ←→ tancau（用户三问的定论，2026-10-13 晚）
+
+**① 同为一路（同源代码族、不同分支）**：他 `ninfer-kvmem-ring`（Ternary-Bonsai-2-27B / RTX 3060 12G / Win10，池 98304 固定）；我们 `line-coder390` 线（Qwen3.8-27B-Coder390 / RTX 3090 24G）。函数级同义同名（`context.cpp` / `paged_kv_cache.cpp` / `HostKVExtentStore` / `demote_other_addresses_to_host` / ring 谓词）⇒ 我 2026-10-02 的 publish 补丁正源自他 §4/§8 定案——**血缘同，线不同**。
+
+**② 机制同路、刀法互补**：核心机制 = 同一大方向（**设备 KV 池故意 < 会话；冷页压 host、按需取回；锚/checkpoint + 复用**）。我方叫"异步页流水"（v2：demote 深度流水、不阻塞 decode）；他叫 ring/checkpoint/host-backed，其 restore 全异步、demote 批量循环，decode 税走的修法是"**decode 轮跳过 mid-ensure H2D restore**"（3.2×）——**同一类问题的两种刀法，互补而非同一件事**。
+
+**③ 分岔**：模型（Bonsai vs Coder390）/ 硬件（12G vs 24G）/ 负载（通用会话 vs coder agentic）三不同；当前瓶颈不同（他 = 引擎平台期 + PPL 质量门；我们 = 解码深谷 + vision 冷费 + 长会话稳定性）。
+
+**④ 对我们四类作用**：**去雷**（他踩死的：mtp-attention-window 被 KVMem 拒 / ngram=0 无差 / adaptive 无差 / chunk 无差 / spec-off 死路 → 我方可少走）；**可搬**（fast-prefill-kernel / prefill-cublas / vision-resident / state 槽位臂 / keepalive+超时 / 归因三阶段法）；**线索**（B1 decode 跳过 restore = 我谷头号候选；B2 窗口死旋钮待核；B3 深度公式 = 池−工作集）；**背书**（12G 上 262K 全程跑通 = 架构可行性独立证据；验收线模板：存活 / 召回 / decode≥20 / 尾≥100）。
+
+**⑤ 纪律**：数字/结论不可直搬（模型/硬件/负载三不同）；采纳一律走"自研 → 实测 → 用户裁决" ✗。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

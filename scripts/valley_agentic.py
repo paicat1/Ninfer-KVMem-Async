@@ -56,12 +56,14 @@ def main():
     ap.add_argument('--max-tokens', type=int, default=1500)
     ap.add_argument('--compact-tokens', type=int, default=66000)
     ap.add_argument('--compact-kb', type=int, default=150)
+    ap.add_argument('--min-compact-gap', type=int, default=12)
     ap.add_argument('--timeout', type=int, default=3600)
     args = ap.parse_args()
 
     url = 'http://127.0.0.1:%d/v1/chat/completions' % args.port
     history = []
     seed = 20261013
+    last_compact_round = 0
 
     for round_index in range(1, args.rounds + 1):
         if round_index == 1:
@@ -69,7 +71,9 @@ def main():
             prompt = payload + '\n\n请概述上面文字的要点，并给出三个后续检查项。'
         else:
             seed += 7919
-            if est_tokens(history) >= args.compact_tokens:
+            if (est_tokens(history) >= args.compact_tokens and
+                    round_index - last_compact_round >= args.min_compact_gap):
+                last_compact_round = round_index
                 # The DSH client compacts to a still-large rewritten conversation (measured: cache-0
                 # full refills of 40-48K tokens right before the valley). So the compacted context
                 # keeps a ~compact-kb body -- NOT a small reset.

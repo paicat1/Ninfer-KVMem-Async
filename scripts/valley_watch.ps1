@@ -34,6 +34,9 @@ $slowStreak = 0
 while ((Get-Date) -lt $deadline) {
     if (-not (Start-Engine)) { J 'engine start FAILED; retry in 60s'; Start-Sleep -Seconds 60; continue }
     $gpu = (nvidia-smi --query-gpu=utilization.gpu,clocks.current.sm,memory.used --format=csv,noheader) -join ' '
+    $stamp = Get-Date -Format 'HHmmss'
+    Start-Process -WindowStyle Hidden -FilePath cmd -ArgumentList '/c', ('nvidia-smi dmon -o T -s pucmt -c 90 > J:\ninfer-kvmem\.temp\watch_dmon_' + $stamp + '.txt 2>&1')
+    Start-Process -WindowStyle Hidden -FilePath python -ArgumentList '-X', 'utf8', 'scripts\gpu_sampler.py', '--seconds', '120', '--interval', '1'
     $out = python -X utf8 scripts\a2gate.py --arm watch --port 8094 --runs 1 --rounds 1 --filler-kb $FillerKb --max-tokens $MaxTokens 2>&1
     $line = ($out | Where-Object { $_ -match 'run 1 round 1' } | Select-Object -First 1)
     $sec = 0.0

@@ -8,6 +8,7 @@
 #include "ninfer/ops/scalar.h"
 #include "models/qwen3_5/program/speculative/step_graph_profile.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cuda_runtime.h>
 #include <stdexcept>
@@ -30,11 +31,30 @@ bool step_graph_enabled() {
 }
 
 void step_graph_arm() {
-    if (!step_graph_enabled()) { return; }
+    static bool reported = false;
+    if (!step_graph_enabled()) {
+        if (!reported) {
+            reported = true;
+            std::fprintf(stderr, "[ninfer] step graph DEBUG: arm skipped (profile disabled)\n");
+        }
+        return;
+    }
+    int created = 0;
     for (int i = 0; i < 5; ++i) {
         if (g_step_graph_events[i] == nullptr) {
             if (cudaEventCreate(&g_step_graph_events[i]) != cudaSuccess) {
                 g_step_graph_events[i] = nullptr;
+            } else {
+                ++created;
+            }
+        }
+    }
+    if (!reported) {
+        reported = true;
+        std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/5 events\n", created);
+        for (int i = 0; i < 5; ++i) {
+            if (g_step_graph_events[i] == nullptr) {
+                std::fprintf(stderr, "[ninfer] step graph DEBUG: event %d NULL\n", i);
             }
         }
     }
@@ -47,20 +67,40 @@ void step_graph_record(int slot, cudaStream_t stream) {
 }
 
 bool step_graph_harvest(double out_ms[4]) {
+    static bool reported_fail = false;
+    static bool reported_ok = false;
     if (!step_graph_enabled()) { return false; }
     for (int i = 0; i < 5; ++i) {
-        if (g_step_graph_events[i] == nullptr) { return false; }
+        if (g_step_graph_events[i] == nullptr) {
+            if (!reported_fail) {
+                reported_fail = true;
+                std::fprintf(stderr, "[ninfer] step graph DEBUG: harvest fail, event %d NULL\n", i);
+            }
+            return false;
+        }
     }
     float ms = 0.0f;
     for (int i = 0; i < 4; ++i) {
-        if (cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]) !=
-            cudaSuccess) {
-            // 2026-10-14 修复：未记录过的事件会让 cudaEventElapsedTime 置 sticky last-error，
-            // 后续任何 CUDA_CHECK(cudaGetLastError()) 会捡到它并 abort（warmup recurrent.cu 实测）。
+        const cudaError_t err =
+            cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]);
+        if (err != cudaSuccess) {
+            if (!reported_fail) {
+                reported_fail = true;
+                std::fprintf(stderr,
+                             "[ninfer] step graph DEBUG: harvest fail i=%d err=%s (%s)\n", i,
+                             cudaGetErrorName(err), cudaGetErrorString(err));
+            }
             (void)cudaGetLastError();
             return false;
         }
         out_ms[i] = static_cast<double>(ms);
+    }
+    if (!reported_ok) {
+        reported_ok = true;
+        std::fprintf(stderr,
+                     "[ninfer] step graph DEBUG: harvest OK first time ingress=%.2f target=%.2f "
+                     "draft=%.2f egress=%.2f ms\n",
+                     out_ms[0], out_ms[1], out_ms[2], out_ms[3]);
     }
     return true;
 }

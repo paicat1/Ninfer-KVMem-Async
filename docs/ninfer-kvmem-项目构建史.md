@@ -2346,6 +2346,8 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **复现口径（诚实项）**：①引擎下拉选的是 **exe**、配置来自**预设** ⇒ 复现实测基线 = 选「V2+overlay64K」+「★64K overlay stage0a 基线」；②**reqlog 仪器旗启动器暂无**（stage0a 系手工起服）；③"真谷 0"= **没被触发**（负载较轻 + cache 中位 95.8%）而非被消灭——冷轮仍在（22:08 一发 cache0 TTFT 43.6s）；④graph=64 vs 更省档：桌面内存紧时用「★64K视觉稳（v2.1·nograph）」。
 - **流程小记**：`replace_in_file` 对 `ninfer_launcher.py` 连续报 "path does not exist"（读正常/JSON 正常）⇒ 改用一次性 python 补丁脚本（断言唯一锚点 + AST 校验 + diff 复核；`.temp\patch_launcher_20261013.py`），三处替换全部成功、无副作用。
 
+**收工（22:19，用户令停服）**：终态 = **102 轮 / 0×500**（末次 req#102：62,679 prompt / 17,804 输出 / cache 99.4% / TTFT 980 ms）；引擎 PID 4084 已停、**8094 已释放** ✓（serve_tee/轮询器随停）。本轮 reqlog（`.temp\reqlog_stage0.jsonl`）+ stats（`.temp\v2test1_stats.jsonl`，名标错）史料封存，作 Q1/Q2 底账。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

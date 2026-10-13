@@ -2261,6 +2261,23 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - 附观察：prefill 随深度自然降（1.86k→1.43k @65K）；同尺寸 run2 略慢于 run1（+10% 级，原因未查，记观察）。
 - **A 组总结论（收口）**：池上限 = 容量数据 ✓；A2 无损但无益 ✗；A3 零效应 ✗ ⇒ **剩余潜力不在旗面**；回主线 **B = I3b 谷仪表**（谷 + "residency-态依赖"同一矿区）。keeper = `v2ovl_p72k_final2`（73728 + overlay，smoke 200）。
 
+### 19. I3b Stage 0 首遍执行（2026-10-13 21:0x，判据=TELE 修正三件套）：账本可信 ✓、无深谷复现、结构显形
+
+**实例**：`stage0a` = v2 + overlay + 池 65536 + **`--request-log-jsonl`**（argv 核验 ✓；reqlog 194 行 / 503 KiB；`stats_poller` 10s 并行）。夹具 = `valley_agentic --rounds 45 --compact-kb 250`（08:03 深谷同款）。
+
+**主判据（请求级全账，无分母）**：**闭合 ✓**——rid40（67.5K 重填）：total 78.09 ≈ host_exposed 48.20 + device_wait 29.80 + q/prep 0.09（误差 0.01s）；rid28/41/42 同型。**最大发现：重填的 57.06s prefill 里 48.05s 是 `program_submit` host（84%）** ✗——重填爬行的主成本在**主机 submit 路径**，不在设备。
+
+**交叉判据（5s 窗逐类）**：活跃窗 80 个：**wall 400.0s / 缺口 8.2s = 2.1%**（非边界窗缺口 TOP：1.32s@260、0.62@316、0.61@170；90–140 带 20 窗**平均缺口 0.02s**）。
+**结构显形（四代表窗）**：
+1. **最快窗 387.7**：host **4.954/4.99 = 99.3% 忙，全在 program_submit**（121 轮/5s、16 tok/轮、42ms host/轮）⇒ **健康 decode = 主机限轮器**（与 tancau 定案同型 ✓）；
+2. **260 窗（缺 1.32s）**：唯一真残留（26% 未归属）——记待解 ✗；
+3. **17.0 慢窗**：= **chunked-prefill × decode 交织**（prefill_host 1.60 + prefill_device_wait 1.85 + decode_host 1.04）——"低速率窗"实为**重构填占窗**，账目闭合（残 0.33）✓；
+4. 102 窗同型（prefill 3.14 + decode 1.36）。
+
+**结论**：本夹具下（45 轮 / 3 次压缩 / 92.5K 超池 prompt），**引擎账目基本闭合、无大块失明时间**；瞬降（17–40）来源 = 重构填交织，**深谷（<20 持续）未复现** ✗（较 08:03 深谷缺的变量：会话年龄 / 真实媒体形态）。
+**Stage 0 实例保持武装**（reqlog + poller 在跑，等真实会话标本）；**P2 打点范围据此收敛：靶心 = `program_submit` 内部细分**（S2/S3/S4 那一刀，把 42ms host/轮拆开）；晨间"每 token 3s host"的深谷标本仍待捕获对账 ✗。
+**过程纠错（公开撤回）**：首遍解析曾报"中速窗 3.4s 缺口"——属解析错误，精算后同窗缺口 0.34s（**已撤回**，本节数字以终审定点为准）✗。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

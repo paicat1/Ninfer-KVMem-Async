@@ -290,7 +290,10 @@ MAXOUT_OPTIONS = {
 #   （scatter 断言在现役引擎 3b9dc83 不存在），视觉无需再强制 growth（growth 已判死）。
 VISION_OPTIONS = {
     "on":      ("开·GPU 编码器（视觉塔常驻显存 ~1.4G；需含视觉模型）", ["--vision"]),
-    "overlay": ("开·主机内存 overlay（视觉塔驻 host，按图借设备内存；需含视觉模型）", ["--vision", "--vision-residency", "overlay"]),
+    # ★2026-10-13 本线定稿（用户令）：5 图 10 请求零错；稳态不占设备显存（塔住 host pinned 282 MiB）；
+    # 打图窗口期设备借用实测峰值 +44 MiB（150ms 采样，短窗可能低估）；首图 prepared 0.3-0.7s、同图复用 40-60ms、
+    # 首图 TTFT 1.3-6.3s / 复用轮 0.4-1.0s。对照：cpu=每图编码 15.7-26.9s 且图压 256 token；resident=16G 装不下（差 303MB）。
+    "overlay": ("开·主机内存 overlay（★定稿：稳态 0 占用 / 打图窗借+44MiB / 首图 0.3-0.7s）", ["--vision", "--vision-residency", "overlay"]),
     "cpu":     ("开·CPU 编码器（★不占设备视觉显存；需含视觉模型）", ["--vision-cpu"]),
     "off":     ("关（★本线定稿 · 纯文本配置）",   []),
 }
@@ -439,6 +442,8 @@ PRESET_PROFILES = {
     #   实测（2026-10-11 23:36 起，连续 ~1 小时多轮）：引擎不崩、decode 越跑越稳（41-212 tok/s）。
     #   该档还要两个环境变量（异步 demote 深度 / demote profile），见同文件下方 PRESET_ENV。
     "★64K视觉稳（v2.1实测·nograph）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k", graph="off"),
+    # 2026-10-13 用户令定稿：视觉改 overlay（塔驻 host、打图开窗借设备；5 图零错、首图 prepared 0.3-0.7s、复用 40-60ms）。
+    "★视觉 overlay 定稿（2026-10-13·5图零错）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="off"),
 }
 
 # ---------------------------------------------------------------

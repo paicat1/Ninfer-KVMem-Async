@@ -2190,7 +2190,16 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **对照 cpu 时代**：每图编码 **15.7–26.9 s**（TTFT 19.8s / DSH 识图 26.9s）⇒ overlay 首图编码 **≈20–30× 提速**（毫秒级 prepared）
 - **稳态账**：VRAM 15728–15811 MiB（与 cpu 档同水平 ⇒ 塔在 host、零常驻设备成本 ✓）；日志无 overlay 专属行（以 prepared/VRAM 为据；`evict|window` 命中 = 常规 ring SELECT 行，非 overlay 证据）
 - **§5.4 清单**：①旗标可用 ✓ ②窗口行为与借用账 ✓（借用账 = VRAM 稳定无增长；长稳待扩样）③组合兼容 ✓（overlay × MTP4 × ring × hemostat 全程零错）④容量结算（池 55296+）待后 ⑤Windows 首证通过（4 图 8 请求零错，继续扩样）
-- 用户口径"识别了 5 个图"——日志内截至 19:39 为 **4 图**（第 5 图若在采样后到达，下轮补记）。
+- 第 5 图补记（19:47，req#10/11）：media 5，prepared **287ms** → TTFT 1.3s；复用 59.9ms → 595ms，cache 99.0% ⇒ **5 图 10 请求零错** ✓。
+
+### 15. 视觉 overlay 定稿（用户令）+ 显存标注实测（2026-10-13 19:5x）
+
+- **定稿裁定（用户令，2026-10-13）**：本线视觉 = **overlay**（`--vision --vision-residency overlay`）。
+- **显存标注（全部实测）**：**稳态 = 与 cpu 档同级、对设备零追加**（塔住 **host pinned 282 MiB**；池 65536 时实例总量 15.7–15.8 GiB）；**打图窗口期设备借用峰值 +44 MiB**（150ms 采样：baseline 15727 → peak 15771 → post 15733；窗口短，可能低估）；对照 resident 档需常驻塔（今晚差 **303 MB** 装不进）。
+- **性能标注（5 图 10 请求汇总）**：首见图 prepared **287–734 ms**、TTFT 1.3–6.3s（含冷 prefill）；同图复用 prepared **37.9–59.9 ms**、TTFT **446–982 ms**、cache 94.8–99.3%；**零错**（500/WARN/ERROR/FATAL 全 0）。
+- **测量方法**：`scripts\test_ledger39_vision.py`（自造 640×360 图发单次请求）+ nvidia-smi 150ms 采样（req#12：prepared 49.8ms / TTFT 442ms / 零错）。
+- **启动器落地**：`VISION_OPTIONS."overlay"` 标注定稿+数字（改现有文件）；新增预设「★视觉 overlay 定稿（2026-10-13·5图零错）」= iq4nlvis + overlay + 64k + nograph（旧"64K视觉稳"档保留为 cpu 对照）；`engine_ctl.ps1` 默认 `-Vision` 改 overlay。
+- **脚注（未决）**：①池 55296 容量结算（§5.4-④）待测 ②长稳继续扩样 ③`.py` 改动 → **关掉启动器重开**生效。
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

@@ -19,7 +19,7 @@ param(
     [int]$Score = -1,
     [int]$Pool = 65536,
     [int]$Draft = 4,
-    [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'cpu',
+    [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
 
     [string]$Model = 'Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer'
 )

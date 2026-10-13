@@ -2395,6 +2395,13 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **seg 首数据**：稳态 `wall≈submit≈launch`（**27–32 ms/轮**；`rows ≤0.4` / `sync ≤0.04` / `harvest=0.00`）；slow 行 493 ms 也 **493.5 全在 launch** ⇒ **下一刀 = `execution::mtp_decode_batch` 内部（S3）**——轮速限速器首次被点名到具体函数。
 - **附带**：起服一次拒启 = 桌面 VRAM 瞬时 1196 MiB（差 5.1 MB）；回落 881 后即起——该档对桌面波动敏感，记档。
 
+### 29. I3b S3：launch 段内部——代码级定案（2026-10-13 深夜，零新仪表）
+
+- **读码三段链**：`decode.cpp`（mark2→3）= `mtp_decode_batch` → `run_prepared`（`graph_execution.h:11-22`，图路径只做 `executable->launch`）→ **单行 `cudaGraphLaunch`**（`core/decode_graph.cpp:140-145`）。
+- **定案**：稳态 **27–32 ms = 一次 `cudaGraphLaunch` 墙钟**；紧随的 `synchronize` 仅 **0.02 ms** ⇒ **该调用是阻塞式**（返回时 GPU 图已跑完）⇒ 提交与图执行在 host 侧不可分——**图执行本体就是这段墙钟**（谷里 1400 ms）。
+- **两候选（待 S3b 判别）**：**A** 图执行本体慢（最嫌疑：图内注意力在异常驻留下额外访存，含"**图内读 host 页**"嫌疑）；**B** 提交/驱动侧卡（WDDM 排队 / 页调入）。
+- **S3b 判别器（零代码）**：新仪器 **`scripts\gpu_sampler.py`**（谷期 1s/点 GPU util/mem → `.temp\gpu_samples.csv`）；判别三分表入设计稿 §14（GPU≈100%→A；≈0%→B；100%+PCIe 高→A′）。**图节点计数**（`cudaGraphGetNodes`）列入下一施工批（1 行 + 重编）。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

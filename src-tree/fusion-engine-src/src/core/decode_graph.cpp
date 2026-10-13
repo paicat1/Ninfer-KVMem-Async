@@ -4,6 +4,7 @@
 #include "core/nvtx.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -78,6 +79,15 @@ void DecodeGraphDefinition::capture(cudaStream_t stream, const std::function<voi
     }
 
     graph_ = graph;
+    {   // I3b S3b：capture 后节点计数（门槛同 NINFER_STEP_PROFILE；仅建图期一行）
+        const char* gate = std::getenv("NINFER_STEP_PROFILE");
+        if (gate != nullptr && std::strtol(gate, nullptr, 10) > 0) {
+            size_t nodes = 0;
+            if (cudaGraphGetNodes(graph_, nullptr, &nodes) == cudaSuccess) {
+                std::fprintf(stderr, "[ninfer] graph capture: %zu nodes\n", nodes);
+            }
+        }
+    }
 }
 
 bool DecodeGraphDefinition::ready() const noexcept { return graph_ != nullptr; }

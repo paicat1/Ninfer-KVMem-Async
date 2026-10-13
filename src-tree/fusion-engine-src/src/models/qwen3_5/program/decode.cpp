@@ -4,6 +4,7 @@
 #include "models/qwen3_5/program/context.h"
 #include "models/qwen3_5/program/graph_execution.h"
 #include "models/qwen3_5/program/planning/graph_profiles.h"
+#include "models/qwen3_5/program/speculative/step_graph_profile.h"
 #include "core/nvtx.h"
 #include "core/device.h"
 #include "ninfer/ops/prepare_ragged_prefix.h"
@@ -123,6 +124,8 @@ struct StepProfileWindow {
     double sum_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
     double max_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
     std::uint64_t seg_rounds = 0;
+    double sum_ingraph[4] = {0.0, 0.0, 0.0, 0.0};
+    std::uint64_t ingraph_rounds = 0;
 };
 
 // S2 分段标记（2026-10-13 深夜）：提交段内部细分，仅 MTP 轮打点（今日 100% 流量）。
@@ -204,6 +207,12 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
             window.max_seg[i] = std::max(window.max_seg[i], segs[i]);
         }
     }
+    double ingraph[4] = {0.0, 0.0, 0.0, 0.0};
+    const bool has_ingraph = (kind_index == 1) && execution::step_graph_harvest(ingraph);
+    if (has_ingraph) {
+        ++window.ingraph_rounds;
+        for (int i = 0; i < 4; ++i) { window.sum_ingraph[i] += ingraph[i]; }
+    }
     if (wall >= 150.0) {
         if (has_segs) {
             std::fprintf(stderr,
@@ -217,6 +226,12 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
                          "[ninfer] step profile slow: kind=%s wall=%.1f ms submit=%.1f wait=%.1f "
                          "post=%.1f rest=%.1f\n",
                          kind, wall, submit, wait, post, rest);
+        }
+        if (has_ingraph) {
+            std::fprintf(stderr,
+                         "[ninfer] step profile ingraph: kind=%s ingress=%.2f target=%.2f "
+                         "draft=%.2f egress=%.2f ms\n",
+                         kind, ingraph[0], ingraph[1], ingraph[2], ingraph[3]);
         }
     }
     const std::uint32_t window_calls = step_profile_window_calls();
@@ -244,6 +259,15 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
                      window.sum_submit / n, window.sum_wait / n, window.sum_post / n,
                      window.sum_rest / n, window.max_wall, window.max_submit, window.max_wait,
                      window.max_post, window.max_rest);
+    }
+    if (window.ingraph_rounds > 0) {
+        const double in = static_cast<double>(window.ingraph_rounds);
+        std::fprintf(stderr,
+                     "[ninfer] step profile window ingraph: kind=%s avg ms ingress=%.2f target=%.2f "
+                     "draft=%.2f egress=%.2f (n=%llu)\n",
+                     kind, window.sum_ingraph[0] / in, window.sum_ingraph[1] / in,
+                     window.sum_ingraph[2] / in, window.sum_ingraph[3] / in,
+                     static_cast<unsigned long long>(window.ingraph_rounds));
     }
     window = StepProfileWindow{};
 }

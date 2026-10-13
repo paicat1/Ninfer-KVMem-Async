@@ -6,10 +6,62 @@
 #include "ninfer/ops/mtp_round.h"
 #include "ninfer/ops/scatter.h"
 #include "ninfer/ops/scalar.h"
+#include "models/qwen3_5/program/speculative/step_graph_profile.h"
+
+#include <cstdlib>
 #include <cuda_runtime.h>
 #include <stdexcept>
 
 namespace ninfer::models::qwen3_5::execution {
+
+// ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
+// 5 事件 -> 4 区间：ingress / target / draft / egress。arm 在建图前创建，record 在（被捕获的）
+// 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
+namespace {
+cudaEvent_t g_step_graph_events[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+} // namespace
+
+bool step_graph_enabled() {
+    static const bool enabled = [] {
+        const char* text = std::getenv("NINFER_STEP_PROFILE");
+        return text != nullptr && text[0] != '\0' && std::strtol(text, nullptr, 10) > 0;
+    }();
+    return enabled;
+}
+
+void step_graph_arm() {
+    if (!step_graph_enabled()) { return; }
+    for (int i = 0; i < 5; ++i) {
+        if (g_step_graph_events[i] == nullptr) {
+            if (cudaEventCreate(&g_step_graph_events[i]) != cudaSuccess) {
+                g_step_graph_events[i] = nullptr;
+            }
+        }
+    }
+}
+
+void step_graph_record(int slot, cudaStream_t stream) {
+    if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
+    if (g_step_graph_events[slot] == nullptr) { return; }
+    (void)cudaEventRecord(g_step_graph_events[slot], stream);
+}
+
+bool step_graph_harvest(double out_ms[4]) {
+    if (!step_graph_enabled()) { return false; }
+    for (int i = 0; i < 5; ++i) {
+        if (g_step_graph_events[i] == nullptr) { return false; }
+    }
+    float ms = 0.0f;
+    for (int i = 0; i < 4; ++i) {
+        if (cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]) !=
+            cudaSuccess) {
+            return false;
+        }
+        out_ms[i] = static_cast<double>(ms);
+    }
+    return true;
+}
+
 void mtp_bridge_and_propose(PrefillContext& state, const Tensor& next_token,
                             const Tensor& previous_hidden, std::int32_t position,
                             std::span<const std::int32_t> rope_position, bool build_proposal,
@@ -83,9 +135,11 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
 
         qwen3_5::MtpDecodeState& frame = state.frame;
         const std::int32_t width       = static_cast<std::int32_t>(verify_window) + 1;
+        step_graph_record(0, state.execution.device.stream);
         CUDA_CHECK(cudaMemcpyAsync(frame.ingress.data, &state.host_ingress,
                                    sizeof(qwen3_5::MtpDecodeIngress), cudaMemcpyHostToDevice,
                                    state.execution.device.stream));
+        step_graph_record(1, state.execution.device.stream);
 
         TextContext card(state.execution.device, state.execution.parameters, state.execution.work,
                          {}, state.execution.linear_attention, state.execution.io,
@@ -156,6 +210,7 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
                                  },
                                  envelopes.target_verify);
         }
+        step_graph_record(2, state.execution.device.stream);
 
         {
             nvtx::ScopedRange draft_range(nvtx::Name::DecodeMtpDraft, nvtx::Category::Mtp,
@@ -201,10 +256,12 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
                                            state.execution.device.stream));
             }
         }
+        step_graph_record(3, state.execution.device.stream);
 
         CUDA_CHECK(cudaMemcpyAsync(&state.host_egress, frame.egress.data,
                                    sizeof(qwen3_5::MtpDecodeEgress), cudaMemcpyDeviceToHost,
                                    state.execution.device.stream));
+        step_graph_record(4, state.execution.device.stream);
     };
 }
 
@@ -212,6 +269,7 @@ void capture_mtp_decode_batch(MtpBatchContext& state, std::int32_t batch_size,
                               std::uint32_t verify_window, std::uint32_t draft_window,
                               MtpCausalAttentionEnvelopes envelopes,
                               DecodeGraphDefinition& definition) {
+    step_graph_arm();
     auto body = mtp_decode_batch_body(state, batch_size, verify_window, draft_window, envelopes);
     capture_graph(state, definition, body);
 }

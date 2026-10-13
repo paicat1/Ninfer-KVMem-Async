@@ -36,3 +36,6 @@ _safety_backups/
 smart_push.ps1
 tools/
 .codebuddy/
+
+# 2026-10-13: test_ledger39_vision.py 每次运行重建的测试图（产物保留在盘上，不进仓）
+scripts/_ledger39_test_image.png

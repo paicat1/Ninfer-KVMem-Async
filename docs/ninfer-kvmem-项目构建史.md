@@ -2379,6 +2379,8 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **nits**：①构建脚本归档未按 BUILD-EXIT 门控（22:52 失败构建归档 stale v2 一份，建议加 `if "%ERRORLEVEL%"=="0"`）；②engine-src push 禁用（patches 导出=凭据）。
 - **下一步**：**P4**（`a2gate.py` 开/关零行为门）→ **P5**（真谷标本带 `NINFER_STEP_PROFILE=1` 采集）。Q7 = **施工完成·待验**。
 
+**P4 门：通过（同日深夜）**：I3b_step1 双臂（仅差 `NINFER_STEP_PROFILE`）——a2gate 3 跑 × 2 轮：**跨臂 sha 6/6 全同 + 同臂确定 + decode 差 <0.5% + accept 同** ⇒ **零行为 ✓**；ON 臂 step profile **首数据**：`wall ≈ submit（26–30 ms/轮），wait/post/rest ≈ 0` ⇒ **下一刀 = S2（submit 内部细分）**。`engine_ctl.ps1` 已加 `-StepProfile`（P5 复用）。P5 待跑（真谷标本）。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

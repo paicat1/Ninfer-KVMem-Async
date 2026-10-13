@@ -9,6 +9,7 @@
 #   powershell -File tools\engine_ctl.ps1 -Action start -Exe <exe> -Tag <tag> -Depth 2
 #   powershell -File tools\engine_ctl.ps1 -Action waitready -Tag <tag> [-WaitSec 240]
 #   powershell -File tools\engine_ctl.ps1 -Action status
+#   powershell -File tools\engine_ctl.ps1 -Action start -Exe <exe> -Tag <tag> -StepProfile 1   # I3b step profile (default 0=off; window=64)
 param(
     [Parameter(Mandatory=$true)][ValidateSet('start','stop','status','waitready')][string]$Action,
     [string]$Exe = '',
@@ -17,6 +18,7 @@ param(
     [int]$Port = 8094,
     [int]$WaitSec = 240,
     [int]$Score = -1,
+    [int]$StepProfile = 0,
     [int]$Pool = 65536,
     [int]$Draft = 4,
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
@@ -117,6 +119,7 @@ $env:NINFER_HOST_PAGEABLE = '1'
 $env:NINFER_KV_REUSE_HOSTBACKED = '1'
 $env:NINFER_ASYNC_DEMOTE_DEPTH = [string]$Depth
 $env:NINFER_DEMOTE_PROFILE = '1'
+if ($StepProfile -ge 1) { $env:NINFER_STEP_PROFILE = [string]$StepProfile; $env:NINFER_STEP_PROFILE_WINDOW = '64'; Write-Output 'knob: step profile ON (NINFER_STEP_PROFILE=1, window 64)' }
 if ($Score -eq 0) { $env:NINFER_TERNARY_KVMEM_SCORE = '0'; Write-Output 'knob: content scoring OFF (NINFER_TERNARY_KVMEM_SCORE=0)' }
 $env:PATH = (Join-Path $root 'engine') + ';' + (Join-Path $root 'engine\self-built-20261008') + ';' + $env:PATH
 

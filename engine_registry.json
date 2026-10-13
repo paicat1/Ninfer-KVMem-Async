@@ -57,7 +57,17 @@
     "label": "I3b_step1_step_profile",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step1_20261013.exe",
     "tags": ["步级仪表", "默认关", "P4门未验"],
-    "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode.cpp StepProfileWindow —— 每 decode 轮 wall 四分解（submit/wait/post/rest；rest=补差与未归属显式化）。开：NINFER_STEP_PROFILE=1（窗宽 NINFER_STEP_PROFILE_WINDOW，默认 256）；默认关、零行为。sha256 C5BE1360…；零行为门（a2gate 开/关两臂）P4 待跑",
+    "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode.cpp StepProfileWindow —— 每 decode 轮 wall 四分解（submit/wait/post/rest；rest=补差与未归属显式化）。开：NINFER_STEP_PROFILE=1（窗宽 NINFER_STEP_PROFILE_WINDOW，默认 256）；默认关、零行为。sha256 C5BE1360…；零行为门（a2gate 开/关两臂）P4 已过（sha 6/6 全同）",
+    "status": "候选",
+    "added": "2026-10-13",
+    "replaced_by": "I3b_step2_step_profile_s2",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step2_step_profile_s2",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step2_20261013.exe",
+    "tags": ["S2五分", "launch点名", "默认关", "门过"],
+    "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest（仅 MTP）。实测稳态 wall≈launch（27-32ms/轮）、slow 493ms 亦全在 launch ⇒ 轮速限速器=execution::mtp_decode_batch 调用本体。开：NINFER_STEP_PROFILE=1（窗 64）；默认关、零行为（OFF 臂 sha 与 P4 参考逐字全同）。sha256 AE81E9FC…",
     "status": "候选",
     "added": "2026-10-13",
     "replaced_by": "",

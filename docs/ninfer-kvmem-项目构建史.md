@@ -2388,6 +2388,13 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **结构性发现（改变 S2 范围）**：Recorder **成功路径从不 arm Wait**（只在 catch 分支）⇒ `submit` 实为整轮墙钟；**S2 细分必须连带"成功路径 arm Wait"**（在 GPU 同步点两侧），否则 CPU/GPU 分不开。
 - **下一步**：**P5b**（谷现场 `nvidia-smi` 采样 + 成功路径 arm Wait 施工）→ S2 细分。详见 `docs\设计-挂账46-I3b步级仪表-20261013.md` §12。
 
+### 28. I3b S2 施工 + 双门复验（2026-10-13 深夜）
+
+- **S2 完成**：提交段五分（`rows`/`pre`/`launch`/`sync`/`harvest`，仅 MTP 轮；`NINFER_STEP_PROFILE` 门下默认关）；平台件 **`I3b_step2_20261013.exe`（sha `AE81E9FC…`）**；引擎仓 `b3fad73`；主仓补丁 `patches\i3b_s2_submit_split.patch`。
+- **双门**：OFF 臂 sha **与 P4 参考逐字全同**（`3a8b45d7…`/`a58ebf18…` ×3×2；decode/accept 同）✓；ON 臂 sha 同 ✓。
+- **seg 首数据**：稳态 `wall≈submit≈launch`（**27–32 ms/轮**；`rows ≤0.4` / `sync ≤0.04` / `harvest=0.00`）；slow 行 493 ms 也 **493.5 全在 launch** ⇒ **下一刀 = `execution::mtp_decode_batch` 内部（S3）**——轮速限速器首次被点名到具体函数。
+- **附带**：起服一次拒启 = 桌面 VRAM 瞬时 1196 MiB（差 5.1 MB）；回落 881 后即起——该档对桌面波动敏感，记档。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

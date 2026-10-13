@@ -1,0 +1,190 @@
+From b3fad73e9028297a0e3b9a63c0197954de1c9ca6 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Tue, 13 Oct 2026 23:52:06 +0800
+Subject: [PATCH] line-coder390: I3b S2 -- submit-segment split (begin/marks
+ 1-4 around mtp round: rows/pre/launch/sync/harvest; extended window+slow
+ prints; gated by NINFER_STEP_PROFILE, default off)
+
+---
+ .../src/models/qwen3_5/program/decode.cpp     | 109 ++++++++++++++++--
+ 1 file changed, 97 insertions(+), 12 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+index 4c46309..e8c65fc 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+@@ -120,8 +120,40 @@ struct StepProfileWindow {
+     std::uint64_t calls = 0;
+     double sum_wall = 0.0, sum_submit = 0.0, sum_wait = 0.0, sum_post = 0.0, sum_rest = 0.0;
+     double max_wall = 0.0, max_submit = 0.0, max_wait = 0.0, max_post = 0.0, max_rest = 0.0;
++    double sum_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
++    double max_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
++    std::uint64_t seg_rounds = 0;
+ };
+ 
++// S2 分段标记（2026-10-13 深夜）：提交段内部细分，仅 MTP 轮打点（今日 100% 流量）。
++//   0=轮起点（begin）/ 1=ingress+ensure 完 / 2=调度状态就绪（launch 前）/
++//   3=execution::mtp_decode_batch 返回 / 4=device.synchronize() 返回。
++//   段义（打印同名）：rows / pre / launch / sync / harvest。
++struct StepProfileMarks {
++    std::chrono::steady_clock::time_point t[5];
++    int last = -1;
++};
++
++StepProfileMarks& step_profile_marks() {
++    static StepProfileMarks marks;
++    return marks;
++}
++
++void step_profile_begin(std::chrono::steady_clock::time_point started) {
++    if (!step_profile_enabled()) { return; }
++    StepProfileMarks& marks = step_profile_marks();
++    marks.t[0]              = started;
++    marks.last              = 0;
++}
++
++void step_profile_mark(int idx) {
++    if (!step_profile_enabled()) { return; }
++    if (idx < 1 || idx > 4) { return; }
++    StepProfileMarks& marks = step_profile_marks();
++    marks.t[idx]            = std::chrono::steady_clock::now();
++    if (idx > marks.last) { marks.last = idx; }
++}
++
+ StepProfileWindow& step_profile_window(std::size_t kind) {
+     static StepProfileWindow windows[3];
+     return windows[kind];
+@@ -131,12 +163,28 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
+                          const runtime::ExecutionTiming& timing, const char* kind,
+                          std::size_t kind_index) {
+     if (!step_profile_enabled()) { return; }
++    const auto finished = std::chrono::steady_clock::now();
+     const double wall =
+-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
++        std::chrono::duration<double, std::milli>(finished - started).count();
+     const double submit = static_cast<double>(timing.submit_host_ns) / 1e6;
+     const double wait   = static_cast<double>(timing.device_wait_ns) / 1e6;
+     const double post   = static_cast<double>(timing.post_host_ns) / 1e6;
+     const double rest   = wall > (submit + wait + post) ? wall - (submit + wait + post) : 0.0;
++    StepProfileMarks& marks = step_profile_marks();
++    const bool has_segs     = marks.last >= 4;
++    double segs[5]          = {0.0, 0.0, 0.0, 0.0, 0.0};
++    if (has_segs) {
++        const auto seg = [](std::chrono::steady_clock::time_point a,
++                            std::chrono::steady_clock::time_point b) {
++            return std::chrono::duration<double, std::milli>(b - a).count();
++        };
++        segs[0] = seg(marks.t[0], marks.t[1]);
++        segs[1] = seg(marks.t[1], marks.t[2]);
++        segs[2] = seg(marks.t[2], marks.t[3]);
++        segs[3] = seg(marks.t[3], marks.t[4]);
++        segs[4] = seg(marks.t[4], finished);
++        marks.last = -1;
++    }
+     StepProfileWindow& window = step_profile_window(kind_index);
+     ++window.calls;
+     window.sum_wall += wall;
+@@ -149,22 +197,54 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
+     window.max_wait   = std::max(window.max_wait, wait);
+     window.max_post   = std::max(window.max_post, post);
+     window.max_rest   = std::max(window.max_rest, rest);
++    if (has_segs) {
++        ++window.seg_rounds;
++        for (int i = 0; i < 5; ++i) {
++            window.sum_seg[i] += segs[i];
++            window.max_seg[i] = std::max(window.max_seg[i], segs[i]);
++        }
++    }
+     if (wall >= 150.0) {
+-        std::fprintf(stderr,
+-                     "[ninfer] step profile slow: kind=%s wall=%.1f ms submit=%.1f wait=%.1f "
+-                     "post=%.1f rest=%.1f\n",
+-                     kind, wall, submit, wait, post, rest);
++        if (has_segs) {
++            std::fprintf(stderr,
++                         "[ninfer] step profile slow: kind=%s wall=%.1f ms submit=%.1f wait=%.1f "
++                         "post=%.1f rest=%.1f | seg rows=%.1f pre=%.1f launch=%.1f sync=%.1f "
++                         "harvest=%.1f\n",
++                         kind, wall, submit, wait, post, rest, segs[0], segs[1], segs[2], segs[3],
++                         segs[4]);
++        } else {
++            std::fprintf(stderr,
++                         "[ninfer] step profile slow: kind=%s wall=%.1f ms submit=%.1f wait=%.1f "
++                         "post=%.1f rest=%.1f\n",
++                         kind, wall, submit, wait, post, rest);
++        }
+     }
+     const std::uint32_t window_calls = step_profile_window_calls();
+     if (window.calls < window_calls) { return; }
+     const double n = static_cast<double>(window.calls);
+-    std::fprintf(stderr,
+-                 "[ninfer] step profile window: kind=%s steps=%llu avg ms wall=%.2f submit=%.2f "
+-                 "wait=%.2f post=%.2f rest=%.2f | max ms wall=%.1f submit=%.1f wait=%.1f post=%.1f "
+-                 "rest=%.1f\n",
+-                 kind, static_cast<unsigned long long>(window.calls), window.sum_wall / n,
+-                 window.sum_submit / n, window.sum_wait / n, window.sum_post / n, window.sum_rest / n,
+-                 window.max_wall, window.max_submit, window.max_wait, window.max_post, window.max_rest);
++    if (window.seg_rounds > 0) {
++        const double sn = static_cast<double>(window.seg_rounds);
++        std::fprintf(stderr,
++                     "[ninfer] step profile window: kind=%s steps=%llu avg ms wall=%.2f submit=%.2f "
++                     "wait=%.2f post=%.2f rest=%.2f | seg rows=%.2f pre=%.2f launch=%.2f sync=%.2f "
++                     "harvest=%.2f (n=%llu) | max ms wall=%.1f submit=%.1f wait=%.1f post=%.1f "
++                     "rest=%.1f\n",
++                     kind, static_cast<unsigned long long>(window.calls), window.sum_wall / n,
++                     window.sum_submit / n, window.sum_wait / n, window.sum_post / n,
++                     window.sum_rest / n, window.sum_seg[0] / sn, window.sum_seg[1] / sn,
++                     window.sum_seg[2] / sn, window.sum_seg[3] / sn, window.sum_seg[4] / sn,
++                     static_cast<unsigned long long>(window.seg_rounds), window.max_wall,
++                     window.max_submit, window.max_wait, window.max_post, window.max_rest);
++    } else {
++        std::fprintf(stderr,
++                     "[ninfer] step profile window: kind=%s steps=%llu avg ms wall=%.2f submit=%.2f "
++                     "wait=%.2f post=%.2f rest=%.2f | max ms wall=%.1f submit=%.1f wait=%.1f post=%.1f "
++                     "rest=%.1f\n",
++                     kind, static_cast<unsigned long long>(window.calls), window.sum_wall / n,
++                     window.sum_submit / n, window.sum_wait / n, window.sum_post / n,
++                     window.sum_rest / n, window.max_wall, window.max_submit, window.max_wait,
++                     window.max_post, window.max_rest);
++    }
+     window = StepProfileWindow{};
+ }
+ 
+@@ -638,6 +718,7 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+                                   static_cast<std::uint64_t>(lanes.size()));
+     runtime::ExecutionTimingRecorder timing(runtime::ExecutionTimingPhase::Submit, failed_timing);
+     const auto step_start = std::chrono::steady_clock::now();
++    step_profile_begin(step_start);
+     if (speculative_backend != SpeculativeBackend::Mtp || !io.mtp_decode ||
+         decoder->mtp_cache() == nullptr) {
+         throw std::logic_error("MTP batch execution requires the MTP backend");
+@@ -765,6 +846,7 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+             ensure_sequence_kv_mapped(sequence, frontier + extent + 1,
+                                       std::min(capacity, frontier + extent + draft_window));
+         }
++        step_profile_mark(1);
+ 
+         qwen3_5::MtpDecodeState frame = io.mtp_decode->verification_view(verify_window);
+         execution::MtpBatchContext schedule_state{
+@@ -780,8 +862,10 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+             state_images->continuation_hidden_store()};
+ 
+         mark_workspace_usage(workspace_plan.mtp_round);
++        step_profile_mark(2);
+         execution::mtp_decode_batch(schedule_state, static_cast<std::int32_t>(lanes.size()),
+                                     verify_window, draft_window, envelopes, executable);
++        step_profile_mark(3);
+         submit_range.reset();
+         timing.begin_wait();
+         {
+@@ -790,6 +874,7 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+             device.synchronize();
+         }
+         timing.end_wait();
++        step_profile_mark(4);
+ 
+         const double seconds = std::chrono::duration<double>(Clock::now() - started).count();
+         for (std::size_t row = 0; row < lanes.size(); ++row) {
+-- 
+2.55.0.windows.4
+

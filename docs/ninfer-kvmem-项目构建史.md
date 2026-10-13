@@ -2094,6 +2094,41 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - 其它参照：`--fast-prefill-kernel`（+12.5% prefill）、`-NoLrfu`、keepalive proxy（长预填防客户端 idle 超时）、prefix 不稳定根因=客户端侧、**日志分析须按 `server_instance_id` 过滤**（共享日志陷阱 ✗）。
 - 纪律提醒：以上均属**外部参照**；采纳需我方自研实现 + 实测验证 + 用户裁决 ✗。
 
+### 9. 外部参照全量盘点：tancau 优化·策略总表（2026-10-13 晚，用户指令"看他所有新推的 COMMIT 和报告"）
+
+**范围**：提交页 35 条（新推 = 10-12×18 + 10-13×6；其余 10-04~10-06×11 = 262K 交付线）+ `docs/maintainer/` 37 份报告。深读 9 份（post-ring 候选 / 优化前置调研 / flag-sweep / **decode-host-attribution-plan** / live-serving-stall / vision-residency / **ring-reuse-depth-and-failure-brief 全文** / rk4v4 verdict / literature watch）。**只读参照** ✗。
+
+**A. 旗级（我方 binary 全有；现役全未开——可直接试验）**
+| # | 旗 | 他们实测 | 我方判定 |
+|---|---|---|---|
+| A1 | `--fast-prefill-kernel` | prefill **+12.5%**（生产已采纳） | **P1 候选**（适用 int8/rk*；我 rk2v4-e8 ✓） |
+| A2 | `--mtp-attention-window N` | **被 KVMem 拒启（exit 1，4/4）→ P1 被杀** ✗ | 我 binary 同样文档化 ⇒ **一次起服试验（秒级）**：同拒=死；可起=decode 大候选 |
+| A3 | `--device-profile auto` | +3.4% prefill（其 launcher 曾设 off） | 我方未传该旗（默认 auto）⇒ **已最优** ✓（待读码确认默认） |
+| A4 | `--prefill-cublas` | +5.0% prefill（带 PPL 代价） | 候选（须质量门；argv 校验） |
+| A5 | `--adaptive-mtp` / `--draft-tokens` 3/4/5 | adaptive 无差异（其卡）；Unispec：消费卡宜更短 draft | 我方锁 4 ⇒ **扫 3/4/5** |
+| A6 | `--ngram-draft-tokens` / `--lookup-ngram` | ngram=0 无可测差异（"LRFU 教训"） | 我方 `--spec mtp` 无 ngram ⇒ N/A |
+| A7 | `--vision-residency resident` | **170×**（308.7s→1.8s；+291 MiB） | **A 方案已定**：会话后切换对照 |
+| A8 | `-NoLrfu` | 停顿缩小未消 ⇒ retrieve 是部分成本 | 我无 LRFU；等价臂 = `NINFER_TERNARY_KVMEM_SCORE=0`（`-Score 0` 已备） |
+| A9 | 状态/缓存族（`--host-state-slots`/`--device-state-slots`/`--gdn-state-fp16`/`--release-diverged-checkpoints`/`--use-alt-prefix-caching`） | DASC 前置测量臂（state 占比） | 我 binary **全有** ⇒ 可跑 state-share 臂 |
+
+**B. 引擎级技术（读码/移植候选，需我方自研 + 实测 + 用户裁决）**
+- **B1 decode 轮跳过 mid-ensure H2D restore（他们的 3.2× 修复）**：强锚 decode **7.5→26.7/31.6/32.9 tok/s**（召回 intact）；机理 = **host 税是限轮器**（350ms/轮→2.9 轮/s→8 tok/s；修后 91ms/轮→11 轮/s→GPU 99%→30 tok/s）。**我方对应物待核**（我 context.cpp 无同名函数；谷内 rs 尖峰 0.9–8.4ms/max 142.8ms 为对照线索）。
+- **B2 `NINFER_KV_WINDOW` 死旋钮（他们的定案）**：其树窗口/recency **从未实现**（唯一消费点只用 `!=0` 谓词），实际 = FIFO + 4 页 sink。**我方待核**（我日志 `window_tokens=32768 recent_blocks=0`——读码确认消费点）。
+- **B3 复用深度公式 = 池 − 工作集**（其测：工作集 640 页 = 池 23.8%；3060 硬顶 131,072；FIFO 从最旧降 ⇒ 深 frontier 永久 declined）。对照我方：pool 1024 页 / 窗口 512 页。
+- **B4 静默死亡根因（publish noexcept→terminate + fork 页重复入批）**：**我方已移植**（2026-10-02 publish 补丁 ✓）；其无类型 throw 群（思考险丝 `==`→`>=` 等）= 我方 W1-W4 已修 ✓。
+- **B5 host-backed anchor**（引用 host 页代替拷贝）= 其"终结方案"（引擎深改，未做）；**B6 worker 隔离**（park）。
+- **B7 DASC**（state checkpoint 压缩；先测量 state 占比再决定）；**B8 风险控制召回契约**（文档：池内精确/池外窗口）；**B9 delayed eligibility**（补理论）。
+
+**C. 方法论/基建（直接可借）**
+- **C1 decode host 归因三阶段计划**（Stage 0 验 host_work 可信度 ↔ 外部证据 → Stage 1 per-phase 计时：retrieve/restore/demote/draft/verify + 队列，**仅观测**、submission/completion 双侧时间戳 → Stage 2 点名后动刀；kill = "墙是物理的"）——**我方谷治理照抄此结构** ✗。
+- **C2 三个测量陷阱**：旗子静默未进 argv（每臂打印 argv 核验——我们日志有 CMD 行 ✓）；重复旗子 last-wins（覆盖须原地替换）；墙钟跨臂不可比（用引擎 timings / 固定负载）。
+- **C3 keepalive 代理**（SSE 心跳防长 prefill 客户端 idle 超时；其 `keepalive_proxy.py`；DSH `streamIdleTimeoutMs` 可配）——与我方**挂账 41** 家族直接相关。
+- **C4 prefix 不稳定根因 = 客户端侧**（byte-diff 证据 + 报告已成文）。
+- **C5 4-bit KV 证据链**（rk4v4-e8 vs int8：prefill 285→358、decode 41→57.7、accept 35→57%、recall 3/3、VRAM −0.9 GiB；PPL 门 = 排队非技术）——我方已是 **rk2v4-e8**（更激进）✓；"hole was policy not budget" = 检索式 TopK 位置无关的反证。
+- **C6 thinking 等级**（2 档确定性 + medium 倾向；preserve-thinking 在 chat 路 no-op）；**C7 文献守望**（vLLM GDN prefix-cache PR / SGLang reuse-collapse / SoK / 4-bit KV）。
+
+**D. 我方下一批实验队列（待令；一次一变量）**：P0 vision-resident（A 案对照）→ P1 fast-prefill-kernel → P2 mtp-attention-window 起服试验 → P3 draft 3/4/5 扫 → P4 state-slots 臂 + `TERNARY_KVMEM_SCORE=0` 臂 → P5 读码核实 B1/B2 → P6（视情）prefill-cublas（带质量门）。**边界**：全部为我方自研验证，不搬运代码/参数 ✗。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

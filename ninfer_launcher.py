@@ -59,19 +59,26 @@ ENGINE_REGISTRY_PATH = os.path.join(ROOT, "engine_registry.json")
 def _registry_seed():
     return [
         {"label": "自编·现役(20261008)", "path": ENGINE_SELF, "tags": [],
-         "note": "20261008 + 全部补丁；launcher 原定稿", "status": "基线",
-         "added": "2026-10-10", "replaced_by": ""},
+         "note": "20261008 + 全部补丁；已被 v2 线替代（回滚锚在 H1）", "status": "已归档",
+         "added": "2026-10-10", "replaced_by": "v2_27dc746(085713)", "preset": ""},
         {"label": "H1_54fix_20261013",
          "path": os.path.join(ROOT, "engine", "lineage", "H1_54fix_20261013.exe"),
-         "tags": ["首轮极速好", "谷深"],
-         "note": "首轮峰 463.9 / R2-R3 深谷 0.2-7.2；超池 500≈11%（修复前的已知险）",
-         "status": "候选", "added": "2026-10-13", "replaced_by": ""},
+         "tags": ["首轮极速好", "谷深", "超池500风险(~11%)"],
+         "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）；回滚锚",
+         "status": "候选", "added": "2026-10-13", "replaced_by": "", "preset": ""},
         {"label": "v2_27dc746(085713)",
          "path": os.path.join(ROOT, "_safety_backups", "exe_lineage_20261013",
                               "ninfer-serve.exe.20261013_085713"),
-         "tags": ["稳（103轮/0x500）"],
-         "note": "fresh activation 逐字不变 + writer-blocked 修复；reconcile 路径未实机触发",
-         "status": "候选", "added": "2026-10-13", "replaced_by": ""},
+         "tags": ["稳", "峰403.7", "超池=0故障", "reconcile未触发"],
+         "note": "v2 二进制（sha 0B4D1B65…）首战归档；配置基线见『V2+overlay64K（stage0a 实测基线）』",
+         "status": "候选", "added": "2026-10-13", "replaced_by": "", "preset": ""},
+        {"label": "V2+overlay64K（stage0a 实测基线）",
+         "path": os.path.join(ROOT, "_safety_backups", "exe_lineage_20261013",
+                              "ninfer-serve.exe.20261013_085713"),
+         "tags": ["真谷0", "超池11零故障", "峰406", "TTFTmax57s"],
+         "note": "v2 二进制 + stage0a 配置（overlay + kvcap 65536 + graph64 + mtp K4 + reqlog）",
+         "status": "基线", "added": "2026-10-13", "replaced_by": "",
+         "preset": "★64K overlay stage0a 基线（10-13 实测）"},
     ]
 
 
@@ -90,7 +97,7 @@ def load_engine_registry():
 
 def save_engine_registry(registry):
     try:
-        with open(ENGINE_REGISTRY_PATH, "w", encoding="utf-8") as handle:
+        with open(ENGINE_REGISTRY_PATH, "w", encoding="utf-8", newline="\n") as handle:   # 2026-10-13: 固定 LF（防跨写 EOL 抖动）
             json.dump(registry, handle, ensure_ascii=False, indent=2)
     except OSError:
         pass
@@ -872,7 +879,7 @@ class LauncherApp:
                                       values=[engine_display(e) for e in self.engine_registry],
                                       font=("Microsoft YaHei UI", 9))
         self.engine_cb.pack(side="left", padx=(4, 0))
-        self.engine_cb.bind("<<ComboboxSelected>>", lambda _e: self._refresh())
+        self.engine_cb.bind("<<ComboboxSelected>>", self._on_engine_select)
         ToolTip(self.engine_cb, "用哪个引擎起服（引擎登记册）：条目带标注（基线 / 稳 / 谷深 / 极速好…）；"
                                 "同类迭代收敛后可把旧条目标为『已归档』。预览与启动都用所选引擎。")
         ttk.Button(portrow, text="标注…", width=6, command=self._edit_engine_entry).pack(side="left", padx=(6, 0))
@@ -1094,6 +1101,20 @@ class LauncherApp:
                 return entry
         return self.engine_registry[0] if self.engine_registry else None
 
+    def _env_profile_name(self):
+        """env 配对名（2026-10-13 夜修）：预设优先，退回命名组合名。"""
+        return self.preset_var.get() or self.profile_cb.get() or ""
+
+    def _on_engine_select(self, _e=None):
+        """2026-10-13 夜（用户令）：引擎条目带 preset 字段 = 选中即自动套用（参数 + env 一键复现）。"""
+        entry = self._current_engine_entry() or {}
+        preset_name = entry.get("preset") or ""
+        if preset_name and preset_name in PRESET_PROFILES:
+            self.preset_var.set(preset_name)
+            self._apply_preset()
+            self.status.config(text=f"已随引擎条目套用预设「{preset_name}」（参数 + env 一键复现）", fg="#4a6b4a")
+        self._refresh()
+
     def _reload_engine_values(self, select_label=None):
         self.engine_cb["values"] = [engine_display(e) for e in self.engine_registry]
         if select_label is not None:
@@ -1138,13 +1159,18 @@ class LauncherApp:
             entry["note"] = note_box.get("1.0", "end").strip()
             entry["status"] = status_var.get()
             entry["replaced_by"] = repl_var.get().strip()
+            entry["preset"] = preset_var_d.get().strip()
             save_engine_registry(self.engine_registry)
             top.destroy()
             self._reload_engine_values(select_label=engine_display(entry))
             self.status.config(text="已保存引擎标注：" + engine_display(entry), fg="#4a6b4a")
 
+        tk.Label(top, text="配套预设", bg=self.bg, fg="#2b3a6b").grid(row=6, column=0, sticky="w", padx=8, pady=4)
+        preset_var_d = tk.StringVar(value=entry.get("preset", ""))
+        ttk.Combobox(top, state="readonly", textvariable=preset_var_d, width=50,
+                     values=[""] + list(PRESET_PROFILES.keys())).grid(row=6, column=1, padx=8, pady=4)
         btns = tk.Frame(top, bg=self.bg)
-        btns.grid(row=6, column=0, columnspan=2, pady=8)
+        btns.grid(row=7, column=0, columnspan=2, pady=8)
         ttk.Button(btns, text="保存", width=10, command=_save).pack(side="left", padx=6)
         ttk.Button(btns, text="取消", width=10, command=top.destroy).pack(side="left", padx=6)
 
@@ -1157,7 +1183,7 @@ class LauncherApp:
         if not path:
             return
         entry = {"label": name.strip(), "path": path.strip(), "tags": [], "note": "",
-                 "status": "候选", "added": time.strftime("%Y-%m-%d"), "replaced_by": ""}
+                 "status": "候选", "added": time.strftime("%Y-%m-%d"), "replaced_by": "", "preset": ""}
         self.engine_registry.append(entry)
         save_engine_registry(self.engine_registry)
         self._reload_engine_values(select_label=engine_display(entry))
@@ -1260,13 +1286,16 @@ class LauncherApp:
         try:
             CREATE_NEW_CONSOLE = 0x00000010
             logfile = os.path.join(LOG_DIR, "serve_" + time.strftime("%Y%m%d_%H%M%S") + ".log")
-            env = env_for_launch(exe, self.profile_cb.get())
+            env_profile = self._env_profile_name()   # 2026-10-13 夜修：预设优先（原传命名组合 -> PRESET_ENV 永不命中）
+            env = env_for_launch(exe, env_profile)
             env["SERVE_TEE_MODE"] = "full" if self.logmode_var.get() == "全部" else "slim"
             subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
                              env=env, cwd=ROOT,
                              creationflags=CREATE_NEW_CONSOLE)
+            applied_env = len(PRESET_ENV.get(env_profile, {}) or {})
+            env_note = ("　[env 配对：%s（%d 项）]" % (env_profile, applied_env)) if applied_env else ""
             self.status.config(text="✓ 已启动（控制台窗口 + 日志落盘）—— 关窗即停；首次见 calibrating routes 请勿杀\n"
-                                    "   日志：" + logfile, fg="#4a6b4a")
+                                    "   日志：" + logfile + env_note, fg="#4a6b4a")
         except Exception as e:
             messagebox.showerror("启动失败", str(e))
 

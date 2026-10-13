@@ -2362,6 +2362,16 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **队列更新**：**Q5 ✔ 收口**（B1/B2 定案 + B1 定位反转）；**Q7 升为下一主刀候选**（I3b 设计稿随其后）；Q1 保持武装（下次深堆会话捕标本，带 profile）；Q2 工具就位 ✔；Q3/Q4/Q6 等"开工"令；Q8 不变。
 
+### 25. 启动器接线修复 + 一键复现（2026-10-13 深夜，用户令"12都做"）
+
+**背景（当夜自查发现）**：`_launch` 把「命名组合」名传给 `env_for_launch` 查 `PRESET_ENV`（其键=**预设名**）⇒ **PRESET_ENV 从未生效**（命名组合文件实测 `{}`）——即"选预设也不会带 DEPTH=2/PROFILE=1"。TELE 干跑核的是 argv 旗，env 不在其列，故此前未曝。
+
+**#1 env 断线修复**：新增 `_env_profile_name()`（**预设名优先**、兜底命名组合名）；`_launch` 改用它；启动状态栏回显「env 配对：<预设名>（N 项）」。验证：`env_for_launch('X', stage0a 预设)` ⇒ `NINFER_ASYNC_DEMOTE_DEPTH=2 + NINFER_DEMOTE_PROFILE=1 + KV_ENV 六开关` ✓。
+
+**#2 一键复现（引擎→预设绑定）**：登记条目新增 `preset` 字段；引擎栏选中条目 → `_on_engine_select` **自动套用其预设**（参数 + env 一步到位，状态栏明示）；「标注…」对话框新增「配套预设」行（可绑定/解绑）；`_add_engine_entry` 新条目带空 preset；`_registry_seed` 同步 4 条目；`engine_registry.json` 写入（**stage0a 基线条目已绑定**「★64K overlay stage0a 基线（10-13 实测）」）。附带：`save_engine_registry` 写盘固定 **LF**（消 EOL 抖动）。
+
+**现在的复现口径（一步）**：引擎栏选「V2+overlay64K（stage0a 实测基线）」→ 参数与 env 自动到位 → 点启动 = 逐字复现（argv 51 旗 + env 8 项；日志自动落 `logs\serve_<ts>.log`；reqlog 自动写 `.temp\reqlog_serve_8094.jsonl`）。**旧启动器需关掉重开**（.py 改动；旧实例内存态回写风险同前）。想跑"纯引擎不带预设"时，在「标注…」里把配套预设清空即可。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

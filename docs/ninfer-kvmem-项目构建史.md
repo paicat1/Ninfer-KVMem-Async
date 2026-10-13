@@ -2084,6 +2084,16 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **诚实边界**：B 全程未再触发 writer-blocked 条件本体（reconcile 行 = 0）⇒ "v2 修好该路径"目前 = **代码级论证 + 无崩溃旁证**，非"现场拦下"；触发或可再刷（drive#7 在跑）✗。
 - 证据：`logs\test_ea6_fix2.log`、`.temp\ea6_drive.out`。
 
+### 8. 外部参照更新：tancau/ninfer-kvmem-ring（2026-10-13 晚，用户指令查阅）
+
+- 背景：环算法原始作者仓库 **`tancau/ninfer-kvmem-ring`** 当日密集更新（10-12~10-13 约 20+ 提交：RC3 生产化、五候选试验、真实客户端缺陷狩猎）。**只读参照，不搬运** ✗（tancau 条目边界）。
+- **撞车发现（两处，均为"同族坑"独立复现）**：
+  1. **"计时归属缺口三连"**（原话 three for three：stall / prefix miss / vision）——其 `live-serving-stall` 文档与我们"0% host 静默阻塞"同族：**53% 零 token 窗 / 最长 95s GPU-idle 窗 / 恰时 CPU 3-7 核 / `resident_pages` 0→~800 逐页爬升 / 引擎计时 prefill=0.00s**；`device_wait 83-137s 而 GPU 空转` = "等在设备边界之后"。其 -NoLrfu A/B **未出结果**（pending，判定线 = dead time <15%）。
+  2. **vision 驻留**：`--vision-residency cpu`（= 我们现用 `--vision-cpu`）**170×** 慢（3 图请求 308.7s vs resident 1.8s，仅 +291 MiB 显存；CPU 塔吃 ~10 核、GPU 闲置）。**本地交叉验证（v2test1 会话）**：**新增图片的轮 = 33s~4m10s；图片复用的轮 = 1s** ✓✓ 同机理确认。
+- **我方可动作项（待用户令）**：服务配置 `--vision-cpu` → `--vision --vision-residency resident --vision-max-merged 1024`（**本引擎支持同名旗子** ✓，serve_options.cpp:291-299；`overlay` 与 KVMem 互斥会 exit 1 的坑同上游）；代价 = +~291 MiB 显存（本卡余量紧张，起服可能需重试）。
+- 其它参照：`--fast-prefill-kernel`（+12.5% prefill）、`-NoLrfu`、keepalive proxy（长预填防客户端 idle 超时）、prefix 不稳定根因=客户端侧、**日志分析须按 `server_instance_id` 过滤**（共享日志陷阱 ✗）。
+- 纪律提醒：以上均属**外部参照**；采纳需我方自研实现 + 实测验证 + 用户裁决 ✗。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

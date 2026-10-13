@@ -44,6 +44,74 @@ ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")    
 ENGINE_OPTIONS = {
     "self": ("自编·现役(20261008)", ENGINE_SELF),
 }
+
+# ---------------------------------------------------------------
+# 引擎登记册（2026-10-13 用户令）：重要版本引擎的"标注 + 选择 + 基线对比"。
+#   用途：把有代表性的引擎版本（如"谷深但均速/极速好"、"无极速但稳"）登记下来，
+#   下拉里直接选、直接起服对比；同类迭代收敛后可把旧的标为【已归档】（replaced_by=新条目）。
+#   持久化：engine_registry.json（本文件同目录；缺失自动种子 + 落盘）。
+# 字段：label=显示名 / path=exe 路径 / tags=短标注（列表）/ note=说明 /
+#       status=基线|候选|已归档 / added=登记日 / replaced_by=被谁替代（归档时填）
+# ---------------------------------------------------------------
+ENGINE_REGISTRY_PATH = os.path.join(ROOT, "engine_registry.json")
+
+
+def _registry_seed():
+    return [
+        {"label": "自编·现役(20261008)", "path": ENGINE_SELF, "tags": [],
+         "note": "20261008 + 全部补丁；launcher 原定稿", "status": "基线",
+         "added": "2026-10-10", "replaced_by": ""},
+        {"label": "H1_54fix_20261013",
+         "path": os.path.join(ROOT, "engine", "lineage", "H1_54fix_20261013.exe"),
+         "tags": ["首轮极速好", "谷深"],
+         "note": "首轮峰 463.9 / R2-R3 深谷 0.2-7.2；超池 500≈11%（修复前的已知险）",
+         "status": "候选", "added": "2026-10-13", "replaced_by": ""},
+        {"label": "v2_27dc746(085713)",
+         "path": os.path.join(ROOT, "_safety_backups", "exe_lineage_20261013",
+                              "ninfer-serve.exe.20261013_085713"),
+         "tags": ["稳（103轮/0x500）"],
+         "note": "fresh activation 逐字不变 + writer-blocked 修复；reconcile 路径未实机触发",
+         "status": "候选", "added": "2026-10-13", "replaced_by": ""},
+    ]
+
+
+def load_engine_registry():
+    try:
+        with open(ENGINE_REGISTRY_PATH, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        if isinstance(data, list) and data:
+            return data
+    except (OSError, ValueError):
+        pass
+    registry = _registry_seed()
+    save_engine_registry(registry)
+    return registry
+
+
+def save_engine_registry(registry):
+    try:
+        with open(ENGINE_REGISTRY_PATH, "w", encoding="utf-8") as handle:
+            json.dump(registry, handle, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def engine_display(entry):
+    bits = list(entry.get("tags") or [])
+    status = entry.get("status") or "候选"
+    if status == "基线":
+        bits.insert(0, "基线")
+    elif status == "已归档":
+        bits.insert(0, "已归档")
+    suffix = ("｜" + "·".join(bits)) if bits else ""
+    return entry.get("label", "?") + suffix
+
+
+def registry_default_display(registry):
+    for entry in registry:
+        if entry.get("status") == "基线":
+            return engine_display(entry)
+    return engine_display(registry[0])
 # P0 (2026-10-09): 本线模型换成 Coder390（旧值 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 属前序 Bonsai 线，本线 models\ 不存在该文件）
 # P1b (2026-10-09): 指向【自转 iq4_nl 版】。原件 MTP 头是 gguf_q4_0（引擎不支持，--spec mtp 必失败），
 #   .mtp-iq4nl.ninfer 把该头转成 gguf_iq4_nl（与原件等长，全量 L1 通过），**裸解码与 MTP 两种模式都用它**。
@@ -723,10 +791,11 @@ class LauncherApp:
         self._label2key = {}
         self.port_var = tk.StringVar(value=str(PORT_DEFAULT))
         self.logmode_var = tk.StringVar(value="精简")
-        # P0b (2026-10-09): 默认引擎 = 「自编·现役」——A/B 一律用它（官方件保留在下拉里作交叉验证选项）。
+        # P0b (2026-10-09): 默认引擎 = 「自编·现役」；2026-10-13 起默认取登记册里 status=基线 的条目。
         #   理由：self-built 含 Design C（thinking stop 强制进 answer），官方件无 -> 行为路径不同，
         #   混用会污染对照；且 self-built 是本线现役（交接文档指定、两个 start-coder390*.bat 已用）。
-        self.engine_var = tk.StringVar(value=ENGINE_OPTIONS["self"][0])
+        self.engine_registry = load_engine_registry()
+        self.engine_var = tk.StringVar(value=registry_default_display(self.engine_registry))
         # 投机档两级联动：类型 + K 值（照老项目；初值由 DEFAULTS["spec"] 解析）
         _d = DEFAULTS["spec"]
         if _d == "k0":
@@ -765,14 +834,18 @@ class LauncherApp:
                                        values=["精简", "全部"], font=("Microsoft YaHei UI", 9))
         self.logmode_cb.pack(side="left", padx=(4, 0))
         ToolTip(self.logmode_cb, "窗口日志显示：精简=只留每段 SELECT 首末条 + 业务行（KEPT 隐藏）；全部=不过滤（查错用）。日志文件两种模式都全文落盘。")
-        # 引擎版本（官方成品 / 自编 Design C）——我们自己的引擎在此可选
+        # 引擎版本（登记册驱动：标注 + 选择 + 基线对比；2026-10-13 用户令）
         tk.Label(portrow, text="引擎:", bg=self.bg, fg="#2b3a6b",
                  font=("Microsoft YaHei UI", 10)).pack(side="left", padx=(16, 0))
-        self.engine_cb = ttk.Combobox(portrow, state="readonly", width=14, textvariable=self.engine_var,
-                                      values=[v[0] for v in ENGINE_OPTIONS.values()], font=("Microsoft YaHei UI", 9))
+        self.engine_cb = ttk.Combobox(portrow, state="readonly", width=40, textvariable=self.engine_var,
+                                      values=[engine_display(e) for e in self.engine_registry],
+                                      font=("Microsoft YaHei UI", 9))
         self.engine_cb.pack(side="left", padx=(4, 0))
         self.engine_cb.bind("<<ComboboxSelected>>", lambda _e: self._refresh())
-        ToolTip(self.engine_cb, "用哪个引擎起服：官方成品 / 自编（含 Design C，治思考区空正文）。预览与启动都用所选引擎。")
+        ToolTip(self.engine_cb, "用哪个引擎起服（引擎登记册）：条目带标注（基线 / 稳 / 谷深 / 极速好…）；"
+                                "同类迭代收敛后可把旧条目标为『已归档』。预览与启动都用所选引擎。")
+        ttk.Button(portrow, text="标注…", width=6, command=self._edit_engine_entry).pack(side="left", padx=(6, 0))
+        ttk.Button(portrow, text="登记…", width=6, command=self._add_engine_entry).pack(side="left", padx=(4, 0))
 
         # 左：参数区（可滚动）
         left_outer = tk.Frame(main, bg=self.bg)
@@ -977,10 +1050,87 @@ class LauncherApp:
         self.status.config(text=f"已应用场景预设「{name}」", fg="#4a6b4a")
 
     def _engine_path(self):
-        for _k, (lbl, path) in ENGINE_OPTIONS.items():
-            if lbl == self.engine_var.get():
-                return path
+        want = self.engine_var.get()
+        for entry in self.engine_registry:
+            if engine_display(entry) == want:
+                return entry.get("path") or ENGINE_SELF
         return ENGINE_SELF      # 2026-10-10: 回退改为自编现役（原为官方件，与"统一 self-built"的裁决矛盾）
+
+    def _current_engine_entry(self):
+        want = self.engine_var.get()
+        for entry in self.engine_registry:
+            if engine_display(entry) == want:
+                return entry
+        return self.engine_registry[0] if self.engine_registry else None
+
+    def _reload_engine_values(self, select_label=None):
+        self.engine_cb["values"] = [engine_display(e) for e in self.engine_registry]
+        if select_label is not None:
+            self.engine_var.set(select_label)
+        self._refresh()
+
+    def _edit_engine_entry(self):
+        entry = self._current_engine_entry()
+        if entry is None:
+            return
+        top = tk.Toplevel(self)
+        top.title("引擎标注 — " + entry.get("label", ""))
+        top.configure(bg=self.bg)
+        top.transient(self)
+        top.grab_set()
+        tk.Label(top, text="显示名", bg=self.bg, fg="#2b3a6b").grid(row=0, column=0, sticky="w", padx=8, pady=4)
+        label_var = tk.StringVar(value=entry.get("label", ""))
+        ttk.Entry(top, textvariable=label_var, width=52).grid(row=0, column=1, padx=8, pady=4)
+        tk.Label(top, text="路径", bg=self.bg, fg="#2b3a6b").grid(row=1, column=0, sticky="w", padx=8, pady=4)
+        path_var = tk.StringVar(value=entry.get("path", ""))
+        ttk.Entry(top, textvariable=path_var, width=52).grid(row=1, column=1, padx=8, pady=4)
+        tk.Label(top, text="标注（/ 分隔）", bg=self.bg, fg="#2b3a6b").grid(row=2, column=0, sticky="w", padx=8, pady=4)
+        tags_var = tk.StringVar(value="/".join(entry.get("tags") or []))
+        ttk.Entry(top, textvariable=tags_var, width=52).grid(row=2, column=1, padx=8, pady=4)
+        tk.Label(top, text="说明", bg=self.bg, fg="#2b3a6b").grid(row=3, column=0, sticky="nw", padx=8, pady=4)
+        note_box = tk.Text(top, width=52, height=5, wrap="word")
+        note_box.insert("1.0", entry.get("note", ""))
+        note_box.grid(row=3, column=1, padx=8, pady=4)
+        tk.Label(top, text="状态", bg=self.bg, fg="#2b3a6b").grid(row=4, column=0, sticky="w", padx=8, pady=4)
+        status_var = tk.StringVar(value=entry.get("status", "候选"))
+        ttk.Combobox(top, state="readonly", textvariable=status_var,
+                     values=["基线", "候选", "已归档"], width=12).grid(row=4, column=1, sticky="w", padx=8, pady=4)
+        tk.Label(top, text="被谁替代（归档时填）", bg=self.bg, fg="#2b3a6b").grid(row=5, column=0, sticky="w", padx=8, pady=4)
+        repl_var = tk.StringVar(value=entry.get("replaced_by", ""))
+        ttk.Entry(top, textvariable=repl_var, width=52).grid(row=5, column=1, padx=8, pady=4)
+
+        def _save():
+            entry["label"] = label_var.get().strip() or entry.get("label", "?")
+            entry["path"] = path_var.get().strip() or entry.get("path", "")
+            raw = tags_var.get().replace("、", "/").replace("，", "/").replace(",", "/")
+            entry["tags"] = [t.strip() for t in raw.split("/") if t.strip()]
+            entry["note"] = note_box.get("1.0", "end").strip()
+            entry["status"] = status_var.get()
+            entry["replaced_by"] = repl_var.get().strip()
+            save_engine_registry(self.engine_registry)
+            top.destroy()
+            self._reload_engine_values(select_label=engine_display(entry))
+            self.status.config(text="已保存引擎标注：" + engine_display(entry), fg="#4a6b4a")
+
+        btns = tk.Frame(top, bg=self.bg)
+        btns.grid(row=6, column=0, columnspan=2, pady=8)
+        ttk.Button(btns, text="保存", width=10, command=_save).pack(side="left", padx=6)
+        ttk.Button(btns, text="取消", width=10, command=top.destroy).pack(side="left", padx=6)
+
+    def _add_engine_entry(self):
+        name = simpledialog.askstring("登记引擎", "显示名（如 H2_xxx_日期）：", parent=self)
+        if not name:
+            return
+        path = simpledialog.askstring("登记引擎", "exe 路径：",
+                                      initialvalue=self._engine_path(), parent=self)
+        if not path:
+            return
+        entry = {"label": name.strip(), "path": path.strip(), "tags": [], "note": "",
+                 "status": "候选", "added": time.strftime("%Y-%m-%d"), "replaced_by": ""}
+        self.engine_registry.append(entry)
+        save_engine_registry(self.engine_registry)
+        self._reload_engine_values(select_label=engine_display(entry))
+        self.status.config(text="已登记引擎条目：" + name, fg="#4a6b4a")
 
     def _refresh(self):
         self.selection = {k: self.selection.get(k, DEFAULTS[k]) for k in DEFAULTS}

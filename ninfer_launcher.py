@@ -444,6 +444,11 @@ PRESET_PROFILES = {
     "★64K视觉稳（v2.1实测·nograph）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k", graph="off"),
     # 2026-10-13 用户令定稿：视觉改 overlay（塔驻 host、打图开窗借设备；5 图零错、首图 prepared 0.3-0.7s、复用 40-60ms）。
     "★视觉 overlay 定稿（2026-10-13·5图零错）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="off"),
+    # 2026-10-13 夜 用户令：stage0a 实况轮（102 轮 / 0×500 / 超池 10 次零故障 / 真谷 0）整档固定为基线。
+    #   = stage0a 起服逐字：64K 池 + iq4nlvis(overlay) + --cuda-graph-allowance-mib 64 + MTP K4
+    #     + 思考 high/16000 + 官方采样 + hemostat on；reqlog 仪器旗（--request-log-jsonl …）启动器暂不支持，需另加。
+    #   实测：decode median 152.7 / 峰 406.2；TTFT max 57.2s（前档 464.9s）；真谷（host 饱和型）= 0。
+    "★64K overlay stage0a 基线（10-13 实测）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="64"),
 }
 
 # ---------------------------------------------------------------
@@ -453,6 +458,11 @@ PRESET_PROFILES = {
 #     NINFER_DEMOTE_PROFILE=1     = demote 批级 profile 日志（纯诊断，不需要可删这一行）。
 PRESET_ENV = {
     "★64K视觉稳（v2.1实测·nograph）": {
+        "NINFER_ASYNC_DEMOTE_DEPTH": "2",
+        "NINFER_DEMOTE_PROFILE": "1",
+    },
+    # stage0a（10-13）：PROFILE=1 已实证（该轮日志有 "demote profile" 行）；DEPTH=2 随 v2.1 定稿配对（stage0a 未单独取证）。
+    "★64K overlay stage0a 基线（10-13 实测）": {
         "NINFER_ASYNC_DEMOTE_DEPTH": "2",
         "NINFER_DEMOTE_PROFILE": "1",
     },
@@ -1309,5 +1319,6 @@ if __name__ == "__main__":
 #   · 更多维度：spec draft 1..15 二级联动、--thinking-budget、--prefill-cublas、
 #     --lookup-ngram、--vision-residency、--kv-headroom-mib、--seed 等
 #   · 日志落盘（serve_tee 等价物，写 logs\serve_<时间戳>.log）
+#   · stage0a 实测旗：--request-log-jsonl / --request-log-max-mib / --request-log-keep（reqlog 仪器）、--max-shared-prefixes 0
 #   · 端口可改、S3 KVMem 检索证据（kvmem_score: SELECT）采集
 # ---------------------------------------------------------------

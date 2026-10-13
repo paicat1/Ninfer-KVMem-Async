@@ -2337,6 +2337,15 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **新挂账/队列更新**：无新编号（未归因收尾慢窗 = 观察项）；**Q1** = 仪器已证可用（reqlog + 分类器）但**真谷标本尚未"仪器在线"共捕**（stage0a 真谷 0；v2test1 有谷无 reqlog）⇒ 下次深堆会话即捕；**Q2** = 工具已就位（`stage0_read.py` = 其第一件产物，半途兑现）；Q3–Q8 不变。
 
+### 23. 引擎下拉栏：stage0a 基线入册（2026-10-13 夜，用户令"加入引擎下拉栏吧"）
+
+- **用户令**："这次的引擎基线是不是很不错？加入引擎下拉栏吧？值得加吧？" → 判定：值得；已入册（登记条目 + 配套预设 + 配对 env 三件套）。
+- **硬件更正（日志实证）**：本机 = **RTX 5080 sm120**（`test_stage0a.log`：`device profile nvidia-geforce-rtx-5080-sm120`；权重 12.3 GiB + host KV pinned 16 GiB）；文档中出现的 `3090` 均为**上游 fork 名**（`ashalliants/ninfer-3090` 等），非本机——若此前有把本机记为 3090 的表述，作废（以本节为准）。
+- **登记册新条目**（`engine_registry.json`）：**「V2+overlay64K（stage0a 实测基线）」** status=**基线**（默认展示位）；path = v2 归档 exe（sha `0B4D1B65…`，**不做第三份拷贝**——lineage 每份 1.27 GiB，二进制已在案）；tags：真谷0 / 超池10零故障 / 峰406 / TTFTmax57s；note 载配置四件（overlay + kvcap 65536 + graph64 + mtp K4）+ reqlog 仪器说明 + 配套预设名。原 `v2_27dc746` 条目降为**候选**（同一二进制；抬头注明配置条目所在）。
+- **预设新增**（`infer_launcher.py`）：**`★64K overlay stage0a 基线（10-13 实测）`** = DEFAULTS + iq4nlvis + overlay + kvcap 64k + **graph 64**；`PRESET_ENV` 配对 `NINFER_ASYNC_DEMOTE_DEPTH=2` + `NINFER_DEMOTE_PROFILE=1`（PROFILE=1 已由该轮日志 "demote profile" 行实证；DEPTH=2 随 v2.1 定稿配对，未单独取证）；文件尾 TODO 补记 reqlog/`--max-shared-prefixes` 旗（启动器暂不产出，需另加）。
+- **复现口径（诚实项）**：①引擎下拉选的是 **exe**、配置来自**预设** ⇒ 复现实测基线 = 选「V2+overlay64K」+「★64K overlay stage0a 基线」；②**reqlog 仪器旗启动器暂无**（stage0a 系手工起服）；③"真谷 0"= **没被触发**（负载较轻 + cache 中位 95.8%）而非被消灭——冷轮仍在（22:08 一发 cache0 TTFT 43.6s）；④graph=64 vs 更省档：桌面内存紧时用「★64K视觉稳（v2.1·nograph）」。
+- **流程小记**：`replace_in_file` 对 `ninfer_launcher.py` 连续报 "path does not exist"（读正常/JSON 正常）⇒ 改用一次性 python 补丁脚本（断言唯一锚点 + AST 校验 + diff 复核；`.temp\patch_launcher_20261013.py`），三处替换全部成功、无副作用。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

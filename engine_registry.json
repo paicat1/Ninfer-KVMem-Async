@@ -21,7 +21,16 @@
     "label": "v2_27dc746(085713)",
     "path": "J:\\ninfer-kvmem\\_safety_backups\\exe_lineage_20261013\\ninfer-serve.exe.20261013_085713",
     "tags": ["稳", "峰403.7", "超池=0故障", "reconcile未触发"],
-    "note": "fresh activation 逐字不变 + writer-blocked 修复；实况 127 轮 / 0x500 / 9 次超池零故障；峰 403.7（19:10）；reconcile 路径仍未实机触发",
+    "note": "v2 二进制（sha 0B4D1B65…）首战归档：127 轮 / 0x500 / 9 次超池零故障；峰 403.7（19:10）；reconcile 路径仍未实机触发。配置基线见『V2+overlay64K（stage0a 实测基线）』（同一二进制）",
+    "status": "候选",
+    "added": "2026-10-13",
+    "replaced_by": ""
+  },
+  {
+    "label": "V2+overlay64K（stage0a 实测基线）",
+    "path": "J:\\ninfer-kvmem\\_safety_backups\\exe_lineage_20261013\\ninfer-serve.exe.20261013_085713",
+    "tags": ["真谷0", "超池10零故障", "峰406", "TTFTmax57s"],
+    "note": "v2 二进制（sha 0B4D1B65…）+ stage0a 配置：--vision-residency overlay + --kv-capacity 65536 + --cuda-graph-allowance-mib 64 + --spec mtp K4 + reqlog 仪器。实测 102 轮 / 0x500 / 超池 10 次零故障 / 真谷（host 饱和型）0 / TTFT max 57.2s（前一档 464.9s）/ 峰 406.2。配套预设：★64K overlay stage0a 基线；reqlog 旗启动器暂不支持（需另加）",
     "status": "基线",
     "added": "2026-10-13",
     "replaced_by": ""

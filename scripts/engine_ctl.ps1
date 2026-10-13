@@ -19,6 +19,7 @@ param(
     [int]$Score = -1,
     [int]$Pool = 65536,
     [int]$Draft = 4,
+    [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'cpu',
 
     [string]$Model = 'Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer'
 )
@@ -118,6 +119,12 @@ $env:NINFER_DEMOTE_PROFILE = '1'
 if ($Score -eq 0) { $env:NINFER_TERNARY_KVMEM_SCORE = '0'; Write-Output 'knob: content scoring OFF (NINFER_TERNARY_KVMEM_SCORE=0)' }
 $env:PATH = (Join-Path $root 'engine') + ';' + (Join-Path $root 'engine\self-built-20261008') + ';' + $env:PATH
 
+$visionArgs = switch ($Vision) {
+    'off'      { @() }
+    'resident' { @('--vision') }
+    'overlay'  { @('--vision', '--vision-residency', 'overlay') }
+    default    { @('--vision-cpu') }
+}
 $cliArgs = @(
     'serve_tee.py', $log, $Exe, $modelPath,
     '--host', '127.0.0.1', '--port', [string]$Port,
@@ -125,7 +132,8 @@ $cliArgs = @(
     '--max-context', '262144', '--kv-capacity', [string]$Pool,
     '--cuda-graph-allowance-mib', '64', '--kv-dtype', 'rk2v4-e8',
     '--host-kv-mib', '16384', '--prefill-chunk', '512',
-    '--spec', 'mtp', '--draft-tokens', [string]$Draft, '--vision-cpu',
+    '--spec', 'mtp', '--draft-tokens', [string]$Draft
+) + $visionArgs + @(
     '--default-max-tokens', '32768', '--default-reasoning-effort', 'high', '--default-thinking-budget', '16000',
     '--max-concurrency', '1', '--max-shared-prefixes', '0',
     '--presence-penalty', '0', '--temperature', '0.7', '--top-p', '0.9', '--top-k', '20',

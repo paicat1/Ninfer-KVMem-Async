@@ -1,0 +1,29 @@
+[
+  {
+    "label": "自编·现役(20261008)",
+    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "tags": [],
+    "note": "20261008 + 全部补丁；launcher 原定稿；已被 v2 线替代（回滚锚在 H1）",
+    "status": "已归档",
+    "added": "2026-10-10",
+    "replaced_by": "v2_27dc746(085713)"
+  },
+  {
+    "label": "H1_54fix_20261013",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\H1_54fix_20261013.exe",
+    "tags": ["首轮极速好", "谷深", "超池500风险(~11%)"],
+    "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）；回滚锚",
+    "status": "候选",
+    "added": "2026-10-13",
+    "replaced_by": ""
+  },
+  {
+    "label": "v2_27dc746(085713)",
+    "path": "J:\\ninfer-kvmem\\_safety_backups\\exe_lineage_20261013\\ninfer-serve.exe.20261013_085713",
+    "tags": ["稳", "峰403.7", "超池=0故障", "reconcile未触发"],
+    "note": "fresh activation 逐字不变 + writer-blocked 修复；实况 127 轮 / 0x500 / 9 次超池零故障；峰 403.7（19:10）；reconcile 路径仍未实机触发",
+    "status": "基线",
+    "added": "2026-10-13",
+    "replaced_by": ""
+  }
+]

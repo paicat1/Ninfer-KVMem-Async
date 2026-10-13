@@ -2131,7 +2131,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 ### 10. 方向定位：我方 ←→ tancau（用户三问的定论，2026-10-13 晚）
 
-**① 同为一路（同源代码族、不同分支）**：他 `ninfer-kvmem-ring`（Ternary-Bonsai-2-27B / RTX 3060 12G / Win10，池 98304 固定）；我们 `line-coder390` 线（Qwen3.8-27B-Coder390 / RTX 3090 24G）。函数级同义同名（`context.cpp` / `paged_kv_cache.cpp` / `HostKVExtentStore` / `demote_other_addresses_to_host` / ring 谓词）⇒ 我 2026-10-02 的 publish 补丁正源自他 §4/§8 定案——**血缘同，线不同**。
+**① 同为一路（同源代码族、不同分支）**：他 `ninfer-kvmem-ring`（Ternary-Bonsai-2-27B / RTX 3060 12G / Win10，池 98304 固定）；我们 `line-coder390` 线（Qwen3.8-27B-Coder390 / **RTX 5080 16G**〔更正：原写 3090 24G〕）。函数级同义同名（`context.cpp` / `paged_kv_cache.cpp` / `HostKVExtentStore` / `demote_other_addresses_to_host` / ring 谓词）⇒ 我 2026-10-02 的 publish 补丁正源自他 §4/§8 定案——**血缘同，线不同**。
 
 **② 机制同路、刀法互补**：核心机制 = 同一大方向（**设备 KV 池故意 < 会话；冷页压 host、按需取回；锚/checkpoint + 复用**）。我方叫"异步页流水"（v2：demote 深度流水、不阻塞 decode）；他叫 ring/checkpoint/host-backed，其 restore 全异步、demote 批量循环，decode 税走的修法是"**decode 轮跳过 mid-ensure H2D restore**"（3.2×）——**同一类问题的两种刀法，互补而非同一件事**。
 
@@ -2152,7 +2152,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **"转正"在我方剩余手续（待用户口令 ✗）**：v2 已在 8094 实况服务（tag=v2test1）⇒ 正式转正 = ①归档位 canonical 化（命名 / VARIANT / MANIFEST）②默认指针（后续起服默认 v2；回滚锚 H1 保持一行）③README / 构建史口径 ④知情项随行（reconcile 路径从未实机触发，由服务中的会话继续"补刷条件本体"）。
 
-**"完成之后谁更强"定论（用户问，分轴）**：**性能上限/我方负载** → 我方（3090 + 异步页流水；已见峰 463.9 / prefill 2.23k / req 级 258；v2 现役 346–349）；**已交付的极端条件成熟度** → 他（262K/12G 全程 0 死、召回逐字、验收模板）。终局最强形态 = 两线合体（他的硬化项 + 我们的流水/谷根治）——同源代码族，不存在"两套技术"之争 ✗。
+**"完成之后谁更强"定论（用户问，分轴）**：**性能上限/我方负载** → 我方（**RTX 5080 16G**〔2026-10-13 晚更正：此前误写 3090 24G，实测 nvidia-smi = RTX 5080 / 16303 MiB〕+ 异步页流水；已见峰 463.9 / prefill 2.23k / req 级 258；v2 现役 346–349）；**已交付的极端条件成熟度** → 他（262K/12G 全程 0 死、召回逐字、验收模板）。终局最强形态 = 两线合体（他的硬化项 + 我们的流水/谷根治）——同源代码族，不存在"两套技术"之争 ✗。
 
 ### 12. v2 实况轮全量扫描记录 + 记录规范（2026-10-13 晚，用户令"每轮必全量扫"）
 
@@ -2168,6 +2168,17 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 **建议新挂账（编号待对账）**：冷轮 TTFT（vision-cpu → A 案切换 = P0）；谷根治（I3b 仪表 = 继续）。
 
 **启动器登记册（用户令，已实现）**：`ninfer_launcher.py` 引擎下拉改**登记册驱动**（`engine_registry.json`：label / path / tags / note / status=基线|候选|已归档 / replaced_by）；种子含 自编现役(20261008)【基线】/ H1_54fix_20261013【候选·首轮极速好+谷深】/ v2_27dc746(085713)【候选·稳】；GUI 增『标注…』（改标注/状态/被谁替代）『登记…』（新增条目）按钮；解析统一走 `_engine_path()`（预览/校验/启动三处共用）。**改 .py 后需关掉启动器重开** ✗。
+
+### 13. 轮终 + A 案落点：vision overlay 起服成功（2026-10-13 19:2x）
+
+- **轮终（承 §12）**：127 轮 / 500=0 / 超池 9 次零故障 / 峰 403.7×2 / 谷 16.5%；末请求 req#128（19:22:13 起，media 1）随用户令停未完成（记录在案）；另观察 req#126 `tool markup recovered` WARN ×1（新观察）。
+- **硬件口径更正（撤回）**：本机 = **RTX 5080 16G（16303 MiB）**（nvidia-smi 实测）；§10/§11 原写"3090 24G"已撤改 ✗。**device-profile 自动校准生效**：启动日志 `device profile nvidia-geforce-rtx-5080-sm120: 49 routed keys (calibration)`（对应 tancau A3 项，我方默认 auto ✓）。
+- **A 案发车（vision 对照）**：`engine_ctl.ps1` 新增 `-Vision cpu|resident|overlay|off`（改现有文件）。
+  - **resident 被拒（VRAM 精确差）**：需 2,247,197,953 B（2.093 GiB）vs 可用 1,943,810,048 B（1.811 GiB）⇒ **差 ≈ 303 MB**——16G 卡 + 池 65536 下装不下塔 ✗（后路：池降 55296 或关桌面占用）。
+  - **overlay 起服成功 ✓**（19:26:31 ready，10.0s，weights 12.3 GiB）：CMD 含 `--vision --vision-residency overlay`；`/v1/models` **modalities.vision=true** ✓；VRAM 15734 MiB。
+  - **§5.4 清单进度**：①旗标可用性 ✓（未拒；日志无显式 residency 行——以 CMD/端点为据）②窗口行为/TTFT = **待打图**（cpu 基线 = 本轮冷轮 TTFT 32.9s–7m45s）③组合兼容 ✓ 起步（overlay × MTP4 × ring 六开关 × hemostat 已起）④容量结算（池 55296+）待后 ⑤Windows 长稳待测。
+- **登记册落盘**：`engine_registry.json` 创建——**v2 转正 = 基线**（实况 127 轮/0×500/峰 403.7），H1 留候选（回滚锚），20261008 归档。
+- **下一步（用户动作）**：**DSH 开新会话 + 图片**（越冷越好）⇒ 对照 cpu 基线看 TTFT；我盯日志出对照记录。
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

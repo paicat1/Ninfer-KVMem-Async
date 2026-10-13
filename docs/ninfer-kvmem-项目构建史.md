@@ -2201,6 +2201,36 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **启动器落地**：`VISION_OPTIONS."overlay"` 标注定稿+数字（改现有文件）；新增预设「★视觉 overlay 定稿（2026-10-13·5图零错）」= iq4nlvis + overlay + 64k + nograph（旧"64K视觉稳"档保留为 cpu 对照）；`engine_ctl.ps1` 默认 `-Vision` 改 overlay。
 - **脚注（未决）**：①池 55296 容量结算（§5.4-④）待测 ②长稳继续扩样 ③`.py` 改动 → **关掉启动器重开**生效。
 
+### 16. A 组实验（用户令"开工 A"）：池上限 / mtp-attention-window / fast-prefill-kernel（2026-10-13 20:0x）
+
+**A1 池容量结算（v2 + overlay 定稿，逐档顶池）**：
+| 池 | 结果 | 起服时 VRAM |
+|---|---|---|
+| 65536 | ✓ 基线 | ~15766 |
+| 69632 | ✓ | 15784 |
+| 73728 | ✓（smoke 200） | 15816 |
+| **81920** | **✓ 今晚上限** | 15877 |
+| 98304 | **✗ 拒启**：预留需 2.104 GiB vs 可用 1.973 GiB，**差 ≈134 MiB** | — |
+- 结论：**今晚上限 = 81920**（+25%）；98304 差 134 MiB。keeper 现以 81920 运行（tag `v2ovl_p80k_final`，smoke 200，起服前桌面仅 745 MiB——桌面忙时可能拒启，需回落 73728/69632）。
+
+**A2 `--mtp-attention-window 4096`（tancau 线被 KVMem 拒启的同款旗）**：
+- **我方 binary 接受并起服 ✓**（argv 实锤；10.1s ready）——**首例"A 类去雷"翻案：他们被杀、我们可用**。
+- 钉死驱动（filler 180KB / 2 轮 / max 600 / 池 81920 / overlay）：
+  | 臂 | r1 decode | r1 接受 | r2 decode | r2 接受 |
+  |---|---|---|---|---|
+  | A2-ON | 133.4 | 443/820（54.0%） | **160.8** | 486/724（67.1%） |
+  | A2-OFF | 138.7 | 437/655（66.7%） | 141.7 | 454/591（76.8%） |
+- 读法：旗**真在工作**（draft 结构变化：提议数增、接受率降 = 只看 4096 窗）；**深上下文 decode 方向性 +13.5%**；r1 -3.8%（噪声内）。
+- **判定：候选（信号级，n=1）**——需 ①重复 n≥3 ②greedy 一致性（论文无损门）验证后才可进定稿。
+
+**A3 `--fast-prefill-kernel`**：
+- 接受并起服 ✓（argv 实锤；smoke 200）。
+- 驱动对照：r1 prefill **1.80k vs 基线 1.86k（-3.2%）**；r2 **1.16k vs 1.20k（-3.3%）** ⇒ **本形状未见增益**（tancau 线 +12.5% 未复现；prefill 轨迹无关、可跨臂直比）。
+- **判定：本形状无效（保留候选待换形状再判）** ✗。
+
+**方法论备注（本夜实证）**：decode/接受率单发噪声 **±15-20%**（三臂 r1：138.7 vs 234.7 实锤）⇒ 旗判定必须重复取样；prefill 可跨臂直比（轨迹无关）。`engine_ctl` 新增 `-Extra` 透传（踩坑修正：`powershell -File` 传数组会吞位——`4096` 曾落到 `-Port`，已改**单串逗号式** `--flag,value` ✓）。
+**B 组待令**：①A2 重复 n=3 + greedy 一致性 ②A3 换形状再判 ③B = I3b 谷仪表设计稿。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

@@ -20,6 +20,7 @@ param(
     [int]$Pool = 65536,
     [int]$Draft = 4,
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
+    [string]$Extra = '',
 
     [string]$Model = 'Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer'
 )
@@ -125,6 +126,10 @@ $visionArgs = switch ($Vision) {
     'overlay'  { @('--vision', '--vision-residency', 'overlay') }
     default    { @('--vision-cpu') }
 }
+$extraList = @()
+if ($Extra -and $Extra.Trim() -ne '') {
+    $extraList = @($Extra.Split(',') | Where-Object { $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
+}
 $cliArgs = @(
     'serve_tee.py', $log, $Exe, $modelPath,
     '--host', '127.0.0.1', '--port', [string]$Port,
@@ -133,7 +138,7 @@ $cliArgs = @(
     '--cuda-graph-allowance-mib', '64', '--kv-dtype', 'rk2v4-e8',
     '--host-kv-mib', '16384', '--prefill-chunk', '512',
     '--spec', 'mtp', '--draft-tokens', [string]$Draft
-) + $visionArgs + @(
+) + $visionArgs + $extraList + @(
     '--default-max-tokens', '32768', '--default-reasoning-effort', 'high', '--default-thinking-budget', '16000',
     '--max-concurrency', '1', '--max-shared-prefixes', '0',
     '--presence-penalty', '0', '--temperature', '0.7', '--top-p', '0.9', '--top-k', '20',

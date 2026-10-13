@@ -2070,6 +2070,20 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **MAT_DEBUG 判读**：mat-debug/candgen 行速率 **32–56 行/分恒定**（健康窗与爬行窗同率）⇒ 材质化规划器**非**谷内热源 ✗（排除）；谷内热源仍在 submit/post 未分段区（I3b 仪表目标）。
 - 证据：`logs\test_ea5_mat.log`（全文留档）+ `logs\ea1c_stats_timeline.jsonl`（poller 时间线含 ea5 段）。
 
+### 6. I3 修复 v2（engine-src `27dc746`）+ A/B 实测（09:0x）
+
+- **patch v2**（`kv_store.h` +28−2）：`commit_activation` 的**第二分支**（writer blocked）纳入 reconcile——独占页且 `can_set_writer` 失败时，若该页**严格在写前沿以下**（`committed_frontier / page`，旧页 = 永不再写列）⇒ 只读滑过（每页一次日志），否则维持硬抛；授权环同行按 `can_set_writer` 门控（不 clear_protection / 不 set_writer）。全新激活（frontier=0）行为逐字不变 ✓。
+- **构建**：增量（kv_store.h = 核心头 ⇒ 实为 ≈全量级，33 分钟；BUILD-EXIT=0 @08:57:12）；归档 `auto_20261013_085713_27dc746` sha `0B4D1B65…`（MANIFEST sha 字段手续已补 ✓）。
+- **A/B（同配方 40 轮 drive）**：
+  | 指标 | A = H1（ea5_mat） | B = v2（ea6_fix2） |
+  |---|---|---|
+  | 500 / recovery | **2 / 2**（writer-blocked page 276/226；孤儿 173.8 / 135 MB）✗ | **0 / 0** ✓ |
+  | 深重填（round 23） | 56.4 s 爬行 | **8.5 s 全速** ✓ |
+  | 语境深度 | ~73K | **111.5K（更深）** ✓ |
+  | 谷解析（valley_bench） | 轻度 | **healthy（min 24.0 / 中位 159 / 0 谷窗）** ✓ |
+- **诚实边界**：B 全程未再触发 writer-blocked 条件本体（reconcile 行 = 0）⇒ "v2 修好该路径"目前 = **代码级论证 + 无崩溃旁证**，非"现场拦下"；触发或可再刷（drive#7 在跑）✗。
+- 证据：`logs\test_ea6_fix2.log`、`.temp\ea6_drive.out`。
+
 ---
 
 ## 四、待续事项（挂账）

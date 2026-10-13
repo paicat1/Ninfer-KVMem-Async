@@ -2084,6 +2084,14 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **诚实边界**：B 全程未再触发 writer-blocked 条件本体（reconcile 行 = 0）⇒ "v2 修好该路径"目前 = **代码级论证 + 无崩溃旁证**，非"现场拦下"；触发或可再刷（drive#7 在跑）✗。
 - 证据：`logs\test_ea6_fix2.log`、`.temp\ea6_drive.out`。
 
+### 7. 库名正式变更（2026-10-13 傍晚）
+
+- 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。
+- 分工：**GitHub 侧改名 = 用户执行**（平台操作；本机无 `gh`、无可动 token ✗）；**本地与文档侧 = CB**：
+  living 文档（README 标题/三代表/谱系树/clone 路径、NOTICE、谱系纪律、通读索引）已全部更新至新名 ✓；
+  **历史记录（本文旧行、TELE 夜巡、CB 回信）按"加注不重写"保留原貌** ✗；本机 remote URL 待 GitHub 改名完成后切换（旧地址届时由 GitHub 重定向兜底 ✓）。
+- 波及面（全库 grep）：**5 文件 11 处**；本地路径 `J:\ninfer-kvmem` = 路径名，**不改** ✗（改名 ≠ 改本地目录）。
+
 ---
 
 ## 四、待续事项（挂账）

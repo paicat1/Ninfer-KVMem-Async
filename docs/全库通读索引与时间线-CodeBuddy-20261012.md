@@ -1,6 +1,6 @@
 # 全库通读索引与时间线（CodeBuddy · 2026-10-12）
 
-> 物理位置归属：本文件为 paicat1/Qwen38-27B-NInfer-kvmem（原 ninfer-kvmem，2026-10-12 改名并转私库）工作区内的通读产物，只读索引性质，不改动任何既有文档结论。
+> 物理位置归属：本文件为 paicat1/Ninfer-KVMem-Async（沿革：ninfer-kvmem → 2026-10-12 改 Qwen38-27B-NInfer-kvmem 并转私库 → 2026-10-13 改本名）工作区内的通读产物，只读索引性质，不改动任何既有文档结论。
 > 用途：一次全库通读的沉淀——时间线、文档索引、机制速查、挂账总表、收尾观察；后续会话可据此导航，不必重新通读。
 > 状态：**已完成**（2026-10-12，本地 HEAD `4c9a75a`；参阅范围见 §七）；本文件未提交（待用户批准）。
 
@@ -8,7 +8,7 @@
 
 ## 一、库身份与血缘（一句话版）
 
-- **本仓**（仓三）：`paicat1/Qwen38-27B-NInfer-kvmem`（原 `ninfer-kvmem`；2026-10-12 改名+转私库），本地 `h:/个人/ninfer kvmem`
+- **本仓**（仓三）：`paicat1/Ninfer-KVMem-Async`（沿革：`ninfer-kvmem` → 2026-10-12 `Qwen38-27B-NInfer-kvmem` + 转私库 → 2026-10-13 本名），本地 `h:/个人/ninfer kvmem`
 - **血缘**：前两仓成果已继承——① `paicat1/Bonsai-27B-NInfer`（三元线发布）、② `paicat1/Bonsai-27B-NInfer-kvmem`（三元+KVMem 环线）；本仓新增经验计划回馈前两仓
 - **上游三条**：`1314521gjy/ninfer-fusion-kvmem`（Bonsai 官方线，引擎同源，唯一活跃跟踪对象）、`kvmem/kvmem-llama.cpp`（兄弟件 RC2，对照参照）、`tancau/ninfer-kvmem-ring`（环作者；参考树在 `refs/tancau-ninfer-kvmem-ring/`）；基座链 Neroued/ninfer → ashalliants/ninfer-3090 → iamwavecut/ninfer-all
 - **双智能体协作**：CODE（CodeBuddy，施工+构建史）/ TELE（TeleAgent，独立审核）；铁律 T-NO-FOREIGN-WRITE（2026-10-12 立）；指代纪律禁止"官方"统称

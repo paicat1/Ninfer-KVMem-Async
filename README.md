@@ -1,4 +1,4 @@
-# Qwen38-27B-NInfer-kvmem
+# Ninfer-KVMem-Async
 
 **在两代前序工程跑通的架构上，部署更大的模型（Qwen3.8-27B-Coder390，27B）。**
 
@@ -38,7 +38,7 @@
 |---|---|---|
 | 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层，两分支一体） | **Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer**：Ambolio 移植 + CraneBW 内核、改 CMake `89\|120a`、自产 v2 制品；Device/Host **双层 KV**（被动容量）；MTP / DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s |
 | 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
-| 三 | [**paicat1/Qwen38-27B-NInfer-kvmem**](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)（本仓） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
+| 三 | [**paicat1/Ninfer-KVMem-Async**](https://github.com/paicat1/Ninfer-KVMem-Async)（本仓；2026-10-13 由 Qwen38-27B-NInfer-kvmem 改名） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
 
@@ -188,7 +188,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
          自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考停止空正文"）+ 双引擎对照；
          GUI 启动器与 serve_tee 自建。极值：prefill 3,820 / decode 748.6 tok/s
          （本机部署/工作副本 = J:\KVMem-GSQ）
-       └─ 仓三 [paicat1/Qwen38-27B-NInfer-kvmem](https://github.com/paicat1/Qwen38-27B-NInfer-kvmem)【★本仓，origin 即指向它★】
+       └─ 仓三 [paicat1/Ninfer-KVMem-Async](https://github.com/paicat1/Ninfer-KVMem-Async)【★本仓，origin 即指向它★，2026-10-13 由 Qwen38-27B-NInfer-kvmem 改名】
             换大模型 Qwen3.8-27B-Coder390-EfficientThink：自转 MTP 头（iq4nl）、
             思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、
             视觉塔嫁接、256K 逻辑上下文；Qwen 4 27B（Bonsai/NInfer 格式）着陆预备
@@ -211,7 +211,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
    **A0. 本仓 `engine-main` 分支（最直接 · 与前两仓同构；需本仓读取权限）**：本仓 = **双分支一体**（`main`=项目层 / **`engine-main`**=引擎层；tag **`engine-20261013`**）：
    ```bat
-   git clone -b engine-main https://github.com/paicat1/Qwen38-27B-NInfer-kvmem.git engine-src
+   git clone -b engine-main https://github.com/paicat1/Ninfer-KVMem-Async.git engine-src
    ```
 
    **A. 本库快照 bundle（离线备选 · 含完整 git 历史）**：`repro/` 带一份自持源码树 bundle：

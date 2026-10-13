@@ -1,6 +1,6 @@
 # NOTICE
 
-本仓 **Qwen38-27B-NInfer-kvmem**（原名 ninfer-kvmem）为**上游衍生的部署/验证工程**（非官方发布方）：
+本仓 **Ninfer-KVMem-Async**（2026-10-13 现名；沿革：ninfer-kvmem → Qwen38-27B-NInfer-kvmem → 本名）为**上游衍生的部署/验证工程**（非官方发布方）：
 在两代前序工程（① Bonsai-2 on NInfer → ② NInfer×KVMem 融合）跑通的架构上，部署 **Qwen3.8-27B 系
 NInfer 容器**（首个上线预设 = Coder390-EfficientThink），并作为 **Qwen 4 27B（Bonsai/NInfer 格式）
 的着陆预备**。

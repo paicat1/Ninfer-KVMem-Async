@@ -2381,6 +2381,13 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **P4 门：通过（同日深夜）**：I3b_step1 双臂（仅差 `NINFER_STEP_PROFILE`）——a2gate 3 跑 × 2 轮：**跨臂 sha 6/6 全同 + 同臂确定 + decode 差 <0.5% + accept 同** ⇒ **零行为 ✓**；ON 臂 step profile **首数据**：`wall ≈ submit（26–30 ms/轮），wait/post/rest ≈ 0` ⇒ **下一刀 = S2（submit 内部细分）**。`engine_ctl.ps1` 已加 `-StepProfile`（P5 复用）。P5 待跑（真谷标本）。
 
+### 27. P5 首次真谷捕获（2026-10-13 深夜，现场，用户会话）
+
+- **标本**：`p5_valley` 会话 23:33–23:45 **多段真谷**（含单轮 **8.9 s**、持续谷 med 6–9 tok/s、slow 行 139 条），**23:45 自愈**回 345–355 tok/s ✓；500=0；全程 I3b_step1 + 三仪表。
+- **定案**：谷 = **单轮 1.4–8.9 s，100% 记在 submit 相**（wait/post/rest ≈ 0）；**ring 五段亚毫秒**（单次峰 ≤54 ms）；mask 打印/retrieve 均非因；**tok/轮仍 12.6–16（接受率在谷中不塌——与挂账 55"接受率崩"是两种形态）**。
+- **结构性发现（改变 S2 范围）**：Recorder **成功路径从不 arm Wait**（只在 catch 分支）⇒ `submit` 实为整轮墙钟；**S2 细分必须连带"成功路径 arm Wait"**（在 GPU 同步点两侧），否则 CPU/GPU 分不开。
+- **下一步**：**P5b**（谷现场 `nvidia-smi` 采样 + 成功路径 arm Wait 施工）→ S2 细分。详见 `docs\设计-挂账46-I3b步级仪表-20261013.md` §12。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

@@ -236,12 +236,26 @@ def scan(args):
                 last_ts = stamp if last_ts is None or stamp > last_ts else last_ts
                 if args.since and stamp < args.since:
                     continue
-                entry = {'t': stamp, 'decode': None, 'prefill': None, 'host': None}
+                entry = {'t': stamp, 'decode': None, 'prefill': None, 'host': None,
+                         'running': 0, 'waiting': 0, 'phase': 'idle'}
                 host = re.search(r'host ([\d.]+)%', rest)
                 if host:
                     entry['host'] = float(host.group(1))
                 for kind, value, _tokens in NUM_RE.findall(rest):
                     entry[kind] = _tok_s(value)
+                run_info = re.search(r'running (\d+)(?: \(([^)]*)\))?', rest)
+                if run_info:
+                    entry['running'] = int(run_info.group(1))
+                    flags = run_info.group(2) or ''
+                    if 'prefill' in flags:
+                        entry['phase'] = 'prefill'
+                    elif 'decode' in flags:
+                        entry['phase'] = 'decode'
+                    elif entry['running'] > 0:
+                        entry['phase'] = 'other'
+                wait_info = re.search(r'waiting (\d+)', rest)
+                if wait_info:
+                    entry['waiting'] = int(wait_info.group(1))
                 series.append(entry)
                 continue
             match = req_re.search(line)
@@ -269,17 +283,26 @@ def scan(args):
     decodes = [e['decode'] for e in series if e['decode'] is not None]
     hosts = [e['host'] for e in series if e['host'] is not None]
     prefills = [e['prefill'] for e in series if e['prefill'] is not None]
-    valley = [e for e in series if e['decode'] is not None and e['decode'] < 20.0]
+    # 判据口径 v2（2026-10-13 夜）：低 decode 窗必须分类——idle（无请求）与 prefill 混合窗不是谷。
+    #   真谷（host_bound）= decode 活跃 + host 饱和（decode<20 且 host>=70%）；unattributed = decode 活跃但 host 空闲（收尾/空转伪影，待查）。
+    low = [e for e in series if e['decode'] is not None and e['decode'] < 20.0]
+    idle_w = [e for e in low if e['phase'] == 'idle']
+    mixed_w = [e for e in low if e['phase'] in ('prefill', 'other')]
+    active_low = [e for e in low if e['phase'] == 'decode']
+    host_bound = [e for e in active_low if (e['host'] or 0.0) >= 70.0]
+    unattributed = [e for e in active_low if (e['host'] or 0.0) < 70.0]
+    valley = host_bound
     peaks = [e for e in series if e['decode'] is not None and e['decode'] >= 400.0]
+    active_windows = [e for e in series if e['decode'] is not None and e['running'] > 0]
     runs = []
     run = []
-    for entry in [e for e in series if e['decode'] is not None]:
-        if entry['decode'] < 20.0 and (not run or _t2s(entry['t']) - _t2s(run[-1]['t']) <= 30):
+    for entry in host_bound:
+        if not run or _t2s(entry['t']) - _t2s(run[-1]['t']) <= 30:
             run.append(entry)
         else:
             if len(run) >= 2:
                 runs.append(run)
-            run = [entry] if entry['decode'] < 20.0 else []
+            run = [entry]
     if len(run) >= 2:
         runs.append(run)
     buckets = {}
@@ -302,8 +325,12 @@ def scan(args):
         'counts': counts,
         'throughput': {'samples': len(series), 'decode': _stats(decodes), 'prefill': _stats(prefills),
                        'host_max': max(hosts) if hosts else None,
-                       'valley_samples': len(valley),
-                       'valley_share_pct': round(100.0 * len(valley) / len(decodes), 1) if decodes else None,
+                       'valley_samples': len(low),
+                       'valley_share_pct': round(100.0 * len(low) / len(decodes), 1) if decodes else None,
+                       'valley_class': {'host_bound': len(host_bound), 'idle': len(idle_w),
+                                        'prefill_mixed': len(mixed_w), 'unattributed': len(unattributed)},
+                       'valley_share_true_pct': round(100.0 * len(host_bound) / len(active_windows), 1)
+                       if active_windows else None,
                        'peak_ge400': len(peaks)},
         'valley_runs': [{'start': run[0]['t'], 'end': run[-1]['t'], 'windows': len(run),
                          'min': min(e['decode'] for e in run)} for run in runs],
@@ -321,6 +348,11 @@ def scan(args):
         print('--- peak windows >=400 ---')
         for entry in peaks[-12:]:
             print('  %s  decode=%s host=%s' % (entry['t'], entry['decode'], entry['host']))
+    if unattributed:
+        print('--- unattributed slow windows (decode-active, host<70%%) ---')
+        for entry in unattributed[-12:]:
+            print('  %s  decode=%s host=%s running=%s waiting=%s' % (
+                entry['t'], entry['decode'], entry['host'], entry['running'], entry['waiting']))
     notable = [r for r in done if r.get('cache_pct') == 0.0 or (r.get('ttft') or 0) >= 30.0]
     if notable:
         print('--- notable reqs (cache 0 or TTFT >=30s) ---')

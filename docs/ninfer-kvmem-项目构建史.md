@@ -2315,6 +2315,28 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 **排序理由**：Q1 零成本且定 P2 范围 → Q2 便宜且喂 Q3 → Q3/Q4/Q5 全是"一次一变量"的旗/码级 → Q6 需质量门 → Q7 重活（等 Q1 标本）→ Q8 收官。
 **重启纪律**：Q3/Q4/Q6 需重启实例（会打断服务）——**只在你说"开工"后动**；Q1/Q2/Q5 零中断。
 
+### 22. stage0a 实况轮全量扫描 + Stage 0 首遍对账（2026-10-13 夜，用户令"不跑了你看看"）
+
+**数字（test_stage0a；build `H1_20261013_baseline-1-g27dc746` = v2 + `--vision-residency overlay` + 池 65536 + reqlog；21:01:47 起，截稿仍在跑）**：
+- **req 101+ 完成 / 500=0 / recovery=0 / reconcile=0 / writer-blocked=0 / unavailable=0** ✓；**超池 10 次零故障** ✓（v2 承诺第三次验证）；
+- decode median 152.7 / avg 187.7 / **max 406.2**（≥400 两窗）；prefill median 557.3 / **max 2310**；host_max 108.4%（>100 口径存疑，待查）；**TTFT median 2.2s / max 57.2s**（vs v2test1 轮 464.9s ⇒ 冷轮成本大降，overlay 生效）；cache median 95.8%；输出 max 18,370。
+**阶段桶**：21:00 avg 162.1 → 21:10 259.9 → 21:30 134.5 → 21:50 192.6 → **22:00 avg 247.0 / median 323.1**（收工时高速段）。
+**原因/判据分类（谷口径 v2，新）**：低 decode 窗先分类再算谷——stage0a：**真谷（host 饱和）= 0** ✓ / idle 3 / 重填混合 4 / 未归因（收尾填充）3（raw 10 窗 3.7%）；retro 验 v2test1：**真谷 40 窗 10.8%**（19:15 那条 22 窗原样复现）⇒ 分类器双重验证通过。
+
+**Stage 0 首遍对账（新仪器 `scripts\stage0_read.py`，reqlog 逐窗；375 窗 = 300 decode 活跃（121 重填混合 + 179 纯解码））**：
+- **恒等式**：tok/s ≈ rounds/s × tok/round；**每轮 host 税本体 = `program_submit`**——快窗 39.1–40.1 ms/轮，慢窗 100–476 ms/轮；
+- **快窗对照**（≥300，n=82）：**15.64 tok/轮 × 23.17 轮/s，host 98.6%** ⇒ **即便 400 tok/s，host 也几乎满负荷**——轮速与每轮税是同一个限轮器（与 tancau "host 税=限轮器" 同构 ✗）；
+- **慢窗全数归因**：top-12 慢窗 **10/12 带 PF（1.6–8.2K 重填 token）**（submit 里是重填工，decode 只是并行受害）；其余 2 = 收尾/idle 填充窗（host 9–11%、27.5 ms/轮 = 正常价）⇒ **本夜无"纯解码 host 谷"**；
+- host 中位 **89.5%**；host≥95% 占 **45.3%** 窗 ⇒ "host 是常驻墙"再证实；
+- 疑点两条（待 Q5/读数）：①纯解码快窗 tok/轮**恒 = 16.0**（批量几何语义待读码）②`decode_device_wait`（快窗 ~70 ms/轮）与 host/轮（39 ms）口径疑重叠。
+- **B2 活证据**：收工尾部 `[ring] budgets: skeleton=80, evidence=128, `**`recent=0`**`, free=816` ⇒ recent 桶从未使用（与 tancau"窗口/recency 从未实现"判定同味，Q5 读码升为优先项）。
+
+**仪表变更（今夜，已入库）**：① `valley_bench.py` **判据 v2**（低 decode 窗分类 + `valley_class` + `valley_share_true_pct`）；② 新 `scripts\stage0_read.py`（逐窗 host 记账 + 接受率解构 + PF 污染标记）；③ 巡检发现：轮询器 PID 6052 活着但输出 **`.temp\v2test1_stats.jsonl`（名标错，源头=8094/stage0a）**；`stage0_stats.jsonl` = 更早实例，21:46:50 后停写（已由前者覆盖）。
+
+**Δ对基线（v2test1 轮）**：**改善** = TTFT max 464.9s→57.2s、真谷 10.8%→0；**保持** = 超池零故障 ✓；**新发现** = submit/轮为税本体（Stage 0 首遍产物）。
+
+**新挂账/队列更新**：无新编号（未归因收尾慢窗 = 观察项）；**Q1** = 仪器已证可用（reqlog + 分类器）但**真谷标本尚未"仪器在线"共捕**（stage0a 真谷 0；v2test1 有谷无 reqlog）⇒ 下次深堆会话即捕；**Q2** = 工具已就位（`stage0_read.py` = 其第一件产物，半途兑现）；Q3–Q8 不变。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

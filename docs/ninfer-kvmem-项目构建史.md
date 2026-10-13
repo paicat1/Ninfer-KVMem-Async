@@ -2181,6 +2181,17 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **下一步（用户动作）**：**DSH 开新会话 + 图片**（越冷越好）⇒ 对照 cpu 基线看 TTFT；我盯日志出对照记录。
 - **历史更正（口径撤回，2026-10-13 19:5x）**：overlay 并非"从未实跑"——**10-10 02:52–03:03 共 4 次尝试、全部 FATAL**（`serve_20261010_025211` = 配错非视觉模型 → `missing component vision`；`030007/030029/030316` = 运行时预留 vs 可用 **差 98.6 / 121.6 / 61.9 MB**，旧引擎 `self-built-20261008` + 池 40960 下被 VRAM 守卫拒启）。准确表述应为"**从未成功起服**"；**今晚 19:26 的 v2ovl1 = 第一次成功起服** ✓（同一旗标，二进制/配置代际不同：H1/v2 线 + 池 65536 + cuda-graph-allowance 等——为何今晚能过，待与 tancau A 类问题一并归档）。启动器 `VISION_OPTIONS."overlay"`（10-12 前已在）+ 引擎旗标均早存在，本轮价值 = 首次把它跑起来并取证。
 
+### 14. overlay 实打验收（首轮）：4 图 8 请求 / 零错误（2026-10-13 19:32–19:39）
+
+- **计数（scan）**：req 9/9；**500=0 / recovery=0 / reconcile=0 / writer=0 / unavailable=0 / prompt_exceeds=0**；**WARN=0 / ERROR=0 / FATAL=0** ✓
+- **图行为（核心）**：4 张图、每图 2 轮——
+  **首见图**：prepared **734 / 667 / 575 / 567 ms**（GPU 窗口编码）→ TTFT **6.3 / 2.4 / 2.2 / 2.4 s**（首张含 11K 冷 prefill）；
+  **同图后续轮**：prepared **37.9–56.4 ms** → TTFT **982 / 446 / 455 / 662 ms**，cache **97.7–99.3%** ⇒ **一图只开一窗 + 后续轮复用** ✓（§5.4 第 2 条达成）
+- **对照 cpu 时代**：每图编码 **15.7–26.9 s**（TTFT 19.8s / DSH 识图 26.9s）⇒ overlay 首图编码 **≈20–30× 提速**（毫秒级 prepared）
+- **稳态账**：VRAM 15728–15811 MiB（与 cpu 档同水平 ⇒ 塔在 host、零常驻设备成本 ✓）；日志无 overlay 专属行（以 prepared/VRAM 为据；`evict|window` 命中 = 常规 ring SELECT 行，非 overlay 证据）
+- **§5.4 清单**：①旗标可用 ✓ ②窗口行为与借用账 ✓（借用账 = VRAM 稳定无增长；长稳待扩样）③组合兼容 ✓（overlay × MTP4 × ring × hemostat 全程零错）④容量结算（池 55296+）待后 ⑤Windows 首证通过（4 图 8 请求零错，继续扩样）
+- 用户口径"识别了 5 个图"——日志内截至 19:39 为 **4 图**（第 5 图若在采样后到达，下轮补记）。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

@@ -55,6 +55,9 @@ bool step_graph_harvest(double out_ms[4]) {
     for (int i = 0; i < 4; ++i) {
         if (cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]) !=
             cudaSuccess) {
+            // 2026-10-14 修复：未记录过的事件会让 cudaEventElapsedTime 置 sticky last-error，
+            // 后续任何 CUDA_CHECK(cudaGetLastError()) 会捡到它并 abort（warmup recurrent.cu 实测）。
+            (void)cudaGetLastError();
             return false;
         }
         out_ms[i] = static_cast<double>(ms);

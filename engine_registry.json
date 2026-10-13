@@ -70,6 +70,26 @@
     "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest（仅 MTP）。实测稳态 wall≈launch（27-32ms/轮）、slow 493ms 亦全在 launch ⇒ 轮速限速器=execution::mtp_decode_batch 调用本体。开：NINFER_STEP_PROFILE=1（窗 64）；默认关、零行为（OFF 臂 sha 与 P4 参考逐字全同）。sha256 AE81E9FC…",
     "status": "候选",
     "added": "2026-10-13",
+    "replaced_by": "I3b_step3b_s3b_ingraph",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step3b_s3b_ingraph",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step3b_20261014.exe",
+    "tags": ["图内事件", "节点计数1107", "默认关"],
+    "note": "I3b S3b 修复版（2026-10-14 凌晨，现行基线之一）：MTP 图内事件（ingress/target/draft/egress 四区间）+ capture 节点计数（实测 1107 节点）。开：NINFER_STEP_PROFILE=1；默认关、零行为。注意：ingraph 四区间暂未出数（elapsed InvalidValue，待修）。sha256 E8FEE6B6…",
+    "status": "候选",
+    "added": "2026-10-14",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step4_debug_diag",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step4_debug_20261014.exe",
+    "tags": ["诊断件", "谷态实测", "默认关"],
+    "note": "I3b S4 调试件（2026-10-14 05:2x）：arm/harvest 一次性诊断（定位 ingraph 空输出）。谷态实测（05:26 单轮 142.9s）即用它。仅调试用，勿作性能基线。sha256 DAC82A48…",
+    "status": "候选",
+    "added": "2026-10-14",
     "replaced_by": "",
     "preset": ""
   }

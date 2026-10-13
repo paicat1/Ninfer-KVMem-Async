@@ -2246,6 +2246,21 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **新挂账候选（待对账）**：**超池段输出的 residency-态依赖**（同输入、不同缓存态 → 不同输出）——值得单独立项。
 - **keeper 回落 73728**（桌面余量纪律；81920 今晚曾可用、现已贴边）。
 
+### 18. A3 判定（用户点②）：换形状——零效应（2026-10-13 20:3x）
+
+- **形状**：两档更长冷 prompt（45K/65K，池内）+ 每档 2 跑；**唯一 seed 保证全量冷 prefill**（`cached_tokens: 0` 实证）；同文本跨臂直比（prefill 轨迹无关）。
+- **数据（引擎侧 prefill tok/s / TTFT）**：
+  | 形状 | OFF（基线） | ON（fast-prefill-kernel） | Δ |
+  |---|---|---|---|
+  | 45K r1 | 1.86k / 24.4s | 1.86k / 24.2s | 0.0% |
+  | 45K r2 | 1.64k / 27.6s | 1.65k / 27.6s | +0.6% |
+  | 65K r1 | 1.54k / 42.5s | 1.54k / 42.4s | 0.0% |
+  | 65K r2 | 1.43k / 45.6s | 1.42k / 45.8s | −0.7% |
+- **argv 核验 ✓**（防"静默未生效"陷阱：`--fast-prefill-kernel` 确在 argv）。
+- **结论**：`--fast-prefill-kernel` 在我方（v2 + rk2v4-e8 + 5080 + 45–65K 形状）**全零效应** ⇒ **不采纳**（保留候选）。两个并存解释（未区分）：①我方 prefill 在该形状不由该 kernel 主导（无油水）②该 kernel 在我方 build 已默认启用（两臂同路）。tancau 线 +12.5% 不适用我方。
+- 附观察：prefill 随深度自然降（1.86k→1.43k @65K）；同尺寸 run2 略慢于 run1（+10% 级，原因未查，记观察）。
+- **A 组总结论（收口）**：池上限 = 容量数据 ✓；A2 无损但无益 ✗；A3 零效应 ✗ ⇒ **剩余潜力不在旗面**；回主线 **B = I3b 谷仪表**（谷 + "residency-态依赖"同一矿区）。keeper = `v2ovl_p72k_final2`（73728 + overlay，smoke 200）。
+
 ### 7. 库名正式变更（2026-10-13 傍晚）
 
 - 新名 = **`Ninfer-KVMem-Async`**（GitHub：`paicat1/Ninfer-KVMem-Async`）；沿革：`ninfer-kvmem` →（10-12）`Qwen38-27B-NInfer-kvmem` →（本日）**`Ninfer-KVMem-Async`**。

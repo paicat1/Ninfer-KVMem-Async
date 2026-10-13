@@ -20,6 +20,8 @@ param(
     [int]$Score = -1,
     [int]$StepProfile = 0,
     [int]$Pool = 65536,
+    [int]$Graph = 64,
+    [string]$Spec = 'mtp',
     [int]$Draft = 4,
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
     [string]$Extra = '',
@@ -138,9 +140,9 @@ $cliArgs = @(
     '--host', '127.0.0.1', '--port', [string]$Port,
     '--model-id', 'qwen3.8-27b-coder390',
     '--max-context', '262144', '--kv-capacity', [string]$Pool,
-    '--cuda-graph-allowance-mib', '64', '--kv-dtype', 'rk2v4-e8',
+    '--cuda-graph-allowance-mib', [string]$Graph, '--kv-dtype', 'rk2v4-e8',
     '--host-kv-mib', '16384', '--prefill-chunk', '512',
-    '--spec', 'mtp', '--draft-tokens', [string]$Draft
+    '--spec', $Spec, '--draft-tokens', [string]$Draft
 ) + $visionArgs + $extraList + @(
     '--default-max-tokens', '32768', '--default-reasoning-effort', 'high', '--default-thinking-budget', '16000',
     '--max-concurrency', '1', '--max-shared-prefixes', '0',

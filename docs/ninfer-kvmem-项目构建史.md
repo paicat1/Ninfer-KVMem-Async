@@ -2409,6 +2409,22 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **GPU 侧三条硬证据**：① **图 = 1107 节点**（27ms/launch ≈ 24µs/节点）；② 谷期 **全局 util 99.8–100% / SM 满频 2910MHz** ⇒ B 排除；③ **pmon：ninfer-serve 自己 87–99% SM、mem 3–9%** + mem_util 2.6–6% ⇒ A′"拉爆带宽"形态排除、降频排除。⇒ **谷 = 图内 SM 侧长占用（自旋/退化计算）**。
 - **遗留**：A1 vs A2（dmon PCIe，未完）；ingraph 四区间无输出（待 debug）；粘性触发源记录。
 
+### 31. 晨前段：S4/晨报包/守望者上线 + 分钟级翻转实锤 + 上游巡检（2026-10-14 晨）
+
+- **S4 debug 批**（`I3b_step4`，build `DAC82A48`）：为 ingraph 四区间 InvalidValue 定位而建；05:26 单轮探针落在谷态（**142.9 s**）。调试打印：arm 建 5/5 事件 ✓、出现过一次 "arm skipped"、harvest **i=0 即 InvalidValue** ⇒ 按 API 语义 = **事件从未被视作已记录**（record 节点未生效）。
+- **根因假设（新，可一行修）**：capture 内的 `cudaEventRecord` 生成的节点事件对图外 API **不可见**；应改用 **`cudaEventRecordWithFlags(ev, stream, cudaEventRecordExternal)`**（External = 记录对图外可见）。**下一施工批 = 1 行改动 + 重编**，随后四区间应产出。
+- **晨报包**（`e495a94`）：登记册增 step3b/step4；`scripts\valley_probe.ps1`（一键捕获：时间戳 dmon + 采样器 + 单轮）；《晨报-20261014》= 版本表/已定案/待对比/一键工具/当前状态。
+- **分钟级翻转实锤（推翻"小时级粘性"）**：05:26 慢 142.9 s → **05:45 快 6.6 s**（A 臂）→ **05:49 慢 49.2 s** → **05:51 快 7.8 s**。六分钟内两翻转 ⇒ 触发源必为**近因**（秒~分钟级），"重启才恢复"是假象。
+- **守望者上线**（`scripts\valley_watch.ps1`，v2 05:51 起，PID 7700，8 h）：每 10 min 短轮探针（45 KB filler / 200 tok）；**探针前开时间戳 dmon**（慢轮被完整覆盖）；慢轮自动追加 300 s 采样器 + dmon；流水 `.temp\state_journal.txt`、逐探针 `.temp\watch_dmon_<HHMMSS>.txt`。**首战实录**：05:49 慢（49.2）→ 06:01 11.5 → **06:11–07:33 十连快（7.4–7.5 s / decode 28.2，方差极小）**——谷自此未归，快态稳定可做对照基。
+- **消融工具**：`scripts\ablate_run.ps1`（A 基 / B graph 关 / C 池 32768 / D MTP 关；`engine_ctl` 新增 `-Graph`/`-Spec`）。**B 臂首试失败（非旗错）**：eager 路径 runtime 预留 **+426 MB**（2,203,320,576 vs graph64 的 1,777 MB），桌面余量不足（1,916 MB）拒启 ⇒ 已改小池 40960 变体待跑。
+- **上游巡检（GitHub API，10-14 晨）**：上游 `ashalliants/ninfer-3090` 昨夜密集提交（自动代理开发）：
+  - **#280 复盘 #240**（最有价值）：verify 内核**路由表按 key 数切换**（8 列 rk4v4 verify ≤128 keys 由 small-T 改走 FA2 prompt 内核）⇒ **verify logits 微变 ⇒ 接受率变（1.816→1.738）而轮成本不变**。直接喂**挂账 55**（接受率崩）与快窗"tok/轮 恒 16.0"之谜——**接受率可被路由/内核选择塑形，而非只由内容决定**；
+  - #287 context-store：学习式盘读代价 + hydration 导入重试（喂**挂账 48**：恢复路径无主 KV / 导入失败于"有空间但不连续"）；
+  - #285/#290 qwen4exp：host tier checkpoint 前缀/KV 缓存（与我方 host KV/restore 同族）；#289 serve API 对齐；#293/#298/#299 测试设施（GPU 锁/分类）。
+  - 同名派生仓 27+（headpiece747/ninfer-5090-windows 昨日 23:03 推送等）：暂不逐一追，按"是否含引擎面增量"筛。
+- **自治方案（上班时段，用户令"真正自我迭代"）**：守望者续跑（谷捕获优先）；后续动作序：① ingraph 一行修复（External）→ 重编 → 四区间产出；② 守望者谷标本 → dmon 归因（A1/A2 判别闭环）；③ 上游增量巡检（按提交面筛）；④ 挂账 48/50/55 对应物推进；⑤ **每步成果 = commit + push + 构建史补录**（不等催）。重活（51/52/53 池扫描等）在守望者无谷 4 h 以上时才插空跑，且不与谷捕获抢窗口。
+
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

@@ -2402,6 +2402,13 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **两候选（待 S3b 判别）**：**A** 图执行本体慢（最嫌疑：图内注意力在异常驻留下额外访存，含"**图内读 host 页**"嫌疑）；**B** 提交/驱动侧卡（WDDM 排队 / 页调入）。
 - **S3b 判别器（零代码）**：新仪器 **`scripts\gpu_sampler.py`**（谷期 1s/点 GPU util/mem → `.temp\gpu_samples.csv`）；判别三分表入设计稿 §14（GPU≈100%→A；≈0%→B；100%+PCIe 高→A′）。**图节点计数**（`cudaGraphGetNodes`）列入下一施工批（1 行 + 重编）。
 
+### 30. I3b S3b 落地 + 谷机制 GPU 侧首份定案（2026-10-14 凌晨）
+
+- **施工**：图内事件计时（MTP 四区间）+ capture 节点计数；step3（`9DED5537`）有 sticky-error bug → **step3b（`E8FEE6B6`，现行）** 修复；引擎仓 `ebd610f`/`fb1b3f4`；两份补丁导出。（TELE 复核项 ①：稳态基线实测 **≈100% util** ⇒"launch≈图执行"前提成立；② 00:00 的重复构建 `174F4DEF` = 54fix 树产物（源 b3fad73），**非 CB 会话发起**，留档为准。）
+- **谷复现（00:51–01:04，无人会话；同 sha 同 accept）**：decode 8.7–25 tok/s、单轮 400–1019 ms；**跨重启粘性 + 可自愈**。
+- **GPU 侧三条硬证据**：① **图 = 1107 节点**（27ms/launch ≈ 24µs/节点）；② 谷期 **全局 util 99.8–100% / SM 满频 2910MHz** ⇒ B 排除；③ **pmon：ninfer-serve 自己 87–99% SM、mem 3–9%** + mem_util 2.6–6% ⇒ A′"拉爆带宽"形态排除、降频排除。⇒ **谷 = 图内 SM 侧长占用（自旋/退化计算）**。
+- **遗留**：A1 vs A2（dmon PCIe，未完）；ingraph 四区间无输出（待 debug）；粘性触发源记录。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

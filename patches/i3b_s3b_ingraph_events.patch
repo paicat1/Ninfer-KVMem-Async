@@ -1,0 +1,241 @@
+From ebd610fe4de47f8087f1fdd40ee41c490b2d8ecf Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 14 Oct 2026 00:19:16 +0800
+Subject: [PATCH] line-coder390: I3b S3b -- in-graph event timing for the MTP
+ body (ingress/target/draft/egress via captured event-record nodes) + capture
+ node-count print; gated by NINFER_STEP_PROFILE, default off
+
+---
+ .../src/core/decode_graph.cpp                 | 10 ++++
+ .../src/models/qwen3_5/program/decode.cpp     | 24 ++++++++
+ .../qwen3_5/program/speculative/mtp.cpp       | 58 +++++++++++++++++++
+ .../program/speculative/step_graph_profile.h  | 18 ++++++
+ 4 files changed, 110 insertions(+)
+ create mode 100644 src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+
+diff --git a/src-tree/fusion-engine-src/src/core/decode_graph.cpp b/src-tree/fusion-engine-src/src/core/decode_graph.cpp
+index c934aa5..d1788b3 100644
+--- a/src-tree/fusion-engine-src/src/core/decode_graph.cpp
++++ b/src-tree/fusion-engine-src/src/core/decode_graph.cpp
+@@ -4,6 +4,7 @@
+ #include "core/nvtx.h"
+ 
+ #include <cstdio>
++#include <cstdlib>
+ #include <stdexcept>
+ #include <string>
+ 
+@@ -78,6 +79,15 @@ void DecodeGraphDefinition::capture(cudaStream_t stream, const std::function<voi
+     }
+ 
+     graph_ = graph;
++    {   // I3b S3b：capture 后节点计数（门槛同 NINFER_STEP_PROFILE；仅建图期一行）
++        const char* gate = std::getenv("NINFER_STEP_PROFILE");
++        if (gate != nullptr && std::strtol(gate, nullptr, 10) > 0) {
++            size_t nodes = 0;
++            if (cudaGraphGetNodes(graph_, nullptr, &nodes) == cudaSuccess) {
++                std::fprintf(stderr, "[ninfer] graph capture: %zu nodes\n", nodes);
++            }
++        }
++    }
+ }
+ 
+ bool DecodeGraphDefinition::ready() const noexcept { return graph_ != nullptr; }
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+index e8c65fc..69a18e9 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+@@ -4,6 +4,7 @@
+ #include "models/qwen3_5/program/context.h"
+ #include "models/qwen3_5/program/graph_execution.h"
+ #include "models/qwen3_5/program/planning/graph_profiles.h"
++#include "models/qwen3_5/program/speculative/step_graph_profile.h"
+ #include "core/nvtx.h"
+ #include "core/device.h"
+ #include "ninfer/ops/prepare_ragged_prefix.h"
+@@ -123,6 +124,8 @@ struct StepProfileWindow {
+     double sum_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+     double max_seg[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+     std::uint64_t seg_rounds = 0;
++    double sum_ingraph[4] = {0.0, 0.0, 0.0, 0.0};
++    std::uint64_t ingraph_rounds = 0;
+ };
+ 
+ // S2 分段标记（2026-10-13 深夜）：提交段内部细分，仅 MTP 轮打点（今日 100% 流量）。
+@@ -204,6 +207,12 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
+             window.max_seg[i] = std::max(window.max_seg[i], segs[i]);
+         }
+     }
++    double ingraph[4] = {0.0, 0.0, 0.0, 0.0};
++    const bool has_ingraph = (kind_index == 1) && execution::step_graph_harvest(ingraph);
++    if (has_ingraph) {
++        ++window.ingraph_rounds;
++        for (int i = 0; i < 4; ++i) { window.sum_ingraph[i] += ingraph[i]; }
++    }
+     if (wall >= 150.0) {
+         if (has_segs) {
+             std::fprintf(stderr,
+@@ -218,6 +227,12 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
+                          "post=%.1f rest=%.1f\n",
+                          kind, wall, submit, wait, post, rest);
+         }
++        if (has_ingraph) {
++            std::fprintf(stderr,
++                         "[ninfer] step profile ingraph: kind=%s ingress=%.2f target=%.2f "
++                         "draft=%.2f egress=%.2f ms\n",
++                         kind, ingraph[0], ingraph[1], ingraph[2], ingraph[3]);
++        }
+     }
+     const std::uint32_t window_calls = step_profile_window_calls();
+     if (window.calls < window_calls) { return; }
+@@ -245,6 +260,15 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
+                      window.sum_rest / n, window.max_wall, window.max_submit, window.max_wait,
+                      window.max_post, window.max_rest);
+     }
++    if (window.ingraph_rounds > 0) {
++        const double in = static_cast<double>(window.ingraph_rounds);
++        std::fprintf(stderr,
++                     "[ninfer] step profile window ingraph: kind=%s avg ms ingress=%.2f target=%.2f "
++                     "draft=%.2f egress=%.2f (n=%llu)\n",
++                     kind, window.sum_ingraph[0] / in, window.sum_ingraph[1] / in,
++                     window.sum_ingraph[2] / in, window.sum_ingraph[3] / in,
++                     static_cast<unsigned long long>(window.ingraph_rounds));
++    }
+     window = StepProfileWindow{};
+ }
+ 
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+index 7e2d63c..5c4495c 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+@@ -6,10 +6,62 @@
+ #include "ninfer/ops/mtp_round.h"
+ #include "ninfer/ops/scatter.h"
+ #include "ninfer/ops/scalar.h"
++#include "models/qwen3_5/program/speculative/step_graph_profile.h"
++
++#include <cstdlib>
+ #include <cuda_runtime.h>
+ #include <stdexcept>
+ 
+ namespace ninfer::models::qwen3_5::execution {
++
++// ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
++// 5 事件 -> 4 区间：ingress / target / draft / egress。arm 在建图前创建，record 在（被捕获的）
++// 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
++namespace {
++cudaEvent_t g_step_graph_events[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
++} // namespace
++
++bool step_graph_enabled() {
++    static const bool enabled = [] {
++        const char* text = std::getenv("NINFER_STEP_PROFILE");
++        return text != nullptr && text[0] != '\0' && std::strtol(text, nullptr, 10) > 0;
++    }();
++    return enabled;
++}
++
++void step_graph_arm() {
++    if (!step_graph_enabled()) { return; }
++    for (int i = 0; i < 5; ++i) {
++        if (g_step_graph_events[i] == nullptr) {
++            if (cudaEventCreate(&g_step_graph_events[i]) != cudaSuccess) {
++                g_step_graph_events[i] = nullptr;
++            }
++        }
++    }
++}
++
++void step_graph_record(int slot, cudaStream_t stream) {
++    if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
++    if (g_step_graph_events[slot] == nullptr) { return; }
++    (void)cudaEventRecord(g_step_graph_events[slot], stream);
++}
++
++bool step_graph_harvest(double out_ms[4]) {
++    if (!step_graph_enabled()) { return false; }
++    for (int i = 0; i < 5; ++i) {
++        if (g_step_graph_events[i] == nullptr) { return false; }
++    }
++    float ms = 0.0f;
++    for (int i = 0; i < 4; ++i) {
++        if (cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]) !=
++            cudaSuccess) {
++            return false;
++        }
++        out_ms[i] = static_cast<double>(ms);
++    }
++    return true;
++}
++
+ void mtp_bridge_and_propose(PrefillContext& state, const Tensor& next_token,
+                             const Tensor& previous_hidden, std::int32_t position,
+                             std::span<const std::int32_t> rope_position, bool build_proposal,
+@@ -83,9 +135,11 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
+ 
+         qwen3_5::MtpDecodeState& frame = state.frame;
+         const std::int32_t width       = static_cast<std::int32_t>(verify_window) + 1;
++        step_graph_record(0, state.execution.device.stream);
+         CUDA_CHECK(cudaMemcpyAsync(frame.ingress.data, &state.host_ingress,
+                                    sizeof(qwen3_5::MtpDecodeIngress), cudaMemcpyHostToDevice,
+                                    state.execution.device.stream));
++        step_graph_record(1, state.execution.device.stream);
+ 
+         TextContext card(state.execution.device, state.execution.parameters, state.execution.work,
+                          {}, state.execution.linear_attention, state.execution.io,
+@@ -156,6 +210,7 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
+                                  },
+                                  envelopes.target_verify);
+         }
++        step_graph_record(2, state.execution.device.stream);
+ 
+         {
+             nvtx::ScopedRange draft_range(nvtx::Name::DecodeMtpDraft, nvtx::Category::Mtp,
+@@ -201,10 +256,12 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
+                                            state.execution.device.stream));
+             }
+         }
++        step_graph_record(3, state.execution.device.stream);
+ 
+         CUDA_CHECK(cudaMemcpyAsync(&state.host_egress, frame.egress.data,
+                                    sizeof(qwen3_5::MtpDecodeEgress), cudaMemcpyDeviceToHost,
+                                    state.execution.device.stream));
++        step_graph_record(4, state.execution.device.stream);
+     };
+ }
+ 
+@@ -212,6 +269,7 @@ void capture_mtp_decode_batch(MtpBatchContext& state, std::int32_t batch_size,
+                               std::uint32_t verify_window, std::uint32_t draft_window,
+                               MtpCausalAttentionEnvelopes envelopes,
+                               DecodeGraphDefinition& definition) {
++    step_graph_arm();
+     auto body = mtp_decode_batch_body(state, batch_size, verify_window, draft_window, envelopes);
+     capture_graph(state, definition, body);
+ }
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+new file mode 100644
+index 0000000..18ed645
+--- /dev/null
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+@@ -0,0 +1,18 @@
++#pragma once
++
++// I3b S3b（2026-10-14）：MTP 图体内事件计时接口。门槛 = NINFER_STEP_PROFILE（默认关、零行为）。
++//   step_graph_arm()            ：建图前创建 5 个事件（必须早于 capture，事件记录才可被捕获）
++//   step_graph_record(slot, s)  ：在（被捕获的）图体内调用 —— capture 期成为 event-record 节点，
++//                                 eager 期则是真实记录；slot 0..4 = 起点/ingress 后/target 后/
++//                                 draft 后/egress 后（4 区间：ingress / target / draft / egress）
++//   step_graph_harvest(out[4])  ：device.synchronize() 之后调用，读回 4 区间毫秒；不可用返回 false
++#include <cuda_runtime.h>
++
++namespace ninfer::models::qwen3_5::execution {
++
++bool step_graph_enabled();
++void step_graph_arm();
++void step_graph_record(int slot, cudaStream_t stream);
++bool step_graph_harvest(double out_ms[4]);
++
++} // namespace ninfer::models::qwen3_5::execution
+-- 
+2.55.0.windows.4
+

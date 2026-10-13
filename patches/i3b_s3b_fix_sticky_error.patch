@@ -1,0 +1,28 @@
+From fb1b3f41d248dd1f61eee6e618340a33b4ddfb5a Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 14 Oct 2026 00:49:53 +0800
+Subject: [PATCH] line-coder390: I3b S3b fix -- harvest consumes the sticky
+ CUDA last-error when events were never recorded (cudaEventElapsedTime
+ poisoned CUDA_CHECK(cudaGetLastError()) at warmup -> abort with profile ON)
+
+---
+ .../src/models/qwen3_5/program/speculative/mtp.cpp             | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+index 5c4495c..fae9cc8 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+@@ -55,6 +55,9 @@ bool step_graph_harvest(double out_ms[4]) {
+     for (int i = 0; i < 4; ++i) {
+         if (cudaEventElapsedTime(&ms, g_step_graph_events[i], g_step_graph_events[i + 1]) !=
+             cudaSuccess) {
++            // 2026-10-14 修复：未记录过的事件会让 cudaEventElapsedTime 置 sticky last-error，
++            // 后续任何 CUDA_CHECK(cudaGetLastError()) 会捡到它并 abort（warmup recurrent.cu 实测）。
++            (void)cudaGetLastError();
+             return false;
+         }
+         out_ms[i] = static_cast<double>(ms);
+-- 
+2.55.0.windows.4
+

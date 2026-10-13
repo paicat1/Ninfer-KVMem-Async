@@ -2042,6 +2042,21 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - 窗口内计划：谷复现 → 现有三表复核 → `NINFER_TERNARY_KVMEM_SCORE=0` 对照臂 → 恢复标准实例（新 tag）。
 - I3 前置（视复现结果）：步级仪表 `NINFER_STEP_PROFILE`（仅 .cpp / 增量编 / 零开销门）测每步 mask 安装 / kernel 同步等未计量段。
 
+### 4. I2 结果（08:00–08:06）：谷**全形复现** + 步级读数（决定性）
+
+- **复现台**：`scripts\valley_agentic.py`（agentic 形态多轮驱动）+ `ea1c` 实例（H1@depth1 / pool 65536 / ring 窗口 64）。三轮 drive：ea1（30 轮，旧小复位压缩）全程健康；ea2（41.6K 重填）健康；**ea3（`--compact-kb 250` → 250KB≈68K tokens cache-0 大重填）复现** ✓。
+- **时间线（08:03:28–08:05:35；证据 = `logs\ea1c_stats_timeline.jsonl` 逐 10s + 日志逐 5s）**：
+  1. **重填启动**（req#83，68K tokens cache-0）→ **prefill 爬行 76.6–77.0 tok/s + host 0% 阻塞窗**（每 384-tok 块 15–25 s；host 0%/5s 连续 4–5 窗）✗；
+     `demote-other short: freed=0 want=28 slots=1 ... noresident=1258 > 池 1024` ✗（**挂账 54 同族页账不一致再现**）+ `mask hidden=228`；
+  2. 重填完成 → **decode 立即坠入 2.7–3.4 tok/s（host 86–90%）**——**与晨间 DSH 谷逐字同型**（2.6–3.4）✓；
+  3. **~60 s 自愈**（08:05:35 起 prefill 435–768 / decode 140–236）✓ —— **d12"冻结 >40 min"与本形态同族**（同签名：prefill 76.9 tok/s + host 0%）。
+- **步级读数（/stats 逐类增量，10 s 窗）**：健康态 host 6.3–8.3 s/10s；**谷内 host 满速 10.2 s/10s 而仅产 2–15 tok ⇒ 每 token ≈ 3 s host 工作** ✗；重填爬行窗 `prefill_device_wait` 单窗 **17.0 s/10s**（多线程等设备 ✗）。
+  ⚠️ 记法澄清：`..._per_round` 字段分母与实际 round 不一致（谷中 35.3 ms/round 与增量 10 s/10 s 矛盾）⇒ **判读只用增量** ✗。
+- **环内热点（谷窗 ring profile）**：**`rs`（restore）avg 0.9–8.4 ms/call、单次 max 142.8 ms**（健康态 0.005–0.03）✗；`rr` avg 0.03–1.1 / max 22；其余段仍廉价 ⇒ 环内成本集中在 **restore / ring_room**，但量级小于 host 总消耗（大头在环外未计量路径）。
+- **触发相关**：谷起点紧随 host 页库 **1.42→1.49 GB** 跳变（重填新增页）⇒ "页库规模相关成本"嫌疑（下一刀读码：demote-other 扫描 / restore 查找的复杂度）。
+- 证据：`logs\ea1c_stats_timeline.jsonl`（全量 /stats）、`.temp\ea1_ea2_ea3_drive.out`（驱动输出）、`.temp\analyze_stall.py`（逐类增量器）。
+- **复现台可复用**：每次压缩重填会再触发一次 ⇒ **I3 修复 A/B 的现成夹具** ✓。
+
 ---
 
 ## 四、待续事项（挂账）

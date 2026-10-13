@@ -2372,6 +2372,13 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 
 **现在的复现口径（一步）**：引擎栏选「V2+overlay64K（stage0a 实测基线）」→ 参数与 env 自动到位 → 点启动 = 逐字复现（argv 51 旗 + env 8 项；日志自动落 `logs\serve_<ts>.log`；reqlog 自动写 `.temp\reqlog_serve_8094.jsonl`）。**旧启动器需关掉重开**（.py 改动；旧实例内存态回写风险同前）。想跑"纯引擎不带预设"时，在「标注…」里把配套预设清空即可。
 
+### 26. I3b P2/P3 开工（2026-10-13 深夜，用户令"开工"）
+
+- **P2 完成**：`decode.cpp` 加 `StepProfileWindow`——每 decode 轮 wall **四分解**（submit/wait/post/**rest**；rest = 补差 wall−observed 与未归属的显式化，不再并进 submit_host）；env 门 `NINFER_STEP_PROFILE`（**默认关**）+ `…WINDOW`（默认 256）；零行为改动。**首败 v1**（helpers 误放 `::execution`，三个调用点在 `::detail`）→ v2 修正后通过。详见 `docs\设计-挂账46-I3b步级仪表-20261013.md` §10。
+- **P3 完成**：平台件 **`engine\lineage\I3b_step1_20261013.exe`（sha `C5BE1360…`；MANIFEST ✓；登记册条目=候选·P4 门未验）**；BUILD-EXIT=0（1 TU + 链接）；引擎仓 `607081a`；主仓补丁 `patches\i3b_p2_step_profile.patch`。
+- **nits**：①构建脚本归档未按 BUILD-EXIT 门控（22:52 失败构建归档 stale v2 一份，建议加 `if "%ERRORLEVEL%"=="0"`）；②engine-src push 禁用（patches 导出=凭据）。
+- **下一步**：**P4**（`a2gate.py` 开/关零行为门）→ **P5**（真谷标本带 `NINFER_STEP_PROFILE=1` 采集）。Q7 = **施工完成·待验**。
+
 
 ### 7. 库名正式变更（2026-10-13 傍晚）
 

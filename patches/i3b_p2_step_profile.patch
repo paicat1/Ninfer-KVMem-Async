@@ -1,0 +1,170 @@
+From 607081af92f3a10d5daffe0e1360c9c176819234 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Tue, 13 Oct 2026 22:56:31 +0800
+Subject: [PATCH] line-coder390: I3b P2 -- decode step profile window
+ (per-round wall split submit/wait/post/rest; NINFER_STEP_PROFILE gate default
+ off, window line + slow-call line; zero behavior change)
+
+---
+ .../src/models/qwen3_5/program/decode.cpp     | 95 ++++++++++++++++++-
+ 1 file changed, 92 insertions(+), 3 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+index 7fe32a4..4c46309 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+@@ -14,7 +14,9 @@
+ #include <array>
+ #include <chrono>
+ #include <cstddef>
++#include <cstdio>
+ #include <cstdint>
++#include <cstdlib>
+ #include <limits>
+ #include <optional>
+ #include <span>
+@@ -90,6 +92,90 @@ namespace ninfer::models::qwen3_5::detail {
+ 
+ namespace {
+ 
++// ---- Step Profile（I3b P2，2026-10-13 夜）：decode 轮的 wall 分解，env 门，默认关、零行为变化。 ----
++// S1 submit / S5 wait+post 来自轮内 ExecutionTimingRecorder；rest = wall − 三相之和，把"补差
++// （engine_core finish_program_call 的 wall-observed）与任何未观测时间"显式露出。不改动任何既有计时。
++// 输出纪律：ordinary/mtp/dflash 各自每窗一行；单次 wall >= 150 ms 另打一行（岭式纪律）。
++bool step_profile_enabled() {
++    static const bool enabled = [] {
++        const char* text = std::getenv("NINFER_STEP_PROFILE");
++        return text != nullptr && text[0] != '\0' && std::strtol(text, nullptr, 10) > 0;
++    }();
++    return enabled;
++}
++
++std::uint32_t step_profile_window_calls() {
++    static const std::uint32_t calls = [] {
++        const char* text = std::getenv("NINFER_STEP_PROFILE_WINDOW");
++        if (text != nullptr) {
++            const long value = std::strtol(text, nullptr, 10);
++            if (value >= 8 && value <= 100000) { return static_cast<std::uint32_t>(value); }
++        }
++        return 256U;
++    }();
++    return calls;
++}
++
++struct StepProfileWindow {
++    std::uint64_t calls = 0;
++    double sum_wall = 0.0, sum_submit = 0.0, sum_wait = 0.0, sum_post = 0.0, sum_rest = 0.0;
++    double max_wall = 0.0, max_submit = 0.0, max_wait = 0.0, max_post = 0.0, max_rest = 0.0;
++};
++
++StepProfileWindow& step_profile_window(std::size_t kind) {
++    static StepProfileWindow windows[3];
++    return windows[kind];
++}
++
++void step_profile_record(std::chrono::steady_clock::time_point started,
++                         const runtime::ExecutionTiming& timing, const char* kind,
++                         std::size_t kind_index) {
++    if (!step_profile_enabled()) { return; }
++    const double wall =
++        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
++    const double submit = static_cast<double>(timing.submit_host_ns) / 1e6;
++    const double wait   = static_cast<double>(timing.device_wait_ns) / 1e6;
++    const double post   = static_cast<double>(timing.post_host_ns) / 1e6;
++    const double rest   = wall > (submit + wait + post) ? wall - (submit + wait + post) : 0.0;
++    StepProfileWindow& window = step_profile_window(kind_index);
++    ++window.calls;
++    window.sum_wall += wall;
++    window.sum_submit += submit;
++    window.sum_wait += wait;
++    window.sum_post += post;
++    window.sum_rest += rest;
++    window.max_wall   = std::max(window.max_wall, wall);
++    window.max_submit = std::max(window.max_submit, submit);
++    window.max_wait   = std::max(window.max_wait, wait);
++    window.max_post   = std::max(window.max_post, post);
++    window.max_rest   = std::max(window.max_rest, rest);
++    if (wall >= 150.0) {
++        std::fprintf(stderr,
++                     "[ninfer] step profile slow: kind=%s wall=%.1f ms submit=%.1f wait=%.1f "
++                     "post=%.1f rest=%.1f\n",
++                     kind, wall, submit, wait, post, rest);
++    }
++    const std::uint32_t window_calls = step_profile_window_calls();
++    if (window.calls < window_calls) { return; }
++    const double n = static_cast<double>(window.calls);
++    std::fprintf(stderr,
++                 "[ninfer] step profile window: kind=%s steps=%llu avg ms wall=%.2f submit=%.2f "
++                 "wait=%.2f post=%.2f rest=%.2f | max ms wall=%.1f submit=%.1f wait=%.1f post=%.1f "
++                 "rest=%.1f\n",
++                 kind, static_cast<unsigned long long>(window.calls), window.sum_wall / n,
++                 window.sum_submit / n, window.sum_wait / n, window.sum_post / n, window.sum_rest / n,
++                 window.max_wall, window.max_submit, window.max_wait, window.max_post, window.max_rest);
++    window = StepProfileWindow{};
++}
++
++runtime::ExecutionTiming step_profile_finish(runtime::ExecutionTimingRecorder& timing,
++                                             std::chrono::steady_clock::time_point started,
++                                             const char* kind, std::size_t kind_index) {
++    runtime::ExecutionTiming done = timing.finish();
++    step_profile_record(started, done, kind, kind_index);
++    return done;
++}
++
+ DecodeGraphProfile& select_graph_profile(DecodeGraphFamily& family, std::uint32_t batch_size,
+                                          std::uint32_t frontier, const char* label,
+                                          std::uint32_t verify_window = 0);
+@@ -413,6 +499,7 @@ ProgramImpl::decode_ordinary_batch(std::span<const std::uint32_t> lanes,
+     nvtx::ScopedRange round_range(nvtx::Name::DecodeOrdinaryRound, nvtx::Category::Decode,
+                                   static_cast<std::uint64_t>(lanes.size()));
+     runtime::ExecutionTimingRecorder timing(runtime::ExecutionTimingPhase::Submit, failed_timing);
++    const auto step_start = std::chrono::steady_clock::now();
+     if (speculative_backend != SpeculativeBackend::None) {
+         throw std::logic_error("ordinary batch execution requires the ordinary backend");
+     }
+@@ -528,7 +615,7 @@ ProgramImpl::decode_ordinary_batch(std::span<const std::uint32_t> lanes,
+         return runtime::BatchedGeneratedRound{
+             .tokens =
+                 std::span<const TokenId>(ordinary_host_egress->sampled_tokens.data(), lanes.size()),
+-            .timing = timing.finish(),
++            .timing = step_profile_finish(timing, step_start, "ordinary", 0),
+         };
+     } catch (...) {
+         timing.begin_wait();
+@@ -550,6 +637,7 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+     nvtx::ScopedRange round_range(nvtx::Name::DecodeMtpRound, nvtx::Category::Mtp,
+                                   static_cast<std::uint64_t>(lanes.size()));
+     runtime::ExecutionTimingRecorder timing(runtime::ExecutionTimingPhase::Submit, failed_timing);
++    const auto step_start = std::chrono::steady_clock::now();
+     if (speculative_backend != SpeculativeBackend::Mtp || !io.mtp_decode ||
+         decoder->mtp_cache() == nullptr) {
+         throw std::logic_error("MTP batch execution requires the MTP backend");
+@@ -771,7 +859,7 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
+             .row_counts = std::span<const std::int32_t>(mtp_host_egress->licensed_counts.data(),
+                                                         lanes.size()),
+             .row_stride = width,
+-            .timing     = timing.finish(),
++            .timing     = step_profile_finish(timing, step_start, "mtp", 1),
+         };
+     } catch (...) {
+         timing.begin_wait();
+@@ -793,6 +881,7 @@ ProgramImpl::decode_dflash_batch(std::span<const std::uint32_t> lanes,
+     nvtx::ScopedRange round_range(nvtx::Name::DecodeDFlashRound, nvtx::Category::DFlash,
+                                   static_cast<std::uint64_t>(lanes.size()));
+     runtime::ExecutionTimingRecorder timing(runtime::ExecutionTimingPhase::Submit, failed_timing);
++    const auto step_start = std::chrono::steady_clock::now();
+     if (!is_masked_draft_backend(speculative_backend) || !io.dflash_decode || !dflash) {
+         throw std::logic_error("DFlash batch execution requires the DFlash backend");
+     }
+@@ -1021,7 +1110,7 @@ ProgramImpl::decode_dflash_batch(std::span<const std::uint32_t> lanes,
+             .row_counts = std::span<const std::int32_t>(dflash_host_egress->licensed_counts.data(),
+                                                         lanes.size()),
+             .row_stride = width,
+-            .timing     = timing.finish(),
++            .timing     = step_profile_finish(timing, step_start, "dflash", 2),
+         };
+     } catch (...) {
+         timing.begin_wait();
+-- 
+2.55.0.windows.4
+

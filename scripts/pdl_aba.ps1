@@ -1,4 +1,4 @@
-# pdl_aba.ps1 -- E1 决定性实验：PDL on/off/on 三臂 A-B-A（谷窗内判"target 段自旋"是否 PDL 依赖等待）
+﻿# pdl_aba.ps1 -- E1 决定性实验：PDL on/off/on 三臂 A-B-A（谷窗内判"target 段自旋"是否 PDL 依赖等待）
 #   用法：powershell -NoProfile -File scripts\pdl_aba.ps1 -Tag valley1
 #   判据：慢轮 target 段（及新增 target-split 的 prepare/verify 三分）在 off 臂是否塌回快带量级；
 #         同时记录浅探针 decode 与深 60K 单轮墙钟。

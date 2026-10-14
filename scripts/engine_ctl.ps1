@@ -1,4 +1,4 @@
-# engine_ctl.ps1 -- start/stop/status/waitready for engine experiments (long-run harness).
+﻿# engine_ctl.ps1 -- start/stop/status/waitready for engine experiments (long-run harness).
 # ASCII-only. v2 (2026-10-12): learned the hard way that a port LISTEN can belong to the OLD
 # instance and that a start can fail on VRAM while the old one has not released memory.
 #   * stop     : kill engine + tee, then WAIT until the process is gone and VRAM is back

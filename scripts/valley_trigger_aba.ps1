@@ -1,4 +1,4 @@
-# valley_trigger_aba.ps1 -- 谷窗自动触发 PDL A-B-A（2026-10-14；用户令"都办"）
+﻿# valley_trigger_aba.ps1 -- 谷窗自动触发 PDL A-B-A（2026-10-14；用户令"都办"）
 #   监视 .temp\state_journal.txt：出现 STATE=SLOW（或探针 decode<80）即自动跑 scripts\pdl_aba.ps1（on/off/on 三臂），
 #   留证到 .temp\pdl_aba_<tag>.txt；冷却 CooldownSec 后再允许下一次捕获；捕获 MaxCaptures 次或到 Hours 后自关。
 #   ⚠️ 触发时会停守望者并重启引擎 3 次（约 6-7 分钟，服务短暂不可用）——用户在用机时请关窗停止。

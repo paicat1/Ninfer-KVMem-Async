@@ -1,4 +1,4 @@
-param([string]$Arms = 'A,B,C', [int]$FillerKb = 45, [int]$MaxTokens = 200)
+﻿param([string]$Arms = 'A,B,C', [int]$FillerKb = 45, [int]$MaxTokens = 200)
 # bisect_env.ps1 -- zero-code environment bisection for the decode-degradation state (2026-10-14).
 # Arms: A baseline | B NINFER_TERNARY_KVMEM_SCORE=0 | C --spec k0 | D --host-state-slots 0 | E graph 0 (pool 40960)
 $ErrorActionPreference = 'Continue'

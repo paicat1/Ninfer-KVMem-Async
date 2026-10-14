@@ -2,6 +2,7 @@
 #include "models/qwen3_5/program/context.h"
 #include "ninfer/ops/scatter.h"
 #include "ninfer/ops/speculative_round.h"
+#include "models/qwen3_5/program/speculative/step_graph_profile.h"  // S9
 
 namespace ninfer::models::qwen3_5::execution {
 
@@ -23,6 +24,7 @@ void target_verify_accept(ExecutionCore& execution, Tensor& continuation_hidden_
                                  envelope, frame.target_hidden, frame.target_logits,
                                  frame.target_tokens);
     }
+    step_graph_record(7, execution.device.stream);  // S9：目标前向完成（verify 内部切点 1）
     if (frame.proposal_q.data != nullptr) {
         ops::speculative_accept_sparse_drafts(
             frame.target_tokens, frame.target_logits, frame.drafts, frame.candidate_ids,
@@ -38,8 +40,10 @@ void target_verify_accept(ExecutionCore& execution, Tensor& continuation_hidden_
             dimension(execution.parameters.model.resources().public_token_count), frame.sampling,
             execution.work, execution.device.stream);
     }
+    step_graph_record(8, execution.device.stream);  // S9：接受判定完成（切点 2）
     ops::speculative_select_accepted_hidden(frame.target_hidden, frame.accepted_drafts,
                                             frame.selected_hidden, execution.device.stream);
+    step_graph_record(9, execution.device.stream);  // S9：选择 hidden 完成（切点 3）
     ops::scatter(frame.selected_hidden, frame.state_destination_slots, continuation_hidden_store,
                  execution.device.stream);
 }

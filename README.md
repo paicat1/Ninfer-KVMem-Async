@@ -1,5 +1,8 @@
 # NInfer Fusion KVMem
 
+> 📌 **本线增量（I3b / Ninfer-KVMem-Async）见文末"## 本线增量"节** —— 段级打点（S6）、PDL 运行期开关（S7）、KVMem 六开关、谷（慢态）攻关现状与判据。
+
+
 **面向 Windows / NVIDIA GPU 的长上下文推理实验：用 KVMem 环、主机 KV 存储与按需检索，让设备 KV 池可以小于逻辑上下文，并在后续轮次复用已有上下文。**
 
 本项目基于 NInfer `0.11.0-rtx3090`，发布融合后的源码、复现记录和验证工具。它是 NInfer 的**下游衍生项目**；基座与第三方算法来源见 [署名与改动声明](NOTICE.md)。

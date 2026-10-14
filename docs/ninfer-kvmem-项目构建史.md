@@ -2620,3 +2620,40 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - **随之落地**：守望者改名 **`Ninfer-KVMem-Async守望者`**（标题 + journal 前缀，文件名不动）；启动器新增**三品牌模型选择**（`q2lynn / swift / bonsai`，BONSAI 件未下载、仅登记待测试；`VISION_CAPABLE_MODELS` 纳 q2lynn/swift）。
 - **落档**：`docs\Swift换底座-三臂结果与int8预算-20261014.md`；台账 `.temp\swift_arms_20261014.txt`；逐字件 `.temp\verbatim\sw_*.json`。
 - **待决**：日常配置是否切 Swift-IQ3_S + rk8v4 + 65,536（涉及启动器默认档/preset/C 类基准重立/通知 TELE）。
+
+### 42. 品牌三选一 + 每模型一套参数 + 基准库（2026-10-14 夜，用户令）
+
+- **启动器三品牌**：`MODEL_OPTIONS` / `MODEL_PATHS` 新增 `q2lynn / swift / bonsai`（既有 `iq4nl / iq4nlvis / orig` 保留兼容）；`VISION_CAPABLE_MODELS` 纳 `q2lynn/swift`（均含视觉塔）；BONSAI 仅登记（件未下载，`validate()` 给友好提示：已登记待测试）。
+- **每模型一套参数**：`MODEL_BUNDLES` —— 换模型自动切 **KV/池/Graph/视觉**（q2lynn → rk2v4-e8 / 51200 / 64；**swift → rk8v4 / 64k / 192**；bonsai 占位）；默认档设为 **SWIFT**；新增预设 `★SWIFT 定稿（rk8v4 + 64K + graph192）`；`GRAPH_OPTIONS` 增 `192` 档（SWIFT 件实测需 ≥192）；修 bundle 键 `kvcap="64k"`（原写 "65536" 在选项表里不存在，静默跳过）。
+- **基准库 `baselines\`（入库）**：`q2lynn/`（**冻结**：逐字门噪声地板 8/8、KV A/B 台账、深上下文台账、容量表）+ `swift15_iq3s/`（现行：四臂逐字件、换底座台账、容量表）+ `README.md` 纪律（冻结集只增不改；跨档对比必须"池 ≥ 上下文"；golden SHA 只在同模型同档内可比）。
+- 提交：`fd720e4`（bundles + baselines）→ `1c041af`（守望者/启动器默认 SWIFT；补交被打断那次遗留）。
+
+### 43. 招牌名解耦 + 《引擎启动参数与配置档》（2026-10-14 夜，用户令）
+
+- **起因**：启动命令行同时出现 `swift15_iq3s_mtp.ninfer`（权重真身）与 `--model-id qwen3.8-27b-coder390`（**服务招牌名**，旧线硬编码）⇒ 用户误读为"又有 SWIFT 又有 COD390"。
+- **改动**：`engine_ctl` 的 `--model-id` **按权重件自动切**（`*swift*` → `swift-1.5-qwen3.8-27b-gsq-rco-iq3s`；`*Bonsai*` → `ternary-bonsai-2-27b`；默认 `qwen3.8-27b-coder390`）；新增 `scripts\_modelid.py`（从 `/v1/models` 读招牌名，失败回退旧名）；`a2gate / verbatim_gate / a3probe / valley_bench / valley_agentic` 不再写死。**实测** `/v1/models → ['swift-1.5-qwen3.8-27b-gsq-rco-iq3s']`，a2gate 单轮正常。
+- **新文档** `docs\引擎启动参数与配置档-20261014.md`：真身/招牌名三者区别、**启动参数全表（9 组）**、KVMem 六开关等环境变量、**两档配置**（Coder390 定稿 / SWIFT 现行 + 【待测更新】表）、变更纪律。
+- int8 预算回填：SWIFT 档 **int8 上限 61,440**（65,536 差 35 MB 拒启；Graph 128/64 时可起但余 ~160 MiB，待 A-B-A 判速）——提交 `a5f2b87` / `cdc1c96`。
+
+### 44. 路 3：target 段解剖 → **PDL 机制确认**（2026-10-14 夜）
+
+- **区间归属**：`mtp.cpp` `record(1)`=194 行、`record(2)`=265 行 ⇒ **target 段 = 71 行**；内容 = card 装配 + ~30 个张量视图（宿主侧）+ `ops::speculative_prepare_verify_inputs(...)` + `[nvtx DecodeMtpTarget] target_verify_accept(...)`。
+- **机制：引擎全程用 PDL（Programmatic Dependent Launch）**。`src/core/pdl.cuh`：`launch_consumer()` 在图捕获期把内核挂成 programmatic dependent；`enter()` = `trigger_dependents()` + **`cudaGridDependencySynchronize()`（消费核 CTA 轮询等前驱网格完成）**；`enter_streaming()` 只等待、主循环完再 trigger。
+- **构建实况**：`CMakeCache.txt` = `CMAKE_CUDA_ARCHITECTURES=120a` + **`NINFER_SM120_NATIVE=ON`** ⇒ 不定义 `SM8X_COMPAT` ⇒ **`NINFER_PDL_ACTIVE=1`**（CMake 注释原话："The native routes always use it"）。`NINFER_PDL` 选项只影响 compat 路径。
+- **与指纹吻合**：PDL 等待 = 纯轮询 ⇒ 满频 100% / 功耗仅 63–98 W / 显存 4–19% / 并行核被饿死 8×。
+- **候选清单**：**C1 PDL 依赖自旋（最高）**；C2 消费核饥饿（`enter()` 注释自陈的半速模式，与低功耗指纹不符）；C3 宿主侧等待（vision/media cache 的 sync 与 `while(!done)`，文本路径不在链上）；C4 生产者被外部拖慢（PDL 将其放大成整段墙钟）。
+
+### 45. S7：PDL 运行期开关 + stamps 8 槽 + target 三分打点（2026-10-14 夜，用户令"编"）
+
+- **改动**（引擎仓 4 文件 +36/−10）：`core/pdl.cuh` 加 **`pdl_kill_switch()`**（读 `NINFER_PDL_OFF`，捕获期启动退回 stream-ordered ⇒ 同一二进制可做 on/off A-B-A）；`ops/launcher/speculative_round.cu` 槽位 0..7 + 新报告行 `target-split`（setup / prepare / verify 三分）；`program/speculative/mtp.cpp` 8 槽 + `record(5)/(6)` 夹住 target 段；`step_graph_profile.h` 文档。
+- **构建与归档**：`BUILD-EXIT=0` 21:25；`engine\lineage\I3b_step7_split_20261014.exe`（sha256 `8EA8F08B…`，1272 MiB）+ MANIFEST 补录；引擎仓提交 `62e563e`；补丁导出 `patches\i3b_s7_pdl_switch_stamps.patch`（10.8 KiB）⇒ main + patches 覆盖 **p2/s2/s3b/s3b_fix/s4/s6/s7**。
+- **健康带参照（关键判据基线）**：`target-split: setup=0.00 prepare=0.00 **verify=18.12**`（target=18.1）⇒ 健康带 target 段 100% 是 verify。
+- **E1 烟测**：**PDL-off 健康带 ≈ on**（浅 144.4→142.9 = −1%，深 137.1→135.4 = −1.2%），**输出 sha 逐字相同** ⇒ 对照组干净。
+- **工具**：`scripts\pdl_aba.ps1`（on/off/on 三臂 + 浅/深探针 + 抓打点 + 恢复平台）、`scripts\valley_trigger_aba.ps1`（谷窗自动触发，冷却 15 min、最多 3 次；可见窗口 + 标题；用户实机期间停用）。
+- **编码修复（TRAPS #24）**：含中文的 .ps1 必须 **UTF-8 with BOM**（PS 5.1 按 GBK 解会解析崩）；本次给 5 个脚本补 BOM（`valley_trigger_aba` / `pdl_aba` / `bisect_env` / `engine_ctl` / `retire_dir`），全部 `PS-SYNTAX-ON`。
+
+### 46. 用户实机档切换（2026-10-14 夜）
+
+- 用户实机跑 DSH（工作集 45–73K）⇒ 原档 `rk8v4 @ 65,536` 会**超池**（走检索/下沉路径、内容可能不同）⇒ 切 **`nvfp4 @ 81,920`**：`free 798.7 MiB`、池 ≥ 80K ⇒ 全在池内；**基线**：浅 11K **171.0 tok/s**（6.6 s）、深 59K **114.5 tok/s**（46.9 s）、接受 67% / 53%。
+- **守望者复活档同步**（同件 `step7` + 同池同 KV）⇒ 引擎被复活时**不再静默退回小池**（提交 `e9544dd` / `63c8842`）。
+- 配套：`StepProfile=1` 打点 + Stage0 reqlog 全程开；A-B-A 触发器在用户实机期间关闭（避免重启打断会话）。

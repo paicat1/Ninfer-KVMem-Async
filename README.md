@@ -99,18 +99,20 @@
 
 ---
 
-## 当前定稿（2026-10-11）
+## 当前定稿（2026-10-14）：**两套配置档 + 三类模型**
 
-| 项 | 值 |
-|---|---|
-| 引擎 | `self-built-20261008`（上游融合引擎源码，分支 s6-20261008 @ `3b9dc83` + W1-W4 修复 patch） |
-| 池 | **51,200 token（800 页）**——当前桌面负载下可复现的稳定档 |
-| 上下文 | 256K 逻辑（262,144，模型原生上限）；池外 KV 自动下沉 16 GiB host 环 |
-| 投机 | MTP K4（自转头，iq4_nl 量化，239 MB） |
-| 思考 | medium/high + `--default-thinking-budget 16000` |
-| 止血 | `--recover-invariant-failures`，**无 `--kv-lease-growth`**（撞墙根因，见下） |
-| 视觉 | 嫁接件 `mtp-iq4nl.vision.ninfer` + `--vision-cpu`（零设备显存） |
-| 并发 | **1**（KVMem 环硬约束，见已知限制） |
+启动器"模型"维度现为品牌三选一（**Q2LYNN / SWIFT 1.5 / BONSAI**），换模型**自动带整套参数**（`MODEL_BUNDLES`：KV / 池 / CUDA-Graph 预算 / 视觉一并切换）；参数逐项解释见 **[`docs/引擎启动参数与配置档-20261014.md`](docs/引擎启动参数与配置档-20261014.md)**。
+
+| 档 | 模型件 | KV | 池 | Graph | 关键实测 |
+|---|---|---|---|---|---|
+| **SWIFT 1.5（现行）** | `swift15_iq3s_mtp.ninfer`（11.3 GiB 上卡） | **`nvfp4`**（实机）/ `rk8v4`（实验） | **81,920**（≥80K 工作集）/ 65,536 | **192** | rk8v4 最快 + 接受率最高（深 60K 143.7 tok/s / 64%）；nvfp4 速度≈同级；**int8 上限 61,440**；载入 ~9 s |
+| **Q2LYNN（定稿基线）** | `…Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer` | `rk2v4-e8` | 51,200（稳定）/ 65,536（实测） | 64~128 | 历史全部实测都在它上面；基准**冻结**于 [`baselines/q2lynn/`](baselines/q2lynn/) |
+| BONSAI | 前序线件（**未下载**） | — | — | — | 仅登记待测试（启动器选它会提示） |
+
+- 引擎件：**`engine\lineage\I3b_step7_split_20261014.exe`**（= 上游融合引擎 + I3b 全链补丁 S6/S7；仪器门 `NINFER_STEP_PROFILE` 默认关，零行为）
+- 上下文 256K 逻辑（262,144）；池外 KV 自动下沉 16 GiB host 环；投机 **MTP K4**；思考 high + 预算 16000；止血 `--recover-invariant-failures`（**无 growth**）；视觉 overlay/off；并发 **1**（环硬约束）
+- **池 ≥ 工作集是硬纪律**（超池 ⇒ 检索子集介入 ⇒ 内容可能变化，见"关键工程结论"）
+- 每档基准与实测数据存 `baselines/<档>/`（冻结集只增不改；golden SHA 只在同档内可比）
 
 ## 快速开始（已有引擎与模型时）
 
@@ -129,13 +131,15 @@ set NINFER_KV_RETRIEVE=8192
 set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
 set NINFER_KV_REUSE_HOSTBACKED=1
-engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
-  --host 127.0.0.1 --port 8094 --max-context 262144 --kv-capacity 51200 ^
-  --kv-dtype rk2v4-e8 --host-kv-mib 16384 --prefill-chunk 512 ^
-  --spec mtp --draft-tokens 4 --default-max-tokens 32768 ^
-  --default-reasoning-effort high --default-thinking-budget 16000 ^
+engine\lineage\I3b_step7_split_20261014.exe models\swift15_iq3s_mtp.ninfer ^
+  --host 127.0.0.1 --port 8094 --model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s ^
+  --max-context 262144 --kv-capacity 81920 --cuda-graph-allowance-mib 192 --kv-dtype nvfp4 ^
+  --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 ^
+  --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 ^
   --max-concurrency 1 --recover-invariant-failures
 ```
+
+> `--model-id` 是**服务招牌名**（API `model` 字段），与权重真身名可不同：`engine_ctl` 现按权重件自动切（swift / Bonsai / 默认 coder390），工具侧从 `/v1/models` 读（`scripts/_modelid.py`）——**不用手改**。Q2LYNN 档把 KV 换回 `rk2v4-e8`、池 51,200、Graph 64 即可（或直接用启动器预设）。
 
 客户端：任何 OpenAI 兼容工具；DSH 接入示例见 `docs/教程-KVMem与短测-给agent与使用者.md` 与构建史（provider 配置含 `streamIdleTimeoutMs: 3600000`）。
 
@@ -145,12 +149,13 @@ engine\self-built-20261008\ninfer-serve.exe models\...mtp-iq4nl.ninfer ^
 
 | 路径 | 内容 | 在库内 |
 |---|---|---|
-| `docs/` | **构建史（v1-v32 完整历程）**、12 份交叉审核报告、3 份调研、教程 | ✅ |
+| `docs/` | **构建史（§1–§46 完整历程）**、交叉审核报告、调研、教程 + **`引擎启动参数与配置档-20261014.md`**（参数全表/两档配置）、`KV档A-B-*`（KV 精度 A/B）、`深上下文池收益与A2适用域-20261014.md`、`Swift换底座-三臂结果与int8预算-20261014.md` | ✅ |
 | `build/` | 引擎构建脚本（`s6_1208a.bat` 等）+ 3 份基线补丁（`build/patches/0001-0003`）+ 产物清单 | ✅ |
-| `scripts/` | 模型加工（`recode_mtp.py` 自转 MTP 头、`graft_vision.py` 视觉嫁接）+ 探针（`test_ab_arm1.py`/`probe_recall*.py`）+ 死亡谷测量（`valley_bench.py`/`valley_history.py`，2026-10-12 自 `tools/` 迁入） | ✅ |
-| `patches/` | **8 个引擎补丁**（W1-W4 修复 + ledger42×3 / 44 / 46×2 / 47） | ✅ |
+| `scripts/` | 模型加工（`recode_mtp.py` / `graft_vision.py`）+ 探针（`test_ab_arm1.py` / `probe_recall*.py`）+ 谷测量（`valley_bench.py` / `valley_history.py`）+ **新工具**：`verbatim_gate.py`（逐字一致门，8 提示）、`bisect_env.ps1`（环境二分）、`gpu_probe.cu`（机器级健康探针）、`_modelid.py`（招牌名解析）、`valley_watch.ps1` + `watch_launch.ps1`（守望者 `Ninfer-KVMem-Async守望者`）、`pdl_aba.ps1` + `valley_trigger_aba.ps1`（PDL on/off A-B-A） | ✅ |
+| `patches/` | **15 个引擎补丁**：I3b 链（`i3b_p2/s2/s3b/s3b_fix/s4/s6/s7`——step-profile / submit 拆分 / sticky 修复 / 图内事件 / **S6 段级打点** / **S7 PDL 开关 + target 三分**）+ W1-W4 修复 + ledger42×3 / 44 / 46×2 等 | ✅ |
+| `baselines/` | **每模型一套基准**（2026-10-14 立）：`q2lynn/`（**冻结**：逐字门噪声地板 8/8、KV A/B 台账、深上下文台账、容量表）+ `swift15_iq3s/`（现行：四臂逐字件、容量表）+ `README.md` 纪律 | ✅ |
 | `repro/` | **源码树 bundle 快照**（分支 `line-coder390` @ `79457af`，2026-10-12 打）+ 版本台账副本 `MANIFEST.txt` | ✅ |
-| `ninfer_launcher.py` | GUI 唯一入口（10 预设、校验告警、KV_ENV 六开关注入） | ✅ |
+| `ninfer_launcher.py` | GUI 唯一入口（**三品牌模型选择**、场景预设、校验告警、KV_ENV 六开关注入、`MODEL_BUNDLES` 换档联动） | ✅ |
 | `serve_tee.py`、`start-coder390*.bat` | 起服工具 | ✅ |
 | `engine-src/` | **引擎源码树工作副本**（构建实际读取 `engine-src\src-tree\fusion-engine-src`；根含 `PROVENANCE.md` 与完整 git 历史） | ❌ 未跟踪（入库快照 = `repro/*.bundle`） |
 | `official-repo/` | 公开上游对照 clone（**本线构建不读它** —— 构建读 `engine-src/`） | ❌ 未跟踪 |
@@ -226,7 +231,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
    **B. 从公开上游自建（可溯源）**：`git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git` →
    `git checkout engine-v0.11.0-kvmem-20261008`（**`2852f6f`**，上游 tag，已核对存在于 `official-repo/ninfer-fusion-kvmem`）→ 放到 `engine-src\src-tree\fusion-engine-src\` →
-   依序应用 `build/patches/0001-0003`（= 基线上 3 个本地提交：`5b07bc1` MSVC 修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE，**已整理入库**）+ `patches/` 下 8 个补丁。
+   依序应用 `build/patches/0001-0003`（= 基线上 3 个本地提交：`5b07bc1` MSVC 修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE，**已整理入库**）+ `patches/` 下 **15 个补丁**（本线 I3b 链 p2→s7 按序应用即得现行引擎：段级打点 + PDL 运行期开关）。
    ⚠️ *B 为**未逐步实测**路径，以 A 为准。*
 
    **免构建替代**：发放包（沈三殊分发）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；
@@ -258,6 +263,11 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 - **召回开销已实测**：超池 prefill 被流水化吸收（~8-23%，60K 场景往返 ≈4-8 s），零截尾。
 - **push 教训**：推送成功以 `git status -sb` 的 ahead 0 为唯一判据。
 
+- **SWIFT 换底座实测（2026-10-14）**：`rk8v4` 在 Swift 上最快且接受率最高（深 60K 37.3 s / decode 143.7 / 64%），与 `rk2v4-e8` 输出**逐字相同**；`nvfp4` = "免费档"（速度≈现状）；**int8 上限 61,440**（65,536 差 35 MB 拒启）；换底座首次解锁"池 81,920 + 高精度 KV"。
+- **池 ≥ 上下文（不只是速度，是可比性）**：超池 ⇒ 检索/选页介入 ⇒ 模型看到的是"选出的子集" ⇒ **输出会变**（同格式只差池大小的实测：`78bcb798` vs `8b3a141f`）；一切内容对比（逐字门 / golden SHA）**必须在池 ≥ 上下文下跑**。
+- **谷（慢态）攻关进展（2026-10-14）**：范围已收敛到 **MTP 图内 `target` 段（`target_verify_accept`）**——健康 18 ms / 慢态 120–226 ms；MTP 一关谷即消失（44.2 s→9.3 s，decode 25.4→55.8 = 裸解码基线）；机器/驱动/配置/KV 主链均已排除。**机制候选 = PDL 依赖等待自旋**（`pdl::enter()` 的 `cudaGridDependencySynchronize()`；native 120a 路径恒开）——S7 已把开关做成运行期（`NINFER_PDL_OFF`），待谷窗 A-B-A 判因果。
+- **招牌名 ≠ 真身名**：`--model-id` 按权重件自动切、工具从 `/v1/models` 读；含中文的 `.ps1` 必须存 **UTF-8 with BOM**（PS 5.1 按 GBK 解会解析崩）。
+
 ## 模型支持边界与演进方向
 
 | 状态 | 模型 | 说明 |
@@ -288,11 +298,15 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 11 | DSH maxTokens 全额预留 | 单请求 prompt+输出全额预留，65,536 输出上限放大超池面 | 思考计入输出 + DSH 默认 65,536 | DSH `maxTokens` → 24,000（单轮封顶；prompt ≤41,536 时 decode 期永不超池） | 生效验证：实机 started 行 `max output 24,000` |
 | 12 | 长会话"页漂移"降速 | 34-39 轮 agentic 会话后 decode 从 122 → 3 tok/s，host 占用 98-110% | cache replay 逐轮重映射历史页，**最早页被逐渐挤出设备池**（34 轮后 ~330 页滞留 host → decode 每 token host 往返）——是**轮数**触发，与超池深度无关（三组对照：81K/72K/72K 全不掉速 134/126/134） | 缓解：定期新开会话（机制必需）+ 池扩容（28→~38 轮才触发）+ maxTokens 封顶；**根治 = 挂账 42 全链**（取消检查点前移 + 批量 demote + **v2 异步 demote**）＝ 已部署 + 实机验证 ✓（超池多轮 103-195 tok/s、10+ 轮零降速，见 §三·十九；v2.1 多批 in-flight 已施工 ✓ §三·二十四） | 机理两次独立实证（hidden 页判别：不掉速 ≤17 vs 掉速 329-334） |
 | 13 | stream 挂起（原挂账 41） | 引擎请求 started 后永不 done：日志静默 + CPU 0 / GPU idle + TCP Established，重启才恢复（req#4 现场，DSH"思维断链"） | 🔀 **已并入挂账 42**（第三次复现定案，v3 规模修正版证伪"send 阻塞"）：根因唯一收敛 = **页漂移极端态下页操作深处同步点冻结**（§14.1） | 无"取消信号"死锁形态另立 **挂账 43**（步级看门狗，待设计 ✗）；挂账 42 全链部署后未再复现（待长跑观察） | 第三次复现定案：16K output / 270KB 载荷 / 20s 真停读（v3 规模修正版）✓ |
+| 14 | 谷（慢态）范围收敛 | decode 25–28（偶发 11–12）、SM 100% 满频但功耗仅 63–98 W、几乎不碰显存、并行核被饿死 8× | 排除机器/驱动/降频/带宽、全部配置旋钮（二分清白）、KV/ring/demote 主链（裸解码满速）后，锁定 **MTP 图内 target 段** | S6 `%globaltimer` 段级打点（图 1107→1112 节点，capture 安全）；关 MTP 即愈 | 谷窗内三明治 A-B-A（44.2 s→9.3 s→44.6 s，非自愈）；**机制候选 PDL 依赖自旋**，S7 运行期开关待判 |
+| 15 | 启动器"两个模型"混淆 | 命令行同时出现 `swift15_iq3s_mtp.ninfer` 与 `--model-id qwen3.8-27b-coder390` | 招牌名硬编码旧线名，换件未同步 | `engine_ctl` 按件自动切 + `scripts/_modelid.py` 从 `/v1/models` 读 | 实测 `/v1/models` 只报真身名；工具端自动解析（a2gate 单轮正常） |
+| 16 | 含中文 `.ps1` 秒退 | 守望者脚本起不来：`Unexpected token '}'` | PS 5.1 对**无 BOM 的 UTF-8** 按 GBK 解码，中文字符串被解错 | 5 个脚本统一存为 UTF-8 with BOM | 5/5 `PS-SYNTAX-OK`
 
 > **未解决事项**（与构建史挂账表闭环）：**挂账 43**（无取消信号死锁·步级看门狗，待设计）、**挂账 46**（死亡谷：v2.1 多批 in-flight 已施工 ✓（§三·二十四），待长跑复核）、**挂账 48**（恢复路径 Host KV 无主，待测泄漏）、**挂账 49**（小池 + graph 32 的 sizing 超支，待与上游核对）、**挂账 54**（超池 ⇒ 页账不一致 ⇒ activation 失败，**depth=1 亦复现** ✗，§三·二十五）、**挂账 55**（新 · 2026-10-13 凌晨：间歇性 prefill 冻结 —— host 旋转 150%+ 后 0% 不恢复 >40 分钟，2 次命中；与 43 同族嫌疑，证据见 §三·二十八）、**W5**（KV 池自噬，待实测）、超池中段正确性依赖检索开关（下节"已知限制"）。**已销：挂账 41 / 42**（42 全链部署 + 实机验证 ✓；41 并入 42 ✓）。
 
 ## 已知限制
 
+- **谷（慢态）未闭合**：间歇出现、分钟~小时级粘滞；期间 decode 掉到 25–28（偶发 11–12）而机器本身健康；现已定位到 MTP `target` 段、候选机制 PDL 依赖自旋（S7 开关就绪）；**期间可用裸解码（不传 `--spec`，~56 tok/s）规避**；守望者自动记录谷窗证据；
 - 单并发（KVMem 环架构约束）；
 - 256K 为模型原生上限——512K 属外推区，不可用（长文场景由 KVMem 检索兜底）；
 - 视觉 CPU 编码 ~20 s/图（GPU 编码需视觉塔常驻 1.4 GiB 显存，须降池至 ~20K）；
@@ -301,7 +315,9 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 ## 文档索引
 
 - **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v32 完整历程（每个决策的证据链），**先读这个**；
+- **`docs/引擎启动参数与配置档-20261014.md`** —— 启动参数逐项解释 + 两档配置（SWIFT 现行 / Coder390 定稿）+ 环境变量六开关；
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；
+- `docs/KV档A-B-*` / `docs/深上下文池收益与A2适用域-20261014.md` / `docs/Swift换底座-三臂结果与int8预算-20261014.md` —— 精度-池-底座三组实测；
 - `docs/审核-*.md` ×12 —— TeleAgent 与 CodeBuddy 双向交叉审核记录；
 - `docs/调研-*.md` ×3 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。

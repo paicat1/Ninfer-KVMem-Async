@@ -1,186 +1,48 @@
-From 62e563e4f8f57ad541eebd3264b57f577152a69e Mon Sep 17 00:00:00 2001
+From e3d9c2662b2c9de561711c2ee00bd3a842e689d3 Mon Sep 17 00:00:00 2001
 From: paicat1 <573148556@qq.com>
-Date: Wed, 14 Oct 2026 21:29:39 +0800
-Subject: [PATCH] I3b S7 -- PDL runtime kill-switch (NINFER_PDL_OFF) + step
- stamps 5->8 slots with a target-segment split
+Date: Wed, 14 Oct 2026 22:46:38 +0800
+Subject: [PATCH] I3b S8 -- the engine self-reports its PDL mode once at
+ capture time
 
-The native 120a path always launches captured decode-graph kernels as programmatic dependents
-(src/core/pdl.cuh), so consumer CTAs spin at cudaGridDependencySynchronize() until the predecessor
-grid completes -- a fingerprint that matches the slow band exactly (SM 100% at full clock, only
-63-98 W, memory 4-19%, a parallel microbenchmark starved 8x). pdl_kill_switch() reads
-NINFER_PDL_OFF once and makes those launches stream-ordered, so a valley-window on/off/on A-B-A
-can separate dependency-wait spin from real work.
+pdl_kill_switch() now prints one line the first time it is consulted: either
+  [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+or DISABLED together with the NINFER_PDL_OFF value.
 
-step stamps grow to 8 slots; slots 5 and 6 bracket the target segment (5 = after the tensor
-views, 6 = after speculative_prepare_verify_inputs) and the report gains a target-split line
-(setup / prepare / verify). Healthy band: verify = 18.1-19.7 ms of an 18.1-19.7 ms target segment
-(setup and prepare are 0.00). Healthy-band control: PDL off costs ~1% (144.4 -> 142.9 tok/s
-shallow, 137.1 -> 135.4 deep) with byte-identical output.
+The 22:35 A-B-A capture was invalidated by exactly this class of ambiguity: arm 3 was
+labelled PDL_OFF=0 but silently inherited the previous arm NINFER_PDL_OFF=1, so the
+sandwich could not be read. From here on every arm engine log states its own mode, and
+the ledger records that self-report next to the intended value.
 ---
- src-tree/fusion-engine-src/src/core/pdl.cuh    | 14 +++++++++++++-
- .../models/qwen3_5/program/speculative/mtp.cpp | 18 +++++++++++-------
- .../program/speculative/step_graph_profile.h   |  2 +-
- .../src/ops/launcher/speculative_round.cu      | 12 +++++++++++-
- 4 files changed, 36 insertions(+), 10 deletions(-)
+ src-tree/fusion-engine-src/src/core/pdl.cuh | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/src-tree/fusion-engine-src/src/core/pdl.cuh b/src-tree/fusion-engine-src/src/core/pdl.cuh
-index a4ed69d..6f2a35d 100644
+index 6f2a35d..fee8572 100644
 --- a/src-tree/fusion-engine-src/src/core/pdl.cuh
 +++ b/src-tree/fusion-engine-src/src/core/pdl.cuh
 @@ -3,6 +3,7 @@
  #include <cuda_runtime.h>
  
  #include <cstddef>
-+#include <cstdlib>
++#include <cstdio>
+ #include <cstdlib>
  #include <utility>
  
- // Programmatic dependent launch needs sm_90 or newer. The Ampere/Ada compatibility path launches
-@@ -13,6 +14,17 @@
- 
- namespace ninfer::pdl {
- 
-+// S7/E1（2026-10-14）：PDL 运行期关断开关。NINFER_PDL_OFF=1 时，被捕获的图内启动退回
-+// 顺序执行（不挂 programmatic 属性）——用于在谷窗内做 on/off A-B-A，判定"120–226 ms 的
-+// target 段"是 PDL 依赖等待（消费核 CTA 轮询自旋）还是真实计算。只读一次环境变量（静态）。
-+[[nodiscard]] inline bool pdl_kill_switch() noexcept {
-+    static const bool off = []() {
-+        const char* v = std::getenv("NINFER_PDL_OFF");
-+        return v != nullptr && v[0] != '\0' && v[0] != '0';
-+    }();
-+    return off;
-+}
-+
- struct LaunchConfig {
-     dim3 grid;
-     dim3 block;
-@@ -64,7 +76,7 @@ launch_dependent(const LaunchConfig& launch, void (*kernel)(KernelArgs...), Call
- template <class... KernelArgs, class... CallArgs>
- [[nodiscard]] inline cudaError_t
- launch_consumer(const LaunchConfig& launch, void (*kernel)(KernelArgs...), CallArgs&&... args) {
--    if (graph_dependent(launch.stream)) {
-+    if (graph_dependent(launch.stream) && !pdl_kill_switch()) {
-         return launch_dependent(launch, kernel, std::forward<CallArgs>(args)...);
-     }
-     cudaLaunchConfig_t config{};
-diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
-index 021091b..fe5823b 100644
---- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
-+++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
-@@ -16,10 +16,12 @@
- namespace ninfer::models::qwen3_5::execution {
- 
- // ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
--// 5 事件 -> 4 区间：ingress / target / draft / egress。arm 在建图前创建，record 在（被捕获的）
-+// 8 槽（S7/E2 扩）：0..4 = 原 4 区间界（ingress/target/draft/egress）；5 = target 段"装配后/prepare 前"；
-+//   6 = "prepare 后/verify 前"；7 备用。arm 在建图前创建，record 在（被捕获的）
- // 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
- namespace {
--cudaEvent_t g_step_graph_events[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
-+constexpr int kStepSlots = 8;  // S7/E2
-+cudaEvent_t g_step_graph_events[kStepSlots] = {nullptr};
- } // namespace
- 
- bool step_graph_enabled() {
-@@ -40,7 +42,7 @@ void step_graph_arm() {
-         return;
-     }
-     int created = 0;
--    for (int i = 0; i < 5; ++i) {
-+    for (int i = 0; i < kStepSlots; ++i) {
-         if (g_step_graph_events[i] == nullptr) {
-             if (cudaEventCreate(&g_step_graph_events[i]) != cudaSuccess) {
-                 g_step_graph_events[i] = nullptr;
-@@ -52,8 +54,8 @@ void step_graph_arm() {
-     if (!reported) {
-         reported = true;
-         (void)step_stamp_arm();  // S6: mapped stamp buffer (must precede capture)
--        std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/5 events\n", created);
--        for (int i = 0; i < 5; ++i) {
-+        std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/%d events\n", created, kStepSlots);
-+        for (int i = 0; i < kStepSlots; ++i) {
-             if (g_step_graph_events[i] == nullptr) {
-                 std::fprintf(stderr, "[ninfer] step graph DEBUG: event %d NULL\n", i);
-             }
-@@ -62,7 +64,7 @@ void step_graph_arm() {
+@@ -20,7 +21,13 @@ namespace ninfer::pdl {
+ [[nodiscard]] inline bool pdl_kill_switch() noexcept {
+     static const bool off = []() {
+         const char* v = std::getenv("NINFER_PDL_OFF");
+-        return v != nullptr && v[0] != '\0' && v[0] != '0';
++        const bool o = v != nullptr && v[0] != '\0' && v[0] != '0';
++        // S8（2026-10-14 夜）：一次自报——A-B-A 台账不再依赖"意图"，引擎自己说这次是哪种模式。
++        std::fprintf(stderr, "[ninfer] PDL: programmatic-dependent launches %s%s%s\n",
++                     o ? "DISABLED" : "ENABLED",
++                     o ? " (NINFER_PDL_OFF=" : " (native 120a",
++                     o ? (v ? v : "1") : ")");
++        return o;
+     }();
+     return off;
  }
- 
- void step_graph_record(int slot, cudaStream_t stream) {
--    if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
-+    if (!step_graph_enabled() || slot < 0 || slot >= kStepSlots) { return; }
-     if (g_step_graph_events[slot] == nullptr) { return; }
-     // S5 experiment RETRACTED (2026-10-14): cudaEventRecordWithFlags(..., cudaEventRecordExternal)
-     // DID capture 5 external event-record nodes into the graph (1107 -> 1112 nodes), but the engine
-@@ -79,7 +81,7 @@ bool step_graph_harvest(double out_ms[4]) {
-     static bool reported_fail = false;
-     static bool reported_ok = false;
-     if (!step_graph_enabled()) { return false; }
--    for (int i = 0; i < 5; ++i) {
-+    for (int i = 0; i < kStepSlots; ++i) {
-         if (g_step_graph_events[i] == nullptr) {
-             if (!reported_fail) {
-                 reported_fail = true;
-@@ -231,9 +233,11 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
-         Tensor ar_valid_columns   = frame.ar_valid_columns.slice(0, 0, batch_size);
-         Tensor next_drafts        = frame.next_drafts.slice(0, 0, batch_size);
- 
-+        step_graph_record(5, state.execution.device.stream);  // S7/E2: target 子界（装配后）
-         ops::speculative_prepare_verify_inputs(anchors, current_drafts, frontiers, current_extents,
-                                                verify_ids, target_positions,
-                                                state.execution.device.stream);
-+        step_graph_record(6, state.execution.device.stream);  // S7/E2: target 子界（prepare 后）
-         {
-             nvtx::ScopedRange target_range(nvtx::Name::DecodeMtpTarget, nvtx::Category::Mtp,
-                                            static_cast<std::uint64_t>(width) * batch_size);
-diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
-index 57b1dd9..73be9fd 100644
---- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
-+++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
-@@ -19,7 +19,7 @@ bool step_graph_harvest(double out_ms[4]);
- //   门槛 = NINFER_STEP_PROFILE（与事件计时同门，默认关、零行为）；record 改为 launch 一枚 1-thread
- //   stamp kernel ⇒ capture 期成为 kernel 节点（合法），replay 期按图序写纳秒时间戳到 mapped host buffer。
- //   step_stamp_arm()            ：建 mapped 缓冲（幂等；必须早于 capture）
--//   step_stamp_launch(slot, s)  ：slot 0..4 与事件计时同口径
-+//   step_stamp_launch(slot, s)  ：S7/E2 起 8 槽：0..4 与事件计时同口径；5 = target 段"装配后/prepare 前"；6 = "prepare 后/verify 前"；7 备用（报告新增 target-split 行：setup / prepare / verify 三分）
- //   step_stamp_report(tag)      ：sync 后调用；慢轮（总跨度>100ms）或前 3 轮/VERBOSE 时打印一行
- bool step_stamp_arm();
- void step_stamp_launch(int slot, cudaStream_t stream);
-diff --git a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
-index 86641f4..acd58ff 100644
---- a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
-+++ b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
-@@ -254,7 +254,7 @@ bool step_stamp_arm() {
- }
- 
- void step_stamp_launch(int slot, cudaStream_t stream) {
--    if (g_stamp_dev == nullptr || slot < 0 || slot > 4) { return; }
-+    if (g_stamp_dev == nullptr || slot < 0 || slot > 7) { return; }  // S7/E2: 8 槽（5/6 = target 子界）
-     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
- }
- 
-@@ -262,6 +262,7 @@ void step_stamp_report(const char* tag) {
-     if (g_stamp_host == nullptr) { return; }
-     const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
-     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
-+    const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
-     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
-     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
-     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
-@@ -281,6 +282,15 @@ void step_stamp_report(const char* tag) {
-     std::fprintf(stderr,
-                  "[ninfer] spin-stamp %s: ingress=%.1f target=%.1f draft=%.1f egress=%.1f ms | total=%.1f ms\n",
-                  tag ? tag : "round", d0, d1, d2, d3, total_ms);
-+    if (t5 != 0ULL && t6 != 0ULL && t5 >= t1 && t6 >= t5 && t2 >= t6) {
-+        const double s_setup   = static_cast<double>(t5 - t1) / 1e6;  // card 装配 + 张量视图
-+        const double s_prepare = static_cast<double>(t6 - t5) / 1e6;  // prepare_verify_inputs
-+        const double s_verify  = static_cast<double>(t2 - t6) / 1e6;  // target_verify_accept
-+        std::fprintf(stderr,
-+                     "[ninfer] target-split %s: setup=%.2f prepare=%.2f verify=%.2f ms | sum=%.2f (target=%.1f)\n",
-+                     tag ? tag : "round", s_setup, s_prepare, s_verify,
-+                     s_setup + s_prepare + s_verify, d1);
-+    }
-     std::fflush(stderr);
- }
- }  // namespace ninfer::models::qwen3_5::execution
 -- 
 2.55.0.windows.4
 

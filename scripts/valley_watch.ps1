@@ -29,7 +29,7 @@ function Start-Engine {
     return ($r -match 'READY')
 }
 
-J ('WATCHER start (interval=' + $IntervalSec + 's hours=' + $Hours + ' filler=' + $FillerKb + 'KB)')
+J ('Ninfer-KVMem-Async守望者 start (interval=' + $IntervalSec + 's hours=' + $Hours + ' filler=' + $FillerKb + 'KB)')
 $slowStreak = 0
 while ((Get-Date) -lt $deadline) {
     if (-not (Start-Engine)) { J 'engine start FAILED; retry in 60s'; Start-Sleep -Seconds 60; continue }

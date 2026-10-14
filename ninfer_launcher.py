@@ -143,7 +143,16 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-
 #   orig     : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
 #   注：这里的 argv 列表留空 —— 模型是引擎的**位置参数**（第一个），不走 --flag。
 # ---------------------------------------------------------------
+# ── 品牌三选一（2026-10-14 用户令）：Q2LYNN / SWIFT 1.5 / BONSAI ──
+#   Q2LYNN = 现役（与 iq4nlvis 同文件 · Coder390 Q2Lynn 3.89bpw + 视觉塔）
+#   SWIFT  = swift15_iq3s_mtp.ninfer（GSQ-RCO IQ3_S · 11.3 GiB 上卡 · 含视觉塔+MTP）
+#            实测：载入 ~9s、方言 gguf_blocks_v1 可载；65,536@rk8v4 free 727.9 MiB、
+#            65,536@nvfp4 free 1.09 GiB、57,344@int8 free 482.6 MiB（起服须 -Graph 192，64 会告警）
+#   BONSAI = 前序线（Ternary-Bonsai-2-27B-ninfer-v3.ninfer）· 件未下载，仅登记待测试
 MODEL_OPTIONS = {
+    "q2lynn":   ("★Q2LYNN（现役 · Q2Lynn 3.89bpw + 视觉）", []),
+    "swift":    ("SWIFT 1.5（IQ3_S GSQ-RCO · 11.3 GiB 上卡 · 含视觉）", []),
+    "bonsai":   ("BONSAI（前序线 · 件未下载 · 待测试）", []),
     "iq4nl":    ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
     "iq4nlvis": ("★iq4_nl + 视觉塔（嫁接件 · 含 vision 组件）", []),
     # q8mtp（官方含视觉）已移除（2026-10-11 用户裁决）：被 iq4nlvis 全面取代（MTP 头小 212 MB、
@@ -156,12 +165,17 @@ MODEL_PATHS = {
     "iq4nlvis": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
+    "q2lynn": os.path.join(
+        ROOT, "models",
+        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
+    "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer"),
+    "bonsai": os.path.join(ROOT, "models", "Ternary-Bonsai-2-27B-ninfer-v3.ninfer"),
     "orig":  os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
 }
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
-VISION_CAPABLE_MODELS = frozenset(("iq4nlvis",))
+VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
@@ -506,7 +520,10 @@ def validate(combo, exe=None):
     if not os.path.exists(exe):
         warns.append(f"未找到引擎：{exe}")
     _mp = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)
-    if not os.path.exists(_mp):
+    if combo.get("model") == "bonsai" and not os.path.exists(_mp):
+        warns.append("BONSAI 件未下载（前序线模型 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 不在 models\\）——"
+                     "已登记待测试，暂不可起服；测试前请先取得该件。Q2LYNN / SWIFT 1.5 两档可直接用。")
+    elif not os.path.exists(_mp):
         warns.append(f"未找到模型：{_mp}")
     if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
         warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")

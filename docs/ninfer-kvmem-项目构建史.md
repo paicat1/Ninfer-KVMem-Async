@@ -2612,3 +2612,11 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - **改动**：`scripts\engine_ctl.ps1` 起服窗口 `-WindowStyle Maximized` → **`Normal`**（可见、默认尺寸；原先满屏且 `cmd /k` 使窗口不随进程退出）；并新增参数锁 `[ValidateSet('Normal')]$WindowStyle`——传 Hidden / Minimized / Maximized 在参数绑定阶段即报错（实测拦截 ✓，PS 语法体检 OK）。
 - **现场**：引擎已停（VRAM 回 709 MiB）、无残留 serve_tee 窗口、守望者停。
 - **未完成**：Swift 换底座臂 2/3（`sw_nvfp4` / `sw_rk2v4`）未跑；臂 1（`sw_rk8v4`）已有数据：`engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s | 9.4s`、`KV 65,536 rk8v4 | free 727.9 MiB`、深 60K 单轮 37.3s / decode 143.7。
+
+### 41. Swift-1.5 换底座：三臂 + int8 预算实测（2026-10-14 夜，用户令"1"）
+
+- **四臂**（池 65,536 固定；引擎 step6 + `-Graph 192`）：`sw_rk8v4`（9.5 s 起服 / free 727.9 MiB / 深 60K **decode 143.7** / 接受 **64%**）、`sw_nvfp4`（8.7 s / 1.09 GiB / 118.2 / 53%）、`sw_rk2v4`（9.3 s / 1.50 GiB / 112.8 / 49%）、**`sw_int8` @ 57,344**（9.4 s / **free 482.6 MiB** / 117.1 / 60%）。对现役基线均 1/8（跨底座差异属预期）。
+- **结论**：① Swift 上 **rk8v4 最优**（最快 + 接受率最高 + 与 rk2v4 **输出逐字相同 8/8**）；② nvfp4 仍为异类（3/8，属格式特性）；③ **换底座解锁"64K 池 + rk8v4"**（现役件在 rk8v4 上只能 ~41.7K）——"池 ≥ 工作集"与高精度 KV 首次同时满足；④ **int8 可起且预算宽松**：57,344 → free 482.6 MiB，折算 61,440≈347 MiB / 65,536≈213 MiB（贴边），**生产建议 57–61K**（现役件 int8 只能 32,192）。
+- **随之落地**：守望者改名 **`Ninfer-KVMem-Async守望者`**（标题 + journal 前缀，文件名不动）；启动器新增**三品牌模型选择**（`q2lynn / swift / bonsai`，BONSAI 件未下载、仅登记待测试；`VISION_CAPABLE_MODELS` 纳 q2lynn/swift）。
+- **落档**：`docs\Swift换底座-三臂结果与int8预算-20261014.md`；台账 `.temp\swift_arms_20261014.txt`；逐字件 `.temp\verbatim\sw_*.json`。
+- **待决**：日常配置是否切 Swift-IQ3_S + rk8v4 + 65,536（涉及启动器默认档/preset/C 类基准重立/通知 TELE）。

@@ -25,9 +25,25 @@ foreach ($a in $arms) {
     Write-Output ('==== ARM ' + $a.n + ' (NINFER_PDL_OFF=' + [int]$a.off + ') ====')
     if ($a.off) { $env:NINFER_PDL_OFF = '1' } else { [Environment]::SetEnvironmentVariable('NINFER_PDL_OFF', $null, 'Process') }
     powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
-    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step8_pdlreport_20261014.exe' -Tag $tag -Model $Model -Depth 2 -Port 8094 -Graph $Graph -Pool $Pool -KvDtype $KvDtype -StepProfile 1 -Vision overlay | Out-Host
+    # wait until the previous engine really exited (avoid port race -> START-FAILED)
+for ($w = 1; $w -le 15; $w++) { if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 2 }
+Start-Sleep -Seconds 2
+powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step9_verifysplit_20261014.exe' -Tag $tag -Model $Model -Depth 2 -Port 8094 -Graph $Graph -Pool $Pool -KvDtype $KvDtype -StepProfile 1 -Vision overlay | Out-Host
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag $tag -WaitSec 240) -join ' '
     Write-Output ('  ready=' + $r)
+    if ($r -notmatch 'READY') {
+        Write-Output '  ready=FAILED -> retry once after 12s (old profile is VRAM-tight)'
+        Start-Sleep -Seconds 12
+        powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
+        for ($w2 = 1; $w2 -le 15; $w2++) { if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 2 }
+        Start-Sleep -Seconds 3
+        # wait until the previous engine really exited (avoid port race -> START-FAILED)
+for ($w = 1; $w -le 15; $w++) { if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 2 }
+Start-Sleep -Seconds 2
+powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step9_verifysplit_20261014.exe' -Tag $tag -Model $Model -Depth 2 -Port 8094 -Graph $Graph -Pool $Pool -KvDtype $KvDtype -StepProfile 1 -Vision overlay | Out-Host
+        $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag $tag -WaitSec 240) -join ' '
+        Write-Output ('  ready(retry)=' + $r)
+    }
     if ($r -notmatch 'READY') { Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | START-FAILED'); continue }
     $shallow = (python -X utf8 scripts\a2gate.py --arm ($tag + '_sh') --port 8094 --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1 | Where-Object { $_ -match 'run 1 round 1' }) -join ' '
     $deep = ''
@@ -53,7 +69,8 @@ foreach ($a in $arms) {
 Write-Output '==== 恢复平台（rk8v4 + 守望者）===='
 [Environment]::SetEnvironmentVariable('NINFER_PDL_OFF', $null, 'Process')  # 2026-10-14: 真 unset（避开引号展开与 safe-delete 护栏）
 powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
-powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step8_pdlreport_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 192 -Pool 65536 -KvDtype rk8v4 -Model $Model -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
+for ($w = 1; $w -le 15; $w++) { if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 2 }
+powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step9_verifysplit_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 192 -Pool 65536 -KvDtype rk8v4 -Model $Model -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
 $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 240) -join ' '
 Write-Output ('  ready=' + $r)
 Start-Process -WindowStyle Normal -FilePath powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'J:\ninfer-kvmem\scripts\watch_launch.ps1'

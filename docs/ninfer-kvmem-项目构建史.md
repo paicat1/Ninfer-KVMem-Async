@@ -2457,6 +2457,23 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - **现场处置**：守望者复岗（12:49:30 起，含 v3 判据）；工具三件转正入库（`scripts\bisect_env.ps1` / `tools\gpu_probe.cu` / `tools\gpu_probe.exe`）。
 - **下一刀不变（P0）**：设备侧 `%globaltimer` 打点（四区间纳秒写入 mapped buffer）→ 定位自旋发生在图内哪一段；env 二分已证此路不通（除 `--spec k0` 拼写复核外无待跑臂）。
 
+### 34. I3b S6：设备侧 %globaltimer 打点落地 + **首份段落级读数（自旋主段 = target）**（2026-10-14 午后，TELE 指令件·三路联动 路 1）
+
+- **施工**（TELE 指令件三路联动の路 1，用户已批准；CB 复核收敛并加固 3 点：路 2 用谷窗 A-B-A 防自愈、路 1 用 mapped host buffer、兜底扩展条款接受）：
+  - `step_graph_profile.h`：新增 `step_stamp_arm/launch/report` 三函数声明；
+  - `speculative_round.cu`（**CUDA 编译单元**，避免 mtp.cpp 宿主编译限制）：1-thread stamp kernel（`mov.u64 %0, %%globaltimer;`）+ `cudaHostAllocMapped` 零拷贝缓冲（8 slot）+ 慢轮/前 3 轮/VERBOSE 报告（慢轮上限 60 行）；
+  - `mtp.cpp`：`step_graph_arm()` 增建缓冲；`step_graph_record(slot)` 改为 launch 打点 kernel（capture 期成为 **kernel 节点**——绕开 step5 判死的 **event-record 外部可见性**问题）；`step_graph_harvest()` 首行调 `step_stamp_report`；
+  - `engine_ctl.ps1`：`-Spec none` ⇒ **不传 `--spec`**（官方语义"off by default"；`--spec` 合法值仅 `mtp|dflash|dflash2`，`k0` 非法——bisect C 臂失败根因）。
+- **编译**：`BUILD-EXIT=0` 14:46:16（incremental，nvcc 重编 speculative_round.cu + 13/13 链接）；归档 **`I3b_step6_stamp_20261014.exe`**（sha 前 32 位 `0BAB7F8FD00D06DA98AEB928AB5E4CFF`）。
+- **健全性（路 1.5）**：**图节点 1107→1112（+5 stamp kernel 节点）**✓；`spin-stamp DEBUG: armed (mapped host buffer, 8 slots)` ✓；单轮探针 45.3 s / decode 24.5（慢带）下打点连续输出 ✓。
+- **【首份段落级读数】**（慢带，mtp 轮）：
+  `ingress=0.0 / target=120–134 / draft=42–61 / egress=0.0 ms | total≈157–182 ms`（九连发样本）；
+  首发过渡样本 = `target=32.9 / draft=20.5 / total=53.5 ms`。
+  ⇒ **自旋主段 = `target`（MTP verify/靶段）**，占轮时 ~74%；`draft` 次之（~25%）；ingress/egress ≈ 0。
+- **判级（新引擎是否值得用）**：**step6 值得采用（作为"仪器档"）**——代价 = +5 个 1-thread 节点（图 1112）；行为 = `NINFER_STEP_PROFILE=0` 时**零改动**（打点仅在 record 被调用时发生，而 record 受 profile 门控）；收益 = 段落级定位 + **谷窗自动取样**。**不作为生产基线**（生产基线仍 = stage0a 配置档）；**守望者已换装 step6**（仪器常驻，谷窗到即自动留证）。
+- **路线图更新**：路 1 ✔（主刀落地并出首读）；路 2 = `--spec none` 已修好，**待谷窗做 A-B-A**；路 3 = 源码自旋扫描（pending，靶向 `target` 段：verify/attention 路径）；**兜底扩展** = 在 target 段内加二级打点（attention / ring retrieve / demote 三候选）。
+
+
 
 
 

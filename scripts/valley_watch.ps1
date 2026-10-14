@@ -24,7 +24,7 @@ function Start-Engine {
     $r0 = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 5) -join ' '
     if ($r0 -match 'READY') { return $true }
     powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
-    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step3b_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 64 -Pool 65536 -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
+    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step6_stamp_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 64 -Pool 65536 -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 300) -join ' '
     return ($r -match 'READY')
 }

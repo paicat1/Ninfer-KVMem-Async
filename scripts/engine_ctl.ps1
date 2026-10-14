@@ -152,6 +152,15 @@ $cliArgs = @(
     '--presence-penalty', '0', '--temperature', '0.7', '--top-p', '0.9', '--top-k', '20',
     '--recover-invariant-failures'
 )
+if ($Spec -eq 'none') {
+    $filtered = @()
+    for ($i = 0; $i -lt $cliArgs.Count; ++$i) {
+        if ($cliArgs[$i] -eq '--spec' -or $cliArgs[$i] -eq '--draft-tokens') { ++$i; continue }
+        $filtered += $cliArgs[$i]
+    }
+    $cliArgs = $filtered
+    Write-Output 'knob: spec OFF (no --spec flag passed; MTP off by default)'
+}
 Write-Output ('start: exe=' + $Exe)
 Write-Output ('start: depth=' + $Depth + ' port=' + $Port + ' log=' + $log)
 Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', 'python') + $cliArgs) -WorkingDirectory $root -WindowStyle Maximized

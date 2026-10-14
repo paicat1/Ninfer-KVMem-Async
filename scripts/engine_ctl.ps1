@@ -23,6 +23,9 @@ param(
     [int]$Graph = 64,
     [string]$Spec = 'mtp',
     [string]$KvDtype = 'rk2v4-e8',
+    # 窗口纪律：-WindowStyle 只允许可见窗口（起窗必可见）；
+    # 传 Hidden/Minimized/Maximized 一律在参数绑定阶段报错。
+    [ValidateSet('Normal')][string]$WindowStyle = 'Normal',
     [int]$Draft = 4,
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
     [string]$Extra = '',
@@ -164,5 +167,4 @@ if ($Spec -eq 'none') {
 }
 Write-Output ('start: exe=' + $Exe)
 Write-Output ('start: depth=' + $Depth + ' port=' + $Port + ' log=' + $log)
-Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', 'python') + $cliArgs) -WorkingDirectory $root -WindowStyle Maximized
-Write-Output 'started (visible window); now run -Action waitready'
+Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', 'python') + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle  # 窗口纪律：起窗必可见——禁 Hidden/Minimized/Maximized（参数已锁）

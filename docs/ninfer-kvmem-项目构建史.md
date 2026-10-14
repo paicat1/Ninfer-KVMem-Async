@@ -2606,3 +2606,9 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 
 > —— 构建史由 **CodeBuddy** 维护（2026-10-09 用户裁决移交，原为 TeleAgent）；每轮施工完成后**自动补录本文件**（不等催）。
 > —— 施工/审核分工：**施工 + 构建史 = CodeBuddy**；**审核报告 = TeleAgent**（各自 commit/push；commit 前保留 T-COMMIT-APPROVAL 展示环节）。
+
+### 40. 起服窗口可见性修复 + engine_ctl 窗口参数锁（2026-10-14 20:2x）
+
+- **改动**：`scripts\engine_ctl.ps1` 起服窗口 `-WindowStyle Maximized` → **`Normal`**（可见、默认尺寸；原先满屏且 `cmd /k` 使窗口不随进程退出）；并新增参数锁 `[ValidateSet('Normal')]$WindowStyle`——传 Hidden / Minimized / Maximized 在参数绑定阶段即报错（实测拦截 ✓，PS 语法体检 OK）。
+- **现场**：引擎已停（VRAM 回 709 MiB）、无残留 serve_tee 窗口、守望者停。
+- **未完成**：Swift 换底座臂 2/3（`sw_nvfp4` / `sw_rk2v4`）未跑；臂 1（`sw_rk8v4`）已有数据：`engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s | 9.4s`、`KV 65,536 rk8v4 | free 727.9 MiB`、深 60K 单轮 37.3s / decode 143.7。

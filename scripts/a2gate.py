@@ -45,9 +45,12 @@ def main():
     ap.add_argument('--runs', type=int, default=3)
     ap.add_argument('--rounds', type=int, default=2)
     ap.add_argument('--filler-kb', type=int, default=180)
+    ap.add_argument('--nonce', default='', help='非空时把该标记插到 filler 头部：前缀缓存全失效 ⇒ 真实长预填（诱发谷用）')
     ap.add_argument('--max-tokens', type=int, default=600)
     args = ap.parse_args()
     filler = make_filler(args.filler_kb)
+    if args.nonce:
+        filler = ('[nonce ' + args.nonce + '] ' + 'x' * 8 + '\n') + filler  # 头部标记：让整段上下文不进缓存
     url = 'http://127.0.0.1:%d/v1/chat/completions' % args.port
     results = []
     for run in range(1, args.runs + 1):

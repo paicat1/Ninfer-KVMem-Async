@@ -20,7 +20,8 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures -and $cy -lt $Cy
     $cy++
     $decs = @()
     for ($i = 1; $i -le $DeepRepeats; $i++) {
-        $out = (python -X utf8 scripts\a2gate.py --arm ('induce' + $cy + '_' + $i) --port 8094 --runs 1 --rounds 1 --filler-kb $DeepKb --max-tokens 300 2>&1) -join "`n"
+        $nonce = 'cy' + $cy + 'r' + $i + '-' + (Get-Date -Format 'HHmmss')
+        $out = (python -X utf8 scripts\a2gate.py --arm ('induce' + $cy + '_' + $i) --port 8094 --runs 1 --rounds 1 --filler-kb $DeepKb --max-tokens 300 --nonce $nonce 2>&1) -join "`n"
         $line = ([regex]::Matches($out, 'run 1 round 1\s+([\d.]+)s\s+decode=([\d.]+)') | Select-Object -Last 1)
         if ($line.Count -ge 1) { $decs += [double]$line[0].Groups[2].Value } else { $decs += 0.0 }
         Write-Output ('  [cy' + $cy + ' r' + $i + '] decode=' + $decs[-1])
@@ -32,7 +33,7 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures -and $cy -lt $Cy
     $tag = Get-Date -Format 'HH:mm:ss'
     Write-Output ('  [' + $tag + '] cycle ' + $cy + ' deep=' + ($decs -join '/') + ' probe=' + $pd)
     Add-Content -LiteralPath $ledger -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' cy' + $cy + ' deep=' + ($decs -join '/') + ' probe=' + $pd)
-    if ($pd -lt 80.0 -and $pd -gt 0.0) {
+    if ((($pd -lt 80.0) -or ($minDeep -lt 80.0)) -and $pd -gt 0.0) {
         J ('INDUCE: 谷检出（probe decode=' + $pd + '）-> 全量协议 A-B-A（3 臂 浅+深）')
         $atag = 'ind' + (Get-Date -Format 'HHmm')
         powershell -NoProfile -File scripts\pdl_aba.ps1 -Pattern 'on,off,on' -KvDtype $KvDtype -Pool $Pool -Tag $atag | Out-Host

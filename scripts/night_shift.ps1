@@ -6,7 +6,7 @@ param(
     [int]$MaxCaptures = 5,
     [double]$Hours    = 8,
     [int]$VerifySlow  = 30,
-    [int]$DecodeSlow  = 150
+    [int]$DecodeSlow  = 60   # calibrated for the 45KB/60-token probe (healthy ~101-110, valley 15-23)
 )
 $host.UI.RawUI.WindowTitle = 'KVMem 夜间值守机 [运行中] - 自检谷/自捕A-B-A；关窗=停（' + $MaxCaptures + ' 次捕获或 ' + $Hours + ' 小时后自关）'
 Set-Location J:\ninfer-kvmem
@@ -62,7 +62,7 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures) {
     Say ('cy' + $cycle + ' shape=' + $shape + ' decode=' + $dec + ' wall=' + $wall + 's verify=' + $ver + '(fresh=' + $verFresh + ') vram=' + $free + 'MiB')
 
     # ---- 谷判据：双信号，连续 2 次 ----
-    $slow = (($ver -ge $VerifySlow) -or (($dec -gt 0) -and ($dec -lt $DecodeSlow)) -or ($wall -ge 5))
+    $slow = (($verFresh -and ($ver -ge $VerifySlow)) -or (($dec -gt 0) -and ($dec -lt $DecodeSlow)) -or ($wall -ge 3))
     if ($slow) { $strikes++ } else { $strikes = 0 }
     if ($strikes -ge 2) {
         $strikes = 0

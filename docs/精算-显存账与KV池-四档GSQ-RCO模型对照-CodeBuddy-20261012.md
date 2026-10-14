@@ -426,6 +426,34 @@ rk4v4-e8       3/8 一致   改写级；举例选择都变了（nvfp4 同族）
 
 ---
 
+## 11. 可迁移性矩阵：换模型 / 换精度时，哪些结论与数据仍然有效（v3.3 新增 · 2026-10-14）
+
+> 缘起：用户计划把开发用模型切到 **Swift-1.5**，担心已积累的"数据与关系"随底座/精度变化而失效。
+> 三条处置线如下；**今后每条新结论都要标注适用域 `[模型 × 权重档 × KV 档 × 池]`**。
+
+### 11.1 A 类 · 引擎物理（换模型/精度均有效，直接迁移，不必重测）
+谷/自旋机理（满频 100% + 63–98 W 低功耗 + 饿死并行核 8×）· **MTP 路径因果**（关 MTP 谷消失；裸解码 ≈55.8 ≈ 基线 55.7）· ring 五段亚毫秒 · demote/restore 排除 · **"谷=时间现象"**（A2 逐字门：同 prompt 池内 vs 首次超池 sha 逐字相同）· v2 异步页流水 · S6 `%globaltimer` 打点仪 · 守望者判据 v3 · 工具链（bisect_env / ablate_run / gpu_probe / verbatim_gate）· 请求线几何（41–73K 工作集）· **池↔谷负担公式** ∝ (上下文−池)×每token字节。
+
+### 11.2 B 类 · 公式有效、数字重算（不必重测）
+池天花板（81,920 = f(权重字节, KV 页字节, 贴边 1,062 MiB)）· 各精度预算线（贴边/稳定）· "权重档 vs KV 档"的显存分配 —— 全部用 §6 公式重算；**4 档 × 6 格式矩阵已在本文件备好**。
+
+### 11.3 C 类 · 必须重测（且换档前先立基线）
+1. **全部 golden SHA 门禁**（a2gate 的 sha = 权重的函数）⇒ 换档即作废，须"**每档一套基准**"；
+2. 接受率 / tok每轮 / decode / TTFT（"tok/轮 恒 16.0"是 Q2Lynn + 固定 draft 几何的产物）；
+3. **逐字一致门**（新工具 `scripts\verbatim_gate.py`，8 组固定提示 + argmax + 独立起服）：**同模型内** ≥7/8 过；**跨底座差异属预期**（首测：Q2Lynn vs Swift-IQ3_S = **1/8**，唯一全等者 = p5 逐字复述——精确型任务的安全侧与第三方结论一致）；
+4. 谷负担倍数（demote 字节随精度 ×1.4–2，谷期是裁判点）；
+5. 质量/任务分（真实 DSH agentic 任务一条，两件各一轮）。
+
+### 11.4 换档纪律（一次一变量，禁止并换）
+**先"零换模型"的 KV 精度升级**（nvfp4 免费档 + 逐字门）→ **再做 KV A/B**（nvfp4 / rk8v4 / 现状）→ **最后换底座**。§3.3 已明确"两边量化损失都不大、差异主因在底座"⇒ 若同时换底座与精度，出问题将**无法归因**。
+
+### 11.5 实载实证（2026-10-14 · 本文件首份实机答案）
+- **Swift-1.5 IQ3_S 实载通过** ✓：`loading weights | 11.3 GiB`（与 §2 表 11.50 GiB 卡片口径吻合）→ `engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s | total 9.4s`；**方言 `gguf_blocks_v1` 被引擎接受**（§8 硬前提 1 的实机答案）。
+- ⚠️ **新增配置硬要求**：`--cuda-graph-allowance-mib 64` 对该件偏小——启动期 WARN `CUDA graphs used 236.8 MiB but the KV sizing allowed 64.0 MiB`；**Swift 档起步用 192**（改后 WARN 消失、READY）。64K@rk2v4 下卡上余量 **1.27 GiB**（与 §6 预期一致）。
+- **逐字门噪声地板**：同件两臂（各自独立起服）= **8/8 全等** ⇒ 引擎 argmax 完全确定、门本底噪声 = 0。
+
+---
+
 ## 附：KV 精度影响的调研证据（v2 新增，2026-10-12 网络检索）
 
 | 来源 | 结论 | 对本线的意义 |
@@ -439,4 +467,4 @@ rk4v4-e8       3/8 一致   改写级；举例选择都变了（nvfp4 同族）
 
 ---
 
-*本文件为估算报告（**v3.0 通篇整合版**），写入于 `docs/`；数字出处：本库 README/构建史/技术解析/教程（实测锚：81,920 天花板、463.9/220 tok/s 基线、工作集 42K）+ ModelScope `fyb423` 规格（https://www.modelscope.cn/models/fyb423/Swift-1.5-Qwen3.8-27B-GSQ-RCO-NInfer ）+ Merkyor 原件仓（BPW/任务分）+ ukisai 源 GGUF 仓 KLD 表（https://www.modelscope.cn/models/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF ）+ ukisai.com 官网评测（https://ukisai.com/swift-1-5-27b ）+ KVTuner/KVQuant/sotaaz（KV 精度证据）+ KVMem 原生实现作者配方（2026-10 视频截图，见 §9）+ **tancau/ninfer-kvmem-ring（同血统引擎第三方实测：六格式三表 / 逐字一致门 / 口径纪律，见 §10）**。未修改其他文件。*
+*本文件为估算报告（**v3.3 通篇整合版**），写入于 `docs/`；数字出处：本库 README/构建史/技术解析/教程（实测锚：81,920 天花板、463.9/220 tok/s 基线、工作集 42K）+ ModelScope `fyb423` 规格（https://www.modelscope.cn/models/fyb423/Swift-1.5-Qwen3.8-27B-GSQ-RCO-NInfer ）+ Merkyor 原件仓（BPW/任务分）+ ukisai 源 GGUF 仓 KLD 表（https://www.modelscope.cn/models/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF ）+ ukisai.com 官网评测（https://ukisai.com/swift-1-5-27b ）+ KVTuner/KVQuant/sotaaz（KV 精度证据）+ KVMem 原生实现作者配方（2026-10 视频截图，见 §9）+ **tancau/ninfer-kvmem-ring（同血统引擎第三方实测：六格式三表 / 逐字一致门 / 口径纪律，见 §10）**。未修改其他文件。*

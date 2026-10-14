@@ -2487,6 +2487,16 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - **谷窗自动取样已验**（TELE 路 1.1）：14:58–15:03 期间守望者（step6）自动产出 target 115.8–221.4 ms 连发读数 ✓。
 - **下一刀（路 3 收窄）**：源码扫描靶面 = `mtp.cpp` target 段调用链（slot1→slot2 之间）+ `speculative_round.cu` verify kernels；找 while / 无界重试 / 标志等待。可选二级打点在 target 段内再切（verify 输入装配 / attention / logits）。
 
+### 36. 换模型前哨：逐字一致门交付 + Swift-1.5 IQ3_S 实载通过 + 可迁移性矩阵（2026-10-14 晚，用户令"同意 abc"）
+
+- **(b) 逐字一致门工具交付**（`scripts\verbatim_gate.py`）：8 组固定提示（4 精确型：py/c++/json×2/shell + 1 逐字复述 + 3 开放式）· `temperature=0/top_p=1/top_k=1`（argmax）· **逐请求关思考**（`chat_template_kwargs.enable_thinking=false`，实测有效：思考块会先吃输出预算令 content 截断空）· 每臂独立起服（冷缓存）· content 与 reasoning 双字段逐字比对 + 首处差异定位 + 报表落 `.temp\verbatim\`。
+  - **噪声地板实测 = 8/8 全等**（同配置两臂各自起服）⇒ 引擎 argmax 完全确定，门本底噪声 = 0；判据（借第三方）：≥7/8 过 · 5-6/8 条件 · ≤4/8 拒。
+- **(c) Swift-1.5 IQ3_S 实载通过**：`loading weights | 11.3 GiB` → `engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s | 9.4s`；**方言 `gguf_blocks_v1` 被接受**（精算 §8 硬前提 1 落地）。**新增配置硬要求：`--cuda-graph-allowance-mib` 起步 192**（64 会 WARN `CUDA graphs used 236.8 MiB > allowed 64.0 MiB`；192 后 WARN 消失）。首次经 serve_tee 起服曾静默死亡（日志仅一条 CMD 行），裸跑（带 engine_ctl 的 DLL PATH + NINFER_*）与 engine_ctl 重测均成功 ⇒ 判为**瞬时/竞态**，已记观察项。
+  - **首份跨底座逐字对照：Q2Lynn vs Swift-IQ3_S = 1/8**（唯一全等 = p5 逐字复述；其余为改写/格式级差异：JSON 加 ``` 围栏、shell 改 `ls`、代码风格不同）⇒ **跨底座差异属预期**；门判据（≥7/8）仅用于**同模型内**的 KV 精度对比。
+- **(a) 可迁移性矩阵**（新节，防"旧关系被误用"）：A 类（引擎物理，直接迁移）/ B 类（公式在、数字重算：池天花板与预算线）/ C 类（必须重测：全部 golden SHA、接受率与 tok/轮、逐字门、谷负担倍数、任务分）+ 换档纪律（**先 KV 精度升级 → 再 KV A/B → 最后换底座；禁止并换**）。已写入精算文档 **§11**（并升版 v3.3）。
+- **资产**：精算 §11 可迁移性矩阵 · `scripts\verbatim_gate.py` · `.temp\verbatim\cur_a2|cur_b2|swift_iq3s.json` + 两份 compare 报表；引擎/工具链无改动（本轮不动引擎源码）。
+
+
 
 
 

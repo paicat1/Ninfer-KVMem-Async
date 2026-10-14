@@ -62,7 +62,7 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures) {
     Say ('cy' + $cycle + ' shape=' + $shape + ' decode=' + $dec + ' wall=' + $wall + 's verify=' + $ver + '(fresh=' + $verFresh + ') vram=' + $free + 'MiB')
 
     # ---- 谷判据：双信号，连续 2 次 ----
-    $slow = (($verFresh -and ($ver -ge $VerifySlow)) -or (($dec -gt 0) -and ($dec -lt $DecodeSlow)) -or ($wall -ge 3))
+    $slow = (($verFresh -and ($ver -ge $VerifySlow)) -or (($dec -gt 0) -and ($dec -lt $DecodeSlow)))
     if ($slow) { $strikes++ } else { $strikes = 0 }
     if ($strikes -ge 2) {
         $strikes = 0

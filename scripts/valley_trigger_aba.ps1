@@ -18,7 +18,11 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures) {
     $slow = ($tail -match 'STATE=SLOW')
     if (-not $slow) { $slow = ($tail -match 'decode=([0-9.]+) tok/s' -and [double]$Matches[1] -lt 80.0) }
     $age = ((Get-Date) - $lastCapture).TotalSeconds
-    if ($slow -and $age -ge $CooldownSec) {
+    # 用户活跃守卫（2026-10-14 夜）：reqlog 近 120s 有写入 ⇒ 正在跑实机请求 ⇒ 本次跳过（绝不打断会话）
+    $req = '.temp\reqlog_watch.jsonl'
+    $busy = (Test-Path $req) -and (((Get-Date) - (Get-Item $req).LastWriteTime).TotalSeconds -lt 120)
+    if ($busy -and $slow) { J 'ABA-TRIGGER: SLOW 但检测到你正在用机（reqlog 活跃）-> 跳过捕获'; $lastCapture = Get-Date }
+    if ($slow -and $age -ge $CooldownSec -and -not $busy) {
         $tag = 'auto' + (Get-Date -Format 'HHmm')
         J ('ABA-TRIGGER: SLOW 检出 -> 启动 ' + $tag + '（' + $captures + 1 + '/' + $MaxCaptures + '）')
         powershell -NoProfile -File scripts\pdl_aba.ps1 -Tag $tag | Out-Host

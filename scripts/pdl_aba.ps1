@@ -2,7 +2,7 @@
 #   用法：powershell -NoProfile -File scripts\pdl_aba.ps1 -Tag valley1
 #   判据：慢轮 target 段（及新增 target-split 的 prepare/verify 三分）在 off 臂是否塌回快带量级；
 #         同时记录浅探针 decode 与深 60K 单轮墙钟。
-param([string]$Pattern = 'on,off,on', [switch]$SkipDeep, [switch]$NoAbortIfHealthy, [string]$Tag = 'pdlrun', [string]$Model = 'swift15_iq3s_mtp.ninfer', [string]$KvDtype = 'rk8v4', [int]$Pool = 65536, [int]$Graph = 192)
+param([string]$Pattern = 'on,off,on', [int]$ProbeSeconds = 0, [switch]$SkipDeep, [switch]$NoAbortIfHealthy, [string]$Tag = 'pdlrun', [string]$Model = 'swift15_iq3s_mtp.ninfer', [string]$KvDtype = 'rk8v4', [int]$Pool = 65536, [int]$Graph = 192)
 Set-Location J:\ninfer-kvmem
 $results = '.temp\pdl_aba_' + $Tag + '.txt'
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*watch_launch*' -or $_.CommandLine -like '*valley_watch*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Output ('watcher stopped ' + $_.ProcessId) }
@@ -46,6 +46,20 @@ powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\li
     }
     if ($r -notmatch 'READY') { Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | START-FAILED'); continue }
     $shallow = (python -X utf8 scripts\a2gate.py --arm ($tag + '_sh') --port 8094 --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1 | Where-Object { $_ -match 'run 1 round 1' }) -join ' '
+    if ($ProbeSeconds -gt 0) {
+        $t0 = Get-Date
+        $pi = 1
+        $readings = @()
+        $readings += $shallow
+        while (((Get-Date) - $t0).TotalSeconds -lt $ProbeSeconds) {
+            Start-Sleep -Seconds 20
+            $pi++
+            $pr = (python -X utf8 scripts\a2gate.py --arm ($tag + '_p' + $pi) --port 8094 --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1 | Where-Object { $_ -match 'run 1 round 1' }) -join ' '
+            $readings += $pr
+            Write-Output ('    probe' + $pi + ': ' + $pr)
+        }
+        Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | MULTIPROBE n=' + $readings.Count + ' :: ' + (($readings | ForEach-Object { ($_ -replace 'run 1 round 1\s+', '') }) -join ' || '))
+    }
     $deep = ''
     if (-not $SkipDeep) {
         $deep = (python -X utf8 scripts\a2gate.py --arm ($tag + '_dp') --port 8094 --runs 1 --rounds 1 --filler-kb 240 --max-tokens 200 2>&1 | Where-Object { $_ -match 'run 1 round 1' }) -join ' '
@@ -60,7 +74,7 @@ powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\li
     $envActual = if ($null -eq $env:NINFER_PDL_OFF -or $env:NINFER_PDL_OFF -eq '') { '0' } else { $env:NINFER_PDL_OFF }
     Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | 协议=' + $proto + ' 意图=' + [int]$a.off + ' 实际env=' + $envActual + ' | ' + $shallow + ' | ' + $deep + ' | ' + $stamps)
     # 首臂健康 ⇒ 谷已过（自愈）⇒ 提前收场，不烧余下臂（2026-10-14 夜教训：臂 1 慢、臂 2/3 全快 = 无效捕获）
-    if (-not $NoAbortIfHealthy -and $armNo -eq 1 -and $shallow -match 'decode=([0-9.]+)' -and [double]$Matches[1] -ge 100) {
+    if (-not $NoAbortIfHealthy -and $ProbeSeconds -eq 0 -and $armNo -eq 1 -and $shallow -match 'decode=([0-9.]+)' -and [double]$Matches[1] -ge 100) {
         Write-Output ('  ABORT: 首臂健康（decode=' + $Matches[1] + '）⇒ 判定谷已过，跳过余下臂')
         Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ABORT: 首臂健康 decode=' + $Matches[1] + ' -> 跳过余下臂（无效捕获，等下一窗）')
         break

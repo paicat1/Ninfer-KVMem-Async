@@ -62,14 +62,14 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures) {
     Say ('cy' + $cycle + ' shape=' + $shape + ' decode=' + $dec + ' wall=' + $wall + 's verify=' + $ver + '(fresh=' + $verFresh + ') vram=' + $free + 'MiB')
 
     # ---- 谷判据：双信号，连续 2 次 ----
-    $slow = (($ver -ge $VerifySlow) -or (($dec -ge 0) -and ($dec -lt $DecodeSlow)) -or ($wall -ge 5))
+    $slow = (($ver -ge $VerifySlow) -or (($dec -gt 0) -and ($dec -lt $DecodeSlow)) -or ($wall -ge 5))
     if ($slow) { $strikes++ } else { $strikes = 0 }
     if ($strikes -ge 2) {
         $strikes = 0
         J ('valley detected (decode=' + $dec + ' verify=' + $ver + ') -> fast 5-arm A-B-A')
         $atag = 'night' + (Get-Date -Format 'HHmm')
         try {
-            powershell -NoProfile -File scripts\pdl_aba_rt.ps1 -Tag $atag -ProbesPerPhase 2 | Out-Host
+            powershell -NoProfile -File scripts\pdl_aba.ps1 -Pattern 'on,off,on,off,on' -SkipDeep -NoAbortIfHealthy -ProbeSeconds 120 -KvDtype $KvDtype -Pool 57344 -Model $Model -Tag $atag | Out-Host
             J ('A-B-A done -> .temp\pdl_aba_' + $atag + '.txt')
         } catch { J ('A-B-A threw: ' + $_.Exception.Message) }
         $captures++

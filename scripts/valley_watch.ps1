@@ -41,8 +41,13 @@ while ((Get-Date) -lt $deadline) {
     $line = ($out | Where-Object { $_ -match 'run 1 round 1' } | Select-Object -First 1)
     $sec = 0.0
     if ($line -and $line -match '([\d.]+)s') { $sec = [double]$Matches[1] }
-    J ('probe sec=' + $sec + ' | gpu=' + $gpu + ' | ' + (($line + '') -replace '^\s+', ''))
-    if ($sec -ge $SlowSec) {
+    # 判据 v3（2026-10-14）：墙钟会被冷/暖填互换掩盖（冷填 5.4s+解码 174 与 暖填 0.4s+解码 28 同报 ~7s）。
+    # 改用解码速率为主判据：快 ~124-174 tok/s；慢 ~25-28 tok/s。decode<80 = 降级。
+    $dec = 0.0; $cached = 0; $pms = 0.0
+    $parsed = python -X utf8 -c "import json;d=json.load(open('.temp/gate_watch.json',encoding='utf-8'));r=d['runs'][0];t=r['timings'];u=r['usage'];print('%.1f %d %.0f' % (t['predicted_per_second'], u['prompt_tokens_details']['cached_tokens'], t['prompt_ms']))" 2>$null
+    if ($parsed -match '([\d.]+) (\d+) (\d+)') { $dec = [double]$Matches[1]; $cached = [int]$Matches[2]; $pms = [double]$Matches[3] }
+    J ('probe sec=' + $sec + ' decode=' + $dec + ' tok/s | prompt_ms=' + $pms + ' cached=' + $cached + ' | gpu=' + $gpu)
+    if ($dec -lt 80.0 -and $sec -ge 2.0) {
         $slowStreak += 1
         J ('STATE=SLOW streak=' + $slowStreak + ' -> sampler+dmon 300s')
         Start-Process -WindowStyle Hidden -FilePath cmd -ArgumentList '/c', 'nvidia-smi dmon -o T -s pucmt -c 300 > J:\ninfer-kvmem\.temp\watch_dmon.txt 2>&1'

@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <utility>
 
@@ -20,7 +21,13 @@ namespace ninfer::pdl {
 [[nodiscard]] inline bool pdl_kill_switch() noexcept {
     static const bool off = []() {
         const char* v = std::getenv("NINFER_PDL_OFF");
-        return v != nullptr && v[0] != '\0' && v[0] != '0';
+        const bool o = v != nullptr && v[0] != '\0' && v[0] != '0';
+        // S8（2026-10-14 夜）：一次自报——A-B-A 台账不再依赖"意图"，引擎自己说这次是哪种模式。
+        std::fprintf(stderr, "[ninfer] PDL: programmatic-dependent launches %s%s%s\n",
+                     o ? "DISABLED" : "ENABLED",
+                     o ? " (NINFER_PDL_OFF=" : " (native 120a",
+                     o ? (v ? v : "1") : ")");
+        return o;
     }();
     return off;
 }

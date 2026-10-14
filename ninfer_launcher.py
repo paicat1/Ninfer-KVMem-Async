@@ -178,6 +178,17 @@ MODEL_PATHS = {
 VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {}
+# ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
+#   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
+#   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
+MODEL_BUNDLES = {
+    "q2lynn": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
+               "note": "现役定稿（冻结基准）；实测池上限 65,536（free ~490 MiB）/ rk8v4 ≤ 41,664"},
+    "swift":  {"kv": "rk8v4",    "kvcap": "65536", "graph": "192", "vision": "overlay",
+               "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
+    "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
+               "note": "前序线 · 件未下载（仅登记待测试）"},
+}
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -392,6 +403,7 @@ DIMENSIONS = [
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
     ("reqlog", "请求日志（Stage 0 仪器）", REQLOG_OPTIONS),   # 2026-10-13 夜新增
 ]
+DIMENSIONS_MAP = {key: table for key, _label, table in DIMENSIONS}  # 联动用（2026-10-14）
 
 # 默认组合（P0 2026-10-09 适配 Coder390；P1b 2026-10-09 按实测参数定稿）：
 #   spec   : "k4" = MTP K=4（本线已跑通；要裸解码基线请显式选 "k0"）
@@ -1028,6 +1040,21 @@ class LauncherApp:
                     self.var["model"].set(MODEL_OPTIONS["iq4nlvis"][0])   # 同步下拉显示
         # 挂账 39 已销案（2026-10-11 凌晨）：视觉 + on（无 growth）实测正常，不再强制 legacy
         # （growth 已判死，任何路径不再默认带 --kv-lease-growth）。
+        # c) 每模型一套参数（2026-10-14 用户令）：模型变化时一次性套用整套，
+        #    之后用户手改单项不被反复覆盖（只在"模型变化"这一拍应用）。
+        _model_now = self.selection.get("model", "iq4nl")
+        _bundle = MODEL_BUNDLES.get(_model_now)
+        if _bundle and getattr(self, "_bundle_model", None) != _model_now:
+            self._bundle_model = _model_now
+            for _key in ("kv", "kvcap", "graph", "vision"):
+                _val = _bundle.get(_key)
+                _table = DIMENSIONS_MAP.get(_key)
+                if not _val or not _table or _val not in _table:
+                    continue
+                self.selection[_key] = _val
+                if _key in self.var:
+                    self.var[_key].set(_table[_val][0])   # 同步下拉显示
+            print("[bundle] " + _model_now + " -> " + str(_bundle))
         cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
         if not cap:
             return

@@ -1,0 +1,5 @@
+10-14 19:32:25 arm=d_rk82 | START-FAILED
+10-14 19:34:41 arm=d_rk41 | rk2v4 @ 40,960 (60K 必超池~19K) | r1 wall=40.4s decode=89.2 prompt_ms=38046 cached=0 | r1 wall=73.3s decode=90.8 prompt_ms=71012 cached=59817 | 2026-10-14 19:32:44.476  INFO  capacity | KV 40,960 tokens, rk2v4-e8, explicit | pages 640/4,096 | runtime 1.32 GiB | free 809.7 MiB
+10-14 19:38:00 arm=d_nv57 | nvfp4 @ 57,344 (寰秴 ~2.6K) | r1 wall=61.1s decode=229.7 prompt_ms=60104 cached=0 | r1 wall=98.1s decode=108.8 prompt_ms=96091 cached=59817 | 2026-10-14 19:35:15.807  INFO  capacity | KV 57,344 tokens, nvfp4, explicit | pages 896/4,096 | runtime 1.93 GiB | free 193.1 MiB
+10-14 19:40:28 arm=d_rk65 | rk2v4 @ 65,536 (生产档，60K 装得下) | r1 wall=37.8s decode=126.2 prompt_ms=36122 cached=0 | r1 wall=65.0s decode=107.1 prompt_ms=62945 cached=59817 | 2026-10-14 19:38:41.525  INFO  capacity | KV 65,536 tokens, rk2v4-e8, explicit | pages 1,024/4,096 | runtime 1.66 GiB | free 489.6 MiB
+10-14 19:43:20 arm=d_rk65b | rk2v4 @ 65,536 RE-RUN (同配置内容复现性) | r1 wall=38.8s decode=122.3 prompt_ms=37012 | r1 wall=67.7s decode=104.3 prompt_ms=65644

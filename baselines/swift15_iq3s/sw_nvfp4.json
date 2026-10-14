@@ -1,0 +1,178 @@
+[
+ {
+  "prompt_id": "p1_code",
+  "prompt": "写一个 Python 函数 merge_intervals(pairs)，合并重叠区间并返回排序后的列表。只给代码和一行示例。",
+  "content": "```python\ndef merge_intervals(pairs):\n    if not pairs:\n        return []\n    pairs.sort()\n    merged = [pairs[0]]\n    for start, end in pairs[1:]:\n        if start <= merged[-1][1]:\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            merged.append([start, end])\n    return merged\n\nprint(merge_intervals([(1,3),(2,6),(8,10),(15,18)]))  # [[1, 6], [8, 10], [15, 18]]\n```",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 1.04,
+  "sha_content": "db04d60d",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 144,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 38,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 182
+  }
+ },
+ {
+  "prompt_id": "p2_code",
+  "prompt": "用 C++ 写一个最小 LRU 缓存的类定义（含 get/put），不要解释。",
+  "content": "```cpp\n#include <list>\n#include <unordered_map>\n\nclass LRUCache {\nprivate:\n    int capacity;\n    std::list<std::pair<int, int>> items; // (key, value)\n    std::unordered_map<int, std::list<std::pair<int, int>>::iterator> cache;\n\npublic:\n    LRUCache(int capacity) : capacity(capacity) {}\n\n    int get(int key) {\n        auto it = cache.find(key);\n        if (it == cache.end()) return -1;\n        items.splice(items.begin(), items, it->second);\n        return it->second->second;\n    }\n\n    void put(int key, int value) {\n        auto it = cache.find(key);\n        if (it != cache.end()) {\n            it->second->second = value;\n            items.splice(items.begin(), items, it->second);\n            return;\n        }\n        if (items.size() == capacity) {\n            auto last = items.back();\n            cache.erase(last.first);\n            items.pop_back();\n        }\n        items.push_front({key, value});\n        cache[key] = items.begin();\n    }\n};\n```",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 1.62,
+  "sha_content": "295b74fb",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 263,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 35,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 298
+  }
+ },
+ {
+  "prompt_id": "p3_json",
+  "prompt": "把下面信息抽成 JSON 对象（字段 name/age/city，不要额外文字）：张三，34 岁，住在杭州。",
+  "content": "```json\n{\n  \"name\": \"张三\",\n  \"age\": 34,\n  \"city\": \"杭州\"\n}\n```",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.34,
+  "sha_content": "e7be21f3",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 34,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 43,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 77
+  }
+ },
+ {
+  "prompt_id": "p4_json",
+  "prompt": "输出一个 JSON 数组，含 3 个对象，字段 id/name/score，score 取 60-99 的整数。只给 JSON。",
+  "content": "```json\n[\n  {\n    \"id\": 1,\n    \"name\": \"Alice\",\n    \"score\": 85\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob\",\n    \"score\": 72\n  },\n  {\n    \"id\": 3,\n    \"name\": \"Charlie\",\n    \"score\": 91\n  }\n]\n```",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.62,
+  "sha_content": "e6e02ed6",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 99,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 48,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 147
+  }
+ },
+ {
+  "prompt_id": "p5_quote",
+  "prompt": "逐字复述下面这句话，不要改动任何标点或字：异步页流水把搬运从关键路径上摘下来，于是池从容量门槛降级为搬运频率旋钮。",
+  "content": "异步页流水把搬运从关键路径上摘下来，于是池从容量门槛降级为搬运频率旋钮。",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.28,
+  "sha_content": "0e9f1bbc",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 24,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 49,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 73
+  }
+ },
+ {
+  "prompt_id": "p6_fact",
+  "prompt": "用两句话解释为什么 CUDA graph 能降低每步启动开销。",
+  "content": "CUDA Graph 将一系列内核启动操作预捕获并打包成一个单一的图对象，从而避免了每次执行时反复向驱动程序提交独立命令的 CPU 开销。\n执行时，整个图只需通过一次 API 调用即可提交到 GPU，显著减少了 CPU 与 GPU 之间的通信频率和调度延迟。",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.73,
+  "sha_content": "4bdfb142",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 65,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 27,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 92
+  }
+ },
+ {
+  "prompt_id": "p7_open",
+  "prompt": "用三句话描述异步页流水的优势。",
+  "content": "异步页流水通过解耦页面加载与数据获取，显著提升了用户界面的响应速度和交互流畅度。\n它允许在后台静默加载新内容，从而避免了传统同步请求导致的界面阻塞或白屏现象。\n这种机制有效降低了用户感知延迟，为大型单页应用提供了更平滑、高效的浏览体验。",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.84,
+  "sha_content": "94556544",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 69,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 21,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 90
+  }
+ },
+ {
+  "prompt_id": "p8_shell",
+  "prompt": "给出一条 shell 命令：列出当前目录下最大的 5 个文件，按人类可读大小排序。只给命令。",
+  "content": "```bash\nls -lhS | head -n 5\n```",
+  "reasoning": "",
+  "finish_reason": "stop",
+  "error": "",
+  "elapsed_s": 0.23,
+  "sha_content": "d2591210",
+  "sha_reasoning": "e3b0c442",
+  "usage": {
+   "completion_tokens": 16,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "prompt_tokens": 38,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 54
+  }
+ }
+]

@@ -48,7 +48,11 @@ while ((Get-Date) -lt $deadline) {
     $dec = 0.0; $cached = 0; $pms = 0.0
     $parsed = python -X utf8 -c "import json;d=json.load(open('.temp/gate_watch.json',encoding='utf-8'));r=d['runs'][0];t=r['timings'];u=r['usage'];print('%.1f %d %.0f' % (t['predicted_per_second'], u['prompt_tokens_details']['cached_tokens'], t['prompt_ms']))" 2>$null
     if ($parsed -match '([\d.]+) (\d+) (\d+)') { $dec = [double]$Matches[1]; $cached = [int]$Matches[2]; $pms = [double]$Matches[3] }
-    J ('probe sec=' + $sec + ' decode=' + $dec + ' tok/s | prompt_ms=' + $pms + ' cached=' + $cached + ' | gpu=' + $gpu)
+    # 段级打点：最后一条 target-split 的 verify 毫秒（健康 ~18；谷 75–108）——2026-10-14 夜加
+    $ver = 0.0
+    $vl = (Select-String -Path 'logs\test_valleywatch.log' -Pattern 'target-split' -Encoding UTF8 -ErrorAction SilentlyContinue | Select-Object -Last 1 | ForEach-Object { $_.Line })
+    if ($vl -match 'verify=([\d.]+)') { $ver = [double]$Matches[1] }
+    J ('probe sec=' + $sec + ' decode=' + $dec + ' tok/s | prompt_ms=' + $pms + ' cached=' + $cached + ' | verify=' + $ver + 'ms | gpu=' + $gpu)
     if ($dec -lt 80.0 -and $sec -ge 2.0) {
         $slowStreak += 1
         J ('STATE=SLOW streak=' + $slowStreak + ' -> sampler+dmon 300s')

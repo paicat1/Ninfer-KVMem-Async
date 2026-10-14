@@ -48,6 +48,7 @@ while ((Get-Date) -lt $deadline -and $captures -lt $MaxCaptures) {
     if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) {
         Say 'engine down -> restart (old profile)'
         $env:NINFER_PDL_FLAG_FILE = 'J:\ninfer-kvmem\.temp\pdl_off.flag'
+        $env:NINFER_MAT_DEBUG = '1'
         powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step10_rtpdl_20261015.exe' -Tag valleywatch -Model $Model -KvDtype $KvDtype -Pool $Pool -Graph 64 -Vision overlay -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
         $rr = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 180) -join ' '
         Say ('  ready=' + $rr)

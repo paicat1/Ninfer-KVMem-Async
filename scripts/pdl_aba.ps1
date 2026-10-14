@@ -4,6 +4,7 @@
 #         同时记录浅探针 decode 与深 60K 单轮墙钟。
 param([string]$Pattern = 'on,off,on', [int]$ProbeSeconds = 0, [switch]$SkipDeep, [switch]$NoAbortIfHealthy, [string]$Tag = 'pdlrun', [string]$Model = 'swift15_iq3s_mtp.ninfer', [string]$KvDtype = 'rk8v4', [int]$Pool = 65536, [int]$Graph = 192)
 Set-Location J:\ninfer-kvmem
+$env:NINFER_MAT_DEBUG = '1'   # S11-C: admission/materialization gate trace
 $results = '.temp\pdl_aba_' + $Tag + '.txt'
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*watch_launch*' -or $_.CommandLine -like '*valley_watch*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Output ('watcher stopped ' + $_.ProcessId) }
 Start-Sleep -Seconds 2

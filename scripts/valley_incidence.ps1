@@ -29,6 +29,7 @@ function Start-IncidenceEngine([bool]$off) {
     Start-Sleep -Seconds 3
     if ($off) { $env:NINFER_PDL_OFF = '1' } else { [Environment]::SetEnvironmentVariable('NINFER_PDL_OFF', $null, 'Process') }
     $env:NINFER_PDL_FLAG_FILE = 'J:\ninfer-kvmem\.temp\pdl_off.flag'
+    $env:NINFER_MAT_DEBUG = '1'   # S11-C: admission/materialization gate trace (our tree supports it)
     Remove-Item -LiteralPath 'J:\ninfer-kvmem\.temp\pdl_off.flag' -ErrorAction SilentlyContinue
     $ok = $false
     for ($try = 1; $try -le 4 -and -not $ok; $try++) {

@@ -6,6 +6,13 @@
 Usage: python .temp\\a2gate.py --arm a2on --port 8094 --runs 3
 """
 import argparse
+# 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
+try:
+    from _modelid import model_id as _model_id
+except Exception:  # 极端情况下回退旧名
+    def _model_id(*_a, **_k):
+        return "qwen3.8-27b-coder390"
+
 import hashlib
 import json
 import sys
@@ -50,7 +57,7 @@ def main():
                       '并给出一个可执行的自检清单。' % round_index)
             messages = history + [{'role': 'user', 'content': prompt}]
             body = json.dumps({
-                'model': 'qwen3.8-27b-coder390',
+                'model': _model_id(),
                 'messages': messages,
                 'max_tokens': args.max_tokens,
                 'temperature': 0, 'top_p': 1.0, 'top_k': 1,

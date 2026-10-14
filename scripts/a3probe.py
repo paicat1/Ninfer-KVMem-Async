@@ -6,6 +6,13 @@
 Usage: python .temp\\a3probe.py --arm a3off --port 8094 --sizes 180,260 --runs 2
 """
 import argparse
+# 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
+try:
+    from _modelid import model_id as _model_id
+except Exception:  # 极端情况下回退旧名
+    def _model_id(*_a, **_k):
+        return "qwen3.8-27b-coder390"
+
 import json
 import sys
 import time
@@ -46,7 +53,7 @@ def main():
             filler = make_filler(kb, seed)
             prompt = filler + '\n\n[probe %dKB run %d] 用一句话总结上面文字的模式。' % (kb, run)
             body = json.dumps({
-                'model': 'qwen3.8-27b-coder390',
+                'model': _model_id(),
                 'messages': [{'role': 'user', 'content': prompt}],
                 'max_tokens': args.max_tokens,
                 'temperature': 0.7, 'top_p': 0.9, 'top_k': 20,

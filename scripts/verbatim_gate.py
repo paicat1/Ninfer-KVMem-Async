@@ -15,6 +15,13 @@
 产物：.temp\\verbatim\\<arm>_p<i>.json（原始响应）+ <arm>.json（汇总）+ compare_<a>_<b>.md
 """
 import argparse
+# 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
+try:
+    from _modelid import model_id as _model_id
+except Exception:  # 极端情况下回退旧名
+    def _model_id(*_a, **_k):
+        return "qwen3.8-27b-coder390"
+
 import hashlib
 import io
 import json
@@ -40,7 +47,7 @@ PROMPTS = [
 def one_request(port, prompt, max_tokens, timeout=900):
     url = 'http://127.0.0.1:%d/v1/chat/completions' % port
     body = json.dumps({
-        'model': 'qwen3.8-27b-coder390',
+        'model': _model_id(),
         'messages': [{'role': 'user', 'content': prompt}],
         'max_tokens': max_tokens,
         'temperature': 0, 'top_p': 1.0, 'top_k': 1,

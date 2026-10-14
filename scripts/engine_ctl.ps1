@@ -118,7 +118,10 @@ if ($vram) {
     if ($vram.used -gt 2500) { throw ('refusing to start: vram used ' + $vram.used + ' MiB (old instance not released?)') }
 }
 $log = Join-Path $root ('logs\test_' + $Tag + '.log')
-if (Test-Path $log) { Move-Item $log ($log + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.old') -Force }  # 2026-10-14: archive, never delete (fixes stale-log false READY)
+if (Test-Path $log) {  # 2026-10-14: 归档（不删）；**必须容错**——旧日志被上一进程占用时
+    # Move-Item 会抛异常并中止整个 start（守望者 20:47 的 engine start FAILED 根因）
+    try { Move-Item $log ($log + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.old') -Force }
+    catch { Write-Output ('log archive skipped (locked): ' + $_.Exception.Message); Remove-Item $log -Force -ErrorAction SilentlyContinue } }
 
 $env:NINFER_KV_WINDOW = '32768'
 $env:NINFER_KV_SINK = '5120'
@@ -142,10 +145,16 @@ $extraList = @()
 if ($Extra -and $Extra.Trim() -ne '') {
     $extraList = @($Extra.Split(',') | Where-Object { $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
 }
+# 招牌名（API model 字段）随权重件自动切换（2026-10-14 用户令：招牌名不得与真身打架）
+$modelId = switch -Wildcard ($Model) {
+    '*swift*'  { 'swift-1.5-qwen3.8-27b-gsq-rco-iq3s' }
+    '*Bonsai*' { 'ternary-bonsai-2-27b' }
+    default    { 'qwen3.8-27b-coder390' }
+}
 $cliArgs = @(
     'serve_tee.py', $log, $Exe, $modelPath,
     '--host', '127.0.0.1', '--port', [string]$Port,
-    '--model-id', 'qwen3.8-27b-coder390',
+    '--model-id', $modelId,
     '--max-context', '262144', '--kv-capacity', [string]$Pool,
     '--cuda-graph-allowance-mib', [string]$Graph, '--kv-dtype', $KvDtype,
     '--host-kv-mib', '16384', '--prefill-chunk', '512',

@@ -14,6 +14,13 @@
   python scripts\\valley_bench.py parse --log logs\\test_x.log --since "08:30:00"
 """
 import argparse
+# 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
+try:
+    from _modelid import model_id as _model_id
+except Exception:  # 极端情况下回退旧名
+    def _model_id(*_a, **_k):
+        return "qwen3.8-27b-coder390"
+
 import json
 import os
 import re
@@ -56,7 +63,7 @@ def drive(args):
                   '并给出一个可执行的自检清单。' % round_index)
         messages = history + [{'role': 'user', 'content': prompt}]
         body = json.dumps({
-            'model': args.model,
+            'model': args.model or _model_id(),
             'messages': messages,
             'max_tokens': args.max_tokens,
             'temperature': 0.7, 'top_p': 0.9, 'top_k': 20,
@@ -372,7 +379,7 @@ def main():
     drive_p = sub.add_parser('drive')
     drive_p.add_argument('--tag', required=True)
     drive_p.add_argument('--port', type=int, default=8094)
-    drive_p.add_argument('--model', default='qwen3.8-27b-coder390')
+    drive_p.add_argument('--model', default=None)
     drive_p.add_argument('--rounds', type=int, default=3)
     drive_p.add_argument('--filler-kb', type=int, default=220)
     drive_p.add_argument('--max-tokens', type=int, default=3000)

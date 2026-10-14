@@ -17,6 +17,13 @@ Usage:
 """
 
 import argparse
+# 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
+try:
+    from _modelid import model_id as _model_id
+except Exception:  # 极端情况下回退旧名
+    def _model_id(*_a, **_k):
+        return "qwen3.8-27b-coder390"
+
 import json
 import sys
 import time
@@ -49,7 +56,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--tag', required=True)
     ap.add_argument('--port', type=int, default=8094)
-    ap.add_argument('--model', default='qwen3.8-27b-coder390')
+    ap.add_argument('--model', default=None)
     ap.add_argument('--rounds', type=int, default=30)
     ap.add_argument('--base-kb', type=int, default=36)
     ap.add_argument('--payload-kb', type=int, default=6)
@@ -97,7 +104,7 @@ def main():
 
         messages = history + [{'role': 'user', 'content': prompt}]
         body = json.dumps({
-            'model': args.model,
+            'model': args.model or _model_id(),
             'messages': messages,
             'max_tokens': min(budget, 24000),
             'temperature': 0.7, 'top_p': 0.9, 'top_k': 20,

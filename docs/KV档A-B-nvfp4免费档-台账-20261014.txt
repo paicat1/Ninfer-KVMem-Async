@@ -6,3 +6,6 @@
 10-14 19:00:17 arm=nv_57k | nvfp4 @ 57,344 (56K, 璐磋竟鍐? | decode=65.9 prompt_ms=9570 | 2026-10-14 18:59:40.039  INFO  capacity | KV 57,344 tokens, nvfp4, explicit | pages 896/4,096 | runtime 1.93 GiB | free 260.5 MiB
 10-14 19:01:12 arm=nv_43k2 | nvfp4 @ 43,008 (42K) RE-RUN | run1 decode=220.5 prompt_ms=5345 | run2 decode=220.9 prompt_ms=81
 10-14 19:01:42 arm=nv_57k2 | nvfp4 @ 57,344 (56K) RE-RUN | run1 decode=220.8 prompt_ms=5354 | run2 decode=220.8 prompt_ms=81
+10-14 19:13:01 arm=q8_32k | int8 @ 32,192 (参考臂/近无损) | run1 decode=231.4 prompt_ms=5208 | run2 decode=231.9 prompt_ms=137 | 2026-10-14 19:12:47.292  INFO  capacity | KV 32,192 tokens, int8, explicit | pages 503/4,096 | runtime 1.84 GiB | free 311.0 MiB
+10-14 19:14:27 arm=rk82k | rk2v4-e8 @ 81,920 (现状极值) | run1 decode=26.3 prompt_ms=34945 | run2 decode=26.5 prompt_ms=396 | 2026-10-14 19:13:19.610  INFO  capacity | KV 81,920 tokens, rk2v4-e8, explicit | pages 1,280/4,096 | runtime 1.88 GiB | free 256.3 MiB
+10-14 19:14:58 arm=rk8v4_40k | rk8v4 @ 40,960 (贴边内) | run1 decode=290.2 prompt_ms=5273 | run2 decode=281.0 prompt_ms=130 | 2026-10-14 19:14:43.982  INFO  capacity | KV 40,960 tokens, rk8v4, explicit | pages 640/4,096 | runtime 1.82 GiB | free 322.1 MiB

@@ -1128,6 +1128,27 @@ public:
             }
             if (pages_->address_references(logical) == 1 &&
                 !pages_->can_set_writer(logical, true)) {
+                // RECONCILE v2 (挂账54 fix 2, 2026-10-13; measured: "writer blocked, page 276" after a
+                // private-endpoint fork reuse -- reuse_tok=75818 -- with the page Device-resident).
+                // A fork retain or a source pin can block the writer on a page this activation
+                // exclusively owns. If that page lies strictly BELOW the write frontier
+                // (committed_frontier / page), no future column lands on it -- the writer grant is a
+                // formality -- so skip it (the grant loop below skips it too and leaves protection
+                // intact). Pages at or above the write frontier keep the hard throw: a fresh
+                // activation (frontier 0) therefore behaves exactly as before.
+                const std::uint32_t write_frontier_page =
+                    address.committed_frontier / static_cast<std::uint32_t>(kPagedKVPageSize);
+                if (page < write_frontier_page) {
+                    static std::uint32_t last_writer_blocked_page = 0xFFFFFFFFU;
+                    if (page != last_writer_blocked_page) {
+                        last_writer_blocked_page = page;
+                        std::fprintf(stderr,
+                                     "[ninfer] activation reconcile: writer blocked on old page=%u "
+                                     "(below frontier=%u) -> read-only, no grant\n",
+                                     page, address.committed_frontier);
+                    }
+                    continue;
+                }
                 throw std::logic_error("KV activation has an unavailable Device page (writer blocked, page " +
                                        std::to_string(page) + ")");
             }
@@ -1145,8 +1166,13 @@ public:
             // a no-op at zero (kv_store.h:594-599), so the accounting stays balanced both ways.
             if (!pages_->device_resident(logical)) { continue; }
             if (pages_->address_references(logical) == 1) {
-                pages_->clear_protection(logical);
-                pages_->set_writer(logical, true);
+                // RECONCILE v2: grant a writer only where the pre-check could. An old, writer-blocked
+                // page (fork share / source pin; skipped above) must not throw here via set_writer,
+                // and its COW protection must stay -- it remains read-only for this activation.
+                if (pages_->can_set_writer(logical, true)) {
+                    pages_->clear_protection(logical);
+                    pages_->set_writer(logical, true);
+                }
             }
             pages_->retain_active_reference(logical);
         }

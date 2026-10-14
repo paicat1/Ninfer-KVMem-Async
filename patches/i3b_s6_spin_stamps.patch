@@ -1,0 +1,157 @@
+From a8c33daeaab02ce20d099a3b89c030cd69d9655a Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 14 Oct 2026 18:04:49 +0800
+Subject: [PATCH] I3b S6 -- device-side %globaltimer step stamps
+ (ingress/target/draft/egress) for spin localization; gated by
+ NINFER_STEP_PROFILE default off
+
+Replaces the retracted in-graph event timing (S5: cudaEventRecordExternal aborted at startup, 0xC0000409).
+One 1-thread stamp kernel per segment boundary is captured as a kernel node (graph 1107 -> 1112 nodes)
+and writes %globaltimer (ns) into a mapped host buffer (zero-copy readback). Report = slow rounds
+(total > 100 ms) plus the first three rounds, capped at 60 slow lines; NINFER_SPIN_STAMP_VERBOSE for all.
+
+Measured 2026-10-14 (slow band): ingress 0.0 / target 120-226 / draft 30-61 / egress 0.0 ms per round
+(total 150-285 ms) -> the spin concentrates in the target (verify) segment; with --spec omitted
+(MTP off) the valley disappears entirely (wall 44.2 s -> 9.3 s, decode 25.4 -> 55.8 tok/s; A-B-A sandwich).
+---
+ .../qwen3_5/program/speculative/mtp.cpp       |  9 +++
+ .../program/speculative/step_graph_profile.h  | 10 +++
+ .../src/ops/launcher/speculative_round.cu     | 75 +++++++++++++++++++
+ 3 files changed, 94 insertions(+)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+index 8bd5a75..021091b 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+@@ -51,6 +51,7 @@ void step_graph_arm() {
+     }
+     if (!reported) {
+         reported = true;
++        (void)step_stamp_arm();  // S6: mapped stamp buffer (must precede capture)
+         std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/5 events\n", created);
+         for (int i = 0; i < 5; ++i) {
+             if (g_step_graph_events[i] == nullptr) {
+@@ -63,10 +64,18 @@ void step_graph_arm() {
+ void step_graph_record(int slot, cudaStream_t stream) {
+     if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
+     if (g_step_graph_events[slot] == nullptr) { return; }
++    // S5 experiment RETRACTED (2026-10-14): cudaEventRecordWithFlags(..., cudaEventRecordExternal)
++    // DID capture 5 external event-record nodes into the graph (1107 -> 1112 nodes), but the engine
++    // then aborted at start-up: speculative_round.cu:34 cudaErrorIllegalState (exit 0xC0000409).
++    // So external event records inside our captured round graphs are NOT viable on this driver
++    // (CUDA 13.3 / WDDM). Keep the plain record; in-graph timing needs another mechanism
++    // (device-side %globaltimer stamps written to a mapped buffer, or config-knob bisection).
++    step_stamp_launch(slot, stream);  // S6: device-side %globaltimer stamp (kernel node, capture-safe)
+     (void)cudaEventRecord(g_step_graph_events[slot], stream);
+ }
+ 
+ bool step_graph_harvest(double out_ms[4]) {
++    step_stamp_report("mtp");  // S6: slow-round / first-N stamps
+     static bool reported_fail = false;
+     static bool reported_ok = false;
+     if (!step_graph_enabled()) { return false; }
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+index 18ed645..57b1dd9 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+@@ -15,4 +15,14 @@ void step_graph_arm();
+ void step_graph_record(int slot, cudaStream_t stream);
+ bool step_graph_harvest(double out_ms[4]);
+ 
++// I3b S6（2026-10-14 午后）：设备侧 %%globaltimer 打点——替代不可用的图内事件计时（step5 已判不可用）。
++//   门槛 = NINFER_STEP_PROFILE（与事件计时同门，默认关、零行为）；record 改为 launch 一枚 1-thread
++//   stamp kernel ⇒ capture 期成为 kernel 节点（合法），replay 期按图序写纳秒时间戳到 mapped host buffer。
++//   step_stamp_arm()            ：建 mapped 缓冲（幂等；必须早于 capture）
++//   step_stamp_launch(slot, s)  ：slot 0..4 与事件计时同口径
++//   step_stamp_report(tag)      ：sync 后调用；慢轮（总跨度>100ms）或前 3 轮/VERBOSE 时打印一行
++bool step_stamp_arm();
++void step_stamp_launch(int slot, cudaStream_t stream);
++void step_stamp_report(const char* tag);
++
+ } // namespace ninfer::models::qwen3_5::execution
+diff --git a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
+index c256d01..86641f4 100644
+--- a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
++++ b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
+@@ -209,3 +209,78 @@ void proposal_remap_token_ids_launch(Tensor& proposal_tokens, const std::int32_t
+ }
+ 
+ } // namespace ninfer::ops::detail
++
++
++// ---- I3b S6: device-side %globaltimer stamps (see step_graph_profile.h) ----
++#include "models/qwen3_5/program/speculative/step_graph_profile.h"
++
++#include <cstdio>
++#include <cstdlib>
++
++namespace ninfer::models::qwen3_5::execution {
++namespace {
++unsigned long long* g_stamp_host = nullptr;  // mapped host view (zero-copy readback)
++unsigned long long* g_stamp_dev = nullptr;   // device view written by the stamp kernel
++int g_stamp_ref_prints = 0;
++int g_stamp_slow_prints = 0;
++
++__global__ void step_stamp_kernel(unsigned long long* out, int slot) {
++    if (threadIdx.x == 0 && blockIdx.x == 0) {
++        unsigned long long t = 0ULL;
++        asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(t));
++        out[slot] = t;
++    }
++}
++}  // namespace
++
++bool step_stamp_arm() {
++    if (g_stamp_host != nullptr) { return true; }
++    void* host = nullptr;
++    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 8, cudaHostAllocMapped) != cudaSuccess) {
++        (void)cudaGetLastError();
++        return false;
++    }
++    void* dev = nullptr;
++    if (cudaHostGetDevicePointer(&dev, host, 0) != cudaSuccess) {
++        (void)cudaGetLastError();
++        (void)cudaFreeHost(host);
++        return false;
++    }
++    g_stamp_host = static_cast<unsigned long long*>(host);
++    g_stamp_dev = static_cast<unsigned long long*>(dev);
++    for (int i = 0; i < 8; ++i) { g_stamp_host[i] = 0ULL; }
++    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 8 slots)\n");
++    return true;
++}
++
++void step_stamp_launch(int slot, cudaStream_t stream) {
++    if (g_stamp_dev == nullptr || slot < 0 || slot > 4) { return; }
++    step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
++}
++
++void step_stamp_report(const char* tag) {
++    if (g_stamp_host == nullptr) { return; }
++    const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
++    const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
++    if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
++    const double total_ms = static_cast<double>(t4 - t0) / 1e6;
++    const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
++    if (!verbose) {
++        if (total_ms > 100.0) {
++            if (g_stamp_slow_prints >= 60) { return; }
++            ++g_stamp_slow_prints;
++        } else {
++            if (g_stamp_ref_prints >= 3) { return; }
++            ++g_stamp_ref_prints;
++        }
++    }
++    const double d0 = static_cast<double>(t1 - t0) / 1e6;
++    const double d1 = static_cast<double>(t2 - t1) / 1e6;
++    const double d2 = static_cast<double>(t3 - t2) / 1e6;
++    const double d3 = static_cast<double>(t4 - t3) / 1e6;
++    std::fprintf(stderr,
++                 "[ninfer] spin-stamp %s: ingress=%.1f target=%.1f draft=%.1f egress=%.1f ms | total=%.1f ms\n",
++                 tag ? tag : "round", d0, d1, d2, d3, total_ms);
++    std::fflush(stderr);
++}
++}  // namespace ninfer::models::qwen3_5::execution
+-- 
+2.55.0.windows.4
+

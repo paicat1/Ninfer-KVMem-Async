@@ -209,3 +209,88 @@ void proposal_remap_token_ids_launch(Tensor& proposal_tokens, const std::int32_t
 }
 
 } // namespace ninfer::ops::detail
+
+
+// ---- I3b S6: device-side %globaltimer stamps (see step_graph_profile.h) ----
+#include "models/qwen3_5/program/speculative/step_graph_profile.h"
+
+#include <cstdio>
+#include <cstdlib>
+
+namespace ninfer::models::qwen3_5::execution {
+namespace {
+unsigned long long* g_stamp_host = nullptr;  // mapped host view (zero-copy readback)
+unsigned long long* g_stamp_dev = nullptr;   // device view written by the stamp kernel
+int g_stamp_ref_prints = 0;
+int g_stamp_slow_prints = 0;
+
+__global__ void step_stamp_kernel(unsigned long long* out, int slot) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        unsigned long long t = 0ULL;
+        asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(t));
+        out[slot] = t;
+    }
+}
+}  // namespace
+
+bool step_stamp_arm() {
+    if (g_stamp_host != nullptr) { return true; }
+    void* host = nullptr;
+    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 8, cudaHostAllocMapped) != cudaSuccess) {
+        (void)cudaGetLastError();
+        return false;
+    }
+    void* dev = nullptr;
+    if (cudaHostGetDevicePointer(&dev, host, 0) != cudaSuccess) {
+        (void)cudaGetLastError();
+        (void)cudaFreeHost(host);
+        return false;
+    }
+    g_stamp_host = static_cast<unsigned long long*>(host);
+    g_stamp_dev = static_cast<unsigned long long*>(dev);
+    for (int i = 0; i < 8; ++i) { g_stamp_host[i] = 0ULL; }
+    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 8 slots)\n");
+    return true;
+}
+
+void step_stamp_launch(int slot, cudaStream_t stream) {
+    if (g_stamp_dev == nullptr || slot < 0 || slot > 7) { return; }  // S7/E2: 8 槽（5/6 = target 子界）
+    step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
+}
+
+void step_stamp_report(const char* tag) {
+    if (g_stamp_host == nullptr) { return; }
+    const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
+    const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
+    const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
+    if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
+    const double total_ms = static_cast<double>(t4 - t0) / 1e6;
+    const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
+    if (!verbose) {
+        if (total_ms > 100.0) {
+            if (g_stamp_slow_prints >= 60) { return; }
+            ++g_stamp_slow_prints;
+        } else {
+            if (g_stamp_ref_prints >= 3) { return; }
+            ++g_stamp_ref_prints;
+        }
+    }
+    const double d0 = static_cast<double>(t1 - t0) / 1e6;
+    const double d1 = static_cast<double>(t2 - t1) / 1e6;
+    const double d2 = static_cast<double>(t3 - t2) / 1e6;
+    const double d3 = static_cast<double>(t4 - t3) / 1e6;
+    std::fprintf(stderr,
+                 "[ninfer] spin-stamp %s: ingress=%.1f target=%.1f draft=%.1f egress=%.1f ms | total=%.1f ms\n",
+                 tag ? tag : "round", d0, d1, d2, d3, total_ms);
+    if (t5 != 0ULL && t6 != 0ULL && t5 >= t1 && t6 >= t5 && t2 >= t6) {
+        const double s_setup   = static_cast<double>(t5 - t1) / 1e6;  // card 装配 + 张量视图
+        const double s_prepare = static_cast<double>(t6 - t5) / 1e6;  // prepare_verify_inputs
+        const double s_verify  = static_cast<double>(t2 - t6) / 1e6;  // target_verify_accept
+        std::fprintf(stderr,
+                     "[ninfer] target-split %s: setup=%.2f prepare=%.2f verify=%.2f ms | sum=%.2f (target=%.1f)\n",
+                     tag ? tag : "round", s_setup, s_prepare, s_verify,
+                     s_setup + s_prepare + s_verify, d1);
+    }
+    std::fflush(stderr);
+}
+}  // namespace ninfer::models::qwen3_5::execution

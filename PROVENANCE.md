@@ -51,3 +51,5 @@
 > 说明：`patches/` 是**内容锚**（用于跨线交付与复核），本树的 **commit 历史是溯源锚**。
 > 2026-10-12 体检发现部分 .patch 文件带 BOM/换行差异，`git apply` 双向不匹配 ——
 > 这不影响内容（内容由 bundle + 本树 commit 权威包含），已在构建史 §三·二十一 记录。
+
+| 2026-10-14 | src-tree 刷新到 line-coder390 @ 62e563e | I3b S7：PDL 运行期开关（NINFER_PDL_OFF）+ 段级打点 8 槽（target 三分）；本线补丁链 p2/s2/s3b/s3b_fix/s4/s6/s7 已置于 patches/ |

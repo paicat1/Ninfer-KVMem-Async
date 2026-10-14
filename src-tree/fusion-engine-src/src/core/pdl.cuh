@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include <cstddef>
+#include <cstdlib>
 #include <utility>
 
 // Programmatic dependent launch needs sm_90 or newer. The Ampere/Ada compatibility path launches
@@ -12,6 +13,17 @@
 #endif
 
 namespace ninfer::pdl {
+
+// S7/E1（2026-10-14）：PDL 运行期关断开关。NINFER_PDL_OFF=1 时，被捕获的图内启动退回
+// 顺序执行（不挂 programmatic 属性）——用于在谷窗内做 on/off A-B-A，判定"120–226 ms 的
+// target 段"是 PDL 依赖等待（消费核 CTA 轮询自旋）还是真实计算。只读一次环境变量（静态）。
+[[nodiscard]] inline bool pdl_kill_switch() noexcept {
+    static const bool off = []() {
+        const char* v = std::getenv("NINFER_PDL_OFF");
+        return v != nullptr && v[0] != '\0' && v[0] != '0';
+    }();
+    return off;
+}
 
 struct LaunchConfig {
     dim3 grid;
@@ -64,7 +76,7 @@ launch_dependent(const LaunchConfig& launch, void (*kernel)(KernelArgs...), Call
 template <class... KernelArgs, class... CallArgs>
 [[nodiscard]] inline cudaError_t
 launch_consumer(const LaunchConfig& launch, void (*kernel)(KernelArgs...), CallArgs&&... args) {
-    if (graph_dependent(launch.stream)) {
+    if (graph_dependent(launch.stream) && !pdl_kill_switch()) {
         return launch_dependent(launch, kernel, std::forward<CallArgs>(args)...);
     }
     cudaLaunchConfig_t config{};

@@ -254,7 +254,7 @@ bool step_stamp_arm() {
 }
 
 void step_stamp_launch(int slot, cudaStream_t stream) {
-    if (g_stamp_dev == nullptr || slot < 0 || slot > 4) { return; }
+    if (g_stamp_dev == nullptr || slot < 0 || slot > 7) { return; }  // S7/E2: 8 槽（5/6 = target 子界）
     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
 }
 
@@ -262,6 +262,7 @@ void step_stamp_report(const char* tag) {
     if (g_stamp_host == nullptr) { return; }
     const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
+    const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
@@ -281,6 +282,15 @@ void step_stamp_report(const char* tag) {
     std::fprintf(stderr,
                  "[ninfer] spin-stamp %s: ingress=%.1f target=%.1f draft=%.1f egress=%.1f ms | total=%.1f ms\n",
                  tag ? tag : "round", d0, d1, d2, d3, total_ms);
+    if (t5 != 0ULL && t6 != 0ULL && t5 >= t1 && t6 >= t5 && t2 >= t6) {
+        const double s_setup   = static_cast<double>(t5 - t1) / 1e6;  // card 装配 + 张量视图
+        const double s_prepare = static_cast<double>(t6 - t5) / 1e6;  // prepare_verify_inputs
+        const double s_verify  = static_cast<double>(t2 - t6) / 1e6;  // target_verify_accept
+        std::fprintf(stderr,
+                     "[ninfer] target-split %s: setup=%.2f prepare=%.2f verify=%.2f ms | sum=%.2f (target=%.1f)\n",
+                     tag ? tag : "round", s_setup, s_prepare, s_verify,
+                     s_setup + s_prepare + s_verify, d1);
+    }
     std::fflush(stderr);
 }
 }  // namespace ninfer::models::qwen3_5::execution

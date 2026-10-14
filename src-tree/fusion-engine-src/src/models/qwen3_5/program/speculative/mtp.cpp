@@ -16,10 +16,12 @@
 namespace ninfer::models::qwen3_5::execution {
 
 // ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
-// 5 事件 -> 4 区间：ingress / target / draft / egress。arm 在建图前创建，record 在（被捕获的）
+// 8 槽（S7/E2 扩）：0..4 = 原 4 区间界（ingress/target/draft/egress）；5 = target 段"装配后/prepare 前"；
+//   6 = "prepare 后/verify 前"；7 备用。arm 在建图前创建，record 在（被捕获的）
 // 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
 namespace {
-cudaEvent_t g_step_graph_events[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+constexpr int kStepSlots = 8;  // S7/E2
+cudaEvent_t g_step_graph_events[kStepSlots] = {nullptr};
 } // namespace
 
 bool step_graph_enabled() {
@@ -40,7 +42,7 @@ void step_graph_arm() {
         return;
     }
     int created = 0;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < kStepSlots; ++i) {
         if (g_step_graph_events[i] == nullptr) {
             if (cudaEventCreate(&g_step_graph_events[i]) != cudaSuccess) {
                 g_step_graph_events[i] = nullptr;
@@ -52,8 +54,8 @@ void step_graph_arm() {
     if (!reported) {
         reported = true;
         (void)step_stamp_arm();  // S6: mapped stamp buffer (must precede capture)
-        std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/5 events\n", created);
-        for (int i = 0; i < 5; ++i) {
+        std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/%d events\n", created, kStepSlots);
+        for (int i = 0; i < kStepSlots; ++i) {
             if (g_step_graph_events[i] == nullptr) {
                 std::fprintf(stderr, "[ninfer] step graph DEBUG: event %d NULL\n", i);
             }
@@ -62,7 +64,7 @@ void step_graph_arm() {
 }
 
 void step_graph_record(int slot, cudaStream_t stream) {
-    if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
+    if (!step_graph_enabled() || slot < 0 || slot >= kStepSlots) { return; }
     if (g_step_graph_events[slot] == nullptr) { return; }
     // S5 experiment RETRACTED (2026-10-14): cudaEventRecordWithFlags(..., cudaEventRecordExternal)
     // DID capture 5 external event-record nodes into the graph (1107 -> 1112 nodes), but the engine
@@ -79,7 +81,7 @@ bool step_graph_harvest(double out_ms[4]) {
     static bool reported_fail = false;
     static bool reported_ok = false;
     if (!step_graph_enabled()) { return false; }
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < kStepSlots; ++i) {
         if (g_step_graph_events[i] == nullptr) {
             if (!reported_fail) {
                 reported_fail = true;
@@ -231,9 +233,11 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
         Tensor ar_valid_columns   = frame.ar_valid_columns.slice(0, 0, batch_size);
         Tensor next_drafts        = frame.next_drafts.slice(0, 0, batch_size);
 
+        step_graph_record(5, state.execution.device.stream);  // S7/E2: target 子界（装配后）
         ops::speculative_prepare_verify_inputs(anchors, current_drafts, frontiers, current_extents,
                                                verify_ids, target_positions,
                                                state.execution.device.stream);
+        step_graph_record(6, state.execution.device.stream);  // S7/E2: target 子界（prepare 后）
         {
             nvtx::ScopedRange target_range(nvtx::Name::DecodeMtpTarget, nvtx::Category::Mtp,
                                            static_cast<std::uint64_t>(width) * batch_size);

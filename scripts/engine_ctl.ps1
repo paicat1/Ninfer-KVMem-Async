@@ -22,6 +22,7 @@ param(
     [int]$Pool = 65536,
     [int]$Graph = 64,
     [string]$Spec = 'mtp',
+    [string]$KvDtype = 'rk2v4-e8',
     [int]$Draft = 4,
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
     [string]$Extra = '',
@@ -143,7 +144,7 @@ $cliArgs = @(
     '--host', '127.0.0.1', '--port', [string]$Port,
     '--model-id', 'qwen3.8-27b-coder390',
     '--max-context', '262144', '--kv-capacity', [string]$Pool,
-    '--cuda-graph-allowance-mib', [string]$Graph, '--kv-dtype', 'rk2v4-e8',
+    '--cuda-graph-allowance-mib', [string]$Graph, '--kv-dtype', $KvDtype,
     '--host-kv-mib', '16384', '--prefill-chunk', '512',
     '--spec', $Spec, '--draft-tokens', [string]$Draft
 ) + $visionArgs + $extraList + @(

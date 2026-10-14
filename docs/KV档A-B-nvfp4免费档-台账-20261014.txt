@@ -1,0 +1,8 @@
+﻿10-14 18:52:51 arm=nv_43k | nvfp4 @ 43,008 (42K) | START-FAILED/REFUSED
+10-14 18:56:58 arm=nv_49k | nvfp4 @ 49,152 (48K) | START-FAILED/REFUSED
+10-14 18:57:28 arm=nv_43k | nvfp4 @ 43,008 (42K) | decode=217.9 prompt_ms=5404 | 2026-10-14 18:57:11.235  INFO  capacity | KV 43,008 tokens, nvfp4, explicit | pages 672/4,096 | runtime 1.67 GiB | free 513.6 MiB
+10-14 18:58:04 arm=nv_49k | nvfp4 @ 49,152 (48K) | decode=134.4 prompt_ms=6978 | 2026-10-14 18:57:44.218  INFO  capacity | KV 49,152 tokens, nvfp4, explicit | pages 768/4,096 | runtime 1.78 GiB | free 414.3 MiB
+10-14 18:59:22 arm=nv_53k | nvfp4 @ 53,248 (52K, 绋冲畾绾? | decode=79.6 prompt_ms=9165 | 2026-10-14 18:58:50.634  INFO  capacity | KV 53,248 tokens, nvfp4, explicit | pages 832/4,096 | runtime 1.85 GiB | free 261.9 MiB
+10-14 19:00:17 arm=nv_57k | nvfp4 @ 57,344 (56K, 璐磋竟鍐? | decode=65.9 prompt_ms=9570 | 2026-10-14 18:59:40.039  INFO  capacity | KV 57,344 tokens, nvfp4, explicit | pages 896/4,096 | runtime 1.93 GiB | free 260.5 MiB
+10-14 19:01:12 arm=nv_43k2 | nvfp4 @ 43,008 (42K) RE-RUN | run1 decode=220.5 prompt_ms=5345 | run2 decode=220.9 prompt_ms=81
+10-14 19:01:42 arm=nv_57k2 | nvfp4 @ 57,344 (56K) RE-RUN | run1 decode=220.8 prompt_ms=5354 | run2 decode=220.8 prompt_ms=81

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$IntervalSec = 600,
     [double]$Hours = 8,
     [int]$FillerKb = 45,
@@ -20,11 +20,13 @@ function J([string]$msg) {
     Add-Content -LiteralPath $journal -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' | ' + $msg)
 }
 
+# ★平台=SWIFT-1.5 IQ3_S + rk8v4 + 池 65,536 + Graph 192（2026-10-14 用户令切换；
+#   Q2LYNN 集已冻结于 baselines/q2lynn，回切只需改本行 -Model/-KvDtype/-Graph）
 function Start-Engine {
     $r0 = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 5) -join ' '
     if ($r0 -match 'READY') { return $true }
     powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
-    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step6_stamp_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 64 -Pool 65536 -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
+    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step6_stamp_20261014.exe' -Tag valleywatch -Depth 2 -Port 8094 -Graph 192 -Pool 65536 -KvDtype rk8v4 -Model 'swift15_iq3s_mtp.ninfer' -StepProfile 1 -Extra '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' | Out-Null
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 300) -join ' '
     return ($r -match 'READY')
 }
@@ -42,7 +44,7 @@ while ((Get-Date) -lt $deadline) {
     $sec = 0.0
     if ($line -and $line -match '([\d.]+)s') { $sec = [double]$Matches[1] }
     # 判据 v3（2026-10-14）：墙钟会被冷/暖填互换掩盖（冷填 5.4s+解码 174 与 暖填 0.4s+解码 28 同报 ~7s）。
-    # 改用解码速率为主判据：快 ~124-174 tok/s；慢 ~25-28 tok/s。decode<80 = 降级。
+    # 改用解码速率为主判据；decode<80 = 降级。基线：Q2LYNN 快带 ~124–230 / 慢 ~25–28；# Swift-IQ3_S+rk8v4 深 60K 实测 143.7（2026-10-14），阈值 80 通用。
     $dec = 0.0; $cached = 0; $pms = 0.0
     $parsed = python -X utf8 -c "import json;d=json.load(open('.temp/gate_watch.json',encoding='utf-8'));r=d['runs'][0];t=r['timings'];u=r['usage'];print('%.1f %d %.0f' % (t['predicted_per_second'], u['prompt_tokens_details']['cached_tokens'], t['prompt_ms']))" 2>$null
     if ($parsed -match '([\d.]+) (\d+) (\d+)') { $dec = [double]$Matches[1]; $cached = [int]$Matches[2]; $pms = [double]$Matches[3] }

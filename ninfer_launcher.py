@@ -184,7 +184,7 @@ MODEL_KVCAP_MAX = {}
 MODEL_BUNDLES = {
     "q2lynn": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "现役定稿（冻结基准）；实测池上限 65,536（free ~490 MiB）/ rk8v4 ≤ 41,664"},
-    "swift":  {"kv": "rk8v4",    "kvcap": "65536", "graph": "192", "vision": "overlay",
+    "swift":  {"kv": "rk8v4",    "kvcap": "64k",    "graph": "192", "vision": "overlay",
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
     "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "前序线 · 件未下载（仅登记待测试）"},
@@ -343,6 +343,7 @@ SAMPLE_OPTIONS = {
 #   64/32 = 桌面挤时递降（32 = 视觉+64K+桌面 1.4GiB 极限档，2026-10-11 12:18 实测）；
 #   off = --no-cuda-graph 完全禁用（省全部 graph 预算，decode 有损，最后手段）。
 GRAPH_OPTIONS = {
+    "192":  ("192 MiB（★SWIFT 档硬要求 · 2026-10-14 实测：64 会告警 CUDA graphs used 236.8 > 64.0）", ["--cuda-graph-allowance-mib", "192"]),
     "128":  ("128 MiB（★定稿·64K池实测零代价）", ["--cuda-graph-allowance-mib", "128"]),
     "64":   ("64 MiB（紧凑）",                   ["--cuda-graph-allowance-mib", "64"]),
     "32":   ("32 MiB（极限·桌面挤时）",           ["--cuda-graph-allowance-mib", "32"]),
@@ -468,6 +469,7 @@ PRESET_PROFILES = {
     # 2026-10-11 凌晨实测（CodeBuddy 自主实验，构建史 §三·十六）：64K 池需 --cuda-graph-allowance-mib 128
     # 才能起（runtime 预留差 ~213 MiB，压 graph 预算补齐，batch=1 零性能代价：decode 101.1 vs 基线 101-104）；
     # 视觉+64K+无growth 亦成（free 552 MiB，decode 108.2）。⚠ 桌面须 ≤~1.0 GiB（WDDM 归还不即时）。
+    "★SWIFT 定稿（rk8v4 + 64K + graph192）": dict(DEFAULTS, model="swift", kv="rk8v4", kvcap="64k", graph="192", vision="overlay"),  # 2026-10-14 用户令：新默认档
     "大池 64K（需净GPU·graph128）": dict(DEFAULTS, kvcap="64k"),
     "视觉 64K（需净GPU·graph128）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
     "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
@@ -854,6 +856,17 @@ class LauncherApp:
 
         self.profiles = load_profiles()
         self.selection = dict(DEFAULTS)
+        # ★默认档 = SWIFT（2026-10-14 用户令）；Q2LYNN 集冻结为参照，用场景预设一键回切。
+        try:
+            _b = MODEL_BUNDLES.get("swift") or {}
+            for _k in ("kv", "kvcap", "graph", "vision"):
+                if _k in _b and _k in DIMENSIONS_MAP and _b[_k] in DIMENSIONS_MAP[_k]:
+                    self.selection[_k] = _b[_k]
+            if "swift" in MODEL_OPTIONS:
+                self.selection["model"] = "swift"
+            self._bundle_model = "swift"
+        except Exception as _exc:
+            print("[bundle] 默认档套用失败（回退 DEFAULTS）：" + str(_exc))
         self.var = {}
         self._label2key = {}
         self.port_var = tk.StringVar(value=str(PORT_DEFAULT))

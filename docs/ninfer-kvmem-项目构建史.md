@@ -2473,6 +2473,21 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - **判级（新引擎是否值得用）**：**step6 值得采用（作为"仪器档"）**——代价 = +5 个 1-thread 节点（图 1112）；行为 = `NINFER_STEP_PROFILE=0` 时**零改动**（打点仅在 record 被调用时发生，而 record 受 profile 门控）；收益 = 段落级定位 + **谷窗自动取样**。**不作为生产基线**（生产基线仍 = stage0a 配置档）；**守望者已换装 step6**（仪器常驻，谷窗到即自动留证）。
 - **路线图更新**：路 1 ✔（主刀落地并出首读）；路 2 = `--spec none` 已修好，**待谷窗做 A-B-A**；路 3 = 源码自旋扫描（pending，靶向 `target` 段：verify/attention 路径）；**兜底扩展** = 在 target 段内加二级打点（attention / ring retrieve / demote 三候选）。
 
+### 35. 【路 2 定案】谷窗 A-B-A：**MTP 一关，谷消失** ⇒ 降级完全依赖投机路径（2026-10-14 15:0x，谷窗 14:58–15:03 内）
+
+- **执行**（TELE 指令件 路 2；谷窗纪律：只在真谷窗判定；三明治设计防自愈）：
+  | 臂 | 配置 | 墙钟 | decode | accepted | spin-stamp（mtp 轮） |
+  |---|---|---|---|---|---|
+  | on | `--spec mtp`（基线） | 44.2 s | 25.4 | 156/246 | ingress 0.0 / **target 222.4** / draft 54.5 / egress 0.0（total 277.0） |
+  | **off** | **不传 `--spec`**（MTP 关） | **9.3 s** | **55.8** | —（无投机） | 无 mtp 轮（不打点） |
+  | on2 | `--spec mtp`（复核） | 44.6 s | 25.8 | 156/246 | target 215.6–226.3 / draft 38.0–58.9（total 253.6–285.2） |
+- **结论**：① **MTP 关 ⇒ 谷完全消失**（44.2 s → 9.3 s），decode **55.8 tok/s 与裸解码基线 55.7 tok/s（P0c 记录）逐位吻合**；② 复开仍慢 ⇒ **A-B-A 成立、非自愈假象** ⇒ **因果锁定：降级完全依赖投机（MTP）路径**；③ 与 §34 打点互证（慢的全在 mtp 轮 target/draft 段）。
+- **推论（判据修正 + 排除面）**：裸解码路径（attention / KV 池 / ring / demote / host-KV）**在慢态下仍满速** ⇒ 这些路径**基本排除**（它们在裸解码里同样运行）——TELE 兜底条款里的 attention/ring/demote 候选**大幅收敛**，靶心 = **MTP 特有的 verify（target）与 draft 内核**。
+- **判据修正（如实记录）**：指令 2.4 的"spec-off 后 decode ≥80"**不可达**（关 MTP 后上限 ≈56 = 裸解码基线）⇒ 实际采用 **每轮墙钟 + 打点**为主判据（已在本节记录，供后续引用）。
+- **谷窗自动取样已验**（TELE 路 1.1）：14:58–15:03 期间守望者（step6）自动产出 target 115.8–221.4 ms 连发读数 ✓。
+- **下一刀（路 3 收窄）**：源码扫描靶面 = `mtp.cpp` target 段调用链（slot1→slot2 之间）+ `speculative_round.cu` verify kernels；找 while / 无界重试 / 标志等待。可选二级打点在 target 段内再切（verify 输入装配 / attention / logits）。
+
+
 
 
 

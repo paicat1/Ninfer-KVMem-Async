@@ -2657,3 +2657,17 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 - 用户实机跑 DSH（工作集 45–73K）⇒ 原档 `rk8v4 @ 65,536` 会**超池**（走检索/下沉路径、内容可能不同）⇒ 切 **`nvfp4 @ 81,920`**：`free 798.7 MiB`、池 ≥ 80K ⇒ 全在池内；**基线**：浅 11K **171.0 tok/s**（6.6 s）、深 59K **114.5 tok/s**（46.9 s）、接受 67% / 53%。
 - **守望者复活档同步**（同件 `step7` + 同池同 KV）⇒ 引擎被复活时**不再静默退回小池**（提交 `e9544dd` / `63c8842`）。
 - 配套：`StepProfile=1` 打点 + Stage0 reqlog 全程开；A-B-A 触发器在用户实机期间关闭（避免重启打断会话）。
+
+### 47. 真负载首战：用户两个 DSH 项目（2026-10-14 夜）
+
+- **背景**：用户实机档 = SWIFT-1.5 IQ3_S + `nvfp4` + 池 81,920（step7 仪器件 + Stage0 reqlog）。两项目：① **无谷**；② 第一轮末入谷、第二轮"慢但爬出"。
+- **时间轴**（reqlog 逐窗，全天 682 窗 05:48→22:32）：好带 ≥80 = **29%** / 降级 0.5–80 = **50%** / 停顿 <0.5 = **21%**。关键段：
+  `22:14:26–22:16:46` 好带 100–141；`22:16:51` 停顿（同行 `prefill=10–12` 单位）；`22:17:06+` 150–190；
+  **`22:19→22:26`（435 s、41 窗、min_decode 0.0）**；`22:27→22:28`（95 s、19 窗、7–135 振荡、**无 prefill/准入**）；单请求最长墙钟 **318 s**（22:24:19→22:29:37）。
+- **dev 侧确证（真负载与探针同指纹）**：慢态 `spin-stamp: ingress 0.0 / target 75–108 / draft 29–120 / egress≈0 ms | total 116–204`；
+  **`target-split: setup 0.00 / prepare 0.00 / verify 75–108`**（=100% 落在 verify；健康对照 18 ms）⇒ **verify 膨胀 4–6×**，其余段不变。
+- **新发现 1（准入+预填按停 decode）**：`host_work.detail_microseconds_per_invocation.admission_policy` = **34–275 ms/次**（峰值 22:11:11 = 274.6 ms、22:12:06 = 262.6 ms）；`prefill>0` 的窗 **88%** 为 decode<80（中位 **9.2**），`prefill==0` 仅 55%（中位 **33.8**）⇒ **多数降级窗是"并发=1 下的预填/准入阻塞"**，非谷；连续停顿最长 **50 s**（22:25:36–22:26:26，decode 0.0）。
+- **新发现 2（纯谷存在）**：14 个长降级团块中 **10 个**有"准入/预填"前兆，**4 个没有**（如 22:27→22:28：无 prefill、无 admission，decode 7–135 振荡）⇒ **准入不是谷的必要条件**；谷仍指向图内 `target(verify)`。
+- **一处自我更正**：`throughput ... host 100.0% (5.0s)` **不是异常信号**——健康窗同样 99%（work_class host 占比口径）；我一度误读为"CPU 侧瓶颈"，已纠正。可持续区分的是 `admission_policy` 的绝对值与 `verify` 段打点。
+- **方法入册**：reqlog 逐窗解析（`.temp\reqlog_watch.jsonl`：`throughput_tokens_per_second.decode` / `host_work.units.prefill` / `detail_microseconds_per_invocation.admission_policy` / `work_class_seconds`）；判据沿用守望者 v3（decode<80 降级、<0.5 停顿）。
+- **DSH 配置口径**：`max output = 24000`（该字段**不认千分位逗号**，写 `24000` 或 `24K`）；思考预算 16,000；深会话（prompt 65–73K）降到 8,000 并同步降思考预算 4–6K。

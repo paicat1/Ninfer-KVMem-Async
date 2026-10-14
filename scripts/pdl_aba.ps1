@@ -7,7 +7,10 @@ Set-Location J:\ninfer-kvmem
 $results = '.temp\pdl_aba_' + $Tag + '.txt'
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*watch_launch*' -or $_.CommandLine -like '*valley_watch*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; Write-Output ('watcher stopped ' + $_.ProcessId) }
 Start-Sleep -Seconds 2
-# 快档（2026-10-14 夜）：-Pattern 'on,off,on,off,on'（默认三段）+ -SkipDeep（只浅探针 ≈30s/臂）
+# 两套协议（2026-10-14 夜，用户裁决：默认全量、短窗须标注）——
+#   · 全量协议（默认）：3 臂 on,off,on，每臂 **浅探针 + 深 60K 探针**（~90s/臂）
+#   · 短窗协议（-SkipDeep）：只浅探针，臂数加到 5（on/off/on/off/on）以补偿（~30s/臂）；
+#     **仅当实测谷窗短于全量协议时长时使用**；台账里写明用的是哪套。
 $arms = @()
 $idx = 0
 foreach ($p in ($Pattern -split ',')) {
@@ -34,11 +37,12 @@ foreach ($a in $arms) {
     $pdlrep = (Select-String -Path ('logs\test_' + $tag + '.log') -Pattern 'PDL: programmatic' -Encoding UTF8 | Select-Object -First 1 | ForEach-Object { $_.Line.Trim() })
     $stamps = (Select-String -Path ('logs\test_' + $tag + '.log') -Pattern 'spin-stamp|target-split' -Encoding UTF8 | Select-Object -Last 4 | ForEach-Object { $_.Line.Trim() }) -join ' ;; '
     $stamps = $pdlrep + ' ;; ' + $stamps
+    $proto = if ($SkipDeep) { '短窗协议(浅探针x5臂)' } else { '全量协议(浅+深)' }
     Write-Output ('  shallow: ' + $shallow)
     Write-Output ('  deep60K: ' + $deep)
     Write-Output ('  stamps : ' + $stamps.Substring(0, [Math]::Min(300, $stamps.Length)))
     $envActual = if ($null -eq $env:NINFER_PDL_OFF -or $env:NINFER_PDL_OFF -eq '') { '0' } else { $env:NINFER_PDL_OFF }
-    Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | 意图=' + [int]$a.off + ' 实际env=' + $envActual + ' | ' + $shallow + ' | ' + $deep + ' | ' + $stamps)
+    Add-Content -LiteralPath $results -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' ' + $a.n + ' | 协议=' + $proto + ' 意图=' + [int]$a.off + ' 实际env=' + $envActual + ' | ' + $shallow + ' | ' + $deep + ' | ' + $stamps)
     # 首臂健康 ⇒ 谷已过（自愈）⇒ 提前收场，不烧余下臂（2026-10-14 夜教训：臂 1 慢、臂 2/3 全快 = 无效捕获）
     if (-not $NoAbortIfHealthy -and $armNo -eq 1 -and $shallow -match 'decode=([0-9.]+)' -and [double]$Matches[1] -ge 100) {
         Write-Output ('  ABORT: 首臂健康（decode=' + $Matches[1] + '）⇒ 判定谷已过，跳过余下臂')

@@ -2745,3 +2745,8 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 **新挂账**
 - **谷窗内完整 ON-OFF-ON**（夜班自动抓，待）；
 - **S11 候选**：① 若 PDL 证实 ⇒ 按上游经验改修（trigger 提前 / 减少链上短核 / 逐点确认等待点，13 个候选点已在报告中列行号）；② **forward 内部 kernel 级打点**（verify 已切到 `forward=120.30 accept≈0` ⇒ 下一层在 forward 内部）；③ S10 的"新形状才生效"可利用（每相换形状强制重捕）作为替代判决路径。
+
+**补（02:0x，两条缺口补齐）**：
+- **P1-b 全时段**（392 个 decode 窗）：降级组 12.06 页/窗 vs 健康组 0.33 页/窗——**实为负载混淆**（搬运由深负载/超池驱动）；干净对照（单谷窗 22:19–22:26）搬运 = 0 ⇒ **C5 在该谷不成立**；**C7 全时段物化 = 0 ⇒ 稳定否定**。
+- **P1-d 链上定位**：forward = `src/models/qwen3_5/execution/text.cpp:751 target_verify_batch_impl` → `run_layers(Phase::Verify)`（整模型逐层）。13 个等待点优先级重排：**⭐`context_kv_materialize/materialize.cu:411,459`**（每轮链上，**C5×C1 交点**）> `sliding_window/kernel.cuh:47,72`（每层注意力）、`gated_delta_net/recurrent.cuh:744`（每层 GDN）> `speculative_round.cuh:27,48,562,641,962` > **降级**：`candidate_selector_path.cu:94,120,135`（接受路径，S9 实测 accept≈0.01 ms）。
+- **新假设细化（S11 第一打点对象）**：`context_kv_materialize` 的 PDL 等待**每轮都在关键路径上**（即便搬运字节为 0，其映射/记账 kernel 仍会跑并 `wait_for_dependencies()`）——与"满频 100%、低功耗、饿死并行核"指纹一致。

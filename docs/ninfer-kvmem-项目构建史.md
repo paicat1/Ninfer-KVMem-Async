@@ -2416,6 +2416,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **晨报包**（`e495a94`）：登记册增 step3b/step4；`scripts\valley_probe.ps1`（一键捕获：时间戳 dmon + 采样器 + 单轮）；《晨报-20261014》= 版本表/已定案/待对比/一键工具/当前状态。
 - **分钟级翻转实锤（推翻"小时级粘性"）**：05:26 慢 142.9 s → **05:45 快 6.6 s**（A 臂）→ **05:49 慢 49.2 s** → **05:51 快 7.8 s**。六分钟内两翻转 ⇒ 触发源必为**近因**（秒~分钟级），"重启才恢复"是假象。
 - **守望者上线**（`scripts\valley_watch.ps1`，v2 05:51 起，PID 7700，8 h）：每 10 min 短轮探针（45 KB filler / 200 tok）；**探针前开时间戳 dmon**（慢轮被完整覆盖）；慢轮自动追加 300 s 采样器 + dmon；流水 `.temp\state_journal.txt`、逐探针 `.temp\watch_dmon_<HHMMSS>.txt`。**首战实录**：05:49 慢（49.2）→ 06:01 11.5 → **06:11–07:33 十连快（7.4–7.5 s / decode 28.2，方差极小）**——谷自此未归，快态稳定可做对照基。
+  - **〔勘误（2026-10-14 12:5x）〕** 上句 [十连快] **撤回**：那十发 decode 恒为 28.0–28.5，按守望者 v3 判据（decode<80 = 降级）属 [暖填＋慢解] 带；墙钟 7.4–7.5 s 是冷/暖填互换造成的假稳定。正确读法＝[十连稳定 7.4–7.5 s 墙钟；解码速率一直 28 档]。
 - **消融工具**：`scripts\ablate_run.ps1`（A 基 / B graph 关 / C 池 32768 / D MTP 关；`engine_ctl` 新增 `-Graph`/`-Spec`）。**B 臂首试失败（非旗错）**：eager 路径 runtime 预留 **+426 MB**（2,203,320,576 vs graph64 的 1,777 MB），桌面余量不足（1,916 MB）拒启 ⇒ 已改小池 40960 变体待跑。
 - **上游巡检（GitHub API，10-14 晨）**：上游 `ashalliants/ninfer-3090` 昨夜密集提交（自动代理开发）：
   - **#280 复盘 #240**（最有价值）：verify 内核**路由表按 key 数切换**（8 列 rk4v4 verify ≤128 keys 由 small-T 改走 FA2 prompt 内核）⇒ **verify logits 微变 ⇒ 接受率变（1.816→1.738）而轮成本不变**。直接喂**挂账 55**（接受率崩）与快窗"tok/轮 恒 16.0"之谜——**接受率可被路由/内核选择塑形，而非只由内容决定**；
@@ -2432,10 +2433,11 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 - **【公断】低功耗自旋指纹（本轮最重要实测）**：慢轮 1 Hz 采样 = **SM 100% / 满频 2902 MHz / 功耗仅 63–98 W / 显存活动 4–19%**；对照快轮 = **129–217 W / 显存 64%**（5080 TGP≈360 W）。⇒ 慢态 = **SM 烧时间不烧功率、不碰显存的忙等/自旋**；排除降频（满频）、排除带宽（mem 低）、排除重算（功耗低）。这也解释"util 100% 却慢"与"谷与负载无关"。
 - **守望者判据 v3（洞与修）**：v2 用墙钟 ⇒ 被**冷/暖缓存互换**掩盖（冷填 5.4 s+解码 174 与暖填 0.4 s+解码 28 同报 ~7 s），造成"06:11–07:33 十连快"的**误报（已更正）**。v3 改以 **decode tok/s 为主判据**（<80 = 降级）+ 记 prompt_ms/cached；首探即正确识别 SLOW ✓。
 - **二进制归属核对**：`engine	est-run
-infer-serve.exe` 今日全程 = **step4（DAC82A48, 05:21）**（引擎一律从 test-run 跑；此前多处"A/B 无差别"的另一原因 = 同档）。step5 已归档 `engine\lineage\I3b_step5_ext_20261014.exe`（sha 03970844）。
+infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**；08:11（s5probe）＝**step4**；08:13–08:24＝**step5**；08:27 起＝**step3b**（引擎一律从 test-run 跑；此前多处"A/B 无差别"的另一原因 = 同档）。step5 已归档 `engine\lineage\I3b_step5_ext_20261014.exe`（sha 03970844）。
 - **【step5 判决：不可用】** `cudaEventRecordWithFlags(..., cudaEventRecordExternal)` 确实把 5 个事件节点捕进图（**节点 1107→1112**），但引擎启动即崩：`speculative_round.cu:34 cudaErrorIllegalState`，exit `0xC0000409`。⇒ 本工具链/驱动（CUDA 13.3 / WDDM）下**图内外部事件记录不可行**；源码**已回滚**（留判决注释），test-run 恢复 **step3b（E8FEE6B6）**。
 - **下一刀（两条并行）**：①**设备侧 `%globaltimer` 打点写 mapped buffer**（图内安全、一轮一读）→ 直接定位哪段自旋；②**零代码环境二分**（`TERNARY_KVMEM_SCORE=0` / host-state-slots=0 / `--spec k0` / graph=0 逐项对比 decode）→ 看哪刀砍掉降级。
 - **现场处置**：守望者复岗（08:27 起，v3 判据；首探 SLOW 已自动开 300 s 采样+时间戳 dmon）；引擎 = step3b 在跑（8094）。
+- **〔勘误（2026-10-14 12:5x，采纳 TELE 复核 §60）〕** 上条 [全程=step4] **不成立、撤回**：TELE 指纹核验（1107/1885/1919 节点、无 S4 特有 armed/harvest 行）＋我方时序复核 ⇒ **08:03–08:09 onoff/liveclk 实为 step3b**（其 A/B 同档结论因此成立且更有效力）；step4 仅见于 08:11 的 s5probe 一段（根因＝s5_probe 脚本按 [最新 lineage 档] 选中 step4_debug）；08:13–08:24 = step5（崩×2）；08:27 起复岗 step3b。
 
 
 

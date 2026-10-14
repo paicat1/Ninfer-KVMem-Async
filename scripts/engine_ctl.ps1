@@ -84,7 +84,10 @@ if ($Action -eq 'waitready') {
         $snap = Join-Path $root '.temp\waitready_snap.txt'
         try { Copy-Item $log $snap -Force -ErrorAction Stop } catch { continue }
         $text = [IO.File]::ReadAllText($snap)
-        if ($text -match 'listening on http') { Write-Output 'READY'; exit 0 }
+        if ($text -match 'listening on http') {
+            if (Get-Process ninfer-serve -ErrorAction SilentlyContinue) { Write-Output 'READY'; exit 0 }
+            Write-Output ('stale-ready ignored (log says listening, no process) ' + (Get-Date -Format 'HH:mm:ss'))
+        }
         if ($text -match 'FATAL|serve_tee end') { Write-Output 'FAILED'; exit 2 }
     }
     Write-Output 'TIMEOUT'
@@ -111,7 +114,7 @@ if ($vram) {
     if ($vram.used -gt 2500) { throw ('refusing to start: vram used ' + $vram.used + ' MiB (old instance not released?)') }
 }
 $log = Join-Path $root ('logs\test_' + $Tag + '.log')
-if (Test-Path $log) { Remove-Item $log -Force }
+if (Test-Path $log) { Move-Item $log ($log + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.old') -Force }  # 2026-10-14: archive, never delete (fixes stale-log false READY)
 
 $env:NINFER_KV_WINDOW = '32768'
 $env:NINFER_KV_SINK = '5120'

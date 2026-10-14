@@ -204,7 +204,7 @@
 - **性质**：规则（铁律，2026-10-12「别人仓越界事件」后立项，入库长期有效）
 - **核心结论**：
   1. **五条铁律**：别人的仓/工作区**一个字节都不许写**（只读也要在报告里写明"我读了谁的仓"）；写操作前必须回答"这个路径属于谁的仓"（**路径写绝对 ≠ 位置合法**）；跨线协作**只走产物**（patch/bundle/文档）；给审核方的材料首段必须写**物理位置归属**；本仓的树也不给别人用（`engine-src/` + `.temp/`）。
-  2. **违规记录（立此存照）**：自 10-08 起在 `J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem`（上游仓本地 clone）里建构建目录、改 3 个源码文件、创建提交 `4c4dcfa`、留下 21 个文件（40.7 MiB）+ `_backups\`；处置 = **按令完全恢复**（工作树/分支指针/提交对象/reflog/痕迹全部还原）；主责 CB 认领，再犯自领最重罚。
+  2. **违规记录（立此存照）**：自 10-08 起在 `J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem`（上游仓本地 clone）里建构建目录、改 3 个源码文件、创建提交 `4c4dcfa`、留下 21 个文件（40.7 MiB）+ `_backups\`；处置 = **按令完全恢复**（工作树/分支指针/提交对象/reflog/痕迹全部还原）；主责 CB 认领。
   3. 解耦后自持边界：`engine-src/`（自带 .git、分支 `line-coder390`、upstream push URL 已禁用）、`.temp/build-1208a`、`build/s6_1208a.bat`（含 `VSLANG=1033`）、部署走 `deploy_engine.ps1`（自动备份+台账）。
   4. 三条技术坑入陷阱库（T#0003–T#0005）：`ninfer-` vs `infer-` 目录名肉眼易错（先打 hex）；patch 带 CRLF/BOM 导致 `git apply` 双向不匹配（用 `git diff --output=` 生成）；脚本内反斜杠字面量被吞（用 `chr(92)` 构造）。
 - **关键证据/关联**：与 `.codebuddy/sda/PROTOCOL.md` 同源同义；是索引 §三·二十一（解耦施工）的制度化沉淀；"越界事件判词"见 SDA 管理目录两份归档文件。

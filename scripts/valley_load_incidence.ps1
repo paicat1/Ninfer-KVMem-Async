@@ -65,6 +65,10 @@ for ($p = 1; $p -le $Pairs; $p++) {
             $outL = (python -X utf8 scripts\a2gate.py --arm ('load' + $p + '_' + $off + '_' + $cyc) --port 8094 --runs 1 --rounds $LoadRounds --filler-kb $LoadKb --max-tokens $LoadMaxTokens --nonce $nonce 2>&1) -join "`n"
             $rds = [regex]::Matches($outL, 'run 1 round (\d+)\s+[\d.]+s\s+decode=([\d.]+)')
             foreach ($m in $rds) { $loadN++; if ([double]$m.Groups[2].Value -lt 60) { $loadSlow++ }; Say ('  load r' + $m.Groups[1].Value + ' decode=' + $m.Groups[2].Value) }
+            if ($cyc % 3 -eq 0) {
+                $outLong = (python -X utf8 scripts\a2gate.py --arm ('loadlong' + $p + '_' + $off + '_' + $cyc) --port 8094 --runs 1 --rounds 1 --filler-kb $LoadKb --max-tokens 2500 --nonce $nonce 2>&1) -join "`n"
+                if ($outLong -match 'run 1 round 1\s+([\d.]+)s\s+decode=([\d.]+)') { $loadN++; if ([double]$Matches[2] -lt 60) { $loadSlow++ }; Say ('  loadlong wall=' + $Matches[1] + 's decode=' + $Matches[2]) }
+            }
             $pr = Probe ('lip' + $p + '_' + $off + '_' + $cyc)
             $dec = $pr[0]; $wall = $pr[1]
             $ver = Get-LastVerify

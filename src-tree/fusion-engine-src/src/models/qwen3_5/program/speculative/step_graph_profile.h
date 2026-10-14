@@ -15,4 +15,14 @@ void step_graph_arm();
 void step_graph_record(int slot, cudaStream_t stream);
 bool step_graph_harvest(double out_ms[4]);
 
+// I3b S6（2026-10-14 午后）：设备侧 %%globaltimer 打点——替代不可用的图内事件计时（step5 已判不可用）。
+//   门槛 = NINFER_STEP_PROFILE（与事件计时同门，默认关、零行为）；record 改为 launch 一枚 1-thread
+//   stamp kernel ⇒ capture 期成为 kernel 节点（合法），replay 期按图序写纳秒时间戳到 mapped host buffer。
+//   step_stamp_arm()            ：建 mapped 缓冲（幂等；必须早于 capture）
+//   step_stamp_launch(slot, s)  ：slot 0..4 与事件计时同口径
+//   step_stamp_report(tag)      ：sync 后调用；慢轮（总跨度>100ms）或前 3 轮/VERBOSE 时打印一行
+bool step_stamp_arm();
+void step_stamp_launch(int slot, cudaStream_t stream);
+void step_stamp_report(const char* tag);
+
 } // namespace ninfer::models::qwen3_5::execution

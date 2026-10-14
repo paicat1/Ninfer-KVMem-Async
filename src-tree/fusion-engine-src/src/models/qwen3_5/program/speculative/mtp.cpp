@@ -51,6 +51,7 @@ void step_graph_arm() {
     }
     if (!reported) {
         reported = true;
+        (void)step_stamp_arm();  // S6: mapped stamp buffer (must precede capture)
         std::fprintf(stderr, "[ninfer] step graph DEBUG: armed, created %d/5 events\n", created);
         for (int i = 0; i < 5; ++i) {
             if (g_step_graph_events[i] == nullptr) {
@@ -63,10 +64,18 @@ void step_graph_arm() {
 void step_graph_record(int slot, cudaStream_t stream) {
     if (!step_graph_enabled() || slot < 0 || slot >= 5) { return; }
     if (g_step_graph_events[slot] == nullptr) { return; }
+    // S5 experiment RETRACTED (2026-10-14): cudaEventRecordWithFlags(..., cudaEventRecordExternal)
+    // DID capture 5 external event-record nodes into the graph (1107 -> 1112 nodes), but the engine
+    // then aborted at start-up: speculative_round.cu:34 cudaErrorIllegalState (exit 0xC0000409).
+    // So external event records inside our captured round graphs are NOT viable on this driver
+    // (CUDA 13.3 / WDDM). Keep the plain record; in-graph timing needs another mechanism
+    // (device-side %globaltimer stamps written to a mapped buffer, or config-knob bisection).
+    step_stamp_launch(slot, stream);  // S6: device-side %globaltimer stamp (kernel node, capture-safe)
     (void)cudaEventRecord(g_step_graph_events[slot], stream);
 }
 
 bool step_graph_harvest(double out_ms[4]) {
+    step_stamp_report("mtp");  // S6: slow-round / first-N stamps
     static bool reported_fail = false;
     static bool reported_ok = false;
     if (!step_graph_enabled()) { return false; }

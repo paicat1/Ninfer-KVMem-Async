@@ -1,8 +1,11 @@
 #pragma once
 
+#include <cstring>
 #include <cuda_runtime.h>
 
 #include <cstddef>
+#include <cstdio>
+#include <chrono>
 #include <cstdlib>
 #include <utility>
 
@@ -18,11 +21,38 @@ namespace ninfer::pdl {
 // 顺序执行（不挂 programmatic 属性）——用于在谷窗内做 on/off A-B-A，判定"120–226 ms 的
 // target 段"是 PDL 依赖等待（消费核 CTA 轮询自旋）还是真实计算。只读一次环境变量（静态）。
 [[nodiscard]] inline bool pdl_kill_switch() noexcept {
-    static const bool off = []() {
+    // Startup semantics: the environment variable wins and is read once.
+    static const bool env_off = []() {
         const char* v = std::getenv("NINFER_PDL_OFF");
-        return v != nullptr && v[0] != '\0' && v[0] != '0';
+        const bool  o = v != nullptr && v[0] != '\0' && v[0] != '0';
+        // S8: self-report once at startup -- the A-B-A ledger reads this line instead of the intent.
+        std::fprintf(stderr, "[ninfer] PDL: programmatic-dependent launches %s%s%s\n",
+                     o ? "DISABLED" : "ENABLED",
+                     o ? " (NINFER_PDL_OFF=" : " (native 120a",
+                     o ? (v ? v : "1") : ")");
+        return o;
     }();
-    return off;
+    if (env_off) { return true; }
+    // S10 (2026-10-15): runtime switch -- a flag file is consulted at most once per second so a
+    // long-running engine can be toggled without a restart. A restart resets the very state this
+    // line is trying to measure, which is why the restart-based A-B-A could never observe it.
+    static std::chrono::steady_clock::time_point last_check{};
+    static bool file_off = false;
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_check > std::chrono::seconds(1)) {
+        last_check      = now;
+        const char* env_path = std::getenv("NINFER_PDL_FLAG_FILE");
+        const char* path     = (env_path != nullptr && env_path[0] != '\0') ? env_path : ".temp\\pdl_off.flag";
+        std::FILE*  handle   = std::fopen(path, "rb");
+        const bool  next     = (handle != nullptr);
+        if (handle != nullptr) { std::fclose(handle); }
+        if (next != file_off) {
+            std::fprintf(stderr, "[ninfer] PDL: runtime switch -> %s (flag file %s)\n",
+                         next ? "OFF" : "ON", path);
+        }
+        file_off = next;
+    }
+    return file_off;
 }
 
 struct LaunchConfig {

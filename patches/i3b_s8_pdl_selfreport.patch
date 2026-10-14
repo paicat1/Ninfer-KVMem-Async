@@ -1,0 +1,48 @@
+From e3d9c2662b2c9de561711c2ee00bd3a842e689d3 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 14 Oct 2026 22:46:38 +0800
+Subject: [PATCH] I3b S8 -- the engine self-reports its PDL mode once at
+ capture time
+
+pdl_kill_switch() now prints one line the first time it is consulted: either
+  [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+or DISABLED together with the NINFER_PDL_OFF value.
+
+The 22:35 A-B-A capture was invalidated by exactly this class of ambiguity: arm 3 was
+labelled PDL_OFF=0 but silently inherited the previous arm NINFER_PDL_OFF=1, so the
+sandwich could not be read. From here on every arm engine log states its own mode, and
+the ledger records that self-report next to the intended value.
+---
+ src-tree/fusion-engine-src/src/core/pdl.cuh | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src-tree/fusion-engine-src/src/core/pdl.cuh b/src-tree/fusion-engine-src/src/core/pdl.cuh
+index 6f2a35d..fee8572 100644
+--- a/src-tree/fusion-engine-src/src/core/pdl.cuh
++++ b/src-tree/fusion-engine-src/src/core/pdl.cuh
+@@ -3,6 +3,7 @@
+ #include <cuda_runtime.h>
+ 
+ #include <cstddef>
++#include <cstdio>
+ #include <cstdlib>
+ #include <utility>
+ 
+@@ -20,7 +21,13 @@ namespace ninfer::pdl {
+ [[nodiscard]] inline bool pdl_kill_switch() noexcept {
+     static const bool off = []() {
+         const char* v = std::getenv("NINFER_PDL_OFF");
+-        return v != nullptr && v[0] != '\0' && v[0] != '0';
++        const bool o = v != nullptr && v[0] != '\0' && v[0] != '0';
++        // S8（2026-10-14 夜）：一次自报——A-B-A 台账不再依赖"意图"，引擎自己说这次是哪种模式。
++        std::fprintf(stderr, "[ninfer] PDL: programmatic-dependent launches %s%s%s\n",
++                     o ? "DISABLED" : "ENABLED",
++                     o ? " (NINFER_PDL_OFF=" : " (native 120a",
++                     o ? (v ? v : "1") : ")");
++        return o;
+     }();
+     return off;
+ }
+-- 
+2.55.0.windows.4
+

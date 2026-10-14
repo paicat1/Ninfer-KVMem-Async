@@ -53,3 +53,4 @@
 > 这不影响内容（内容由 bundle + 本树 commit 权威包含），已在构建史 §三·二十一 记录。
 
 | 2026-10-14 | src-tree 刷新到 line-coder390 @ 62e563e | I3b S7：PDL 运行期开关（NINFER_PDL_OFF）+ 段级打点 8 槽（target 三分）；本线补丁链 p2/s2/s3b/s3b_fix/s4/s6/s7 已置于 patches/ |
+\n## 2026-10-15 refresh (S8/S9/S10)\n- source: engine-src @ ee8f0ce (line-coder390)\n- S8: engine self-reports its PDL mode once at capture time\n- S9: verify-internal stamps (slots 7/8/9) + verify-split report\n- S10: PDL kill-switch readable at runtime from a flag file (NINFER_PDL_FLAG_FILE)\n- patches/i3b_s8..s10 added\n

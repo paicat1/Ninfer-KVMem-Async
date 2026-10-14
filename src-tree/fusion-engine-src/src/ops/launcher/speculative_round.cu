@@ -236,7 +236,7 @@ __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
 bool step_stamp_arm() {
     if (g_stamp_host != nullptr) { return true; }
     void* host = nullptr;
-    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 8, cudaHostAllocMapped) != cudaSuccess) {
+    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 12, cudaHostAllocMapped) != cudaSuccess) {
         (void)cudaGetLastError();
         return false;
     }
@@ -248,13 +248,13 @@ bool step_stamp_arm() {
     }
     g_stamp_host = static_cast<unsigned long long*>(host);
     g_stamp_dev = static_cast<unsigned long long*>(dev);
-    for (int i = 0; i < 8; ++i) { g_stamp_host[i] = 0ULL; }
-    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 8 slots)\n");
+    for (int i = 0; i < 12; ++i) { g_stamp_host[i] = 0ULL; }
+    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 12 slots)\n");
     return true;
 }
 
 void step_stamp_launch(int slot, cudaStream_t stream) {
-    if (g_stamp_dev == nullptr || slot < 0 || slot > 7) { return; }  // S7/E2: 8 槽（5/6 = target 子界）
+    if (g_stamp_dev == nullptr || slot < 0 || slot > 11) { return; }  // S9: 12 槽（5/6 target 子界；7/8/9 verify 内部）
     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
 }
 
@@ -263,6 +263,7 @@ void step_stamp_report(const char* tag) {
     const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
     const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
+    const unsigned long long t7 = g_stamp_host[7], t8 = g_stamp_host[8], t9 = g_stamp_host[9];  // S9: verify 内部
     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
@@ -290,6 +291,17 @@ void step_stamp_report(const char* tag) {
                      "[ninfer] target-split %s: setup=%.2f prepare=%.2f verify=%.2f ms | sum=%.2f (target=%.1f)\n",
                      tag ? tag : "round", s_setup, s_prepare, s_verify,
                      s_setup + s_prepare + s_verify, d1);
+    }
+    // S9：verify 内部细分（槽 7/8/9；scatter 由 record(2) 收口）——前向/接受/选择/落回
+    if (t6 != 0ULL && t7 >= t6 && t8 >= t7 && t9 >= t8 && t2 >= t9) {
+        const double v_forward = static_cast<double>(t7 - t6) / 1e6;
+        const double v_accept  = static_cast<double>(t8 - t7) / 1e6;
+        const double v_select  = static_cast<double>(t9 - t8) / 1e6;
+        const double v_scatter = static_cast<double>(t2 - t9) / 1e6;
+        std::fprintf(stderr,
+                     "[ninfer] verify-split %s: forward=%.2f accept=%.2f select=%.2f scatter=%.2f ms | sum=%.2f (verify=%.1f)\n",
+                     tag ? tag : "round", v_forward, v_accept, v_select, v_scatter,
+                     v_forward + v_accept + v_select + v_scatter, d1);
     }
     std::fflush(stderr);
 }

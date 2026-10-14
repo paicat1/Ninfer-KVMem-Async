@@ -16,11 +16,11 @@
 namespace ninfer::models::qwen3_5::execution {
 
 // ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
-// 8 槽（S7/E2 扩）：0..4 = 原 4 区间界（ingress/target/draft/egress）；5 = target 段"装配后/prepare 前"；
+// 12 槽（S9 扩）：0..4 = 原 4 区间界；5 = target 段"装配后/prepare 前"；7/8/9 = verify 内部（前向/接受/选择）；
 //   6 = "prepare 后/verify 前"；7 备用。arm 在建图前创建，record 在（被捕获的）
 // 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
 namespace {
-constexpr int kStepSlots = 8;  // S7/E2
+constexpr int kStepSlots = 12;  // S9（7/8/9 = verify 内部）
 cudaEvent_t g_step_graph_events[kStepSlots] = {nullptr};
 } // namespace
 

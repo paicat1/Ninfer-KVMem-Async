@@ -1,0 +1,140 @@
+﻿From 6bb11e928c0a9cfb57be49ee87fe297e7f4500a1 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 14 Oct 2026 23:26:54 +0800
+Subject: [PATCH] I3b S9 -- verify-internal stamps (slots 7/8/9) and a
+ verify-split report line
+
+The scan buffer grows to 12 slots; three stamps bracket the target forward, the accept decision and
+select_accepted_hidden inside target_verify_accept (scatter is closed by the existing record(2)),
+and the report prints forward / accept / select / scatter next to the existing target split. Healthy
+band: forward 19.20 ms, accept 0.01, select and scatter 0.00, so the verify segment is the target
+forward and any valley inflation must be inside it. Detection no longer needs an A-B-A capture: a
+slow round prints its own subdivision.
+---
+ .../qwen3_5/program/speculative/mtp.cpp       |  4 ++--
+ .../program/speculative/step_graph_profile.h  |  2 +-
+ .../speculative/target_verification.cpp       |  4 ++++
+ .../src/ops/launcher/speculative_round.cu     | 20 +++++++++++++++----
+ 4 files changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+index fe5823b..e0483d5 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/mtp.cpp
+@@ -16,11 +16,11 @@
+ namespace ninfer::models::qwen3_5::execution {
+ 
+ // ---- I3b S3b（2026-10-14）：MTP 图体内事件计时（NINFER_STEP_PROFILE 门下；默认关）------------
+-// 8 槽（S7/E2 扩）：0..4 = 原 4 区间界（ingress/target/draft/egress）；5 = target 段"装配后/prepare 前"；
++// 12 槽（S9 扩）：0..4 = 原 4 区间界；5 = target 段"装配后/prepare 前"；7/8/9 = verify 内部（前向/接受/选择）；
+ //   6 = "prepare 后/verify 前"；7 备用。arm 在建图前创建，record 在（被捕获的）
+ // 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
+ namespace {
+-constexpr int kStepSlots = 8;  // S7/E2
++constexpr int kStepSlots = 12;  // S9（7/8/9 = verify 内部）
+ cudaEvent_t g_step_graph_events[kStepSlots] = {nullptr};
+ } // namespace
+ 
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+index 73be9fd..417fe90 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/step_graph_profile.h
+@@ -19,7 +19,7 @@ bool step_graph_harvest(double out_ms[4]);
+ //   门槛 = NINFER_STEP_PROFILE（与事件计时同门，默认关、零行为）；record 改为 launch 一枚 1-thread
+ //   stamp kernel ⇒ capture 期成为 kernel 节点（合法），replay 期按图序写纳秒时间戳到 mapped host buffer。
+ //   step_stamp_arm()            ：建 mapped 缓冲（幂等；必须早于 capture）
+-//   step_stamp_launch(slot, s)  ：S7/E2 起 8 槽：0..4 与事件计时同口径；5 = target 段"装配后/prepare 前"；6 = "prepare 后/verify 前"；7 备用（报告新增 target-split 行：setup / prepare / verify 三分）
++//   step_stamp_launch(slot, s)  ：S7/E2 起 8 槽：0..4 与事件计时同口径；5 = target 段"装配后/prepare 前"；6 = "prepare 后/verify 前"；7/8/9 = verify 内部（前向/接受/选择）；报告新增 verify-split 行（forward / accept / select / scatter）
+ //   step_stamp_report(tag)      ：sync 后调用；慢轮（总跨度>100ms）或前 3 轮/VERBOSE 时打印一行
+ bool step_stamp_arm();
+ void step_stamp_launch(int slot, cudaStream_t stream);
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/target_verification.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/target_verification.cpp
+index 83b728c..089e182 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/target_verification.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/speculative/target_verification.cpp
+@@ -2,6 +2,7 @@
+ #include "models/qwen3_5/program/context.h"
+ #include "ninfer/ops/scatter.h"
+ #include "ninfer/ops/speculative_round.h"
++#include "models/qwen3_5/program/speculative/step_graph_profile.h"  // S9
+ 
+ namespace ninfer::models::qwen3_5::execution {
+ 
+@@ -23,6 +24,7 @@ void target_verify_accept(ExecutionCore& execution, Tensor& continuation_hidden_
+                                  envelope, frame.target_hidden, frame.target_logits,
+                                  frame.target_tokens);
+     }
++    step_graph_record(7, execution.device.stream);  // S9：目标前向完成（verify 内部切点 1）
+     if (frame.proposal_q.data != nullptr) {
+         ops::speculative_accept_sparse_drafts(
+             frame.target_tokens, frame.target_logits, frame.drafts, frame.candidate_ids,
+@@ -38,8 +40,10 @@ void target_verify_accept(ExecutionCore& execution, Tensor& continuation_hidden_
+             dimension(execution.parameters.model.resources().public_token_count), frame.sampling,
+             execution.work, execution.device.stream);
+     }
++    step_graph_record(8, execution.device.stream);  // S9：接受判定完成（切点 2）
+     ops::speculative_select_accepted_hidden(frame.target_hidden, frame.accepted_drafts,
+                                             frame.selected_hidden, execution.device.stream);
++    step_graph_record(9, execution.device.stream);  // S9：选择 hidden 完成（切点 3）
+     ops::scatter(frame.selected_hidden, frame.state_destination_slots, continuation_hidden_store,
+                  execution.device.stream);
+ }
+diff --git a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
+index acd58ff..f3d0e69 100644
+--- a/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
++++ b/src-tree/fusion-engine-src/src/ops/launcher/speculative_round.cu
+@@ -236,7 +236,7 @@ __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
+ bool step_stamp_arm() {
+     if (g_stamp_host != nullptr) { return true; }
+     void* host = nullptr;
+-    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 8, cudaHostAllocMapped) != cudaSuccess) {
++    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 12, cudaHostAllocMapped) != cudaSuccess) {
+         (void)cudaGetLastError();
+         return false;
+     }
+@@ -248,13 +248,13 @@ bool step_stamp_arm() {
+     }
+     g_stamp_host = static_cast<unsigned long long*>(host);
+     g_stamp_dev = static_cast<unsigned long long*>(dev);
+-    for (int i = 0; i < 8; ++i) { g_stamp_host[i] = 0ULL; }
+-    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 8 slots)\n");
++    for (int i = 0; i < 12; ++i) { g_stamp_host[i] = 0ULL; }
++    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 12 slots)\n");
+     return true;
+ }
+ 
+ void step_stamp_launch(int slot, cudaStream_t stream) {
+-    if (g_stamp_dev == nullptr || slot < 0 || slot > 7) { return; }  // S7/E2: 8 槽（5/6 = target 子界）
++    if (g_stamp_dev == nullptr || slot < 0 || slot > 11) { return; }  // S9: 12 槽（5/6 target 子界；7/8/9 verify 内部）
+     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
+ }
+ 
+@@ -263,6 +263,7 @@ void step_stamp_report(const char* tag) {
+     const unsigned long long t0 = g_stamp_host[0], t1 = g_stamp_host[1], t2 = g_stamp_host[2];
+     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
+     const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
++    const unsigned long long t7 = g_stamp_host[7], t8 = g_stamp_host[8], t9 = g_stamp_host[9];  // S9: verify 内部
+     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
+     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
+     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
+@@ -291,6 +292,17 @@ void step_stamp_report(const char* tag) {
+                      tag ? tag : "round", s_setup, s_prepare, s_verify,
+                      s_setup + s_prepare + s_verify, d1);
+     }
++    // S9：verify 内部细分（槽 7/8/9；scatter 由 record(2) 收口）——前向/接受/选择/落回
++    if (t6 != 0ULL && t7 >= t6 && t8 >= t7 && t9 >= t8 && t2 >= t9) {
++        const double v_forward = static_cast<double>(t7 - t6) / 1e6;
++        const double v_accept  = static_cast<double>(t8 - t7) / 1e6;
++        const double v_select  = static_cast<double>(t9 - t8) / 1e6;
++        const double v_scatter = static_cast<double>(t2 - t9) / 1e6;
++        std::fprintf(stderr,
++                     "[ninfer] verify-split %s: forward=%.2f accept=%.2f select=%.2f scatter=%.2f ms | sum=%.2f (verify=%.1f)\n",
++                     tag ? tag : "round", v_forward, v_accept, v_select, v_scatter,
++                     v_forward + v_accept + v_select + v_scatter, d1);
++    }
+     std::fflush(stderr);
+ }
+ }  // namespace ninfer::models::qwen3_5::execution
+-- 
+2.55.0.windows.4
+

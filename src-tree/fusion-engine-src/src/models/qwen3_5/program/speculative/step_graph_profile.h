@@ -19,7 +19,7 @@ bool step_graph_harvest(double out_ms[4]);
 //   门槛 = NINFER_STEP_PROFILE（与事件计时同门，默认关、零行为）；record 改为 launch 一枚 1-thread
 //   stamp kernel ⇒ capture 期成为 kernel 节点（合法），replay 期按图序写纳秒时间戳到 mapped host buffer。
 //   step_stamp_arm()            ：建 mapped 缓冲（幂等；必须早于 capture）
-//   step_stamp_launch(slot, s)  ：S7/E2 起 8 槽：0..4 与事件计时同口径；5 = target 段"装配后/prepare 前"；6 = "prepare 后/verify 前"；7 备用（报告新增 target-split 行：setup / prepare / verify 三分）
+//   step_stamp_launch(slot, s)  ：S7/E2 起 8 槽：0..4 与事件计时同口径；5 = target 段"装配后/prepare 前"；6 = "prepare 后/verify 前"；7/8/9 = verify 内部（前向/接受/选择）；报告新增 verify-split 行（forward / accept / select / scatter）
 //   step_stamp_report(tag)      ：sync 后调用；慢轮（总跨度>100ms）或前 3 轮/VERBOSE 时打印一行
 bool step_stamp_arm();
 void step_stamp_launch(int slot, cudaStream_t stream);

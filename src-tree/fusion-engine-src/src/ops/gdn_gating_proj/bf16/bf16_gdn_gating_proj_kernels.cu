@@ -279,6 +279,40 @@ constexpr std::int32_t cooperative_resident_ctas_per_sm() noexcept {
     }
 }
 
+// S11 (2026-10-15): the tuned table below was measured on the sm_86 build. On sm_120a (RTX 5080,
+// 84 SM) the same kernel compiles to 72 registers with the same 40-KiB dynamic shared
+// allocation, which admits three resident CTAs per SM, so the compile-time 2 under-provisions
+// the cooperative grid by a third on RTX 50 cards. Derive the number from the device instead of
+// from the build target: query the occupancy of both kernel forms (full-tile and predicated)
+// for this exact instantiation and take the smaller, because the cooperative grid has to fit
+// whichever form the launch picks. A failed query falls back to the tuned table. Same approach
+// as upstream iamwavecut/ninfer-all ec26e64.
+template <class Geometry, int SplitK, int Warps, bool NormalizeInput, int NormTokenCapacity>
+[[nodiscard]] inline std::int32_t gdn_gating_runtime_resident_ctas_per_sm() noexcept {
+    static const std::int32_t cached = [] {
+        constexpr int kSmemBytes = kBf16GdnSmemBytes<Geometry::kBlockN>;
+        const int     threads    = Warps * 32;
+        int           best       = 0;
+        auto          query      = [&](auto kernel) {
+            int blocks = 0;
+            if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks, kernel, threads,
+                                                              kSmemBytes) != cudaSuccess ||
+                blocks < 1) {
+                return false;
+            }
+            if (best == 0 || blocks < best) { best = blocks; }
+            return true;
+        };
+        const bool full_ok = query(&bf16_gdn_gating_proj_gemm_mma_kernel<
+                                   Geometry, SplitK, true, Warps, NormalizeInput, NormTokenCapacity>);
+        const bool pred_ok = query(&bf16_gdn_gating_proj_gemm_mma_kernel<
+                                   Geometry, SplitK, false, Warps, NormalizeInput, NormTokenCapacity>);
+        if (!full_ok && !pred_ok) { return 0; }
+        return best;
+    }();
+    return cached;
+}
+
 template <class Geometry, int SplitK, int Warps = kBf16GdnWarps, bool NormalizeInput = false,
           int NormTokenCapacity = 0>
 bool launch_bf16_prefill_mma(Bf16GdnGatingTokenVariant variant, const Tensor& x,
@@ -379,8 +413,14 @@ bool launch_bf16_prefill_mma(Bf16GdnGatingTokenVariant variant, const Tensor& x,
     } else {
         constexpr std::int64_t kCtasPerTokenTile =
             static_cast<std::int64_t>(Geometry::kHeads / kBf16GdnBlockM) * SplitK;
-        constexpr std::int32_t kResidentCtasPerSm =
-            cooperative_resident_ctas_per_sm<Geometry, SplitK>();
+        // S11: prefer the device-measured residency; keep the tuned table only as a fallback.
+        const std::int32_t kResidentCtasPerSm = [] {
+            const std::int32_t runtime =
+                gdn_gating_runtime_resident_ctas_per_sm<Geometry, SplitK, Warps, NormalizeInput,
+                                                        NormTokenCapacity>();
+            constexpr std::int32_t tuned = cooperative_resident_ctas_per_sm<Geometry, SplitK>();
+            return runtime > 0 ? runtime : tuned;
+        }();
         const std::int64_t resident_ctas =
             static_cast<std::int64_t>(multiprocessor_count) * kResidentCtasPerSm;
         const std::int64_t max_token_tiles = resident_ctas / kCtasPerTokenTile;

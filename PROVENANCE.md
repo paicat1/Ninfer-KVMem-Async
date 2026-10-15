@@ -54,3 +54,9 @@
 
 | 2026-10-14 | src-tree 刷新到 line-coder390 @ 62e563e | I3b S7：PDL 运行期开关（NINFER_PDL_OFF）+ 段级打点 8 槽（target 三分）；本线补丁链 p2/s2/s3b/s3b_fix/s4/s6/s7 已置于 patches/ |
 \n## 2026-10-15 refresh (S8/S9/S10)\n- source: engine-src @ ee8f0ce (line-coder390)\n- S8: engine self-reports its PDL mode once at capture time\n- S9: verify-internal stamps (slots 7/8/9) + verify-split report\n- S10: PDL kill-switch readable at runtime from a flag file (NINFER_PDL_FLAG_FILE)\n- patches/i3b_s8..s10 added\n
+## 2026-10-15 refresh (S11)
+- source: engine-src @ 872ab35 (line-coder390)
+- S11: the GDN gating cooperative residency is derived at runtime from the device occupancy
+  (both kernel forms, the smaller wins) instead of the sm_86-tuned compile-time constant 2,
+  which under-provisions the grid by a third on sm_120a (measured REG 72 vs the tuned 65)
+- patches/i3b_s11 added

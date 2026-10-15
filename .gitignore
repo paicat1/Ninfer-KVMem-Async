@@ -29,6 +29,9 @@ __pycache__/
 *.log
 Testing/
 
+# Office 临时锁文件（~$ 前缀，打开文档时自动生成）
+~$*
+
 # 备份快照
 _safety_backups/
 

@@ -5,6 +5,7 @@
 #include "models/qwen3_5/execution/linear.h"
 #include "models/qwen3_5/execution/ffn.h"
 #include "models/qwen3_5/execution/mtp.h"
+#include "models/qwen3_5/program/speculative/step_graph_profile.h"
 #include "models/qwen3_5/execution/workspace.h"
 
 #include "core/nvtx.h"
@@ -1209,6 +1210,18 @@ template <class Tap>
 void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& tap) {
     const bool prefill      = ph == Phase::Prefill;
     const std::uint32_t end = parameters_.text.stage_end(stage);
+    // v4.2 op-group sampling (plan section 4.2): one layer per verify pass, rotating, so the
+    // per-layer mixer / mlp_tail split is measurable without touching the stamp kernel semantics
+    // (that kernel only writes %globaltimer; the sampled layer index is kept host-side).
+    const bool sample_groups = ph == Phase::Verify && step_graph_enabled();
+    static std::uint64_t verify_passes = 0;
+    std::uint32_t sample_layer = 0;
+    if (sample_groups) {
+        ++verify_passes;
+        const std::uint32_t begin = parameters_.text.stage_begin[stage];
+        const std::uint32_t count = end - begin;
+        sample_layer = begin + static_cast<std::uint32_t>((verify_passes - 1) % count);
+    }
     for (std::uint32_t layer = parameters_.text.stage_begin[stage]; layer < end; ++layer) {
         const auto& block  = parameters_.text.layers[layer];
         const bool full    = config_.layer_types[layer] == MixerKind::FullAttention;
@@ -1220,6 +1233,12 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
         try {
             if (layer < layer_ready_.size()) {
                 CUDA_CHECK(cudaStreamWaitEvent(ctx_.stream, layer_ready_[layer], 0));
+            }
+            // v4.2: layer start — after the readiness wait, so the delta measures in-layer time only.
+            const bool sampled = sample_groups && layer == sample_layer;
+            if (sampled) {
+                step_stamp_note_layer(static_cast<int>(layer));
+                step_graph_record(12, ctx_.stream);
             }
             {
                 nvtx::ScopedRange mixer_range(
@@ -1233,6 +1252,7 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
                     gdn_mix(block, x, compact, ph);
                 }
             }
+            if (sampled) { step_graph_record(13, ctx_.stream); }  // v4.2: after mixer
             {
                 nvtx::ScopedRange range(prefill ? nvtx::Name::PrefillPostMixer
                                                 : nvtx::Name::VerifyPostMixer,
@@ -1245,6 +1265,7 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
                          layer + 1 < end ? next_projection_hints(static_cast<int>(layer))
                                          : ops::SparseMoeHints{});
             }
+            if (sampled) { step_graph_record(14, ctx_.stream); }  // v4.2: after mlp_tail
             if constexpr (Tap::enabled) {
                 tap.capture_layer(static_cast<int>(layer), x, ctx_.stream);
             }

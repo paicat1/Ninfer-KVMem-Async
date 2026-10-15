@@ -223,6 +223,7 @@ unsigned long long* g_stamp_host = nullptr;  // mapped host view (zero-copy read
 unsigned long long* g_stamp_dev = nullptr;   // device view written by the stamp kernel
 int g_stamp_ref_prints = 0;
 int g_stamp_slow_prints = 0;
+int g_stamp_sample_layer = -1;  // v4.2: 本轮轮转采样的层号（主机侧记录）
 
 __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
@@ -236,7 +237,7 @@ __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
 bool step_stamp_arm() {
     if (g_stamp_host != nullptr) { return true; }
     void* host = nullptr;
-    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 12, cudaHostAllocMapped) != cudaSuccess) {
+    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 17, cudaHostAllocMapped) != cudaSuccess) {
         (void)cudaGetLastError();
         return false;
     }
@@ -248,15 +249,18 @@ bool step_stamp_arm() {
     }
     g_stamp_host = static_cast<unsigned long long*>(host);
     g_stamp_dev = static_cast<unsigned long long*>(dev);
-    for (int i = 0; i < 12; ++i) { g_stamp_host[i] = 0ULL; }
-    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 12 slots)\n");
+    for (int i = 0; i < 17; ++i) { g_stamp_host[i] = 0ULL; }
+    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 17 slots)\n");
     return true;
 }
 
 void step_stamp_launch(int slot, cudaStream_t stream) {
-    if (g_stamp_dev == nullptr || slot < 0 || slot > 11) { return; }  // S9: 12 槽（5/6 target 子界；7/8/9 verify 内部）
+    if (g_stamp_dev == nullptr || slot < 0 || slot > 16) { return; }  // S9: 12 槽；v4.2: 17 槽（12/13/14 层采样，15/16 draft 内部）
     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
 }
+
+// v4.2：轮转层采样把"这轮采的是哪一层"记在主机侧——stamp 内核只写 %globaltimer，装不下层号。
+void step_stamp_note_layer(int layer) { g_stamp_sample_layer = layer; }
 
 void step_stamp_report(const char* tag) {
     if (g_stamp_host == nullptr) { return; }
@@ -264,6 +268,9 @@ void step_stamp_report(const char* tag) {
     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
     const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
     const unsigned long long t7 = g_stamp_host[7], t8 = g_stamp_host[8], t9 = g_stamp_host[9];  // S9: verify 内部
+    const unsigned long long t12 = g_stamp_host[12], t13 = g_stamp_host[13];  // v4.2: 层采样
+    const unsigned long long t14 = g_stamp_host[14];
+    const unsigned long long t15 = g_stamp_host[15], t16 = g_stamp_host[16];  // v4.2: draft 内部
     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
@@ -302,6 +309,23 @@ void step_stamp_report(const char* tag) {
                      "[ninfer] verify-split %s: forward=%.2f accept=%.2f select=%.2f scatter=%.2f ms | sum=%.2f (verify=%.1f)\n",
                      tag ? tag : "round", v_forward, v_accept, v_select, v_scatter,
                      v_forward + v_accept + v_select + v_scatter, d1);
+    }
+    // v4.2：轮转层采样的层内细分（槽 12/13/14）——层首戳取在 readiness wait 之后，故不含依赖等待
+    if (t12 != 0ULL && t13 >= t12 && t14 >= t13) {
+        const double g_mixer = static_cast<double>(t13 - t12) / 1e6;
+        const double g_mlp   = static_cast<double>(t14 - t13) / 1e6;
+        std::fprintf(stderr,
+                     "[ninfer] layer-ops %s: layer=%d mixer=%.2f mlp_tail=%.2f ms | sum=%.2f\n",
+                     tag ? tag : "round", g_stamp_sample_layer, g_mixer, g_mlp, g_mixer + g_mlp);
+    }
+    // v4.2：MTP draft 内部三段（槽 15/16 与 t2/t3 拼）——准备 / 首轮 / 循环，Σ 应等于 draft 段（t3-t2）
+    if (t15 != 0ULL && t16 >= t15 && t3 >= t16 && t3 >= t2) {
+        const double d_prepare = static_cast<double>(t15 - t2) / 1e6;
+        const double d_first   = static_cast<double>(t16 - t15) / 1e6;
+        const double d_loop    = static_cast<double>(t3 - t16) / 1e6;
+        std::fprintf(stderr,
+                     "[ninfer] draft-split %s: prepare=%.2f first=%.2f loop=%.2f ms | sum=%.2f (draft=%.1f)\n",
+                     tag ? tag : "round", d_prepare, d_first, d_loop, d_prepare + d_first + d_loop, d2);
     }
     std::fflush(stderr);
 }

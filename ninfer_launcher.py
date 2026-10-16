@@ -228,6 +228,16 @@ KV_ENV = {
     "NINFER_KV_REUSE_HOSTBACKED": "1",
 }
 
+# 异步页流水主开关（2026-10-17 用户要求：AB 测试直接入口）。
+#   NINFER_ASYNC_DEMOTE = 1 异步（引擎默认，本线核心改进）；= 0 同步批回退（OFF 对照臂）。
+#   实测依据（同 exe 单变量对照）：docs\实验-超池异步ONOFF对照-20261016（r=OFF/ON=1.13，单发打平）；
+#   docs\实验-深轮重载ONOFF对照-20261016（r=0.801<0.85，深载净收益成立；最深段 ≈2×、ring STALL 33→2）。
+#   ⚠️ 这是"环境变量"维度（不是 argv）：GUI 选 OFF 注入 NINFER_ASYNC_DEMOTE=0，选 ON 显式写 1（自证无歧义）。
+ASYNC_OPTIONS = {
+    "on":  ("异步页流水：开（默认 · 本线核心改进）", {"NINFER_ASYNC_DEMOTE": "1"}),
+    "off": ("异步页流水：关（同步回退 · A/B 对照臂）", {"NINFER_ASYNC_DEMOTE": "0"}),
+}
+
 # ---------------------------------------------------------------
 # 维度定义：key -> {value: (显示名, 附加参数列表)}
 # ---------------------------------------------------------------
@@ -402,6 +412,7 @@ DIMENSIONS = [
     ("conc",   "并发",            CONC_OPTIONS),
     ("preserve","保留思考",        PRESERVE_OPTIONS),
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
+    ("async",  "异步页流水(A/B)",  ASYNC_OPTIONS),
     ("reqlog", "请求日志（Stage 0 仪器）", REQLOG_OPTIONS),   # 2026-10-13 夜新增
 ]
 DIMENSIONS_MAP = {key: table for key, _label, table in DIMENSIONS}  # 联动用（2026-10-14）
@@ -428,7 +439,7 @@ DEFAULTS = {
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
-    "graph": "128", "reqlog": "off",
+    "graph": "128", "reqlog": "off", "async": "on",
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -439,6 +450,7 @@ LEGACY_VALUE_MAP = {
 }
 
 DIM_TIPS = {
+    "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
@@ -699,12 +711,16 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     return exe, argv
 
 
-def env_for_launch(exe=None, profile=None):
-    """profile = 预设名（可选）：把 PRESET_ENV 里该档专属的环境变量一并合入（2026-10-12）。"""
+def env_for_launch(exe=None, profile=None, combo=None):
+    """profile = 预设名（可选）：把 PRESET_ENV 里该档专属的环境变量一并合入（2026-10-12）。
+    combo = 当前 GUI 组合（可选，2026-10-17）：把"环境变量类维度"（异步页流水 A/B 开关）合入；
+    未传时行为与以前完全一致（向后兼容）。"""
     env = dict(os.environ)
     env.update(KV_ENV)
     if profile:
         env.update(PRESET_ENV.get(profile, {}))
+    if combo:
+        env.update(ASYNC_OPTIONS.get(combo.get("async", "on"), ASYNC_OPTIONS["on"])[1])
     # P0b (2026-10-09): PATH 必须同时含 exe 所在目录 **与 engine\ 根目录**。
     #   理由：自编件在 engine\self-built-20261008\，但它**动态依赖 cublas64_13.dll**
     #   （实测：全文件搜索 1.27GB exe 命中 "cublas64_13"），而该 DLL **只在 engine\ 根**
@@ -1250,6 +1266,9 @@ class LauncherApp:
         self.selection = {k: self.selection.get(k, DEFAULTS[k]) for k in DEFAULTS}
         exe, argv = build_command(self.selection, self._port(), self._engine_path())
         envs = " ".join(f"{k}={v}" for k, v in KV_ENV.items())
+        _async_env = ASYNC_OPTIONS.get(self.selection.get("async", "on"), ASYNC_OPTIONS["on"])[1]
+        if _async_env:
+            envs += " " + " ".join(f"{k}={v}" for k, v in _async_env.items())
         text = f"[env  {envs}]\n\n{exe}\n  " + "\n  ".join(argv)
         self.cmd_box.configure(state="normal")
         self.cmd_box.delete("1.0", "end")
@@ -1344,7 +1363,7 @@ class LauncherApp:
             CREATE_NEW_CONSOLE = 0x00000010
             logfile = os.path.join(LOG_DIR, "serve_" + time.strftime("%Y%m%d_%H%M%S") + ".log")
             env_profile = self._env_profile_name()   # 2026-10-13 夜修：预设优先（原传命名组合 -> PRESET_ENV 永不命中）
-            env = env_for_launch(exe, env_profile)
+            env = env_for_launch(exe, env_profile, self.selection)
             env["SERVE_TEE_MODE"] = "full" if self.logmode_var.get() == "全部" else "slim"
             subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
                              env=env, cwd=ROOT,

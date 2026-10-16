@@ -169,6 +169,7 @@ set NINFER_KV_RETRIEVE=8192
 set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
 set NINFER_KV_REUSE_HOSTBACKED=1
+> 启动器（`ninfer_launcher.py`）已内置上述六开关，并带 **"异步页流水 A/B 开关"**（`NINFER_ASYNC_DEMOTE`：开＝默认，关＝同步批回退）——实测依据：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段 ≈2×）。做 A/B 只切这一项、其余不动，改档需重启 serve。
 engine\lineage\I3b_step13_fourlayer_20261015.exe models\swift15_iq3s_mtp.ninfer ^
   --host 127.0.0.1 --port 8094 --model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s ^
   --max-context 262144 --kv-capacity 81920 --cuda-graph-allowance-mib 192 --kv-dtype nvfp4 ^

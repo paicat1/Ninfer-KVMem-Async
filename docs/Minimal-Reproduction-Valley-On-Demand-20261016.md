@@ -6,7 +6,7 @@
 
 ## What this shows
 
-The engine (KVMem ring + async page pipeline, single stream, long-context agent serving) periodically enters a **slow but correct** state we call the *valley*. The whole per-round time is spent **inside the host-side submission call** (`submit ≈ wall`, `wait = sync ≈ 0`, semantics read back from the engine source). The state can be **produced on demand by holding VRAM from another process**, and it **recovers immediately on release**.
+The engine (KVMem ring + async page pipeline, single stream, long-context agent serving) periodically enters a **slow but correct** state we call the *valley*. The whole per-round time is spent **inside the host-side submission call** (`submit ≈ wall`, `wait = sync ≈ 0`, semantics read back from the engine source). The state can be **produced on demand by holding VRAM from another process**, and it **recovers within about half a minute of release** (measured in the self-test below: the first probe at +20 s still reads slow).
 
 ## Prerequisites
 
@@ -50,9 +50,9 @@ cannot be attributed to the hold alone).
 
 | signal | healthy | valley |
 |---|---|---|
-| GPU utilisation / power | 99 % / **240-271 W** | 99 % / **~109 W** (busy but not working) |
+| GPU utilisation / power | 99 % / **240-271 W** | 99 % / **~65-110 W** (busy but not working; the deeper the state, the lower the draw -- 73.9 W measured in the self-test) |
 | `submit` vs `wall` (from `step profile`) | submit is a fraction | **submit ≈ wall**, `wait = sync ≈ 0` |
-| last-layer `mixer` time | 0.19-0.24 ms | **4-160 ms** (inflates 20-100×), earlier layers untouched |
+| last-layer `mixer` time | 0.19-0.24 ms | **4-160 ms** (20-70× at valley grade, several hundred fold at deep grade), earlier layers untouched |
 
 ## What has been ruled out by direct measurement
 
@@ -74,3 +74,15 @@ PDL overlap wait (the original prime suspect - excluded by an ON/OFF reversal) �
 ## Raw evidence
 
 All ledgers behind these numbers: [`baselines/valley-20261016/`](../baselines/valley-20261016/README.md) (40 files, with an index stating which report cites which file).
+
+## Verification record (2026-10-17)
+
+Every claim above was re-checked against primary sources after publication. **Seven corrections**:
+"periodically" -> "intermittently" (the opening conditions are unknown); **a "byte-identical outputs" claim was
+withdrawn because no valley-versus-healthy comparison has ever been run** (what is known: the valley changes
+submission timing, not the compute path, and in-valley requests all completed normally); power draw became a
+range (**65-110 W**, decreasing with depth); the mixer inflation range was extended for the deep grade;
+**"minutes to hours of stickiness" contradicted the repository's own earlier measurement (two flips within six
+minutes) and is now stated as minutes**; the timing label now distinguishes the short and sustained recipes; and
+"immediately" became "within about half a minute". All remaining numbers were traced to ledgers in
+`baselines/valley-20261016/`, to the engine source for the timing semantics, and to the twelve-shot windowed tally.

@@ -14,10 +14,15 @@ v2 修的三处（2026-10-16 07:1x，按 TELE 审核：tools 侧缺陷已认）�
         否则 **慢轮（总跨度 >100 ms）最多打 60 次**，**健康轮只打前 3 次**。
      ⇒ `verify` 字段**能"发现谷"（慢轮会打点），但不能"判定健康"**（无新点 ≠ 健康，是"无新信息"）；
      ⇒ **60 次用满后即使深谷也不再打点**（遥测盲区）——自然窗观测必须开 VERBOSE（本脚本据此给 `ts_lines=` 便于估测用量）。
+  ④ **decode 口径（2026-10-17 06:1x 实测修正，勿混用）**：本脚本的 decode 取自引擎 `throughput | <win>s | … decode X tok/s (N tok)`，
+     是**固定窗口（实测 5.0 s）内的平均**：轻探针 199 tok / 5.0 s ⇒ 报 **39.8**；
+     而 a2gate 探针报的是**单请求生成速率**（同为 200 tok，实耗 ~1.2 s ⇒ 报 **165**）。
+     ⇒ **两者不是同一个量，差约 4 倍**；判据 "decode<60 = 谷" 指的是 **a2gate 的口径**，
+     **拿本字段去套会把健康（39.8）误判成谷** ⇒ 字段已改名 `decode_win5s=` 以示区别。
 
 行格式（`w2` 版本标记；v1 行无标记，其 freemem/pf 需 ×1024 解读、verify/decode 需按"最后写入行"解读）：
   MM-DD HH:MM:SS | w2 | up=<h> cpu=<%> freemem_mib=<MiB> pf_mib=<MB> top=<a/b/c> | gpu=<sm,pwr,util,mem> | \
-  verify=<ms|stale> decode=<tok/s|stale> newlines=<n> ts_lines=<n> | s13=<cyN:ok|stale>
+  verify=<ms|stale> decode_win5s=<tok/s|stale> newlines=<n> ts_lines=<n> | s13=<cyN:ok|stale>
 """
 import io
 import os
@@ -141,7 +146,7 @@ def main():
         n += 1
         h = host_state().split('|')
         ver, dec, added = tail.poll()
-        line = '%s | %s | up=%sh cpu=%s%% freemem_mib=%s pf_mib=%s top=%s | gpu=%s | verify=%s decode=%s newlines=%d ts_lines=%d | s13=%s' % (
+        line = '%s | %s | up=%sh cpu=%s%% freemem_mib=%s pf_mib=%s top=%s | gpu=%s | verify=%s decode_win5s=%s newlines=%d ts_lines=%d | s13=%s' % (
             time.strftime('%m-%d %H:%M:%S'), VER,
             h[0] if len(h) > 0 else '?', h[1] if len(h) > 1 else '?', h[2] if len(h) > 2 else '?',
             h[3] if len(h) > 3 else '?', (h[4] if len(h) > 4 else '?')[:60],

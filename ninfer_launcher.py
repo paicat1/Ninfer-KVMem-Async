@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NInfer 启动器（本线 ninfer-kvmem / 模型 Coder390）
+"""Ninfer-KVMem-Async 启动器（本线：异步页流水 + KVMem 环；模型 Qwen3.8-27B-Coder390）
 
 用途：点选参数 → 实时预览启动命令 → 起服（可见窗口，关窗=停服）→ 就绪自测。
 零外部依赖（仅 Python 自带 tkinter / urllib / json / subprocess）。
@@ -471,43 +471,41 @@ DIM_TIPS = {
 
 # 命名组合预置（首次运行若无配置文件则落盘）
 PRESET_PROFILES = {
-    # —— ★本线 Coder390 定稿（P1b 2026-10-09 实测定型，见构建史 §4.4）——
-    # 注：Bonsai 线的全部预设（起服-dflash档 / 备用-MTP档 / 省显存-视觉* / 思考预算-16000 /
-    #     长文档-224K / 并发4-吞吐）已按用户裁决（2026-10-10）**整批删除**：
-    #     本线模型无 dflash2 / vision 组件，那些档位选中必失败；且它们引用的是 Bonsai 口径的
-    #     旧参数，留着只会与下面的定稿档混淆。Bonsai 相关内容一律不进本线。
-    "★定稿 51200稳定（无growth）": dict(DEFAULTS),                 # 51200 池 + hemostat on（无 growth）+ MTP K4 + 256K
-    # 2026-10-11 凌晨实测（CodeBuddy 自主实验，构建史 §三·十六）：64K 池需 --cuda-graph-allowance-mib 128
-    # 才能起（runtime 预留差 ~213 MiB，压 graph 预算补齐，batch=1 零性能代价：decode 101.1 vs 基线 101-104）；
-    # 视觉+64K+无growth 亦成（free 552 MiB，decode 108.2）。⚠ 桌面须 ≤~1.0 GiB（WDDM 归还不即时）。
-    "★SWIFT 定稿（rk8v4 + 64K + graph192）": dict(DEFAULTS, model="swift", kv="rk8v4", kvcap="64k", graph="192", vision="overlay"),  # 2026-10-14 用户令：新默认档
-    "大池 64K（需净GPU·graph128）": dict(DEFAULTS, kvcap="64k"),
-    "视觉 64K（需净GPU·graph128）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k"),
-    "★贴边大池 55296（需净GPU）":  dict(DEFAULTS, kvcap="55296"),  # 55296 贴边：启动前清桌面占用（validate 会提醒）
-    "对照 裸解码 k0":            dict(DEFAULTS, spec="k0"),         # 无投机（所有 A/B 的对照臂）
-    "省显存 20480":              dict(DEFAULTS, kvcap="20480"),     # 20K 池（余量最大，长上下文靠 host）
-    "思考 medium":               dict(DEFAULTS, think="medium", tb="16000", sample="thinking"),
-    "关思考对照":                dict(DEFAULTS, think="none", tb="none"),  # 仅 A/B 对照：本模型不思考没法用
-    # 视觉档（嫁接件 iq4nlvis：同样的视觉塔，MTP 头小 202 MB；官方 q8mtp 退为参照件）。
-    # ★挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + hemostat=on（无 growth）起服成功
-    #   且功能正常（decode 108.2）——旧 scatter 断言在现役引擎 3b9dc83 已不存在，视觉预设统一改 on。
-    "视觉 20480保守":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="20480"),
-    "视觉 大池55296":            dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="55296"),  # 55K+视觉实测成功（free 490.4 MiB，2026-10-11）
-    # 2026-10-12 用户裁决：把"现在这个挺稳的配置"整档固定成预设（★第三个定稿档）。
-    #   = v2.1 起服脚本 start-v21-restorefix-nograph.bat 的逐字配置：
-    #     64K 池 + iq4nlvis 视觉(cpu) + --no-cuda-graph + MTP K4 + 思考 high/16000 + 官方采样(0.7/0.9/20)。
-    #   实测（2026-10-11 23:36 起，连续 ~1 小时多轮）：引擎不崩、decode 越跑越稳（41-212 tok/s）。
-    #   该档还要两个环境变量（异步 demote 深度 / demote profile），见同文件下方 PRESET_ENV。
-    "★64K视觉稳（v2.1实测·nograph）": dict(DEFAULTS, model="iq4nlvis", vision="cpu", kvcap="64k", graph="off"),
-    # 2026-10-13 用户令定稿：视觉改 overlay（塔驻 host、打图开窗借设备；5 图零错、首图 prepared 0.3-0.7s、复用 40-60ms）。
-    "★视觉 overlay 定稿（2026-10-13·5图零错）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="off"),
-    # 2026-10-13 夜 用户令：stage0a 实况轮（102 轮 / 0×500 / 超池 11 次零故障 / 真谷 0）整档固定为基线。
-    #   = stage0a 起服逐字：64K 池 + iq4nlvis(overlay) + --cuda-graph-allowance-mib 64 + MTP K4
-    #     + 思考 high/16000 + 官方采样 + hemostat on + **reqlog 仪器开**（TELE 干跑复算：23/23 旗全等；
-    #     缺的 reqlog 三旗=本预设 reqlog="on" 补齐，文件名按端口 .temp\reqlog_serve_<port>.jsonl）。
-    #   实测：decode median 152.7（窗口级·截至 22:07:47；终态 159.6 / 请求级 225.3）/ 峰 406.2；
-    #     TTFT max 57.2s（前档 464.9s）；真谷（host 饱和型）= 0。
-    "★64K overlay stage0a 基线（10-13 实测）": dict(DEFAULTS, model="iq4nlvis", vision="overlay", kvcap="64k", graph="64", reqlog="on"),
+    # ============================================================
+    # 只有 4 个预设：**2 种模式 × 2 个模型**。其余参数请在下方维度区自行设置。
+    #
+    # 【生产模式】= 本卡实测定稿档：精度 × 池 × 上下文 三者的最优组合（不是"精度越高越好"）。
+    #   ⚠ 关键取舍：KV 精度每升一档，每 token 显存就变贵 ⇒ 同样的 16 GB 能放的池就变小
+    #     ⇒ 长上下文更多走 host 往返 ⇒ 反而更慢。所以"生产"取的是**实测最快的组合**，
+    #     不是精度最高的组合（要更高精度：KV 类型那一档自己往上选，代价见显存账）。
+    # 【压力模式】= 抓"死亡谷"用：把池压到 20K（逻辑上下文 256K ⇒ 12.8× 超池），
+    #     强制大量 host 往返（谷的栖息地），并**打开 reqlog 仪器**以便事后取证。
+    #     代价：吞吐明显低于生产档（这是故意的——要的是"能进谷"，不是"跑得快"）。
+    #     ⚠ 压力模式不改异步臂（A/B 开关独立）：要对照就自己切"异步页流水(A/B)"那一档。
+    # ============================================================
+    "① 生产 · Q2LYNN（定稿 51200 池 · 最快）": dict(
+        DEFAULTS, model="q2lynn", kv="rk2v4-e8", kvcap="51200", graph="64",
+        vision="overlay", spec="k4", think="high", tb="16000", hemostat="on",
+        reqlog="off", **{"async": "on"}
+    ),
+    "② 生产 · SWIFT（定稿 64K 池 · rk8v4）": dict(
+        DEFAULTS, model="swift", kv="rk8v4", kvcap="64k", graph="192",
+        vision="overlay", spec="k4", think="high", tb="16000", hemostat="on",
+        reqlog="off", **{"async": "on"}
+    ),
+    "③ 压力 · Q2LYNN（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
+        DEFAULTS, model="q2lynn", kv="rk2v4-e8", kvcap="20480", graph="64",
+        vision="overlay", ctx="256k", spec="k4", think="high", tb="16000",
+        hemostat="on", reqlog="on", **{"async": "on"}
+    ),
+    "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
+        DEFAULTS, model="swift", kv="rk8v4", kvcap="20480", graph="192",
+        vision="overlay", ctx="256k", spec="k4", think="high", tb="16000",
+        hemostat="on", reqlog="on", **{"async": "on"}
+    ),
+    # 2026-10-17 简化（用户令）：原先 13 个预设（大池64K/视觉×4/思考档/对照k0/贴边55296…）
+    #   外部读者分不清用途 ⇒ 全部撤下。它们的**参数与实测记录仍在**：构建史（§4.4、三·十六、
+    #   §三·十九）+ git 历史；需要用哪个配置，在下方维度区照抄即可。
 }
 
 # ---------------------------------------------------------------
@@ -516,15 +514,14 @@ PRESET_PROFILES = {
 #     NINFER_ASYNC_DEMOTE_DEPTH=2 = 挂账 46 v2.1 多批 in-flight 深度（实测 10+ 轮零降速）；
 #     NINFER_DEMOTE_PROFILE=1     = demote 批级 profile 日志（纯诊断，不需要可删这一行）。
 PRESET_ENV = {
-    "★64K视觉稳（v2.1实测·nograph）": {
-        "NINFER_ASYNC_DEMOTE_DEPTH": "2",
-        "NINFER_DEMOTE_PROFILE": "1",
-    },
-    # stage0a（10-13）：PROFILE=1 已实证（该轮日志有 "demote profile" 行）；DEPTH=2 随 v2.1 定稿配对（stage0a 未单独取证）。
-    "★64K overlay stage0a 基线（10-13 实测）": {
-        "NINFER_ASYNC_DEMOTE_DEPTH": "2",
-        "NINFER_DEMOTE_PROFILE": "1",
-    },
+    # 生产档：v2.1 多批 in-flight 深度（挂账 46，实测 10+ 轮零降速）
+    "① 生产 · Q2LYNN（定稿 51200 池 · 最快）":        {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "② 生产 · SWIFT（定稿 64K 池 · rk8v4）":         {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    # 压力档：再加 demote 批级 profile 日志（纯诊断，抓谷后做差分归因用）
+    "③ 压力 · Q2LYNN（20K 小池 · 强制 host 往返 · 抓深谷）": {
+        "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
+    "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": {
+        "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
 }
 
 
@@ -863,9 +860,9 @@ class ToolTip:
 class LauncherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Coder390 · NInfer 启动器（ninfer-kvmem）")   # P0: 标题原为 "Bonsai-27B-NInfer-kvmem 启动器"
-        self.root.geometry("900x700")
-        self.root.minsize(780, 660)
+        self.root.title("Ninfer-KVMem-Async · 启动器")   # 2026-10-17: 正式库名（原为 Coder390 · NInfer 启动器）
+        self.root.geometry("1180x820")
+        self.root.minsize(1020, 740)
         self.bg, self.fg = "#f4f8ff", "#1a3a6b"
         self.root.configure(bg=self.bg)
 
@@ -908,155 +905,182 @@ class LauncherApp:
         main = tk.Frame(self.root, bg=self.bg)
         main.pack(fill="both", expand=True, padx=14, pady=12)
 
-        tk.Label(main, text="Coder390 · NInfer 启动器", font=("Microsoft YaHei UI", 15, "bold"),
+        # ---- 头部（正式库名）----
+        tk.Label(main, text="Ninfer-KVMem-Async · 启动器", font=("Microsoft YaHei UI", 16, "bold"),
                  bg=self.bg, fg="#1b4d8a").pack(anchor="w")
-        tk.Label(main, text="Qwen3.8-27B-Coder390 · MTP + KVMem · RTX 5080 sm_120",
-                 font=("Microsoft YaHei UI", 9), bg=self.bg, fg="#5a6b8a").pack(anchor="w", pady=(0, 6))
+        tk.Label(main, text="Qwen3.8-27B-Coder390 · MTP + KVMem 环 · 异步页流水 · RTX 5080 sm_120",
+                 font=("Microsoft YaHei UI", 9), bg=self.bg, fg="#5a6b8a").pack(anchor="w", pady=(0, 8))
 
-        # 端口行
-        portrow = tk.Frame(main, bg=self.bg)
-        portrow.pack(anchor="w", pady=(0, 6))
-        tk.Label(portrow, text="端口:", bg=self.bg, fg="#2b3a6b",
-                 font=("Microsoft YaHei UI", 10)).pack(side="left")
-        self.port_entry = ttk.Entry(portrow, textvariable=self.port_var, width=8)
-        self.port_entry.pack(side="left", padx=(4, 0))
-        tk.Label(portrow, text="（官方默认 8094）", bg=self.bg, fg="#9b8c5a",
-                 font=("Microsoft YaHei UI", 9)).pack(side="left", padx=(6, 0))
-        # 日志显示模式（传给 serve_tee 窗口；日志文件两种模式都全文落盘）
-        tk.Label(portrow, text="日志:", bg=self.bg, fg="#2b3a6b",
-                 font=("Microsoft YaHei UI", 10)).pack(side="left", padx=(16, 0))
-        self.logmode_cb = ttk.Combobox(portrow, state="readonly", width=6, textvariable=self.logmode_var,
+        # ---- 工具栏：端口 / 日志 / 引擎 ----
+        bar = tk.Frame(main, bg=self.bg)
+        bar.pack(fill="x", pady=(0, 10))
+        tk.Label(bar, text="端口", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        self.port_entry = ttk.Entry(bar, textvariable=self.port_var, width=8, font=("Microsoft YaHei UI", 9))
+        self.port_entry.pack(side="left", padx=(4, 14))
+        ToolTip(self.port_entry, "引擎服务端口（官方默认 8094）。")
+        tk.Label(bar, text="日志", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        self.logmode_cb = ttk.Combobox(bar, state="readonly", width=6, textvariable=self.logmode_var,
                                        values=["精简", "全部"], font=("Microsoft YaHei UI", 9))
-        self.logmode_cb.pack(side="left", padx=(4, 0))
-        ToolTip(self.logmode_cb, "窗口日志显示：精简=只留每段 SELECT 首末条 + 业务行（KEPT 隐藏）；全部=不过滤（查错用）。日志文件两种模式都全文落盘。")
-        # 引擎版本（登记册驱动：标注 + 选择 + 基线对比；2026-10-13 用户令）
-        tk.Label(portrow, text="引擎:", bg=self.bg, fg="#2b3a6b",
-                 font=("Microsoft YaHei UI", 10)).pack(side="left", padx=(16, 0))
-        self.engine_cb = ttk.Combobox(portrow, state="readonly", width=40, textvariable=self.engine_var,
+        self.logmode_cb.pack(side="left", padx=(4, 14))
+        ToolTip(self.logmode_cb, "窗口日志显示：精简=只留每段 SELECT 首末条 + 业务行；全部=不过滤（查错用）。日志文件两种模式都全文落盘。")
+        tk.Label(bar, text="引擎", bg=self.bg, fg="#2b3a6b",
+                 font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        self.engine_cb = ttk.Combobox(bar, state="readonly", width=46, textvariable=self.engine_var,
                                       values=[engine_display(e) for e in self.engine_registry],
                                       font=("Microsoft YaHei UI", 9))
-        self.engine_cb.pack(side="left", padx=(4, 0))
+        self.engine_cb.pack(side="left", padx=(4, 0), fill="x", expand=True)
         self.engine_cb.bind("<<ComboboxSelected>>", self._on_engine_select)
-        ToolTip(self.engine_cb, "用哪个引擎起服（引擎登记册）：条目带标注（基线 / 稳 / 谷深 / 极速好…）；"
-                                "同类迭代收敛后可把旧条目标为『已归档』。预览与启动都用所选引擎。")
-        ttk.Button(portrow, text="标注…", width=6, command=self._edit_engine_entry).pack(side="left", padx=(6, 0))
-        ttk.Button(portrow, text="登记…", width=6, command=self._add_engine_entry).pack(side="left", padx=(4, 0))
+        ToolTip(self.engine_cb, "引擎二进制（登记册驱动）。带 preset 的条目：选中即自动套用（参数 + env 一键复现）。")
 
-        # 左：参数区（可滚动）
-        left_outer = tk.Frame(main, bg=self.bg)
+        # ---- 主体：左参数 / 右预览 ----
+        body = tk.Frame(main, bg=self.bg)
+        body.pack(fill="both", expand=True)
+
+        left_outer = tk.Frame(body, bg=self.bg, width=560)
         left_outer.pack(side="left", fill="y", padx=(0, 14))
-        canvas = tk.Canvas(left_outer, bg=self.bg, highlightthickness=0, width=210)
+        left_outer.pack_propagate(False)
+        canvas = tk.Canvas(left_outer, bg=self.bg, highlightthickness=0, width=540)
         scroll = ttk.Scrollbar(left_outer, orient="vertical", command=canvas.yview)
         inner = tk.Frame(canvas, bg=self.bg)
         inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scroll.set)
-        canvas.pack(side="left", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
         canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), "units")))
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
-        # ★全窗最醒目：异步页流水（本线拳头产品）A/B 开关
-        #   2026-10-17 用户明确要求：必须在最上、最左、最醒目（不能埋在维度列表末尾）。
-        star = tk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关）",
-                             font=("Microsoft YaHei UI", 10, "bold"), bg=self.bg, fg="#a03030")
-        star.pack(fill="x", pady=(4, 6))
-        self._label2key["async"] = {lbl: val for val, (lbl, _) in ASYNC_OPTIONS.items()}
-        self.var["async"] = tk.StringVar(value=ASYNC_OPTIONS[DEFAULTS["async"]][0])
-        cb_async = ttk.Combobox(star, state="readonly", textvariable=self.var["async"], width=34,
-                                font=("Microsoft YaHei UI", 10, "bold"))
-        cb_async["values"] = list(self._label2key["async"].keys())
-        cb_async.bind("<<ComboboxSelected>>", lambda _e: self._on_change())
-        cb_async.pack(anchor="w", padx=8, pady=(6, 2))
-        tk.Label(star, text="开＝异步（搬运与计算重叠，默认）；关＝同步批回退（OFF 对照臂）。"
-                            "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段 ≈2×）。"
+        # 维度表（async 不在 DIMENSIONS 里，但同样需要标签/选项/提示）
+        DIM_LABEL = {k: l for k, l, _t in DIMENSIONS}
+        DIM_LABEL["async"] = "异步页流水(A/B)"
+        DIM_TABLE = {k: t for k, _l, t in DIMENSIONS}
+        DIM_TABLE["async"] = ASYNC_OPTIONS
+
+        # 控件统一宽度 = 最长选项名 + 2（保证下拉收起时也看得全）
+        _all = []
+        for _t in DIM_TABLE.values():
+            _all += [lbl for (lbl, _a) in _t.values()]
+        CBW = min(52, max(30, max(len(x) for x in _all) + 2))
+
+        def section(title, tip=""):
+            f = ttk.LabelFrame(inner, text=title)
+            f.pack(fill="x", pady=(0, 8), padx=2)
+            if tip:
+                ToolTip(f, tip)
+            return f
+
+        def row(parent, key):
+            """标签在左（固定宽度）、下拉在右（统一宽度）——不会截断。"""
+            table = DIM_TABLE[key]
+            self._label2key[key] = {lbl: val for val, (lbl, _a) in table.items()}
+            self.var[key] = tk.StringVar(value=table[self.selection.get(key, DEFAULTS[key])][0])
+            fr = tk.Frame(parent, bg=self.bg)
+            fr.pack(fill="x", padx=8, pady=3)
+            tk.Label(fr, text=DIM_LABEL[key], bg=self.bg, fg="#2b3a6b", width=16, anchor="w",
+                     font=("Microsoft YaHei UI", 9)).pack(side="left")
+            cb = ttk.Combobox(fr, state="readonly", width=CBW, textvariable=self.var[key],
+                              font=("Microsoft YaHei UI", 9))
+            cb["values"] = list(self._label2key[key].keys())
+            cb.bind("<<ComboboxSelected>>", lambda _e: self._on_change())
+            cb.pack(side="left", padx=(6, 0))
+            if DIM_TIPS.get(key):
+                ToolTip(cb, DIM_TIPS[key])
+            return cb
+
+        # ★ 全窗最醒目：异步页流水（本线拳头产品）A/B 开关
+        star = ttk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关）")
+        star.pack(fill="x", pady=(0, 10), padx=2)
+        row(star, "async")
+        tk.Label(star, text="开=异步（搬运与计算重叠，默认）；关=同步批回退（OFF 对照臂）。"
+                            "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段≈2×）。"
                             "改档需重启 serve；A/B 只切这一项。",
                  bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 8),
-                 wraplength=196, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
-        ToolTip(star, "异步页流水（NINFER_ASYNC_DEMOTE）。本线核心改进：把 host→device 页面搬运与计算重叠，"
-                       "深超池场景 decode 114.4 vs 74.4 tok/s。关掉即“没有异步”的对照臂。")
+                 wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
 
-        # 场景预设（一键推荐组合，照老项目；源 = 内置 PRESET_PROFILES）
-        preset_box = tk.LabelFrame(inner, text="场景预设（推荐）", font=("Microsoft YaHei UI", 10),
-                                   bg=self.bg, fg="#2b3a6b")
-        preset_box.pack(fill="x", pady=4)
-        ToolTip(preset_box, "按场景一键套用推荐组合（官方线专用）。选择后自动填充下方参数。")
+        # 场景预设
+        pf = section("场景预设（只 4 个：2 模式 × 2 模型）", "【生产】= 本卡实测定稿档（精度×池×上下文 的最优组合，**不是**精度最高）；【压力】= 把池压到 20K（逻辑 256K ⇒ 12.8× 超池）强制大量 host 往返，并开 reqlog 仪器；代价是吞吐明显低于生产档。两种模式都不改异步臂（A/B 开关在顶部独立切）。其余参数请在下方维度区自行设置。")
         self.preset_var = tk.StringVar()
-        self.preset_cb = ttk.Combobox(preset_box, state="readonly", textvariable=self.preset_var,
-                                     width=34, font=("Microsoft YaHei UI", 9))
-        self.preset_cb["values"] = list(PRESET_PROFILES.keys())
+        self.preset_cb = ttk.Combobox(pf, state="readonly", textvariable=self.preset_var,
+                                      width=CBW, values=list(PRESET_PROFILES.keys()),
+                                      font=("Microsoft YaHei UI", 9))
         self.preset_cb.bind("<<ComboboxSelected>>", self._apply_preset)
-        self.preset_cb.pack(anchor="w", padx=8, pady=4)
+        self.preset_cb.pack(anchor="w", padx=8, pady=6)
 
-        for key, label, opts in DIMENSIONS:
-            box = tk.LabelFrame(inner, text=label, font=("Microsoft YaHei UI", 10), bg=self.bg, fg="#2b3a6b")
-            box.pack(fill="x", pady=4)
-            ToolTip(box, DIM_TIPS.get(key, ""))
-            self._label2key[key] = {lbl: val for val, (lbl, _) in opts.items()}
-            self.var[key] = tk.StringVar(value=opts[DEFAULTS[key]][0])
-            if key == "spec":
-                # 投机档两级联动（照老项目）：类型（无/MTP/DFlash2）+ K 值
-                f = tk.Frame(box, bg=self.bg)
-                f.pack(anchor="w", padx=8, pady=4)
-                self.combo_spec_type = ttk.Combobox(f, state="readonly", width=9,
+        # 分区：模型与推理规格
+        f1 = section("模型与推理规格")
+        for k in ("model", "spec", "think", "tb", "maxout", "sample", "preserve", "conc"):
+            if k == "spec":
+                fr = tk.Frame(f1, bg=self.bg); fr.pack(fill="x", padx=8, pady=3)
+                tk.Label(fr, text=DIM_LABEL["spec"], bg=self.bg, fg="#2b3a6b", width=16, anchor="w",
+                         font=("Microsoft YaHei UI", 9)).pack(side="left")
+                self._label2key["spec"] = {lbl: val for val, (lbl, _a) in SPEC_OPTIONS.items()}
+                self.var["spec"] = tk.StringVar(value=SPEC_OPTIONS[self.selection.get("spec", DEFAULTS["spec"])][0])
+                self.combo_spec_type = ttk.Combobox(fr, state="readonly", width=10,
                                                     textvariable=self.var_spec_type, font=("Microsoft YaHei UI", 9))
                 self.combo_spec_type["values"] = ["无", "MTP", "DFlash2"]
                 self.combo_spec_type.bind("<<ComboboxSelected>>", self._on_spec_change)
-                self.combo_spec_type.pack(side="left", padx=(0, 6))
-                self.combo_spec_k = ttk.Combobox(f, state="readonly", width=6,
+                self.combo_spec_type.pack(side="left", padx=(6, 4))
+                self.combo_spec_k = ttk.Combobox(fr, state="readonly", width=6,
                                                  textvariable=self.var_spec_k, font=("Microsoft YaHei UI", 9))
                 self.combo_spec_k.bind("<<ComboboxSelected>>", self._on_spec_change)
                 self.combo_spec_k.pack(side="left")
+                ToolTip(self.combo_spec_type, DIM_TIPS.get("spec", ""))
                 self._update_spec_k_range()
             else:
-                cb = ttk.Combobox(box, state="readonly", textvariable=self.var[key], width=32,
-                                  font=("Microsoft YaHei UI", 9))
-                cb["values"] = list(self._label2key[key].keys())
-                cb.bind("<<ComboboxSelected>>", lambda _e: self._on_change())
-                cb.pack(anchor="w", padx=8, pady=4)
+                row(f1, k)
 
-        # 右：预览 + 操作
-        right = tk.Frame(main, bg=self.bg)
+        # 分区：KV 与显存
+        f2 = section("KV 与显存")
+        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "vision"):
+            row(f2, k)
+
+        # 分区：仪器与稳定性
+        f3 = section("仪器与稳定性")
+        for k in ("reqlog", "hemostat", "prefill"):
+            row(f3, k)
+
+        # ---- 右侧：预览 + 状态 + 操作 ----
+        right = tk.Frame(body, bg=self.bg)
         right.pack(side="right", fill="both", expand=True)
 
         tk.Label(right, text="启动命令预览", bg=self.bg, fg="#9b8c5a",
                  font=("Microsoft YaHei UI", 10, "bold")).pack(anchor="w", pady=(0, 2))
-        self.cmd_box = tk.Text(right, height=10, width=62, wrap="word", bg="white", fg="#1a1a1a",
+        self.cmd_box = tk.Text(right, height=14, width=64, wrap="word", bg="white", fg="#1a1a1a",
                                bd=1, relief="solid", font=("Consolas", 9))
         self.cmd_box.pack(fill="both", expand=True)
         self.cmd_box.configure(state="disabled")
 
-        # 显存账（2026-10-12 用户要求：选什么选项 → 自动加出显存需求总量；见 vram_account）
         self.vram = tk.Label(right, text="", bg=self.bg, fg="#2b3a6b",
                              font=("Microsoft YaHei UI", 9, "bold"),
-                             justify="left", anchor="w", wraplength=560)
-        self.vram.pack(anchor="w", pady=(6, 0))
+                             justify="left", anchor="w", wraplength=430)
+        self.vram.pack(anchor="w", pady=(8, 0))
 
         self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
-                               font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=560)
+                               font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=430)
         self.status.pack(anchor="w", pady=(6, 0))
 
-        # 操作按钮
         btns = tk.Frame(right, bg=self.bg)
         btns.pack(fill="x", pady=(10, 4))
-        ttk.Button(btns, text="启 动", command=self._launch, width=12).pack(side="left", padx=(0, 6))
-        ttk.Button(btns, text="环境自检", command=self._env_check, width=10).pack(side="left", padx=6)
-        ttk.Button(btns, text="就绪自测", command=self._readiness, width=10).pack(side="left", padx=6)
+        ttk.Button(btns, text="启 动", command=self._launch, width=14).pack(side="left", padx=(0, 8))
+        ttk.Button(btns, text="环境自检", command=self._env_check, width=12).pack(side="left", padx=(0, 8))
+        ttk.Button(btns, text="就绪自测", command=self._readiness, width=12).pack(side="left")
 
-        # 命名组合
         combox = tk.Frame(right, bg=self.bg)
-        combox.pack(fill="x", pady=(6, 2))
+        combox.pack(fill="x", pady=(8, 2))
         tk.Label(combox, text="命名组合:", bg=self.bg, fg="#2b3a6b",
-                 font=("Microsoft YaHei UI", 10)).pack(side="left")
-        self.profile_cb = ttk.Combobox(combox, state="readonly", width=20, values=list(self.profiles.keys()))
+                 font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        self.profile_cb = ttk.Combobox(combox, state="readonly", width=22, values=list(self.profiles.keys()),
+                                       font=("Microsoft YaHei UI", 9))
         self.profile_cb.pack(side="left", padx=(6, 0))
-        ttk.Button(combox, text="加载", command=self._load_profile).pack(side="left", padx=4)
-        ttk.Button(combox, text="保存当前", command=self._save_profile).pack(side="left", padx=4)
-        ttk.Button(combox, text="删除", command=self._del_profile).pack(side="left", padx=4)
+        ttk.Button(combox, text="加载", command=self._load_profile, width=8).pack(side="left", padx=6)
+        ttk.Button(combox, text="保存当前", command=self._save_profile, width=10).pack(side="left", padx=4)
+        ttk.Button(combox, text="删除", command=self._del_profile, width=8).pack(side="left", padx=4)
 
         tk.Label(right, text="提示：启动后引擎在“新控制台窗口”里运行 —— 关掉那个窗口 = 停服。",
-                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 9), wraplength=560,
-                 justify="left").pack(anchor="w", pady=(6, 0))
+                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 9), wraplength=430,
+                 justify="left").pack(anchor="w", pady=(8, 0))
 
     # ---- 事件 ----
     def _on_change(self):
@@ -1165,7 +1189,7 @@ class LauncherApp:
         """场景预设一键套用（照老项目；源 = 内置 PRESET_PROFILES）。"""
         name = self.preset_var.get()
         preset = PRESET_PROFILES.get(name) or {}
-        valid_keys = {d[0] for d in DIMENSIONS}
+        valid_keys = {d[0] for d in DIMENSIONS} | {"async"}   # async 不在 DIMENSIONS（顶部星窗），但预设/组合也要能切 A/B 臂
         for key, val in preset.items():
             if key not in valid_keys:
                 continue
@@ -1405,7 +1429,7 @@ class LauncherApp:
             self.status.config(text="未选择或找不到组合", fg="#b03030")
             return
         combo = self.profiles[name]
-        valid_keys = {d[0] for d in DIMENSIONS}
+        valid_keys = {d[0] for d in DIMENSIONS} | {"async"}   # async 不在 DIMENSIONS（顶部星窗），但预设/组合也要能切 A/B 臂
         applied = 0
         for key, val in combo.items():
             if key not in valid_keys:

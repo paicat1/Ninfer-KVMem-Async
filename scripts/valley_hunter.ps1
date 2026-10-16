@@ -90,7 +90,7 @@ $n = 0; $streak = 0; $cases = 0
     Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
     $idleBasePow = [double]$base.pow   # 相对判据的空闲基座（TELE 第四轮：跨批次会漂移，必须每批重取）
     $idleBaseClk = [double]$base.clk
-    Say ("CRITERION v4 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time (persists across hunter restarts)**; warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)")
+    Say ("CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)")
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'
@@ -133,6 +133,8 @@ while ($true) {
     #   util 是 nvidia-smi 的时段占比、会采样错位与抖动，实测误杀真谷（062707 #6 decode=37.7/power=174W 但 util=85% ⇒ 未立案）。
     $corrobRel = ($fp.pow -ge 0 -and $fp.pow -lt $thrRel)
     if ($fv.v -ge 0) {
+        # 注：当前仪表档下 freshVerify 恒为 -1（target-split 打印门未开）⇒ 本分支实际不激活；
+        #   若将来开启，它会优先于功耗辅证（但 pwFlags 仍记功耗）——口径需在开启时重新预登记。
         $corrob = ($fv.v -ge 100); $how = "freshVerify=$($fv.v)"
     } else {
         $corrob = $corrobRel
@@ -149,8 +151,9 @@ while ($true) {
     $streak = $script:streak
     try {
         [pscustomobject]@{ last_ts = [int64]([DateTimeOffset]::Now.ToUnixTimeSeconds()); streak = $script:streak; pwflags = @($script:pwFlags) } |
-            ConvertTo-Json | Set-Content -LiteralPath $STREAK_FILE -Encoding UTF8
-    } catch { }
+    } catch {
+        Say ("WARN: streak_state.json 写入失败（streak 将随本次进程结束丢失）：{0}" -f $_.Exception.Message)
+    }
     $wtag = $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })
     Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, $wtag)
     # v4：连续 3 拍慢 **且** 近 3 拍里至少 2 拍功耗过线 ⇒ 容忍 1 次采样错位（TELE：功耗读数同样会错位）

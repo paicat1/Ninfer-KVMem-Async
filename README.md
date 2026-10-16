@@ -18,7 +18,7 @@
 | 代 | 仓 | 沉淀 |
 |---|---|---|
 | 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层，两分支一体） | **Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer**：Ambolio 移植 + CraneBW 内核、改 CMake `89\|120a`、自产 v2 制品；Device/Host **双层 KV**（被动容量）；MTP / DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s |
-| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
+| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关（本仓增至六）；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
 | 三 | [**paicat1/Ninfer-KVMem-Async**](https://github.com/paicat1/Ninfer-KVMem-Async)（本仓；2026-10-13 由 Qwen38-27B-NInfer-kvmem 改名） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
 
 > 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
@@ -32,7 +32,7 @@
 | 武器 | 来自 | 在本仓的作用 |
 |---|---|---|
 | **混合投机（dflash2 + MTP + ngram）与调参方法论** | 仓二：K=7 甜点、K≥10 崩塌、**接受率是强语料依赖指标**（不能用合成文本测）、真实负载 748.6 峰值 | 本仓的 MTP K4 + ngram 档位、`test_ab_arm1.py` 的接受率/速度统计方法，全部照此模式验收 |
-| **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
+| **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（本仓增 sink 至六开关；缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
 | **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
 | **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 发放包预编译成品 exe 不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
 | **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 10 预设 + 校验告警 + KV_ENV 注入 |
@@ -225,7 +225,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
        MTP/DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s；89|120a
     └─ 仓二 [paicat1/Bonsai-27B-NInfer-kvmem](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem)
          KVMem 环（主动检索）：显存小池 + 主机卸载、可小于上下文、内容打分
-         SELECT、五开关；混合投机 dflash2(K1-15)+MTP(K1-5)+ngram，K=7 甜点
+         SELECT、六开关；混合投机 dflash2(K1-15)+MTP(K1-5)+ngram，K=7 甜点
          （K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；
          自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考停止空正文"）+ 双引擎对照；
          GUI 启动器与 serve_tee 自建。极值：prefill 3,820 / decode 748.6 tok/s
@@ -329,7 +329,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 5 | 思考墙死循环 | xhigh 思考烧光输出预算 → 空正文 | 思考 token 计入输出预算（包含关系） | `--default-thinking-budget 16000`；引擎 S3 起 OpenAI 端点解析 per-request `thinking_budget`（请求值优先） | 中档思考正常收尾；探针 medium 2-4K 自然 stop |
 | 6 | W1-W4 保险丝/保活缺陷 | 越预算 throw、熔断 `==` 永不触发、交接拒绝、progress 被门控（DSH watchdog 误杀风险） | 引擎防御路径三连缺陷 + 流式空 choice | patch 修复（`patches/W1-W4_engine_fix.patch`，W2/W3 先于 W1 验收） | 四重验收（构建史施工批） |
 | 7 | 视觉塔闪退循环 | 开视觉起服 → `missing component vision` 四连拒启 | 模型件（iq4nl）无 vision 组件，与视觉开关配对错误 | launcher 联动：开视觉自动切 iq4nlvis 嫁接件 | 联动后起服成功；validate 告警防手改 |
-| 8 | KV 五开关缺一静默答错 | 缺任何一个：起得来、缓存命中率高、**中段答错、零报错** | KVMem 环/检索/window 开关缺一即静默退化 | launcher 固定注入 `KV_ENV` 五开关（含 `NINFER_KV_WINDOW`——缺它直接拒启） | 20,203 tok 超池 prompt 检索答案正确（restored=128） |
+| 8 | KV 六开关缺一静默答错 | 缺任何一个：起得来、缓存命中率高、**中段答错、零报错** | KVMem 环/检索/window 开关缺一即静默退化（第六个 `NINFER_KV_SINK=5120` = 10-11 官方 D-01 对标新增） | launcher 固定注入 `KV_ENV` 六开关（含 `NINFER_KV_WINDOW`——缺它直接拒启） | 20,203 tok 超池 prompt 检索答案正确（restored=128） |
 | 9 | 挂账 39：视觉 × 无 growth | 视觉请求 HTTP 500（`scatter.cpp:18` 断言） | 引擎旧版 scatter 路径缺陷 | 引擎更新后不复现；launcher 三处联动撤除（视觉统一 on） | V1b/V1c 起服 + decode 108.2 功能验证，销案 |
 | 10 | 池标定与 64K 起服 | 65,536 池差 213 MiB 拒启；腾显存后仍差 149（WDDM 归还不即时，滴流 ~36 MiB/30s） | runtime 预留（CUDA Graph 驱动态）按 profile 自动算偏大 | `--cuda-graph-allowance-mib 128` 压 graph 预算补缺口 | 64K 起服 25s；decode 101.1（基线 101-104，**零代价**）；launcher 64k 档已绑该参数 |
 | 11 | DSH maxTokens 全额预留 | 单请求 prompt+输出全额预留，65,536 输出上限放大超池面 | 思考计入输出 + DSH 默认 65,536 | DSH `maxTokens` → 24,000（单轮封顶；prompt ≤41,536 时 decode 期永不超池） | 生效验证：实机 started 行 `max output 24,000` |

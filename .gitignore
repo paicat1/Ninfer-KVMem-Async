@@ -53,3 +53,6 @@ scripts/_ledger39_test_image.png
 
 # 本地抢救归档（防 .temp 误删；不入库）
 archive/
+
+# 本地处置区（待用户决定真删/恢复；不入库）
+_trash/

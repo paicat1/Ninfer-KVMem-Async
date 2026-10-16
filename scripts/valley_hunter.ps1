@@ -54,6 +54,15 @@ function FreshVerify() {
     }
     return @{ v = $mx; n = $n }
 }
+function PowerFingerprint() {
+    # 2026-10-17 夜实测：谷档 GPU 功耗中位 63.6 W vs 健康 214.8 W；util/时钟几乎不区分。
+    # 候选判据「功耗<100W 且 util>=90%」召回 97%、精确率 97% —— 用于 fresh verify 取不到时作辅证。
+    $csv = (nvidia-smi --query-gpu=utilization.gpu,power.draw --format=csv,noheader) -join ""
+    $m = [regex]::Match($csv, '(\d+)\s*%\s*,\s*([\d.]+)\s*W')
+    if ($m.Success) { return @{ util = [int]$m.Groups[1].Value; pow = [double]$m.Groups[2].Value } }
+    return @{ util = -1; pow = -1 }
+}
+
 function Snap($name) {
     $d = Join-Path $CaseDir $name
     New-Item -ItemType Directory -Force -Path $d | Out-Null
@@ -81,14 +90,25 @@ while ($true) {
     $p = ProbeOnce
     $fv = FreshVerify
     $n++
-    $hit = ($p.decode -ge 0 -and $p.decode -lt 60 -and $fv.v -ge 100)
+    $fp = PowerFingerprint
+    if ($fv.v -ge 0) {
+        $corrob = ($fv.v -ge 100); $how = "freshVerify=$($fv.v)"
+    } else {
+        # fresh verify 在当前仪表档取不到（恒 -1）⇒ 退到功耗指纹（永远可用）
+        $corrob = ($fp.pow -ge 0 -and $fp.pow -lt 100 -and $fp.util -ge 90)
+        $how = "power=$($fp.pow)W util=$($fp.util)%"
+    }
+    # 预登记排除：起步前两探 = 空闲后首发（冷启动本来就慢：实测 #1 decode 23-29、功耗 ~95W），
+    # 不是谷 ⇒ 不计入 streak，避免把冷启动误判成案卷。
+    $warmup = ($n -le 2)
+    $hit = (-not $warmup -and $p.decode -ge 0 -and $p.decode -lt 60 -and $corrob)
     if ($hit) { $streak++ } else { $streak = 0 }
-    Say ("probe #{0} decode={1} freshVerify={2}(n={3}) streak={4}" -f $n, $p.decode, $fv.v, $fv.n, $streak)
+    Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, (" [warmup-excluded]" -replace ".*", $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })))
     if ($streak -ge 2) {
         $cases++
         $cid = "case_{0:yyyyMMdd_HHmmss}" -f (Get-Date)
         $d = Snap $cid
-        Say "VALLEY CONFIRMED -> case dir $d (decode=$($p.decode), freshVerify=$($fv.v)); scene frozen: NO restart / NO config change / NO pressure"
+        Say "VALLEY CONFIRMED -> case dir $d (decode=$($p.decode), $how); scene frozen: NO restart / NO config change / NO pressure"
         $streak = 0
         if ($PostHitWaitSec -gt 0) {
             Start-Sleep -Seconds $PostHitWaitSec   # 仅当你显式开启：测'是否恢复'需先确认无我方压力注入

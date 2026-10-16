@@ -57,10 +57,11 @@ function FreshVerify() {
 function PowerFingerprint() {
     # 2026-10-17 夜实测：谷档 GPU 功耗中位 63.6 W vs 健康 214.8 W；util/时钟几乎不区分。
     # 候选判据「功耗<100W 且 util>=90%」召回 97%、精确率 97% —— 用于 fresh verify 取不到时作辅证。
-    $csv = (nvidia-smi --query-gpu=utilization.gpu,power.draw --format=csv,noheader) -join ""
-    $m = [regex]::Match($csv, '(\d+)\s*%\s*,\s*([\d.]+)\s*W')
-    if ($m.Success) { return @{ util = [int]$m.Groups[1].Value; pow = [double]$m.Groups[2].Value } }
-    return @{ util = -1; pow = -1 }
+    # TELE 意见①：同时取 SM 时钟（空闲 ~952MHz vs 活动 ~2900MHz）⇒ 判据按基线归一化
+    $csv = (nvidia-smi --query-gpu=clocks.sm,utilization.gpu,power.draw --format=csv,noheader) -join ""
+    $m = [regex]::Match($csv, '([\d.]+)\s*MHz\s*,\s*(\d+)\s*%\s*,\s*([\d.]+)\s*W')
+    if ($m.Success) { return @{ clk = [double]$m.Groups[1].Value; util = [int]$m.Groups[2].Value; pow = [double]$m.Groups[3].Value } }
+    return @{ clk = -1; util = -1; pow = -1 }
 }
 
 function Snap($name) {
@@ -83,6 +84,8 @@ Say "hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive |
 $script:lastLen = $null
 $t0 = Get-Date
 $n = 0; $streak = 0; $cases = 0
+    $base = PowerFingerprint   # TELE 意见①：起服时的**空闲基线**（判据按此归一化）
+    Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'
@@ -96,7 +99,7 @@ while ($true) {
     } else {
         # fresh verify 在当前仪表档取不到（恒 -1）⇒ 退到功耗指纹（永远可用）
         $corrob = ($fp.pow -ge 0 -and $fp.pow -lt 100 -and $fp.util -ge 90)
-        $how = "power=$($fp.pow)W util=$($fp.util)%"
+        $how = "clk=$($fp.clk)MHz power=$($fp.pow)W util=$($fp.util)%"
     }
     # 预登记排除：起步前两探 = 空闲后首发（冷启动本来就慢：实测 #1 decode 23-29、功耗 ~95W），
     # 不是谷 ⇒ 不计入 streak，避免把冷启动误判成案卷。

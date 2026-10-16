@@ -103,7 +103,8 @@ while ($true) {
     $warmup = ($n -le 2)
     $hit = (-not $warmup -and $p.decode -ge 0 -and $p.decode -lt 60 -and $corrob)
     if ($hit) { $streak++ } else { $streak = 0 }
-    Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, (" [warmup-excluded]" -replace ".*", $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })))
+    $wtag = $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })
+    Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, $wtag)
     if ($streak -ge 2) {
         $cases++
         $cid = "case_{0:yyyyMMdd_HHmmss}" -f (Get-Date)

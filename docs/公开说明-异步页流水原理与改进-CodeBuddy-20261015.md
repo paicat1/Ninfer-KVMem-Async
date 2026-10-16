@@ -52,12 +52,12 @@ KVMem 的第一性贡献来自论文 **《KVMem: Virtualizing Million-Token Agen
 ### 1.3 实践与进展（公开成果）
 
 - **论文**：arXiv 2609.04852（KVMem: Virtualizing Million-Token Agent Workspaces on a Consumer GPU）。
-- **双后端正式化**：0.18.0 版本同时提供 llama.cpp 与 NInfer 后端源码；Windows RTX 30/40/50（含 sm120a）正式运行包发布。
+- **双后端正式化**：0.18.0 版本同时提供 llama.cpp 与 NInfer 后端源码（NInfer 侧为正式运行包，llama.cpp 侧为 RC1）；Windows RTX 30/40/50（含 sm120a）正式运行包发布。
 - **实测成绩（RC3，RTX 5060 Ti 16GB + Qwen3.8-27B GSQ-RCO IQ3_S 模型）**：
   - 日常文本生成 **50.08 tok/s**、代码生成 64.54 tok/s；
   - **长历史工具轮次 53.24 tok/s**（32 轮、输入 261,522 token 的一次完整长历史测试）；
   - 整卡显存峰值约 14.12 GiB。
-- **RAM/SSD 分层的完整验收记录**（含正确性、失败路径、并发与真实 SSD 成本）；写合并与空闲区间索引两步优化（分配成本 O(N²)→O(N)）。
+- **RAM/SSD 分层的成体系验收记录**（含正确性、失败路径、并发与真实 SSD 成本）；写合并与空闲区间索引两步优化（分配成本 O(N²)→O(N)）。
 - **工程纪律的示范**：配对统计（中位 + 单侧 95% 上界、3 对筛查 7 对确认）、参数准入、能力边界"明确拒绝而非猜测"——这些都值得后来者学习。
 
 **一句话总结原作者的工作：他们把"装不下"变成了"装得下"，并且把整套机制开源、写成论文——这是先行者把门打开的工作。**
@@ -246,7 +246,7 @@ KVMem 的第一性贡献来自论文 **《KVMem: Virtualizing Million-Token Agen
 
 ## 7. 致谢
 
-- **KVMem 原作者团队**：Di Chai、Leye Wang、Zeshen Su、Zhiguo Xia、Zhihang Yu——开创性的思路与实践（arXiv 2609.04852），以及开源的 `kvmem/kvmem` 项目；
+- **KVMem 原作者团队**：Di Chai、Leye Wang、Zeshen Su、Zhiguo Xia、Zhihang Yu——开创性的思路与实践（[arXiv 2609.04852](https://arxiv.org/abs/2609.04852)），以及开源的 [kvmem/kvmem](https://github.com/kvmem/kvmem) 项目（双后端 llama.cpp + NInfer）；
 - **引擎血统贡献者**：Neroued/ninfer、UDPSendToFailed/ninfer-4090、CraneBW、shensanshu、iamwavecut/ninfer-all 及社区各分支的作者们；
 - **llama.cpp 社区**；
 - 所有把实测数据、边界说明与失败记录公开出来的人——**这些记录让后来者少走弯路**。

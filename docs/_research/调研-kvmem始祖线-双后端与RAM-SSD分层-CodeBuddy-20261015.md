@@ -103,3 +103,10 @@
 - clone：`refs/kvmem-kvmem/`（README.zh-CN 23.3KB / docs/ 39 篇 / kvmem/ 公共层 / src/adapter / backends/patches 两个补丁 / scripts）
 - 补丁文件级统计：`.temp/ninfer_patch_stat.txt`（166 文件清单）
 - 关键文档索引：`docs/active-kv-tiering.md` + 验收记录 / `docs/multi-backend-differences.md` / `docs/ninfer-all-migration-plan.md`（36KB）/ `docs/memory-backend-contract.md` / `docs/active-kv-tiering-plan.md`
+
+## 上游实证补记（2026-10-17，CB 直接抓 github.com/kvmem/kvmem/releases 与 docs/ 列表）
+- **Windows RTX 50 正式运行包：证实存在** —— 正式版 `v0.18.0`（"KVMem v0.18.0 · NInfer · Windows RTX 30/40/50"）资产含 `kvmem-v0.18.0-ninfer-windows-rtx50-sm120a.zip`（**859.0 MiB**），另 sm86 / sm89 两架构同发；包说明"CUDA 运行依赖随包提供"，需 CUDA 13.2 驱动 + VC++ 2015–2022 x64。
+- **双后端**：`v0.18.0` = NInfer 正式包线，`v0.18.0-llamacpp-rc1` = llama.cpp 线（RC1）；上游 `docs/` 有 multi-backend ×4 与数十份 `*-validation-*.md`。
+- **验收/回归记录**：`docs/` 下数十份 validation 文档 + `session-nvme-off-regression.md`、`host-memory-arena-diagnosis.md`、`user-feedback-triage.md` ⇒ "成体系"成立，"完整"不可证（对外材料已据此降调）。
+- **仓名变更**：`kvmem/kvmem-llama.cpp` 已声明停用，统一到 **`kvmem/kvmem`**（README/公开说明/PPT 已改）。
+- **方法留痕**：抓取经本机代理打 GitHub releases 页 + `docs/` 列表；6 条外链均已 `git ls-remote` 验活。

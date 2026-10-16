@@ -242,7 +242,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
   → 自编 self-built-20261008；落后其 main 23 提交）
   [tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)（环算法）＋ [kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（策略层）→ 已并入该仓
   NInfer 基座：[Neroued/ninfer](https://github.com/Neroued/ninfer) → [ashalliants/ninfer-3090](https://github.com/ashalliants/ninfer-3090)（0.11.0-rtx3090）→ [iamwavecut/ninfer-all](https://github.com/iamwavecut/ninfer-all)
-  兄弟仓：[kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（RC2 = iamwavecut/ninfer-all + KVMem 整合包）
+  官方上游：**[kvmem/kvmem](https://github.com/kvmem/kvmem)**（双后端 llama.cpp + NInfer；原 `kvmem/kvmem-llama.cpp` **已声明停用、迁入本仓**；RC2 线 = iamwavecut/ninfer-all + KVMem 整合包）
 ```
 
 - 上游 23 个新提交已逐条评审（构建史 §12）：无引擎行为级变更；B34=页漂移、B35=撞墙、B37=压缩摘要截断已各自对应本线修复或规避；吸收走 cherry-pick（详见 `docs/上游谱系与跟踪纪律-20261011.md`）。
@@ -373,7 +373,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 - **[1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem)** —— 融合引擎源码（本线引擎 `self-built-20261008` 的直接出处）；KVMem 环 + host-backed checkpoint 的引擎层实现（含 `ensure_sequence_kv_mapped` 等核心机制）；Bug 手册 B33-B39 病历与 docs/13/14 修法库。
 - **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— KVMem 环算法的原始实现（并入融合引擎）；**本线 W1-W4 修复的 diff 参照**（思考熔断三连缺陷的修法样板）；环复用深度/召回边界/decode 墙的作者级结论（brief，本线页漂移定位的重要参照）。
 - **[kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai）** —— 检索策略层算法（并入融合引擎）。
-- **[kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（wangleye）** —— 兄弟件整合包：调优默认值对照（D-01..D-08 的来源）、[issue #114](https://github.com/kvmem/kvmem-llama.cpp/issues/114) 修法线索。
+- **[kvmem/kvmem](https://github.com/kvmem/kvmem)（Leye Wang / wangleye 等）** —— KVMem **官方双后端仓**（llama.cpp + NInfer）：调优默认值对照（D-01..D-08 的来源）、[issue #114](https://github.com/kvmem/kvmem-llama.cpp/issues/114) 修法线索（issue 提于更名前的 `kvmem/kvmem-llama.cpp`；作者已声明该仓停用、统一到 `kvmem/kvmem`）。
 - **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
 - **Merkyor / nerkyor** —— 模型权重（Coder390-EfficientThink 系 NInfer 容器，含内置视觉塔）。
 
@@ -387,7 +387,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | KVMem 环（并入融合引擎） | [tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring) | Apache-2.0 |
 | 检索策略层（并入融合引擎） | [kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai） | Apache-2.0 |
 | 融合引擎（KVMem 环 + host-backed） | [1314521gjy/ninfer-fusion-kvmem](https://github.com/1314521gjy/ninfer-fusion-kvmem) | Apache-2.0 |
-| 兄弟件（对照参照，不并入） | [kvmem/kvmem-llama.cpp](https://github.com/kvmem/kvmem-llama.cpp)（RC2） | 见其仓 |
+| KVMem 官方仓（上游对照，未并入） | [kvmem/kvmem](https://github.com/kvmem/kvmem)（双后端；原 kvmem-llama.cpp 停用迁入） | 见其仓 |
 | 模型（Coder390-EfficientThink 系） | ModelScope [Merkyor/...-RLOO-GGUF-NInfer](https://modelscope.cn/models/Merkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-GGUF-NInfer)（实测下载）；HF `nerkyor` 同名系 | Apache-2.0 |
 | 三元量化工具链 / 转换 / 校验 | 沈三殊（shensanshu）· ModelScope `shensanshu/ninfer-ada-ternary` | 见其发布页 |
 

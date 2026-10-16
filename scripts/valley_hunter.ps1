@@ -123,7 +123,12 @@ while ($true) {
             Say 'post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)'
         }
     }
-    if ($n % 10 -eq 0) { Say "heartbeat: probes=$n cases=$cases engine_uptime_h=$([math]::Round(((Get-Date) - (Get-CimInstance Win32_Process -Filter \"Name='ninfer-serve.exe'\" | Select-Object -First 1).CreationDate).TotalHours,2))" }
+    if ($n % 10 -eq 0) {
+        # 先算变量再格式化：避免在 -f 串里嵌套引号（曾致 WQL 无效 + 空值做减法 ⇒ 心跳行报错）
+        $ep = Get-CimInstance Win32_Process -Filter "Name='ninfer-serve.exe'" | Select-Object -First 1
+        $uph = if ($ep) { [math]::Round(((Get-Date) - $ep.CreationDate).TotalHours, 2) } else { -1 }
+        Say ("heartbeat: probes={0} cases={1} engine_uptime_h={2}" -f $n, $cases, $uph)
+    }
     Start-Sleep -Seconds 60
 }
 Say "hunter stop"

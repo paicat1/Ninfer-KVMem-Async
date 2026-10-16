@@ -156,7 +156,7 @@ def main():
         with io.open(OUT, 'a', encoding='utf-8') as fh:
             fh.write(line + '\n')
         if n % 10 == 0:
-            print(line)
+            print(line, flush=True)   # 2026-10-17：不加 flush 时控制台按块缓冲 ⇒ 窗口长期空白
         time.sleep(INTERVAL)
     print('window watch v%s done -> %s (%d samples)' % (VER, OUT, n))
 

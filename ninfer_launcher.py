@@ -412,7 +412,6 @@ DIMENSIONS = [
     ("conc",   "并发",            CONC_OPTIONS),
     ("preserve","保留思考",        PRESERVE_OPTIONS),
     ("hemostat", "止血(B01)",     HEMOSTAT_OPTIONS),
-    ("async",  "异步页流水(A/B)",  ASYNC_OPTIONS),
     ("reqlog", "请求日志（Stage 0 仪器）", REQLOG_OPTIONS),   # 2026-10-13 夜新增
 ]
 DIMENSIONS_MAP = {key: table for key, _label, table in DIMENSIONS}  # 联动用（2026-10-14）
@@ -957,6 +956,26 @@ class LauncherApp:
         canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), "units")))
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
+        # ★全窗最醒目：异步页流水（本线拳头产品）A/B 开关
+        #   2026-10-17 用户明确要求：必须在最上、最左、最醒目（不能埋在维度列表末尾）。
+        star = tk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关）",
+                             font=("Microsoft YaHei UI", 10, "bold"), bg=self.bg, fg="#a03030")
+        star.pack(fill="x", pady=(4, 6))
+        self._label2key["async"] = {lbl: val for val, (lbl, _) in ASYNC_OPTIONS.items()}
+        self.var["async"] = tk.StringVar(value=ASYNC_OPTIONS[DEFAULTS["async"]][0])
+        cb_async = ttk.Combobox(star, state="readonly", textvariable=self.var["async"], width=34,
+                                font=("Microsoft YaHei UI", 10, "bold"))
+        cb_async["values"] = list(self._label2key["async"].keys())
+        cb_async.bind("<<ComboboxSelected>>", lambda _e: self._on_change())
+        cb_async.pack(anchor="w", padx=8, pady=(6, 2))
+        tk.Label(star, text="开＝异步（搬运与计算重叠，默认）；关＝同步批回退（OFF 对照臂）。"
+                            "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段 ≈2×）。"
+                            "改档需重启 serve；A/B 只切这一项。",
+                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 8),
+                 wraplength=196, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
+        ToolTip(star, "异步页流水（NINFER_ASYNC_DEMOTE）。本线核心改进：把 host→device 页面搬运与计算重叠，"
+                       "深超池场景 decode 114.4 vs 74.4 tok/s。关掉即“没有异步”的对照臂。")
+
         # 场景预设（一键推荐组合，照老项目；源 = 内置 PRESET_PROFILES）
         preset_box = tk.LabelFrame(inner, text="场景预设（推荐）", font=("Microsoft YaHei UI", 10),
                                    bg=self.bg, fg="#2b3a6b")
@@ -1370,7 +1389,9 @@ class LauncherApp:
                              creationflags=CREATE_NEW_CONSOLE)
             applied_env = len(PRESET_ENV.get(env_profile, {}) or {})
             env_note = ("　[env 配对：%s（%d 项）]" % (env_profile, applied_env)) if applied_env else ""
+            _arm = ASYNC_OPTIONS.get(self.selection.get("async", "on"), ASYNC_OPTIONS["on"])[0]
             self.status.config(text="✓ 已启动（控制台窗口 + 日志落盘）—— 关窗即停；首次见 calibrating routes 请勿杀\n"
+                             "[A/B 臂: " + _arm + "]\n"
                                     "   日志：" + logfile + env_note, fg="#4a6b4a")
         except Exception as e:
             messagebox.showerror("启动失败", str(e))

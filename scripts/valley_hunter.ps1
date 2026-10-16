@@ -24,6 +24,7 @@ $Host.UI.RawUI.WindowTitle = 'VALLEY-HUNTER [running] -- 1 probe/min, case on de
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $ledger = Join-Path $CaseDir ("hunter_ledger_$stamp.txt")
 New-Item -ItemType Directory -Force -Path $CaseDir | Out-Null
+$STREAK_FILE = Join-Path $CaseDir 'streak_state.json'   # v4：streak 跨批持久化
 function Say($m) { $t = (Get-Date -Format 'HH:mm:ss'); $line = "$t | $m"; Write-Output $line; Add-Content -LiteralPath $ledger -Value $line -Encoding UTF8 }
 function ProbeOnce() {
     $o = (python -X utf8 scripts\a2gate.py --arm hunt --port $Port --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
@@ -89,7 +90,7 @@ $n = 0; $streak = 0; $cases = 0
     Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
     $idleBasePow = [double]$base.pow   # 相对判据的空闲基座（TELE 第四轮：跨批次会漂移，必须每批重取）
     $idleBaseClk = [double]$base.clk
-    Say ("CRITERION v3 (effective now): decode<60 AND power<thr_rel [NO util gate] AND 3 consecutive; thr_rel = idleBase + 0.5*(healthyRef - idleBase); warmup excludes first probe only")
+    Say ("CRITERION v4 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time (persists across hunter restarts)**; warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)")
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'
@@ -97,6 +98,22 @@ while ($true) {
     $p = ProbeOnce
     $fv = FreshVerify
     $n++
+    # —— v4：streak 持久化（跨"猎人批次"按物理时间连续计算，TELE 第七轮）——
+    #   猎人重启 ≠ 引擎重启；引擎全程未重启 ⇒ 批次边界不应清零 streak，否则跨批事件永远立不了案。
+    if (-not $script:stLoaded) {
+        $script:streak = 0; $script:pwFlags = @()
+        if (Test-Path $STREAK_FILE) {
+            try {
+                $j = Get-Content $STREAK_FILE -Raw | ConvertFrom-Json
+                $last = [DateTimeOffset]::FromUnixTimeSeconds([int64]$j.last_ts).LocalDateTime
+                if (((Get-Date) - $last).TotalSeconds -le 180) {
+                    $script:streak = [int]$j.streak
+                    $script:pwFlags = @($j.pwflags)
+                }
+            } catch { }
+        }
+        $script:stLoaded = $true
+    }
     $fp = PowerFingerprint
     # —— 判据 v2（2026-10-17 06:2x 预登记，**相对基线**，取代 v1 的绝对 100 W）——
     #   起因（TELE 第四轮实测）：IDLE BASELINE 跨批次漂移（同引擎未重启：660MHz/2%/21.68W → 1770MHz/30%/30.94W）
@@ -122,13 +139,24 @@ while ($true) {
         $how = ("clk={0}MHz power={1}W util={2}% | thr_rel={3:N1}W (idle={4:N1} ref={5:N1}) | v1abs={6}" -f `
                 $fp.clk, $fp.pow, $fp.util, $thrRel, $idleBasePow, $healthyRef, $corrobAbs)
     }
-    # v3：只排除**首探**（冷启动那一发确实特殊）；其余交给"连续 3 拍"的持续性判据去区分预热与谷。
-    $warmup = ($n -le 1)
+    # v4：warmup 只认**引擎自身**的启动（TELE：猎人重启≠引擎重启，批次首发慢并非必然"预热"——
+    #     有的批次首发健康 165/169，有的慢 ⇒ 与机器态相关）。引擎起服 2 分钟内才算冷启动。
+    $engStart = (Get-Process ninfer-serve -ErrorAction SilentlyContinue | Select-Object -First 1).StartTime
+    $warmup = ($engStart -and ((Get-Date) - $engStart).TotalMinutes -lt 2)
     $hit = (-not $warmup -and $p.decode -ge 0 -and $p.decode -lt 60 -and $corrob)
-    if ($hit) { $streak++ } else { $streak = 0 }
+    if ($hit) { $script:streak++ } else { $script:streak = 0 }
+    $script:pwFlags = @(@($script:pwFlags) + $(if ($corrobRel) { 1 } else { 0 })) | Select-Object -Last 3
+    $streak = $script:streak
+    try {
+        [pscustomobject]@{ last_ts = [int64]([DateTimeOffset]::Now.ToUnixTimeSeconds()); streak = $script:streak; pwflags = @($script:pwFlags) } |
+            ConvertTo-Json | Set-Content -LiteralPath $STREAK_FILE -Encoding UTF8
+    } catch { }
     $wtag = $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })
     Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, $wtag)
-    if ($streak -ge 3) {   # v3：连续 **3 拍**（预热实测只持续 2 拍即恢复，谷会持续数分钟 ⇒ 用持续性区分）
+    # v4：连续 3 拍慢 **且** 近 3 拍里至少 2 拍功耗过线 ⇒ 容忍 1 次采样错位（TELE：功耗读数同样会错位）
+    $recentPw = @($script:pwFlags) | Select-Object -Last 3
+    $pwOk = @($recentPw | Where-Object { $_ -eq 1 }).Count
+    if ($streak -ge 3 -and $pwOk -ge 2) {
         $cases++
         $cid = "case_{0:yyyyMMdd_HHmmss}" -f (Get-Date)
         $d = Snap $cid

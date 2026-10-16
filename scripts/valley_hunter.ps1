@@ -89,7 +89,7 @@ $n = 0; $streak = 0; $cases = 0
     Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
     $idleBasePow = [double]$base.pow   # 相对判据的空闲基座（TELE 第四轮：跨批次会漂移，必须每批重取）
     $idleBaseClk = [double]$base.clk
-    Say ("CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active powers (default 215W until 5 samples)"
+    Say ("CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active powers (default 215W until 5 samples)")
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'

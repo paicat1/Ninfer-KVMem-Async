@@ -110,9 +110,9 @@
 | 16 | **换底座**：Swift-1.5 IQ3_S 实载（11.3 GiB / 9.4 s）+ KV 档 A/B（rk8v4 速度与接受率双优）+ 请求线实测（中位 56,440 / 最大 96,430） | 生产切 IQ3_S + rk8v4 @ 65,536 | §36-39 |
 | 17 | **谷（时段性慢态）攻关 S1-S13**：四区段仪表化 → 路径收敛 → 逐项排除（PDL / 页中转 / 宿主路径 / 页档位 / 池大小 / 节流）→ **可按需复现（谷档 1/25）** → **机制定位 = host 侧提交阻塞（驱动内部）** → **深档受机器态时窗支配（窗内 4/4、窗外 8/8）** | 可控（指纹可检 / 分钟级自愈 / 回避手段已确证）；时窗开合与行号级根因待解 | §48-73 + 夜研-1/2/3 + 深档搜索 |
 | 18 | **异步贡献判决实验**：深轮重载 ON/OFF 同条件对照——拆掉异步 decode 拖慢约 20%（r=0.80），最深段差约 2.0 倍 | 异步价值主张获对照铁证 | 夜研-1/2/3 |
-| 19 | **公开材料**：双语 README + 双语 18 页 PPT + PDF + 公开技术说明 | 面向社区 / 上游协同 | docs/ |
+| 19 | **公开材料**：双语 README + 双语 18 页 PPT + 公开技术说明 | 面向社区 / 上游协同 | docs/ |
 
-> 以上为主要战役**精选**；**逐轮完整过程**（每次决策的证据链、失败与回归记录）见 **[项目构建史](docs/ninfer-kvmem-项目构建史.md)**（v1-v73，约 2,900 行，含挂账台账与仪表链）。
+> 以上为主要战役**精选**；**逐轮完整过程**（每次决策的证据链、失败与回归记录）见 **[项目构建史](docs/ninfer-kvmem-项目构建史.md)**（v1-v74，约 2,950 行，含挂账台账与仪表链）。
 
 ### 压榨：每个参数都标定过
 
@@ -147,7 +147,7 @@
 | **Q2LYNN（定稿基线）** | `…Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer` | `rk2v4-e8` | 51,200（稳定）/ 65,536（实测） | 64~128 | 历史全部实测都在它上面；基准**冻结**于 [`baselines/q2lynn/`](baselines/q2lynn/) |
 | BONSAI | 前序线件（**未下载**） | — | — | — | 仅登记待测试（启动器选它会提示） |
 
-- 引擎件：**`engine\lineage\I3b_step7_split_20261014.exe`**（= 上游融合引擎 + I3b 全链补丁 S6/S7；仪器门 `NINFER_STEP_PROFILE` 默认关，零行为）
+- 引擎件：**`engine\lineage\I3b_step13_fourlayer_20261015.exe`**（sha256 `322A972D…`；= 上游融合引擎 + I3b 全链补丁（p2/s2–s11）+ ledger42×3/44/46×2/47 + W1-W4；仪器门 `NINFER_STEP_PROFILE` 默认关，零行为）
 - 上下文 256K 逻辑（262,144）；池外 KV 自动下沉 16 GiB host 环；投机 **MTP K4**；思考 high + 预算 16000；止血 `--recover-invariant-failures`（**无 growth**）；视觉 overlay/off；并发 **1**（环硬约束）
 - **池 ≥ 工作集是硬纪律**（超池 ⇒ 检索子集介入 ⇒ 内容可能变化，见"关键工程结论"）
 - 每档基准与实测数据存 `baselines/<档>/`（冻结集只增不改；golden SHA 只在同档内可比）
@@ -169,7 +169,7 @@ set NINFER_KV_RETRIEVE=8192
 set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
 set NINFER_KV_REUSE_HOSTBACKED=1
-engine\lineage\I3b_step7_split_20261014.exe models\swift15_iq3s_mtp.ninfer ^
+engine\lineage\I3b_step13_fourlayer_20261015.exe models\swift15_iq3s_mtp.ninfer ^
   --host 127.0.0.1 --port 8094 --model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s ^
   --max-context 262144 --kv-capacity 81920 --cuda-graph-allowance-mib 192 --kv-dtype nvfp4 ^
   --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 ^
@@ -187,10 +187,11 @@ engine\lineage\I3b_step7_split_20261014.exe models\swift15_iq3s_mtp.ninfer ^
 
 | 路径 | 内容 | 在库内 |
 |---|---|---|
-| `docs/` | **构建史（§1–§46 完整历程）**、交叉审核报告、调研、教程 + **`引擎启动参数与配置档-20261014.md`**（参数全表/两档配置）、`KV档A-B-*`（KV 精度 A/B）、`深上下文池收益与A2适用域-20261014.md`、`Swift换底座-三臂结果与int8预算-20261014.md` | ✅ |
+| `docs/` | **构建史（§1–§74 完整历程）**、交叉审核报告、调研、教程 + **`引擎启动参数与配置档-20261014.md`**（参数全表/两档配置）、`KV档A-B-*`（KV 精度 A/B）、`深上下文池收益与A2适用域-20261014.md`、`Swift换底座-三臂结果与int8预算-20261014.md` | ✅ |
 | `build/` | 引擎构建脚本（`s6_1208a.bat` 等）+ 3 份基线补丁（`build/patches/0001-0003`）+ 产物清单 | ✅ |
 | `scripts/` | 模型加工（`recode_mtp.py` / `graft_vision.py`）+ 探针（`test_ab_arm1.py` / `probe_recall*.py`）+ 谷测量（`valley_bench.py` / `valley_history.py`）+ **新工具**：`verbatim_gate.py`（逐字一致门，8 提示）、`bisect_env.ps1`（环境二分）、`gpu_probe.cu`（机器级健康探针）、`_modelid.py`（招牌名解析）、`valley_watch.ps1` + `watch_launch.ps1`（守望者 `Ninfer-KVMem-Async守望者`）、`pdl_aba.ps1` + `valley_trigger_aba.ps1`（PDL on/off A-B-A） | ✅ |
-| `patches/` | **15 个引擎补丁**：I3b 链（`i3b_p2/s2/s3b/s3b_fix/s4/s6/s7`——step-profile / submit 拆分 / sticky 修复 / 图内事件 / **S6 段级打点** / **S7 PDL 开关 + target 三分**）+ W1-W4 修复 + ledger42×3 / 44 / 46×2 等 | ✅ |
+| `tools/` | **诊断仪器源码（随仓发布，可复现性）**：`concur_bench.cu`（跨进程：GPU 核延迟 / 宿主页读延迟 / 宿主页读带宽三测）· `pageable_bench.cu`（pageable vs pinned 拷贝对照）· `vram_hold.cu`（**按需触发谷**：外部占显存）· `submit_load.cu`（提交洪泛）· `gpu_probe.cu`（机器级健康探针）+ 各自 `build_*.bat` | ✅ |
+| `patches/` | **19 个引擎补丁**：I3b 链（`i3b_p2/s2/s3b/s3b_fix/s4/s6/s7/s8/s9/s10/s11`——step-profile / submit 拆分 / sticky 修复 / 图内事件 / **S6 段级打点** / **S7 PDL 开关 + target 三分** / **S8 PDL 自报** / **S9 verify 细分** / **S10 运行期 PDL** / **S11 GDN 常驻**）+ W1-W4 修复 + ledger42×3 / 44 / 46×2 / 47 | ✅ |
 | `baselines/` | **每模型一套基准**（2026-10-14 立）：`q2lynn/`（**冻结**：逐字门噪声地板 8/8、KV A/B 台账、深上下文台账、容量表）+ `swift15_iq3s/`（现行：四臂逐字件、容量表）+ `README.md` 纪律 | ✅ |
 | `repro/` | **源码树 bundle 快照**（分支 `line-coder390` @ `79457af`，2026-10-12 打）+ 版本台账副本 `MANIFEST.txt` | ✅ |
 | `ninfer_launcher.py` | GUI 唯一入口（**三品牌模型选择**、场景预设、校验告警、KV_ENV 六开关注入、`MODEL_BUNDLES` 换档联动） | ✅ |
@@ -252,7 +253,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 1. **引擎源码**——源码必须落在 **`engine-src\src-tree\fusion-engine-src\`**（`build\s6_1208a.bat` 第 34 行的 `SRC` 读这里）。两选一：
 
-   **A0. 本仓 `engine-main` 分支（最直接 · 与前两仓同构；需本仓读取权限）**：本仓 = **双分支一体**（`main`=项目层 / **`engine-main`**=引擎层；tag **`engine-20261013`**）：
+   **A0. 本仓 `engine-main` 分支（最直接 · 与前两仓同构；转公开后无需权限、可直接克隆）**：本仓 = **双分支一体**（`main`=项目层 / **`engine-main`**=引擎层；tag **`engine-20261013`**）：
    ```bat
    git clone -b engine-main https://github.com/paicat1/Ninfer-KVMem-Async.git engine-src
    ```
@@ -269,14 +270,14 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
    **B. 从公开上游自建（可溯源）**：`git clone https://github.com/1314521gjy/ninfer-fusion-kvmem.git` →
    `git checkout engine-v0.11.0-kvmem-20261008`（**`2852f6f`**，上游 tag，已核对存在于 `official-repo/ninfer-fusion-kvmem`）→ 放到 `engine-src\src-tree\fusion-engine-src\` →
-   依序应用 `build/patches/0001-0003`（= 基线上 3 个本地提交：`5b07bc1` MSVC 修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE，**已整理入库**）+ `patches/` 下 **15 个补丁**（本线 I3b 链 p2→s7 按序应用即得现行引擎：段级打点 + PDL 运行期开关）。
+   依序应用 `build/patches/0001-0003`（= 基线上 3 个本地提交：`5b07bc1` MSVC 修正 / `a25012b` Design C / `3b9dc83` 测试 STANDALONE，**已整理入库**）+ `patches/` 下 **19 个补丁**（本线 I3b 链 p2→s11 + ledger 系列 + W1-W4 按序应用即得现行引擎：段级打点 + 四层 op 组打点 + PDL 运行期开关）。
    ⚠️ *B 为**未逐步实测**路径，以 A 为准。*
 
    **免构建替代**：发放包（沈三殊分发）提供**预编译引擎 exe**（按显卡取一个，~1.1 GB）——不写代码只想跑的话直接用它；
    总纲 `refs/01-沈三殊-发放包/00-先读我-总纲（必下与选下）.md`、下载清单 `…\01-模型下载清单（推荐链接）.md`（含地址/体积/sha256/加速法）；
    ⚠️ **`refs/` 未入库**，需自己取得（找作者沈三殊拿）。
 
-2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；其余补丁按需（`patches/` 共 8 个：ledger42×3 / ledger44 / ledger46×2 / ledger47 / W1-W4）。
+2. **应用修复**：`git apply patches/W1-W4_engine_fix.patch`（W1-W4：思考预算熔断 `==`→`>=`、越界不再 abort、control 强制闭合、prompt-progress 门控放宽——四处均已实测验收）；其余补丁按需（非 I3b 的 8 个：ledger42×3 / ledger44 / ledger46×2 / ledger47 / W1-W4）。
 
 3. **构建**：`build\s6_1208a.bat`（或 VS 环境 + `cmake --build <dir> --target ninfer-serve`；要点见 `build/README.md` 与 `build/patches/`）；产物部署到 `engine/self-built-20261008/`。
 
@@ -336,7 +337,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 | 11 | DSH maxTokens 全额预留 | 单请求 prompt+输出全额预留，65,536 输出上限放大超池面 | 思考计入输出 + DSH 默认 65,536 | DSH `maxTokens` → 24,000（单轮封顶；prompt ≤41,536 时 decode 期永不超池） | 生效验证：实机 started 行 `max output 24,000` |
 | 12 | 长会话"页漂移"降速 | 34-39 轮 agentic 会话后 decode 从 122 → 3 tok/s，host 占用 98-110% | cache replay 逐轮重映射历史页，**最早页被逐渐挤出设备池**（34 轮后 ~330 页滞留 host → decode 每 token host 往返）——是**轮数**触发，与超池深度无关（三组对照：81K/72K/72K 全不掉速 134/126/134） | 缓解：定期新开会话（机制必需）+ 池扩容（28→~38 轮才触发）+ maxTokens 封顶；**根治 = 挂账 42 全链**（取消检查点前移 + 批量 demote + **v2 异步 demote**）＝ 已部署 + 实机验证 ✓（超池多轮 103-195 tok/s、10+ 轮零降速，见 §三·十九；v2.1 多批 in-flight 已施工 ✓ §三·二十四） | 机理两次独立实证（hidden 页判别：不掉速 ≤17 vs 掉速 329-334） |
 | 13 | stream 挂起（原挂账 41） | 引擎请求 started 后永不 done：日志静默 + CPU 0 / GPU idle + TCP Established，重启才恢复（req#4 现场，DSH"思维断链"） | 🔀 **已并入挂账 42**（第三次复现定案，v3 规模修正版证伪"send 阻塞"）：根因唯一收敛 = **页漂移极端态下页操作深处同步点冻结**（§14.1） | 无"取消信号"死锁形态另立 **挂账 43**（步级看门狗，待设计 ✗）；挂账 42 全链部署后未再复现（待长跑观察） | 第三次复现定案：16K output / 270KB 载荷 / 20s 真停读（v3 规模修正版）✓ |
-| 14 | 谷（慢态）范围收敛 | decode 25–28（偶发 11–12）、SM 100% 满频但功耗仅 63–98 W、几乎不碰显存、并行核被饿死 8× | 排除机器/驱动/降频/带宽、全部配置旋钮（二分清白）、KV/ring/demote 主链（裸解码满速）后，锁定 **MTP 图内 target 段** | S6 `%globaltimer` 段级打点（图 1107→1112 节点，capture 安全）；关 MTP 即愈 | 谷窗内三明治 A-B-A（44.2 s→9.3 s→44.6 s，非自愈）；**10-16 更新：可按需复现 + 机制定位 host 提交阻塞（驱动内部阻塞）；PDL 出局**（见 ★ 2026-10-16） |
+| 14 | 谷（慢态）范围收敛 | decode 25–28（偶发 11–12）、SM 100% 满频但功耗仅 63–98 W、几乎不碰显存、并行核**未**被饿死（2026-10-16 外部进程实测 6–8 µs；旧"饿死 8×"表述因**查无原始测量记录**已撤回） | 排除机器/驱动/降频/带宽、全部配置旋钮（二分清白）、KV/ring/demote 主链（裸解码满速）后，锁定 **MTP 图内 target 段** | S6 `%globaltimer` 段级打点（图 1107→1112 节点，capture 安全）；关 MTP 即愈 | 谷窗内三明治 A-B-A（44.2 s→9.3 s→44.6 s，非自愈）；**10-16 更新：可按需复现 + 机制定位 host 提交阻塞（驱动内部阻塞）；PDL 出局**（见 ★ 2026-10-16） |
 | 15 | 启动器"两个模型"混淆 | 命令行同时出现 `swift15_iq3s_mtp.ninfer` 与 `--model-id qwen3.8-27b-coder390` | 招牌名硬编码旧线名，换件未同步 | `engine_ctl` 按件自动切 + `scripts/_modelid.py` 从 `/v1/models` 读 | 实测 `/v1/models` 只报真身名；工具端自动解析（a2gate 单轮正常） |
 | 16 | 含中文 `.ps1` 秒退 | 守望者脚本起不来：`Unexpected token '}'` | PS 5.1 对**无 BOM 的 UTF-8** 按 GBK 解码，中文字符串被解错 | 5 个脚本统一存为 UTF-8 with BOM | 5/5 `PS-SYNTAX-OK`
 
@@ -345,6 +346,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 ## 已知限制
 
 - **谷（慢态）未闭合**：间歇出现、分钟~小时级粘滞；期间 decode 掉到 25–28（偶发 11–12）而机器本身健康；**10-16 更新**：可按需复现（外部显存压力协议）、机制收敛到 host 侧提交阻塞（驱动内部阻塞）、**PDL 出局**；**唯一确证缓解 = 避免与引擎争抢显存**；**期间可用裸解码（不传 `--spec`，~56 tok/s）规避**；守望者自动记录谷窗证据；触发源未解（以长跑守望 + 案例驱动现场捕获持续取证）；
+- **C12：空闲后首请求挂死（2026-10-16 首次观测，未复现）**——引擎长时间空闲后，首个请求**可能永久不返回**：stderr 零输出（连打点都不出）、GPU 近空转（util ~2%、功耗 ~26 W）、请求日志有 start 无完成，**26 分钟不自愈、只能重启恢复**。已做主动复现（空闲 5 / 25 分钟 × 显存压力，2×2 四格）**全部正常应答** ⇒ **触发条件未知**。**遇到时重启引擎即可恢复**。与"谷"不同：谷是"慢但可自愈"，此条是"挂死"。**欢迎反馈可复现线索**——本仓目前唯一"永久挂死"级已知问题；
 - 单并发（KVMem 环架构约束）；
 - 256K 为模型原生上限——512K 属外推区，不可用（长文场景由 KVMem 检索兜底）；
 - 视觉 CPU 编码 ~20 s/图（GPU 编码需视觉塔常驻 1.4 GiB 显存，须降池至 ~20K）；
@@ -353,11 +355,11 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 ## 文档索引
 
 - **`docs/异步页流水-技术说明.pptx`**（18 页演示，另有英文版 `Async-Page-Pipeline-Technical-Brief.pptx`）/ **`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`**（公开版科普说明）——对外介绍与原理；
-- **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v73 完整历程（每个决策的证据链），**先读这个**；
+- **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v74 完整历程（每个决策的证据链），**先读这个**；
 - **`docs/引擎启动参数与配置档-20261014.md`** —— 启动参数逐项解释 + 两档配置（SWIFT 现行 / Coder390 定稿）+ 环境变量六开关；
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；
 - `docs/KV档A-B-*` / `docs/深上下文池收益与A2适用域-20261014.md` / `docs/Swift换底座-三臂结果与int8预算-20261014.md` —— 精度-池-底座三组实测；
-- `docs/审核-*.md` ×12 —— TeleAgent 与 CodeBuddy 双向交叉审核记录；
+- `docs/审核-*.md` ×19（另 `交叉审核-*` ×2）—— TeleAgent 与 CodeBuddy 双向交叉审核记录；
 - `docs/调研-*.md` ×3 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 

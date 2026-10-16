@@ -1,0 +1,10 @@
+@echo off
+REM 编译主动触发工具（V3/V4 加压器），用引擎构建同一套 CUDA 13.3 便携 toolkit + VS2022 环境
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+if errorlevel 1 (echo VCVARS-FAILED & exit /b 1)
+set "PATH=J:\Bonsai\landing\cuda-13.3\bin;%PATH%"
+nvcc -O2 -arch=sm_120a -o "J:\ninfer-kvmem\tools\submit_load.exe" "J:\ninfer-kvmem\tools\submit_load.cu"
+if errorlevel 1 (echo NVCC-FAILED-submit & exit /b 1)
+nvcc -O2 -arch=sm_120a -o "J:\ninfer-kvmem\tools\vram_hold.exe" "J:\ninfer-kvmem\tools\vram_hold.cu"
+if errorlevel 1 (echo NVCC-FAILED-vram & exit /b 1)
+echo BUILD-OK

@@ -1,0 +1,36 @@
+{
+  "arm": "lh826754374",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "elapsed_s": 1.8,
+      "usage": {
+        "completion_tokens": 200,
+        "completion_tokens_details": {
+          "reasoning_tokens": 200
+        },
+        "prompt_tokens": 11171,
+        "prompt_tokens_details": {
+          "cached_tokens": 11166
+        },
+        "total_tokens": 11371
+      },
+      "timings": {
+        "cache_n": 11166,
+        "draft_n": 246,
+        "draft_n_accepted": 156,
+        "predicted_ms": 1166.2412,
+        "predicted_n": 200,
+        "predicted_per_second": 170.63365622823136,
+        "predicted_per_token_ms": 5.860508542713568,
+        "prompt_ms": 633.0826000000001,
+        "prompt_n": 5,
+        "prompt_per_second": 7.897863564722833,
+        "prompt_per_token_ms": 126.61652000000001
+      },
+      "sha": "f1626c594a78a9ce",
+      "length": 633
+    }
+  ]
+}

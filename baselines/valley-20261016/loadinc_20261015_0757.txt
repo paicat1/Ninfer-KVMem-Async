@@ -1,0 +1,1649 @@
+﻿10-15 07:57:44 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 07:59:57 |   load r1 decode=108.8
+10-15 07:59:57 |   load r2 decode=98.3
+10-15 07:59:57 |   load r3 decode=291.7
+10-15 07:59:57 |   load r4 decode=300.4
+10-15 07:59:57 |   load r5 decode=257.7
+10-15 07:59:57 |   load r6 decode=268.9
+10-15 07:59:57 |   load r7 decode=250.7
+10-15 07:59:57 |   load r8 decode=199.8
+10-15 08:00:08 | pair1 pdl=0 cyc1 probe decode=105.3 wall=11.2 verify=20.98(fresh=True) valley=0 | loadSlow=0/8
+10-15 08:02:41 |   load r1 decode=213.6
+10-15 08:02:41 |   load r2 decode=141.3
+10-15 08:02:41 |   load r3 decode=264.6
+10-15 08:02:41 |   load r4 decode=266.7
+10-15 08:02:41 |   load r5 decode=331.2
+10-15 08:02:41 |   load r6 decode=312.0
+10-15 08:02:41 |   load r7 decode=282.9
+10-15 08:02:41 |   load r8 decode=263.4
+10-15 08:02:51 | pair1 pdl=0 cyc2 probe decode=108.8 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 08:05:25 |   load r1 decode=135.1
+10-15 08:05:25 |   load r2 decode=152.3
+10-15 08:05:25 |   load r3 decode=235.0
+10-15 08:05:25 |   load r4 decode=341.3
+10-15 08:05:25 |   load r5 decode=316.6
+10-15 08:05:25 |   load r6 decode=300.9
+10-15 08:05:25 |   load r7 decode=226.1
+10-15 08:05:25 |   load r8 decode=207.4
+10-15 08:05:47 |   loadlong wall=22.1s decode=325.9
+10-15 08:06:00 | pair1 pdl=0 cyc3 probe decode=103.2 wall=12.2 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 08:08:38 |   load r1 decode=236.9
+10-15 08:08:38 |   load r2 decode=112.1
+10-15 08:08:38 |   load r3 decode=116.9
+10-15 08:08:38 |   load r4 decode=279.9
+10-15 08:08:38 |   load r5 decode=261.4
+10-15 08:08:38 |   load r6 decode=280.9
+10-15 08:08:38 |   load r7 decode=224.7
+10-15 08:08:38 |   load r8 decode=160.8
+10-15 08:08:49 | pair1 pdl=0 cyc4 probe decode=106.3 wall=10.5 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 08:11:27 |   load r1 decode=97.7
+10-15 08:11:27 |   load r2 decode=118.2
+10-15 08:11:27 |   load r3 decode=282.9
+10-15 08:11:27 |   load r4 decode=234.4
+10-15 08:11:27 |   load r5 decode=281.8
+10-15 08:11:27 |   load r6 decode=280.0
+10-15 08:11:27 |   load r7 decode=263.1
+10-15 08:11:27 |   load r8 decode=254.8
+10-15 08:11:38 | pair1 pdl=0 cyc5 probe decode=104.7 wall=10.8 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 08:14:20 |   load r1 decode=217.3
+10-15 08:14:20 |   load r2 decode=134.5
+10-15 08:14:20 |   load r3 decode=123.4
+10-15 08:14:20 |   load r4 decode=129.4
+10-15 08:14:20 |   load r5 decode=156.9
+10-15 08:14:20 |   load r6 decode=194.4
+10-15 08:14:20 |   load r7 decode=265.8
+10-15 08:14:20 |   load r8 decode=249.9
+10-15 08:14:41 |   loadlong wall=20.8s decode=347.1
+10-15 08:14:52 | pair1 pdl=0 cyc6 probe decode=104.1 wall=10.9 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 08:19:38 |   load r1 decode=204.0
+10-15 08:19:38 |   load r2 decode=137.2
+10-15 08:19:38 |   load r3 decode=97.7
+10-15 08:19:38 |   load r4 decode=244.8
+10-15 08:19:38 |   load r5 decode=293.3
+10-15 08:19:38 |   load r6 decode=0
+10-15 08:19:38 |   load r7 decode=301.6
+10-15 08:19:38 |   load r8 decode=292.9
+10-15 08:19:49 | pair1 pdl=0 cyc7 probe decode=111 wall=10.1 verify=-1(fresh=False) valley=0 | loadSlow=1/58
+10-15 08:22:18 |   load r1 decode=226.8
+10-15 08:22:18 |   load r2 decode=136.2
+10-15 08:22:18 |   load r3 decode=114.8
+10-15 08:22:18 |   load r4 decode=157.2
+10-15 08:22:18 |   load r5 decode=316.4
+10-15 08:22:18 |   load r6 decode=298.6
+10-15 08:22:18 |   load r7 decode=289.6
+10-15 08:22:18 |   load r8 decode=276.4
+10-15 08:22:28 | pair1 pdl=0 cyc8 probe decode=110.1 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=1/66
+10-15 08:24:58 |   load r1 decode=211.2
+10-15 08:24:58 |   load r2 decode=151.1
+10-15 08:24:58 |   load r3 decode=122.8
+10-15 08:24:58 |   load r4 decode=140.5
+10-15 08:24:58 |   load r5 decode=313.5
+10-15 08:24:58 |   load r6 decode=286.5
+10-15 08:24:58 |   load r7 decode=290.5
+10-15 08:24:58 |   load r8 decode=282.8
+10-15 08:25:17 |   loadlong wall=19.1s decode=380.6
+10-15 08:25:27 | pair1 pdl=0 cyc9 probe decode=111.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=1/75
+10-15 08:28:59 |   load r1 decode=228.8
+10-15 08:28:59 |   load r2 decode=126.0
+10-15 08:28:59 |   load r3 decode=159.5
+10-15 08:28:59 |   load r4 decode=210.3
+10-15 08:28:59 |   load r5 decode=318.0
+10-15 08:28:59 |   load r6 decode=306.7
+10-15 08:28:59 |   load r7 decode=295.6
+10-15 08:28:59 |   load r8 decode=284.7
+10-15 08:29:09 | pair1 pdl=0 cyc10 probe decode=109.9 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=1/83
+10-15 08:31:37 |   load r1 decode=246.7
+10-15 08:31:37 |   load r2 decode=338.2
+10-15 08:31:37 |   load r3 decode=352.8
+10-15 08:31:37 |   load r4 decode=341.6
+10-15 08:31:37 |   load r5 decode=328.2
+10-15 08:31:37 |   load r6 decode=320.4
+10-15 08:31:37 |   load r7 decode=303.6
+10-15 08:31:37 |   load r8 decode=111.2
+10-15 08:31:47 | pair1 pdl=0 cyc11 probe decode=109.3 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=1/91
+10-15 08:34:17 |   load r1 decode=257.3
+10-15 08:34:17 |   load r2 decode=109.0
+10-15 08:34:17 |   load r3 decode=122.4
+10-15 08:34:17 |   load r4 decode=151.4
+10-15 08:34:17 |   load r5 decode=190.9
+10-15 08:34:17 |   load r6 decode=302.9
+10-15 08:34:17 |   load r7 decode=288.8
+10-15 08:34:17 |   load r8 decode=280.9
+10-15 08:34:36 |   loadlong wall=19.4s decode=365.3
+10-15 08:34:47 | pair1 pdl=0 cyc12 probe decode=110.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=1/100
+10-15 08:39:21 |   load r1 decode=226.5
+10-15 08:39:21 |   load r2 decode=103.0
+10-15 08:39:21 |   load r3 decode=137.7
+10-15 08:39:21 |   load r4 decode=268.6
+10-15 08:39:21 |   load r5 decode=293.7
+10-15 08:39:21 |   load r6 decode=287.2
+10-15 08:39:21 |   load r7 decode=274.7
+10-15 08:39:21 |   load r8 decode=275.2
+10-15 08:39:31 | pair1 pdl=0 cyc13 probe decode=108.3 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=1/108
+10-15 08:39:41 | WINDOW pair=1 pdl_off=0 n=13 valley=0 rate=0% deep=0 | load rounds=108 loadSlow=1 (0.9%)
+10-15 08:40:13 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 08:42:22 |   load r1 decode=239.5
+10-15 08:42:22 |   load r2 decode=131.9
+10-15 08:42:22 |   load r3 decode=162.6
+10-15 08:42:22 |   load r4 decode=149.1
+10-15 08:42:22 |   load r5 decode=226.6
+10-15 08:42:22 |   load r6 decode=257.2
+10-15 08:42:22 |   load r7 decode=240.1
+10-15 08:42:22 |   load r8 decode=244.6
+10-15 08:42:34 | pair1 pdl=1 cyc1 probe decode=95.3 wall=11.9 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 08:45:26 |   load r1 decode=112.5
+10-15 08:45:26 |   load r2 decode=74.9
+10-15 08:45:26 |   load r3 decode=172.6
+10-15 08:45:26 |   load r4 decode=296.8
+10-15 08:45:26 |   load r5 decode=286.0
+10-15 08:45:26 |   load r6 decode=266.7
+10-15 08:45:26 |   load r7 decode=234.6
+10-15 08:45:26 |   load r8 decode=139.7
+10-15 08:45:37 | pair1 pdl=1 cyc2 probe decode=107.1 wall=10.8 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 08:50:02 |   load r1 decode=237.8
+10-15 08:50:02 |   load r2 decode=93.5
+10-15 08:50:02 |   load r3 decode=129.6
+10-15 08:50:02 |   load r4 decode=99.2
+10-15 08:50:02 |   load r5 decode=144.3
+10-15 08:50:02 |   load r6 decode=152.7
+10-15 08:50:02 |   load r7 decode=277.0
+10-15 08:50:02 |   load r8 decode=266.5
+10-15 08:50:22 |   loadlong wall=20.2s decode=372.5
+10-15 08:50:33 | pair1 pdl=1 cyc3 probe decode=88 wall=10.7 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 08:53:03 |   load r1 decode=99.9
+10-15 08:53:03 |   load r2 decode=151.6
+10-15 08:53:03 |   load r3 decode=170.7
+10-15 08:53:03 |   load r4 decode=291.1
+10-15 08:53:03 |   load r5 decode=314.9
+10-15 08:53:03 |   load r6 decode=299.7
+10-15 08:53:03 |   load r7 decode=280.5
+10-15 08:53:03 |   load r8 decode=289.5
+10-15 08:53:14 | pair1 pdl=1 cyc4 probe decode=110.1 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 08:55:43 |   load r1 decode=113.2
+10-15 08:55:43 |   load r2 decode=155.1
+10-15 08:55:43 |   load r3 decode=205.0
+10-15 08:55:43 |   load r4 decode=273.6
+10-15 08:55:43 |   load r5 decode=317.3
+10-15 08:55:43 |   load r6 decode=302.8
+10-15 08:55:43 |   load r7 decode=287.6
+10-15 08:55:43 |   load r8 decode=274.0
+10-15 08:55:53 | pair1 pdl=1 cyc5 probe decode=112.2 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 09:00:15 |   load r1 decode=132.7
+10-15 09:00:15 |   load r2 decode=157.2
+10-15 09:00:15 |   load r3 decode=132.1
+10-15 09:00:15 |   load r4 decode=147.8
+10-15 09:00:15 |   load r5 decode=308.9
+10-15 09:00:15 |   load r6 decode=296.6
+10-15 09:00:15 |   load r7 decode=292.2
+10-15 09:00:15 |   load r8 decode=255.1
+10-15 09:00:44 |   loadlong wall=28.7s decode=152.5
+10-15 09:00:54 | pair1 pdl=1 cyc6 probe decode=109.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 09:03:22 |   load r1 decode=216.9
+10-15 09:03:22 |   load r2 decode=101.1
+10-15 09:03:22 |   load r3 decode=186.6
+10-15 09:03:22 |   load r4 decode=331.1
+10-15 09:03:22 |   load r5 decode=315.9
+10-15 09:03:22 |   load r6 decode=304.4
+10-15 09:03:22 |   load r7 decode=290.8
+10-15 09:03:22 |   load r8 decode=271.9
+10-15 09:03:32 | pair1 pdl=1 cyc7 probe decode=110.2 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 09:06:00 |   load r1 decode=216.6
+10-15 09:06:00 |   load r2 decode=121.8
+10-15 09:06:00 |   load r3 decode=341.0
+10-15 09:06:00 |   load r4 decode=322.6
+10-15 09:06:00 |   load r5 decode=311.5
+10-15 09:06:00 |   load r6 decode=299.4
+10-15 09:06:00 |   load r7 decode=290.3
+10-15 09:06:00 |   load r8 decode=272.3
+10-15 09:06:10 | pair1 pdl=1 cyc8 probe decode=108.2 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 09:08:39 |   load r1 decode=156.5
+10-15 09:08:39 |   load r2 decode=147.3
+10-15 09:08:39 |   load r3 decode=300.4
+10-15 09:08:39 |   load r4 decode=337.8
+10-15 09:08:39 |   load r5 decode=325.5
+10-15 09:08:39 |   load r6 decode=294.3
+10-15 09:08:39 |   load r7 decode=281.9
+10-15 09:08:39 |   load r8 decode=123.8
+10-15 09:09:08 |   loadlong wall=29.5s decode=367.6
+10-15 09:09:19 | pair1 pdl=1 cyc9 probe decode=112.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 09:11:48 |   load r1 decode=124.8
+10-15 09:11:48 |   load r2 decode=167.7
+10-15 09:11:48 |   load r3 decode=172.5
+10-15 09:11:48 |   load r4 decode=280.7
+10-15 09:11:48 |   load r5 decode=317.5
+10-15 09:11:48 |   load r6 decode=305.8
+10-15 09:11:48 |   load r7 decode=286.3
+10-15 09:11:48 |   load r8 decode=201.0
+10-15 09:11:58 | pair1 pdl=1 cyc10 probe decode=112.6 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 09:14:28 |   load r1 decode=253.5
+10-15 09:14:28 |   load r2 decode=107.3
+10-15 09:14:28 |   load r3 decode=137.1
+10-15 09:14:28 |   load r4 decode=132.9
+10-15 09:14:28 |   load r5 decode=290.9
+10-15 09:14:28 |   load r6 decode=312.9
+10-15 09:14:28 |   load r7 decode=301.5
+10-15 09:14:28 |   load r8 decode=290.3
+10-15 09:14:38 | pair1 pdl=1 cyc11 probe decode=111.1 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 09:17:07 |   load r1 decode=122.3
+10-15 09:17:07 |   load r2 decode=107.5
+10-15 09:17:07 |   load r3 decode=308.7
+10-15 09:17:07 |   load r4 decode=346.7
+10-15 09:17:07 |   load r5 decode=335.5
+10-15 09:17:07 |   load r6 decode=303.1
+10-15 09:17:07 |   load r7 decode=283.2
+10-15 09:17:07 |   load r8 decode=282.3
+10-15 09:17:36 |   loadlong wall=29.0s decode=150.6
+10-15 09:17:47 | pair1 pdl=1 cyc12 probe decode=111.8 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 09:21:21 |   load r1 decode=94.9
+10-15 09:21:21 |   load r2 decode=108.0
+10-15 09:21:21 |   load r3 decode=121.6
+10-15 09:21:21 |   load r4 decode=167.4
+10-15 09:21:21 |   load r5 decode=265.3
+10-15 09:21:21 |   load r6 decode=275.3
+10-15 09:21:21 |   load r7 decode=294.0
+10-15 09:21:21 |   load r8 decode=267.6
+10-15 09:21:31 | pair1 pdl=1 cyc13 probe decode=110.6 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 09:21:41 | WINDOW pair=1 pdl_off=1 n=13 valley=0 rate=0% deep=0 | load rounds=108 loadSlow=0 (0%)
+10-15 09:22:12 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 09:24:07 |   load r1 decode=235.6
+10-15 09:24:07 |   load r2 decode=95.9
+10-15 09:24:07 |   load r3 decode=150.2
+10-15 09:24:07 |   load r4 decode=187.6
+10-15 09:24:07 |   load r5 decode=259.8
+10-15 09:24:07 |   load r6 decode=304.6
+10-15 09:24:07 |   load r7 decode=287.1
+10-15 09:24:07 |   load r8 decode=272.2
+10-15 09:24:17 | pair2 pdl=0 cyc1 probe decode=114.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 09:26:42 |   load r1 decode=227.1
+10-15 09:26:42 |   load r2 decode=135.7
+10-15 09:26:42 |   load r3 decode=276.7
+10-15 09:26:42 |   load r4 decode=335.2
+10-15 09:26:42 |   load r5 decode=327.2
+10-15 09:26:42 |   load r6 decode=308.9
+10-15 09:26:42 |   load r7 decode=299.3
+10-15 09:26:42 |   load r8 decode=143.9
+10-15 09:26:52 | pair2 pdl=0 cyc2 probe decode=114.8 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 09:29:19 |   load r1 decode=210.4
+10-15 09:29:19 |   load r2 decode=156.8
+10-15 09:29:19 |   load r3 decode=307.0
+10-15 09:29:19 |   load r4 decode=109.0
+10-15 09:29:19 |   load r5 decode=88.0
+10-15 09:29:19 |   load r6 decode=146.6
+10-15 09:29:19 |   load r7 decode=294.6
+10-15 09:29:19 |   load r8 decode=262.4
+10-15 09:29:48 |   loadlong wall=28.4s decode=392.8
+10-15 09:29:58 | pair2 pdl=0 cyc3 probe decode=114.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 09:32:24 |   load r1 decode=213.1
+10-15 09:32:24 |   load r2 decode=84.6
+10-15 09:32:24 |   load r3 decode=143.0
+10-15 09:32:24 |   load r4 decode=132.4
+10-15 09:32:24 |   load r5 decode=293.6
+10-15 09:32:24 |   load r6 decode=315.9
+10-15 09:32:24 |   load r7 decode=297.1
+10-15 09:32:24 |   load r8 decode=290.3
+10-15 09:32:34 | pair2 pdl=0 cyc4 probe decode=112.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 09:34:59 |   load r1 decode=226.3
+10-15 09:34:59 |   load r2 decode=139.0
+10-15 09:34:59 |   load r3 decode=315.2
+10-15 09:34:59 |   load r4 decode=166.7
+10-15 09:34:59 |   load r5 decode=215.6
+10-15 09:34:59 |   load r6 decode=220.9
+10-15 09:34:59 |   load r7 decode=313.3
+10-15 09:34:59 |   load r8 decode=278.8
+10-15 09:35:08 | pair2 pdl=0 cyc5 probe decode=112.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 09:37:34 |   load r1 decode=113.3
+10-15 09:37:34 |   load r2 decode=123.3
+10-15 09:37:34 |   load r3 decode=196.9
+10-15 09:37:34 |   load r4 decode=332.2
+10-15 09:37:34 |   load r5 decode=330.1
+10-15 09:37:34 |   load r6 decode=316.3
+10-15 09:37:34 |   load r7 decode=267.6
+10-15 09:37:34 |   load r8 decode=149.9
+10-15 09:37:57 |   loadlong wall=22.4s decode=243.4
+10-15 09:38:07 | pair2 pdl=0 cyc6 probe decode=115.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 09:42:05 |   load r1 decode=212.9
+10-15 09:42:05 |   load r2 decode=100.8
+10-15 09:42:05 |   load r3 decode=142.3
+10-15 09:42:05 |   load r4 decode=182.2
+10-15 09:42:05 |   load r5 decode=330.4
+10-15 09:42:05 |   load r6 decode=316.5
+10-15 09:42:05 |   load r7 decode=304.1
+10-15 09:42:05 |   load r8 decode=294.2
+10-15 09:42:15 | pair2 pdl=0 cyc7 probe decode=115.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 09:44:40 |   load r1 decode=123.5
+10-15 09:44:40 |   load r2 decode=340.2
+10-15 09:44:40 |   load r3 decode=328.8
+10-15 09:44:40 |   load r4 decode=210.9
+10-15 09:44:40 |   load r5 decode=319.4
+10-15 09:44:40 |   load r6 decode=129.3
+10-15 09:44:40 |   load r7 decode=125.5
+10-15 09:44:40 |   load r8 decode=289.0
+10-15 09:44:50 | pair2 pdl=0 cyc8 probe decode=114.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 09:49:26 |   load r1 decode=227.7
+10-15 09:49:26 |   load r2 decode=95.8
+10-15 09:49:26 |   load r3 decode=96.1
+10-15 09:49:26 |   load r4 decode=192.3
+10-15 09:49:26 |   load r5 decode=327.2
+10-15 09:49:26 |   load r6 decode=0
+10-15 09:49:26 |   load r7 decode=0
+10-15 09:49:26 |   load r8 decode=0
+10-15 09:49:45 |   loadlong wall=18.1s decode=406.2
+10-15 09:49:55 | pair2 pdl=0 cyc9 probe decode=114.7 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=3/75
+10-15 09:52:39 |   load r1 decode=227.9
+10-15 09:52:39 |   load r2 decode=138.4
+10-15 09:52:39 |   load r3 decode=146.9
+10-15 09:52:39 |   load r4 decode=316.5
+10-15 09:52:39 |   load r5 decode=327.2
+10-15 09:52:39 |   load r6 decode=326.1
+10-15 09:52:39 |   load r7 decode=283.9
+10-15 09:52:39 |   load r8 decode=163.3
+10-15 09:52:49 | pair2 pdl=0 cyc10 probe decode=115.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=3/83
+10-15 09:55:13 |   load r1 decode=261.4
+10-15 09:55:13 |   load r2 decode=105.4
+10-15 09:55:13 |   load r3 decode=148.7
+10-15 09:55:13 |   load r4 decode=337.0
+10-15 09:55:13 |   load r5 decode=326.5
+10-15 09:55:13 |   load r6 decode=313.4
+10-15 09:55:13 |   load r7 decode=300.4
+10-15 09:55:13 |   load r8 decode=291.1
+10-15 09:55:23 | pair2 pdl=0 cyc11 probe decode=114.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=3/91
+10-15 09:57:47 |   load r1 decode=240.7
+10-15 09:57:47 |   load r2 decode=102.3
+10-15 09:57:47 |   load r3 decode=152.3
+10-15 09:57:47 |   load r4 decode=302.5
+10-15 09:57:47 |   load r5 decode=344.0
+10-15 09:57:47 |   load r6 decode=328.3
+10-15 09:57:47 |   load r7 decode=314.0
+10-15 09:57:47 |   load r8 decode=305.5
+10-15 09:58:10 |   loadlong wall=22.6s decode=238.7
+10-15 09:58:20 | pair2 pdl=0 cyc12 probe decode=116.2 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=3/100
+10-15 10:00:44 |   load r1 decode=242.1
+10-15 10:00:44 |   load r2 decode=123.4
+10-15 10:00:44 |   load r3 decode=133.1
+10-15 10:00:44 |   load r4 decode=187.3
+10-15 10:00:44 |   load r5 decode=326.4
+10-15 10:00:44 |   load r6 decode=314.0
+10-15 10:00:44 |   load r7 decode=302.9
+10-15 10:00:44 |   load r8 decode=289.4
+10-15 10:00:56 | pair2 pdl=0 cyc13 probe decode=116 wall=11 verify=-1(fresh=False) valley=0 | loadSlow=3/108
+10-15 10:03:20 |   load r1 decode=264.9
+10-15 10:03:20 |   load r2 decode=107.2
+10-15 10:03:20 |   load r3 decode=268.9
+10-15 10:03:20 |   load r4 decode=176.8
+10-15 10:03:20 |   load r5 decode=327.7
+10-15 10:03:20 |   load r6 decode=330.4
+10-15 10:03:20 |   load r7 decode=314.9
+10-15 10:03:20 |   load r8 decode=292.7
+10-15 10:03:30 | pair2 pdl=0 cyc14 probe decode=114.6 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=3/116
+10-15 10:03:40 | WINDOW pair=2 pdl_off=0 n=14 valley=0 rate=0% deep=0 | load rounds=116 loadSlow=3 (2.6%)
+10-15 10:04:11 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 10:06:05 |   load r1 decode=258.3
+10-15 10:06:05 |   load r2 decode=115.5
+10-15 10:06:05 |   load r3 decode=280.9
+10-15 10:06:05 |   load r4 decode=199.3
+10-15 10:06:05 |   load r5 decode=312.7
+10-15 10:06:05 |   load r6 decode=296.0
+10-15 10:06:05 |   load r7 decode=277.1
+10-15 10:06:05 |   load r8 decode=274.1
+10-15 10:06:16 | pair2 pdl=1 cyc1 probe decode=115.6 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 10:08:42 |   load r1 decode=262.5
+10-15 10:08:42 |   load r2 decode=88.3
+10-15 10:08:42 |   load r3 decode=118.3
+10-15 10:08:42 |   load r4 decode=252.7
+10-15 10:08:42 |   load r5 decode=317.2
+10-15 10:08:42 |   load r6 decode=309.4
+10-15 10:08:42 |   load r7 decode=293.9
+10-15 10:08:42 |   load r8 decode=268.9
+10-15 10:08:52 | pair2 pdl=1 cyc2 probe decode=113.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 10:11:17 |   load r1 decode=130.9
+10-15 10:11:17 |   load r2 decode=113.4
+10-15 10:11:17 |   load r3 decode=149.0
+10-15 10:11:17 |   load r4 decode=292.1
+10-15 10:11:17 |   load r5 decode=310.8
+10-15 10:11:17 |   load r6 decode=313.4
+10-15 10:11:17 |   load r7 decode=299.9
+10-15 10:11:17 |   load r8 decode=268.0
+10-15 10:11:47 |   loadlong wall=29.8s decode=320.3
+10-15 10:11:57 | pair2 pdl=1 cyc3 probe decode=116.2 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 10:14:21 |   load r1 decode=259.8
+10-15 10:14:21 |   load r2 decode=142.5
+10-15 10:14:21 |   load r3 decode=150.7
+10-15 10:14:21 |   load r4 decode=218.4
+10-15 10:14:21 |   load r5 decode=307.4
+10-15 10:14:21 |   load r6 decode=303.9
+10-15 10:14:21 |   load r7 decode=302.5
+10-15 10:14:21 |   load r8 decode=280.8
+10-15 10:14:31 | pair2 pdl=1 cyc4 probe decode=116 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 10:16:56 |   load r1 decode=249.8
+10-15 10:16:56 |   load r2 decode=124.5
+10-15 10:16:56 |   load r3 decode=156.8
+10-15 10:16:56 |   load r4 decode=300.4
+10-15 10:16:56 |   load r5 decode=315.5
+10-15 10:16:56 |   load r6 decode=304.4
+10-15 10:16:56 |   load r7 decode=304.3
+10-15 10:16:56 |   load r8 decode=286.2
+10-15 10:17:05 | pair2 pdl=1 cyc5 probe decode=115 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 10:19:31 |   load r1 decode=249.6
+10-15 10:19:31 |   load r2 decode=88.3
+10-15 10:19:31 |   load r3 decode=155.9
+10-15 10:19:31 |   load r4 decode=332.1
+10-15 10:19:31 |   load r5 decode=305.1
+10-15 10:19:31 |   load r6 decode=298.4
+10-15 10:19:31 |   load r7 decode=299.2
+10-15 10:19:31 |   load r8 decode=281.3
+10-15 10:19:49 |   loadlong wall=18.3s decode=403.3
+10-15 10:19:59 | pair2 pdl=1 cyc6 probe decode=116.5 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 10:23:58 |   load r1 decode=265.8
+10-15 10:23:58 |   load r2 decode=128.0
+10-15 10:23:58 |   load r3 decode=147.1
+10-15 10:23:58 |   load r4 decode=148.8
+10-15 10:23:58 |   load r5 decode=191.5
+10-15 10:23:58 |   load r6 decode=312.2
+10-15 10:23:58 |   load r7 decode=298.5
+10-15 10:23:58 |   load r8 decode=128.3
+10-15 10:24:08 | pair2 pdl=1 cyc7 probe decode=115.7 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 10:26:34 |   load r1 decode=110.9
+10-15 10:26:34 |   load r2 decode=172.9
+10-15 10:26:34 |   load r3 decode=127.9
+10-15 10:26:34 |   load r4 decode=167.2
+10-15 10:26:34 |   load r5 decode=328.1
+10-15 10:26:34 |   load r6 decode=315.6
+10-15 10:26:34 |   load r7 decode=294.8
+10-15 10:26:34 |   load r8 decode=291.6
+10-15 10:26:43 | pair2 pdl=1 cyc8 probe decode=115.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 10:29:07 |   load r1 decode=255.1
+10-15 10:29:07 |   load r2 decode=134.2
+10-15 10:29:07 |   load r3 decode=236.8
+10-15 10:29:07 |   load r4 decode=290.2
+10-15 10:29:07 |   load r5 decode=345.3
+10-15 10:29:07 |   load r6 decode=303.6
+10-15 10:29:07 |   load r7 decode=191.1
+10-15 10:29:07 |   load r8 decode=285.4
+10-15 10:29:26 |   loadlong wall=18.4s decode=397.6
+10-15 10:29:36 | pair2 pdl=1 cyc9 probe decode=116.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 10:33:37 |   load r1 decode=250.1
+10-15 10:33:37 |   load r2 decode=128.1
+10-15 10:33:37 |   load r3 decode=328.5
+10-15 10:33:37 |   load r4 decode=336.2
+10-15 10:33:37 |   load r5 decode=0
+10-15 10:33:37 |   load r6 decode=0
+10-15 10:33:37 |   load r7 decode=328.9
+10-15 10:33:37 |   load r8 decode=0
+10-15 10:33:47 | pair2 pdl=1 cyc10 probe decode=116.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=3/83
+10-15 10:36:10 |   load r1 decode=121.6
+10-15 10:36:10 |   load r2 decode=115.3
+10-15 10:36:10 |   load r3 decode=254.1
+10-15 10:36:10 |   load r4 decode=334.1
+10-15 10:36:10 |   load r5 decode=330.3
+10-15 10:36:10 |   load r6 decode=306.8
+10-15 10:36:10 |   load r7 decode=303.7
+10-15 10:36:10 |   load r8 decode=290.4
+10-15 10:36:12 | pair2 pdl=1 cyc11 probe decode=115.7 wall=1.1 verify=-1(fresh=False) valley=0 | loadSlow=3/91
+10-15 10:38:35 |   load r1 decode=248.0
+10-15 10:38:35 |   load r2 decode=129.8
+10-15 10:38:35 |   load r3 decode=123.1
+10-15 10:38:35 |   load r4 decode=313.9
+10-15 10:38:35 |   load r5 decode=344.1
+10-15 10:38:35 |   load r6 decode=328.9
+10-15 10:38:35 |   load r7 decode=315.3
+10-15 10:38:35 |   load r8 decode=307.7
+10-15 10:38:54 |   loadlong wall=18.1s decode=416.6
+10-15 10:39:04 | pair2 pdl=1 cyc12 probe decode=116 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=3/100
+10-15 10:41:27 |   load r1 decode=146.0
+10-15 10:41:27 |   load r2 decode=133.7
+10-15 10:41:27 |   load r3 decode=323.5
+10-15 10:41:27 |   load r4 decode=356.9
+10-15 10:41:27 |   load r5 decode=344.3
+10-15 10:41:27 |   load r6 decode=305.7
+10-15 10:41:27 |   load r7 decode=300.3
+10-15 10:41:27 |   load r8 decode=291.4
+10-15 10:41:37 | pair2 pdl=1 cyc13 probe decode=113.8 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=3/108
+10-15 10:44:03 |   load r1 decode=134.9
+10-15 10:44:03 |   load r2 decode=127.2
+10-15 10:44:03 |   load r3 decode=244.7
+10-15 10:44:03 |   load r4 decode=323.3
+10-15 10:44:03 |   load r5 decode=327.0
+10-15 10:44:03 |   load r6 decode=314.3
+10-15 10:44:03 |   load r7 decode=286.3
+10-15 10:44:03 |   load r8 decode=144.6
+10-15 10:44:13 | pair2 pdl=1 cyc14 probe decode=116.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=3/116
+10-15 10:44:23 | WINDOW pair=2 pdl_off=1 n=14 valley=0 rate=0% deep=0 | load rounds=116 loadSlow=3 (2.6%)
+10-15 10:44:49 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 10:48:02 |   load r1 decode=237.8
+10-15 10:48:02 |   load r2 decode=336.9
+10-15 10:48:02 |   load r3 decode=122.2
+10-15 10:48:02 |   load r4 decode=287.4
+10-15 10:48:02 |   load r5 decode=303.7
+10-15 10:48:02 |   load r6 decode=305.4
+10-15 10:48:02 |   load r7 decode=0
+10-15 10:48:02 |   load r8 decode=292.5
+10-15 10:48:11 | pair3 pdl=0 cyc1 probe decode=115.5 wall=9.2 verify=-1(fresh=False) valley=0 | loadSlow=1/8
+10-15 10:50:32 |   load r1 decode=244.7
+10-15 10:50:32 |   load r2 decode=122.5
+10-15 10:50:32 |   load r3 decode=162.1
+10-15 10:50:32 |   load r4 decode=289.4
+10-15 10:50:32 |   load r5 decode=145.0
+10-15 10:50:32 |   load r6 decode=206.7
+10-15 10:50:32 |   load r7 decode=261.9
+10-15 10:50:32 |   load r8 decode=279.2
+10-15 10:50:42 | pair3 pdl=0 cyc2 probe decode=115.5 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/16
+10-15 10:53:07 |   load r1 decode=241.5
+10-15 10:53:07 |   load r2 decode=142.5
+10-15 10:53:07 |   load r3 decode=142.0
+10-15 10:53:07 |   load r4 decode=186.0
+10-15 10:53:07 |   load r5 decode=327.0
+10-15 10:53:07 |   load r6 decode=315.4
+10-15 10:53:07 |   load r7 decode=287.9
+10-15 10:53:07 |   load r8 decode=279.2
+10-15 10:53:26 |   loadlong wall=18.5s decode=389.9
+10-15 10:53:36 | pair3 pdl=0 cyc3 probe decode=115.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=1/25
+10-15 10:56:01 |   load r1 decode=153.4
+10-15 10:56:01 |   load r2 decode=143.6
+10-15 10:56:01 |   load r3 decode=105.2
+10-15 10:56:01 |   load r4 decode=277.6
+10-15 10:56:01 |   load r5 decode=328.0
+10-15 10:56:01 |   load r6 decode=311.7
+10-15 10:56:01 |   load r7 decode=302.0
+10-15 10:56:01 |   load r8 decode=283.7
+10-15 10:56:11 | pair3 pdl=0 cyc4 probe decode=114.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/33
+10-15 10:58:37 |   load r1 decode=251.1
+10-15 10:58:37 |   load r2 decode=104.9
+10-15 10:58:37 |   load r3 decode=266.0
+10-15 10:58:37 |   load r4 decode=184.0
+10-15 10:58:37 |   load r5 decode=160.0
+10-15 10:58:37 |   load r6 decode=151.5
+10-15 10:58:37 |   load r7 decode=268.7
+10-15 10:58:37 |   load r8 decode=279.5
+10-15 10:58:47 | pair3 pdl=0 cyc5 probe decode=114.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/41
+10-15 11:01:12 |   load r1 decode=247.5
+10-15 11:01:12 |   load r2 decode=113.2
+10-15 11:01:12 |   load r3 decode=175.4
+10-15 11:01:12 |   load r4 decode=340.8
+10-15 11:01:12 |   load r5 decode=329.4
+10-15 11:01:12 |   load r6 decode=316.3
+10-15 11:01:12 |   load r7 decode=294.8
+10-15 11:01:12 |   load r8 decode=294.6
+10-15 11:01:31 |   loadlong wall=18.3s decode=404.0
+10-15 11:01:41 | pair3 pdl=0 cyc6 probe decode=115.7 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=1/50
+10-15 11:04:06 |   load r1 decode=258.9
+10-15 11:04:06 |   load r2 decode=132.3
+10-15 11:04:06 |   load r3 decode=109.7
+10-15 11:04:06 |   load r4 decode=351.7
+10-15 11:04:06 |   load r5 decode=342.7
+10-15 11:04:06 |   load r6 decode=325.9
+10-15 11:04:06 |   load r7 decode=294.9
+10-15 11:04:06 |   load r8 decode=293.4
+10-15 11:04:16 | pair3 pdl=0 cyc7 probe decode=115.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/58
+10-15 11:06:40 |   load r1 decode=227.6
+10-15 11:06:40 |   load r2 decode=123.1
+10-15 11:06:40 |   load r3 decode=340.3
+10-15 11:06:40 |   load r4 decode=329.3
+10-15 11:06:40 |   load r5 decode=319.7
+10-15 11:06:40 |   load r6 decode=306.3
+10-15 11:06:40 |   load r7 decode=291.6
+10-15 11:06:40 |   load r8 decode=282.1
+10-15 11:06:50 | pair3 pdl=0 cyc8 probe decode=115.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/66
+10-15 11:09:16 |   load r1 decode=240.6
+10-15 11:09:16 |   load r2 decode=128.9
+10-15 11:09:16 |   load r3 decode=138.1
+10-15 11:09:16 |   load r4 decode=176.8
+10-15 11:09:16 |   load r5 decode=254.0
+10-15 11:09:16 |   load r6 decode=270.9
+10-15 11:09:16 |   load r7 decode=283.1
+10-15 11:09:16 |   load r8 decode=284.5
+10-15 11:09:35 |   loadlong wall=18.4s decode=392.9
+10-15 11:09:45 | pair3 pdl=0 cyc9 probe decode=115.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=1/75
+10-15 11:12:09 |   load r1 decode=145.8
+10-15 11:12:09 |   load r2 decode=133.2
+10-15 11:12:09 |   load r3 decode=254.5
+10-15 11:12:09 |   load r4 decode=340.2
+10-15 11:12:09 |   load r5 decode=323.7
+10-15 11:12:09 |   load r6 decode=313.4
+10-15 11:12:09 |   load r7 decode=300.7
+10-15 11:12:09 |   load r8 decode=276.6
+10-15 11:12:20 | pair3 pdl=0 cyc10 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/83
+10-15 11:14:45 |   load r1 decode=182.9
+10-15 11:14:45 |   load r2 decode=116.1
+10-15 11:14:45 |   load r3 decode=309.8
+10-15 11:14:45 |   load r4 decode=340.1
+10-15 11:14:45 |   load r5 decode=136.4
+10-15 11:14:45 |   load r6 decode=286.3
+10-15 11:14:45 |   load r7 decode=318.1
+10-15 11:14:45 |   load r8 decode=297.5
+10-15 11:14:55 | pair3 pdl=0 cyc11 probe decode=113.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/91
+10-15 11:17:20 |   load r1 decode=222.9
+10-15 11:17:20 |   load r2 decode=367.6
+10-15 11:17:20 |   load r3 decode=366.5
+10-15 11:17:20 |   load r4 decode=354.2
+10-15 11:17:20 |   load r5 decode=337.9
+10-15 11:17:20 |   load r6 decode=321.7
+10-15 11:17:20 |   load r7 decode=123.4
+10-15 11:17:20 |   load r8 decode=148.7
+10-15 11:17:39 |   loadlong wall=18.6s decode=387.1
+10-15 11:17:49 | pair3 pdl=0 cyc12 probe decode=115.6 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=1/100
+10-15 11:20:14 |   load r1 decode=250.3
+10-15 11:20:14 |   load r2 decode=130.0
+10-15 11:20:14 |   load r3 decode=170.1
+10-15 11:20:14 |   load r4 decode=178.2
+10-15 11:20:14 |   load r5 decode=292.7
+10-15 11:20:14 |   load r6 decode=188.2
+10-15 11:20:14 |   load r7 decode=301.2
+10-15 11:20:14 |   load r8 decode=281.1
+10-15 11:20:24 | pair3 pdl=0 cyc13 probe decode=114.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/108
+10-15 11:22:49 |   load r1 decode=262.0
+10-15 11:22:49 |   load r2 decode=135.3
+10-15 11:22:49 |   load r3 decode=156.2
+10-15 11:22:49 |   load r4 decode=336.6
+10-15 11:22:49 |   load r5 decode=310.5
+10-15 11:22:49 |   load r6 decode=314.8
+10-15 11:22:49 |   load r7 decode=299.3
+10-15 11:22:49 |   load r8 decode=277.1
+10-15 11:22:59 | pair3 pdl=0 cyc14 probe decode=115 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=1/116
+10-15 11:25:24 |   load r1 decode=233.8
+10-15 11:25:24 |   load r2 decode=98.8
+10-15 11:25:24 |   load r3 decode=277.1
+10-15 11:25:24 |   load r4 decode=338.4
+10-15 11:25:24 |   load r5 decode=314.5
+10-15 11:25:24 |   load r6 decode=293.2
+10-15 11:25:24 |   load r7 decode=299.7
+10-15 11:25:24 |   load r8 decode=286.4
+10-15 11:25:43 |   loadlong wall=18.2s decode=403.5
+10-15 11:25:53 | pair3 pdl=0 cyc15 probe decode=115.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=1/125
+10-15 11:26:03 | WINDOW pair=3 pdl_off=0 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=1 (0.8%)
+10-15 11:26:34 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 11:28:27 |   load r1 decode=150.0
+10-15 11:28:27 |   load r2 decode=343.8
+10-15 11:28:27 |   load r3 decode=360.2
+10-15 11:28:27 |   load r4 decode=343.0
+10-15 11:28:27 |   load r5 decode=309.1
+10-15 11:28:27 |   load r6 decode=133.0
+10-15 11:28:27 |   load r7 decode=163.1
+10-15 11:28:27 |   load r8 decode=280.6
+10-15 11:28:38 | pair3 pdl=1 cyc1 probe decode=115.2 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 11:31:03 |   load r1 decode=233.1
+10-15 11:31:03 |   load r2 decode=122.2
+10-15 11:31:03 |   load r3 decode=277.8
+10-15 11:31:03 |   load r4 decode=333.9
+10-15 11:31:03 |   load r5 decode=276.3
+10-15 11:31:03 |   load r6 decode=305.0
+10-15 11:31:03 |   load r7 decode=294.9
+10-15 11:31:03 |   load r8 decode=269.3
+10-15 11:31:13 | pair3 pdl=1 cyc2 probe decode=112.5 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 11:33:42 |   load r1 decode=243.4
+10-15 11:33:42 |   load r2 decode=103.4
+10-15 11:33:42 |   load r3 decode=158.6
+10-15 11:33:42 |   load r4 decode=258.5
+10-15 11:33:42 |   load r5 decode=315.5
+10-15 11:33:42 |   load r6 decode=313.5
+10-15 11:33:42 |   load r7 decode=301.9
+10-15 11:33:42 |   load r8 decode=258.4
+10-15 11:34:01 |   loadlong wall=18.5s decode=409.8
+10-15 11:34:11 | pair3 pdl=1 cyc3 probe decode=110.9 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 11:36:40 |   load r1 decode=213.1
+10-15 11:36:40 |   load r2 decode=101.4
+10-15 11:36:40 |   load r3 decode=124.0
+10-15 11:36:40 |   load r4 decode=167.0
+10-15 11:36:40 |   load r5 decode=320.3
+10-15 11:36:40 |   load r6 decode=309.8
+10-15 11:36:40 |   load r7 decode=297.8
+10-15 11:36:40 |   load r8 decode=269.9
+10-15 11:36:50 | pair3 pdl=1 cyc4 probe decode=111.3 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 11:39:21 |   load r1 decode=175.5
+10-15 11:39:21 |   load r2 decode=96.9
+10-15 11:39:21 |   load r3 decode=164.3
+10-15 11:39:21 |   load r4 decode=322.5
+10-15 11:39:21 |   load r5 decode=311.7
+10-15 11:39:21 |   load r6 decode=294.9
+10-15 11:39:21 |   load r7 decode=282.6
+10-15 11:39:21 |   load r8 decode=107.4
+10-15 11:39:31 | pair3 pdl=1 cyc5 probe decode=111.6 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 11:42:01 |   load r1 decode=107.7
+10-15 11:42:01 |   load r2 decode=145.2
+10-15 11:42:01 |   load r3 decode=163.7
+10-15 11:42:01 |   load r4 decode=278.9
+10-15 11:42:01 |   load r5 decode=306.6
+10-15 11:42:01 |   load r6 decode=298.1
+10-15 11:42:01 |   load r7 decode=147.3
+10-15 11:42:01 |   load r8 decode=185.3
+10-15 11:42:31 |   loadlong wall=29.5s decode=146.2
+10-15 11:42:41 | pair3 pdl=1 cyc6 probe decode=114.3 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 11:45:11 |   load r1 decode=228.9
+10-15 11:45:11 |   load r2 decode=81.2
+10-15 11:45:11 |   load r3 decode=132.5
+10-15 11:45:11 |   load r4 decode=133.7
+10-15 11:45:11 |   load r5 decode=320.6
+10-15 11:45:11 |   load r6 decode=306.3
+10-15 11:45:11 |   load r7 decode=296.7
+10-15 11:45:11 |   load r8 decode=279.9
+10-15 11:45:22 | pair3 pdl=1 cyc7 probe decode=112.7 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 11:47:50 |   load r1 decode=210.8
+10-15 11:47:50 |   load r2 decode=121.7
+10-15 11:47:50 |   load r3 decode=239.7
+10-15 11:47:50 |   load r4 decode=283.2
+10-15 11:47:50 |   load r5 decode=321.1
+10-15 11:47:50 |   load r6 decode=307.9
+10-15 11:47:50 |   load r7 decode=286.3
+10-15 11:47:50 |   load r8 decode=226.5
+10-15 11:48:01 | pair3 pdl=1 cyc8 probe decode=112.4 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 11:50:31 |   load r1 decode=113.3
+10-15 11:50:31 |   load r2 decode=119.9
+10-15 11:50:31 |   load r3 decode=166.2
+10-15 11:50:31 |   load r4 decode=140.2
+10-15 11:50:31 |   load r5 decode=227.7
+10-15 11:50:31 |   load r6 decode=302.5
+10-15 11:50:31 |   load r7 decode=291.9
+10-15 11:50:31 |   load r8 decode=259.0
+10-15 11:51:01 |   loadlong wall=29.3s decode=147.7
+10-15 11:51:11 | pair3 pdl=1 cyc9 probe decode=113.2 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 11:53:42 |   load r1 decode=108.3
+10-15 11:53:42 |   load r2 decode=126.9
+10-15 11:53:42 |   load r3 decode=188.3
+10-15 11:53:42 |   load r4 decode=140.0
+10-15 11:53:42 |   load r5 decode=223.1
+10-15 11:53:42 |   load r6 decode=257.1
+10-15 11:53:42 |   load r7 decode=304.3
+10-15 11:53:42 |   load r8 decode=281.5
+10-15 11:53:52 | pair3 pdl=1 cyc10 probe decode=110.1 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 11:56:21 |   load r1 decode=191.6
+10-15 11:56:21 |   load r2 decode=128.9
+10-15 11:56:21 |   load r3 decode=162.2
+10-15 11:56:21 |   load r4 decode=179.2
+10-15 11:56:21 |   load r5 decode=277.8
+10-15 11:56:21 |   load r6 decode=307.5
+10-15 11:56:21 |   load r7 decode=286.8
+10-15 11:56:21 |   load r8 decode=284.4
+10-15 11:56:32 | pair3 pdl=1 cyc11 probe decode=113.5 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 11:59:02 |   load r1 decode=144.2
+10-15 11:59:02 |   load r2 decode=283.1
+10-15 11:59:02 |   load r3 decode=114.4
+10-15 11:59:02 |   load r4 decode=140.6
+10-15 11:59:02 |   load r5 decode=318.9
+10-15 11:59:02 |   load r6 decode=295.5
+10-15 11:59:02 |   load r7 decode=273.2
+10-15 11:59:02 |   load r8 decode=282.3
+10-15 11:59:25 |   loadlong wall=23.3s decode=230.4
+10-15 11:59:35 | pair3 pdl=1 cyc12 probe decode=112.7 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 12:02:04 |   load r1 decode=230.8
+10-15 12:02:04 |   load r2 decode=115.9
+10-15 12:02:04 |   load r3 decode=296.2
+10-15 12:02:04 |   load r4 decode=341.9
+10-15 12:02:04 |   load r5 decode=333.9
+10-15 12:02:04 |   load r6 decode=302.5
+10-15 12:02:04 |   load r7 decode=286.6
+10-15 12:02:04 |   load r8 decode=279.2
+10-15 12:02:14 | pair3 pdl=1 cyc13 probe decode=112.9 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 12:04:45 |   load r1 decode=115.5
+10-15 12:04:45 |   load r2 decode=180.3
+10-15 12:04:45 |   load r3 decode=129.2
+10-15 12:04:45 |   load r4 decode=122.6
+10-15 12:04:45 |   load r5 decode=222.4
+10-15 12:04:45 |   load r6 decode=305.7
+10-15 12:04:45 |   load r7 decode=286.3
+10-15 12:04:45 |   load r8 decode=273.2
+10-15 12:04:55 | pair3 pdl=1 cyc14 probe decode=111.5 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 12:07:26 |   load r1 decode=127.1
+10-15 12:07:26 |   load r2 decode=300.6
+10-15 12:07:26 |   load r3 decode=318.9
+10-15 12:07:26 |   load r4 decode=122.8
+10-15 12:07:26 |   load r5 decode=296.1
+10-15 12:07:26 |   load r6 decode=303.5
+10-15 12:07:26 |   load r7 decode=291.3
+10-15 12:07:26 |   load r8 decode=86.4
+10-15 12:07:47 |   loadlong wall=20.5s decode=309.3
+10-15 12:07:57 | pair3 pdl=1 cyc15 probe decode=114 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 12:08:07 | WINDOW pair=3 pdl_off=1 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 12:08:38 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 12:10:34 |   load r1 decode=132.8
+10-15 12:10:34 |   load r2 decode=143.1
+10-15 12:10:34 |   load r3 decode=179.2
+10-15 12:10:34 |   load r4 decode=174.6
+10-15 12:10:34 |   load r5 decode=241.1
+10-15 12:10:34 |   load r6 decode=264.7
+10-15 12:10:34 |   load r7 decode=241.4
+10-15 12:10:34 |   load r8 decode=251.9
+10-15 12:10:45 | pair4 pdl=0 cyc1 probe decode=114.7 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 12:13:08 |   load r1 decode=228.5
+10-15 12:13:08 |   load r2 decode=276.1
+10-15 12:13:08 |   load r3 decode=311.0
+10-15 12:13:08 |   load r4 decode=299.1
+10-15 12:13:08 |   load r5 decode=314.5
+10-15 12:13:08 |   load r6 decode=301.3
+10-15 12:13:08 |   load r7 decode=287.3
+10-15 12:13:08 |   load r8 decode=262.8
+10-15 12:13:18 | pair4 pdl=0 cyc2 probe decode=114.5 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 12:15:43 |   load r1 decode=135.1
+10-15 12:15:43 |   load r2 decode=90.5
+10-15 12:15:43 |   load r3 decode=247.3
+10-15 12:15:43 |   load r4 decode=338.3
+10-15 12:15:43 |   load r5 decode=330.7
+10-15 12:15:43 |   load r6 decode=316.2
+10-15 12:15:43 |   load r7 decode=304.2
+10-15 12:15:43 |   load r8 decode=273.4
+10-15 12:16:14 |   loadlong wall=30.2s decode=137.7
+10-15 12:16:24 | pair4 pdl=0 cyc3 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 12:18:48 |   load r1 decode=131.7
+10-15 12:18:48 |   load r2 decode=191.3
+10-15 12:18:48 |   load r3 decode=165.2
+10-15 12:18:48 |   load r4 decode=299.4
+10-15 12:18:48 |   load r5 decode=286.2
+10-15 12:18:48 |   load r6 decode=320.8
+10-15 12:18:48 |   load r7 decode=315.7
+10-15 12:18:48 |   load r8 decode=285.6
+10-15 12:18:58 | pair4 pdl=0 cyc4 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 12:21:25 |   load r1 decode=130.5
+10-15 12:21:25 |   load r2 decode=154.1
+10-15 12:21:25 |   load r3 decode=198.9
+10-15 12:21:25 |   load r4 decode=227.1
+10-15 12:21:25 |   load r5 decode=252.8
+10-15 12:21:25 |   load r6 decode=253.7
+10-15 12:21:25 |   load r7 decode=245.1
+10-15 12:21:25 |   load r8 decode=235.2
+10-15 12:21:35 | pair4 pdl=0 cyc5 probe decode=114.8 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 12:24:02 |   load r1 decode=205.5
+10-15 12:24:02 |   load r2 decode=326.7
+10-15 12:24:02 |   load r3 decode=367.6
+10-15 12:24:02 |   load r4 decode=312.9
+10-15 12:24:02 |   load r5 decode=308.0
+10-15 12:24:02 |   load r6 decode=109.1
+10-15 12:24:02 |   load r7 decode=144.5
+10-15 12:24:02 |   load r8 decode=263.6
+10-15 12:24:21 |   loadlong wall=18.5s decode=387.2
+10-15 12:24:31 | pair4 pdl=0 cyc6 probe decode=115.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 12:26:58 |   load r1 decode=104.4
+10-15 12:26:58 |   load r2 decode=121.2
+10-15 12:26:58 |   load r3 decode=156.4
+10-15 12:26:58 |   load r4 decode=165.2
+10-15 12:26:58 |   load r5 decode=327.6
+10-15 12:26:58 |   load r6 decode=295.8
+10-15 12:26:58 |   load r7 decode=318.6
+10-15 12:26:58 |   load r8 decode=294.1
+10-15 12:27:08 | pair4 pdl=0 cyc7 probe decode=115.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 12:29:32 |   load r1 decode=234.9
+10-15 12:29:32 |   load r2 decode=132.2
+10-15 12:29:32 |   load r3 decode=294.0
+10-15 12:29:32 |   load r4 decode=201.0
+10-15 12:29:32 |   load r5 decode=326.9
+10-15 12:29:32 |   load r6 decode=311.0
+10-15 12:29:32 |   load r7 decode=299.3
+10-15 12:29:32 |   load r8 decode=273.6
+10-15 12:29:42 | pair4 pdl=0 cyc8 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 12:32:09 |   load r1 decode=232.7
+10-15 12:32:09 |   load r2 decode=124.4
+10-15 12:32:09 |   load r3 decode=128.8
+10-15 12:32:09 |   load r4 decode=278.7
+10-15 12:32:09 |   load r5 decode=337.1
+10-15 12:32:09 |   load r6 decode=169.3
+10-15 12:32:09 |   load r7 decode=300.2
+10-15 12:32:09 |   load r8 decode=154.7
+10-15 12:32:28 |   loadlong wall=18.1s decode=412.4
+10-15 12:32:38 | pair4 pdl=0 cyc9 probe decode=110.7 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 12:35:02 |   load r1 decode=235.7
+10-15 12:35:02 |   load r2 decode=127.1
+10-15 12:35:02 |   load r3 decode=303.3
+10-15 12:35:02 |   load r4 decode=327.4
+10-15 12:35:02 |   load r5 decode=316.5
+10-15 12:35:02 |   load r6 decode=305.4
+10-15 12:35:02 |   load r7 decode=284.6
+10-15 12:35:02 |   load r8 decode=270.5
+10-15 12:35:12 | pair4 pdl=0 cyc10 probe decode=114.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 12:37:36 |   load r1 decode=236.9
+10-15 12:37:36 |   load r2 decode=342.7
+10-15 12:37:36 |   load r3 decode=366.2
+10-15 12:37:36 |   load r4 decode=358.6
+10-15 12:37:36 |   load r5 decode=336.2
+10-15 12:37:36 |   load r6 decode=319.0
+10-15 12:37:36 |   load r7 decode=310.9
+10-15 12:37:36 |   load r8 decode=122.1
+10-15 12:37:46 | pair4 pdl=0 cyc11 probe decode=116.5 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 12:40:10 |   load r1 decode=253.8
+10-15 12:40:10 |   load r2 decode=141.9
+10-15 12:40:10 |   load r3 decode=320.6
+10-15 12:40:10 |   load r4 decode=357.9
+10-15 12:40:10 |   load r5 decode=320.4
+10-15 12:40:10 |   load r6 decode=307.8
+10-15 12:40:10 |   load r7 decode=294.6
+10-15 12:40:10 |   load r8 decode=274.6
+10-15 12:40:29 |   loadlong wall=18.1s decode=418.8
+10-15 12:40:39 | pair4 pdl=0 cyc12 probe decode=116.4 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 12:43:04 |   load r1 decode=250.6
+10-15 12:43:04 |   load r2 decode=146.8
+10-15 12:43:04 |   load r3 decode=139.8
+10-15 12:43:04 |   load r4 decode=156.7
+10-15 12:43:04 |   load r5 decode=329.1
+10-15 12:43:04 |   load r6 decode=314.9
+10-15 12:43:04 |   load r7 decode=296.6
+10-15 12:43:04 |   load r8 decode=275.5
+10-15 12:43:14 | pair4 pdl=0 cyc13 probe decode=116.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 12:45:39 |   load r1 decode=240.0
+10-15 12:45:39 |   load r2 decode=164.3
+10-15 12:45:39 |   load r3 decode=182.8
+10-15 12:45:39 |   load r4 decode=296.6
+10-15 12:45:39 |   load r5 decode=329.5
+10-15 12:45:39 |   load r6 decode=293.3
+10-15 12:45:39 |   load r7 decode=291.3
+10-15 12:45:39 |   load r8 decode=278.6
+10-15 12:45:49 | pair4 pdl=0 cyc14 probe decode=116.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 12:48:13 |   load r1 decode=244.1
+10-15 12:48:13 |   load r2 decode=117.4
+10-15 12:48:13 |   load r3 decode=320.8
+10-15 12:48:13 |   load r4 decode=357.3
+10-15 12:48:13 |   load r5 decode=344.1
+10-15 12:48:13 |   load r6 decode=314.1
+10-15 12:48:13 |   load r7 decode=301.1
+10-15 12:48:13 |   load r8 decode=283.6
+10-15 12:48:32 |   loadlong wall=18.4s decode=393.2
+10-15 12:48:42 | pair4 pdl=0 cyc15 probe decode=115.4 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 12:48:52 | WINDOW pair=4 pdl_off=0 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 12:49:23 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 12:51:17 |   load r1 decode=238.9
+10-15 12:51:17 |   load r2 decode=120.7
+10-15 12:51:17 |   load r3 decode=318.7
+10-15 12:51:17 |   load r4 decode=263.9
+10-15 12:51:17 |   load r5 decode=313.4
+10-15 12:51:17 |   load r6 decode=249.4
+10-15 12:51:17 |   load r7 decode=271.6
+10-15 12:51:17 |   load r8 decode=281.9
+10-15 12:51:27 | pair4 pdl=1 cyc1 probe decode=116.3 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 12:53:54 |   load r1 decode=123.2
+10-15 12:53:54 |   load r2 decode=149.1
+10-15 12:53:54 |   load r3 decode=212.4
+10-15 12:53:54 |   load r4 decode=247.1
+10-15 12:53:54 |   load r5 decode=305.5
+10-15 12:53:54 |   load r6 decode=129.3
+10-15 12:53:54 |   load r7 decode=150.2
+10-15 12:53:54 |   load r8 decode=266.9
+10-15 12:54:04 | pair4 pdl=1 cyc2 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 12:56:30 |   load r1 decode=248.8
+10-15 12:56:30 |   load r2 decode=132.3
+10-15 12:56:30 |   load r3 decode=187.4
+10-15 12:56:30 |   load r4 decode=339.2
+10-15 12:56:30 |   load r5 decode=330.9
+10-15 12:56:30 |   load r6 decode=313.1
+10-15 12:56:30 |   load r7 decode=294.1
+10-15 12:56:30 |   load r8 decode=148.6
+10-15 12:56:48 |   loadlong wall=18.4s decode=393.4
+10-15 12:56:58 | pair4 pdl=1 cyc3 probe decode=115.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 12:59:22 |   load r1 decode=240.6
+10-15 12:59:22 |   load r2 decode=138.4
+10-15 12:59:22 |   load r3 decode=282.8
+10-15 12:59:22 |   load r4 decode=309.5
+10-15 12:59:22 |   load r5 decode=333.6
+10-15 12:59:22 |   load r6 decode=318.8
+10-15 12:59:22 |   load r7 decode=309.5
+10-15 12:59:22 |   load r8 decode=288.5
+10-15 12:59:32 | pair4 pdl=1 cyc4 probe decode=114.8 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 13:01:56 |   load r1 decode=266.1
+10-15 13:01:56 |   load r2 decode=148.6
+10-15 13:01:56 |   load r3 decode=308.4
+10-15 13:01:56 |   load r4 decode=349.7
+10-15 13:01:56 |   load r5 decode=346.5
+10-15 13:01:56 |   load r6 decode=317.3
+10-15 13:01:56 |   load r7 decode=204.6
+10-15 13:01:56 |   load r8 decode=143.9
+10-15 13:02:06 | pair4 pdl=1 cyc5 probe decode=115.7 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 13:04:32 |   load r1 decode=229.8
+10-15 13:04:32 |   load r2 decode=152.1
+10-15 13:04:32 |   load r3 decode=167.8
+10-15 13:04:32 |   load r4 decode=139.5
+10-15 13:04:32 |   load r5 decode=325.9
+10-15 13:04:32 |   load r6 decode=310.3
+10-15 13:04:32 |   load r7 decode=301.3
+10-15 13:04:32 |   load r8 decode=275.3
+10-15 13:04:50 |   loadlong wall=18.3s decode=403.4
+10-15 13:05:00 | pair4 pdl=1 cyc6 probe decode=115.9 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 13:07:26 |   load r1 decode=257.2
+10-15 13:07:26 |   load r2 decode=104.3
+10-15 13:07:26 |   load r3 decode=105.3
+10-15 13:07:26 |   load r4 decode=151.6
+10-15 13:07:26 |   load r5 decode=329.0
+10-15 13:07:26 |   load r6 decode=314.4
+10-15 13:07:26 |   load r7 decode=300.5
+10-15 13:07:26 |   load r8 decode=276.0
+10-15 13:07:36 | pair4 pdl=1 cyc7 probe decode=114.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 13:10:04 |   load r1 decode=105.3
+10-15 13:10:04 |   load r2 decode=92.9
+10-15 13:10:04 |   load r3 decode=99.1
+10-15 13:10:04 |   load r4 decode=337.3
+10-15 13:10:04 |   load r5 decode=327.3
+10-15 13:10:04 |   load r6 decode=310.8
+10-15 13:10:04 |   load r7 decode=298.8
+10-15 13:10:04 |   load r8 decode=254.2
+10-15 13:10:14 | pair4 pdl=1 cyc8 probe decode=116 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 13:12:41 |   load r1 decode=102.5
+10-15 13:12:41 |   load r2 decode=131.5
+10-15 13:12:41 |   load r3 decode=141.0
+10-15 13:12:41 |   load r4 decode=179.9
+10-15 13:12:41 |   load r5 decode=278.5
+10-15 13:12:41 |   load r6 decode=326.7
+10-15 13:12:41 |   load r7 decode=302.5
+10-15 13:12:41 |   load r8 decode=288.7
+10-15 13:13:00 |   loadlong wall=19.6s decode=333.9
+10-15 13:13:10 | pair4 pdl=1 cyc9 probe decode=115.9 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 13:15:36 |   load r1 decode=258.5
+10-15 13:15:36 |   load r2 decode=126.3
+10-15 13:15:36 |   load r3 decode=135.8
+10-15 13:15:36 |   load r4 decode=194.9
+10-15 13:15:36 |   load r5 decode=301.0
+10-15 13:15:36 |   load r6 decode=324.2
+10-15 13:15:36 |   load r7 decode=309.7
+10-15 13:15:36 |   load r8 decode=288.8
+10-15 13:15:46 | pair4 pdl=1 cyc10 probe decode=113.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 13:18:10 |   load r1 decode=216.3
+10-15 13:18:10 |   load r2 decode=132.0
+10-15 13:18:10 |   load r3 decode=181.3
+10-15 13:18:10 |   load r4 decode=343.6
+10-15 13:18:10 |   load r5 decode=329.3
+10-15 13:18:10 |   load r6 decode=309.6
+10-15 13:18:10 |   load r7 decode=299.7
+10-15 13:18:10 |   load r8 decode=289.3
+10-15 13:18:20 | pair4 pdl=1 cyc11 probe decode=115.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 13:20:48 |   load r1 decode=114.6
+10-15 13:20:48 |   load r2 decode=283.5
+10-15 13:20:48 |   load r3 decode=351.2
+10-15 13:20:48 |   load r4 decode=131.1
+10-15 13:20:48 |   load r5 decode=84.9
+10-15 13:20:48 |   load r6 decode=304.6
+10-15 13:20:48 |   load r7 decode=294.5
+10-15 13:20:48 |   load r8 decode=149.8
+10-15 13:21:22 |   loadlong wall=33.9s decode=114.2
+10-15 13:21:32 | pair4 pdl=1 cyc12 probe decode=115.3 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 13:23:56 |   load r1 decode=207.1
+10-15 13:23:56 |   load r2 decode=147.7
+10-15 13:23:56 |   load r3 decode=150.4
+10-15 13:23:56 |   load r4 decode=337.9
+10-15 13:23:56 |   load r5 decode=329.4
+10-15 13:23:56 |   load r6 decode=311.7
+10-15 13:23:56 |   load r7 decode=296.5
+10-15 13:23:56 |   load r8 decode=286.3
+10-15 13:24:06 | pair4 pdl=1 cyc13 probe decode=114.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 13:26:31 |   load r1 decode=200.9
+10-15 13:26:31 |   load r2 decode=127.0
+10-15 13:26:31 |   load r3 decode=350.5
+10-15 13:26:31 |   load r4 decode=341.3
+10-15 13:26:31 |   load r5 decode=313.8
+10-15 13:26:31 |   load r6 decode=255.2
+10-15 13:26:31 |   load r7 decode=313.6
+10-15 13:26:31 |   load r8 decode=298.0
+10-15 13:26:41 | pair4 pdl=1 cyc14 probe decode=115.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 13:29:04 |   load r1 decode=256.4
+10-15 13:29:04 |   load r2 decode=166.5
+10-15 13:29:04 |   load r3 decode=308.8
+10-15 13:29:04 |   load r4 decode=355.8
+10-15 13:29:04 |   load r5 decode=341.2
+10-15 13:29:04 |   load r6 decode=309.1
+10-15 13:29:04 |   load r7 decode=297.1
+10-15 13:29:04 |   load r8 decode=249.5
+10-15 13:29:23 |   loadlong wall=18.0s decode=424.2
+10-15 13:29:33 | pair4 pdl=1 cyc15 probe decode=116.3 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 13:29:43 | WINDOW pair=4 pdl_off=1 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 13:30:09 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 13:32:04 |   load r1 decode=249.4
+10-15 13:32:04 |   load r2 decode=117.6
+10-15 13:32:04 |   load r3 decode=132.3
+10-15 13:32:04 |   load r4 decode=111.6
+10-15 13:32:04 |   load r5 decode=287.8
+10-15 13:32:04 |   load r6 decode=307.5
+10-15 13:32:04 |   load r7 decode=293.5
+10-15 13:32:04 |   load r8 decode=269.9
+10-15 13:32:14 | pair5 pdl=0 cyc1 probe decode=115.5 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 13:34:40 |   load r1 decode=231.4
+10-15 13:34:40 |   load r2 decode=118.3
+10-15 13:34:40 |   load r3 decode=161.3
+10-15 13:34:40 |   load r4 decode=157.8
+10-15 13:34:40 |   load r5 decode=328.4
+10-15 13:34:40 |   load r6 decode=314.0
+10-15 13:34:40 |   load r7 decode=293.8
+10-15 13:34:40 |   load r8 decode=267.7
+10-15 13:34:50 | pair5 pdl=0 cyc2 probe decode=114.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 13:37:16 |   load r1 decode=256.7
+10-15 13:37:16 |   load r2 decode=97.8
+10-15 13:37:16 |   load r3 decode=124.8
+10-15 13:37:16 |   load r4 decode=144.5
+10-15 13:37:16 |   load r5 decode=220.2
+10-15 13:37:16 |   load r6 decode=313.5
+10-15 13:37:16 |   load r7 decode=297.9
+10-15 13:37:16 |   load r8 decode=264.9
+10-15 13:37:35 |   loadlong wall=18.2s decode=409.2
+10-15 13:37:45 | pair5 pdl=0 cyc3 probe decode=115.8 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 13:40:09 |   load r1 decode=119.6
+10-15 13:40:09 |   load r2 decode=364.6
+10-15 13:40:09 |   load r3 decode=158.8
+10-15 13:40:09 |   load r4 decode=337.7
+10-15 13:40:09 |   load r5 decode=328.4
+10-15 13:40:09 |   load r6 decode=301.2
+10-15 13:40:09 |   load r7 decode=254.9
+10-15 13:40:09 |   load r8 decode=300.0
+10-15 13:40:19 | pair5 pdl=0 cyc4 probe decode=115.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 13:42:44 |   load r1 decode=255.2
+10-15 13:42:44 |   load r2 decode=138.4
+10-15 13:42:44 |   load r3 decode=294.7
+10-15 13:42:44 |   load r4 decode=162.7
+10-15 13:42:44 |   load r5 decode=172.2
+10-15 13:42:44 |   load r6 decode=301.5
+10-15 13:42:44 |   load r7 decode=296.1
+10-15 13:42:44 |   load r8 decode=286.8
+10-15 13:42:54 | pair5 pdl=0 cyc5 probe decode=116 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 13:45:20 |   load r1 decode=219.9
+10-15 13:45:20 |   load r2 decode=131.9
+10-15 13:45:20 |   load r3 decode=152.9
+10-15 13:45:20 |   load r4 decode=140.7
+10-15 13:45:20 |   load r5 decode=319.2
+10-15 13:45:20 |   load r6 decode=303.0
+10-15 13:45:20 |   load r7 decode=302.2
+10-15 13:45:20 |   load r8 decode=278.5
+10-15 13:45:38 |   loadlong wall=18.5s decode=390.8
+10-15 13:45:48 | pair5 pdl=0 cyc6 probe decode=115.5 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 13:48:14 |   load r1 decode=234.7
+10-15 13:48:14 |   load r2 decode=98.2
+10-15 13:48:14 |   load r3 decode=133.1
+10-15 13:48:14 |   load r4 decode=158.6
+10-15 13:48:14 |   load r5 decode=326.7
+10-15 13:48:14 |   load r6 decode=316.3
+10-15 13:48:14 |   load r7 decode=301.4
+10-15 13:48:14 |   load r8 decode=274.3
+10-15 13:48:24 | pair5 pdl=0 cyc7 probe decode=115 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 13:50:49 |   load r1 decode=134.4
+10-15 13:50:49 |   load r2 decode=90.3
+10-15 13:50:49 |   load r3 decode=303.0
+10-15 13:50:49 |   load r4 decode=296.6
+10-15 13:50:49 |   load r5 decode=345.8
+10-15 13:50:49 |   load r6 decode=326.8
+10-15 13:50:49 |   load r7 decode=312.8
+10-15 13:50:49 |   load r8 decode=302.7
+10-15 13:50:59 | pair5 pdl=0 cyc8 probe decode=115.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 13:53:26 |   load r1 decode=248.2
+10-15 13:53:26 |   load r2 decode=108.9
+10-15 13:53:26 |   load r3 decode=137.9
+10-15 13:53:26 |   load r4 decode=223.0
+10-15 13:53:26 |   load r5 decode=326.2
+10-15 13:53:26 |   load r6 decode=307.3
+10-15 13:53:26 |   load r7 decode=264.8
+10-15 13:53:26 |   load r8 decode=133.5
+10-15 13:53:44 |   loadlong wall=18.1s decode=417.2
+10-15 13:53:54 | pair5 pdl=0 cyc9 probe decode=116 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 13:56:20 |   load r1 decode=222.0
+10-15 13:56:20 |   load r2 decode=135.6
+10-15 13:56:20 |   load r3 decode=86.1
+10-15 13:56:20 |   load r4 decode=268.6
+10-15 13:56:20 |   load r5 decode=327.0
+10-15 13:56:20 |   load r6 decode=310.2
+10-15 13:56:20 |   load r7 decode=297.4
+10-15 13:56:20 |   load r8 decode=289.5
+10-15 13:56:30 | pair5 pdl=0 cyc10 probe decode=114.5 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 13:58:58 |   load r1 decode=112.6
+10-15 13:58:58 |   load r2 decode=150.1
+10-15 13:58:58 |   load r3 decode=133.7
+10-15 13:58:58 |   load r4 decode=152.6
+10-15 13:58:58 |   load r5 decode=170.8
+10-15 13:58:58 |   load r6 decode=168.5
+10-15 13:58:58 |   load r7 decode=302.0
+10-15 13:58:58 |   load r8 decode=278.2
+10-15 13:59:08 | pair5 pdl=0 cyc11 probe decode=114.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 14:01:33 |   load r1 decode=271.9
+10-15 14:01:33 |   load r2 decode=149.4
+10-15 14:01:33 |   load r3 decode=162.4
+10-15 14:01:33 |   load r4 decode=176.8
+10-15 14:01:33 |   load r5 decode=307.9
+10-15 14:01:33 |   load r6 decode=327.1
+10-15 14:01:33 |   load r7 decode=314.1
+10-15 14:01:33 |   load r8 decode=289.9
+10-15 14:01:51 |   loadlong wall=18.2s decode=414.4
+10-15 14:02:01 | pair5 pdl=0 cyc12 probe decode=114.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 14:04:27 |   load r1 decode=118.2
+10-15 14:04:27 |   load r2 decode=147.3
+10-15 14:04:27 |   load r3 decode=146.4
+10-15 14:04:27 |   load r4 decode=334.5
+10-15 14:04:27 |   load r5 decode=327.4
+10-15 14:04:27 |   load r6 decode=313.5
+10-15 14:04:27 |   load r7 decode=294.8
+10-15 14:04:27 |   load r8 decode=285.8
+10-15 14:04:37 | pair5 pdl=0 cyc13 probe decode=115.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 14:07:02 |   load r1 decode=241.0
+10-15 14:07:02 |   load r2 decode=151.4
+10-15 14:07:02 |   load r3 decode=183.0
+10-15 14:07:02 |   load r4 decode=205.8
+10-15 14:07:02 |   load r5 decode=285.8
+10-15 14:07:02 |   load r6 decode=294.1
+10-15 14:07:02 |   load r7 decode=280.8
+10-15 14:07:02 |   load r8 decode=271.9
+10-15 14:07:12 | pair5 pdl=0 cyc14 probe decode=115.5 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 14:09:37 |   load r1 decode=115.5
+10-15 14:09:37 |   load r2 decode=138.8
+10-15 14:09:37 |   load r3 decode=171.4
+10-15 14:09:37 |   load r4 decode=355.0
+10-15 14:09:37 |   load r5 decode=346.4
+10-15 14:09:37 |   load r6 decode=323.8
+10-15 14:09:37 |   load r7 decode=284.0
+10-15 14:09:37 |   load r8 decode=279.1
+10-15 14:09:57 |   loadlong wall=19.4s decode=346.3
+10-15 14:10:07 | pair5 pdl=0 cyc15 probe decode=116.2 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 14:10:17 | WINDOW pair=5 pdl_off=0 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 14:10:48 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 14:12:42 |   load r1 decode=140.6
+10-15 14:12:42 |   load r2 decode=150.3
+10-15 14:12:42 |   load r3 decode=166.4
+10-15 14:12:42 |   load r4 decode=282.4
+10-15 14:12:42 |   load r5 decode=313.9
+10-15 14:12:42 |   load r6 decode=285.9
+10-15 14:12:42 |   load r7 decode=280.2
+10-15 14:12:42 |   load r8 decode=272.8
+10-15 14:12:52 | pair5 pdl=1 cyc1 probe decode=116 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 14:17:38 |   load r1 decode=233.9
+10-15 14:17:38 |   load r2 decode=82.5
+10-15 14:17:38 |   load r3 decode=144.3
+10-15 14:17:38 |   load r4 decode=0
+10-15 14:17:38 |   load r5 decode=0
+10-15 14:17:38 |   load r6 decode=0
+10-15 14:17:38 |   load r7 decode=0
+10-15 14:17:38 |   load r8 decode=0
+10-15 14:17:48 | pair5 pdl=1 cyc2 probe decode=112.6 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=5/16
+10-15 14:20:15 |   load r1 decode=132.8
+10-15 14:20:15 |   load r2 decode=219.3
+10-15 14:20:15 |   load r3 decode=132.5
+10-15 14:20:15 |   load r4 decode=284.5
+10-15 14:20:15 |   load r5 decode=298.8
+10-15 14:20:15 |   load r6 decode=286.4
+10-15 14:20:15 |   load r7 decode=270.6
+10-15 14:20:15 |   load r8 decode=269.5
+10-15 14:20:43 |   loadlong wall=27.8s decode=158.7
+10-15 14:20:53 | pair5 pdl=1 cyc3 probe decode=115.9 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=5/25
+10-15 14:23:19 |   load r1 decode=228.6
+10-15 14:23:19 |   load r2 decode=103.0
+10-15 14:23:19 |   load r3 decode=130.4
+10-15 14:23:19 |   load r4 decode=277.8
+10-15 14:23:19 |   load r5 decode=310.4
+10-15 14:23:19 |   load r6 decode=297.5
+10-15 14:23:19 |   load r7 decode=288.9
+10-15 14:23:19 |   load r8 decode=156.4
+10-15 14:23:29 | pair5 pdl=1 cyc4 probe decode=115.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=5/33
+10-15 14:25:55 |   load r1 decode=128.2
+10-15 14:25:55 |   load r2 decode=247.2
+10-15 14:25:55 |   load r3 decode=183.0
+10-15 14:25:55 |   load r4 decode=146.0
+10-15 14:25:55 |   load r5 decode=314.1
+10-15 14:25:55 |   load r6 decode=314.1
+10-15 14:25:55 |   load r7 decode=301.4
+10-15 14:25:55 |   load r8 decode=294.0
+10-15 14:26:05 | pair5 pdl=1 cyc5 probe decode=115.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=5/41
+10-15 14:28:31 |   load r1 decode=273.3
+10-15 14:28:31 |   load r2 decode=138.8
+10-15 14:28:31 |   load r3 decode=309.8
+10-15 14:28:31 |   load r4 decode=207.5
+10-15 14:28:31 |   load r5 decode=160.4
+10-15 14:28:31 |   load r6 decode=316.2
+10-15 14:28:31 |   load r7 decode=302.2
+10-15 14:28:31 |   load r8 decode=292.7
+10-15 14:28:49 |   loadlong wall=18.2s decode=409.2
+10-15 14:28:59 | pair5 pdl=1 cyc6 probe decode=116.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=5/50
+10-15 14:31:25 |   load r1 decode=237.2
+10-15 14:31:25 |   load r2 decode=149.1
+10-15 14:31:25 |   load r3 decode=106.3
+10-15 14:31:25 |   load r4 decode=154.8
+10-15 14:31:25 |   load r5 decode=194.5
+10-15 14:31:25 |   load r6 decode=311.9
+10-15 14:31:25 |   load r7 decode=303.4
+10-15 14:31:25 |   load r8 decode=290.1
+10-15 14:31:35 | pair5 pdl=1 cyc7 probe decode=116 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=5/58
+10-15 14:34:01 |   load r1 decode=212.8
+10-15 14:34:01 |   load r2 decode=139.9
+10-15 14:34:01 |   load r3 decode=159.3
+10-15 14:34:01 |   load r4 decode=148.8
+10-15 14:34:01 |   load r5 decode=260.8
+10-15 14:34:01 |   load r6 decode=298.4
+10-15 14:34:01 |   load r7 decode=319.9
+10-15 14:34:01 |   load r8 decode=262.8
+10-15 14:34:11 | pair5 pdl=1 cyc8 probe decode=113.4 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=5/66
+10-15 14:36:37 |   load r1 decode=264.8
+10-15 14:36:37 |   load r2 decode=126.9
+10-15 14:36:37 |   load r3 decode=142.9
+10-15 14:36:37 |   load r4 decode=165.3
+10-15 14:36:37 |   load r5 decode=329.4
+10-15 14:36:37 |   load r6 decode=313.3
+10-15 14:36:37 |   load r7 decode=298.0
+10-15 14:36:37 |   load r8 decode=292.9
+10-15 14:37:00 |   loadlong wall=22.9s decode=232.0
+10-15 14:37:10 | pair5 pdl=1 cyc9 probe decode=116.3 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=5/75
+10-15 14:39:36 |   load r1 decode=265.7
+10-15 14:39:36 |   load r2 decode=153.5
+10-15 14:39:36 |   load r3 decode=160.1
+10-15 14:39:36 |   load r4 decode=215.3
+10-15 14:39:36 |   load r5 decode=183.3
+10-15 14:39:36 |   load r6 decode=293.5
+10-15 14:39:36 |   load r7 decode=317.8
+10-15 14:39:36 |   load r8 decode=306.2
+10-15 14:39:46 | pair5 pdl=1 cyc10 probe decode=114.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=5/83
+10-15 14:42:11 |   load r1 decode=239.7
+10-15 14:42:11 |   load r2 decode=116.5
+10-15 14:42:11 |   load r3 decode=132.4
+10-15 14:42:11 |   load r4 decode=217.5
+10-15 14:42:11 |   load r5 decode=247.5
+10-15 14:42:11 |   load r6 decode=326.7
+10-15 14:42:11 |   load r7 decode=317.8
+10-15 14:42:11 |   load r8 decode=306.5
+10-15 14:42:22 | pair5 pdl=1 cyc11 probe decode=116.3 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=5/91
+10-15 14:44:49 |   load r1 decode=124.4
+10-15 14:44:49 |   load r2 decode=120.7
+10-15 14:44:49 |   load r3 decode=171.2
+10-15 14:44:49 |   load r4 decode=161.2
+10-15 14:44:49 |   load r5 decode=239.9
+10-15 14:44:49 |   load r6 decode=314.6
+10-15 14:44:49 |   load r7 decode=305.7
+10-15 14:44:49 |   load r8 decode=126.5
+10-15 14:45:18 |   loadlong wall=28.3s decode=154.9
+10-15 14:45:28 | pair5 pdl=1 cyc12 probe decode=114 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=5/100
+10-15 14:47:53 |   load r1 decode=268.3
+10-15 14:47:53 |   load r2 decode=121.0
+10-15 14:47:53 |   load r3 decode=118.8
+10-15 14:47:53 |   load r4 decode=159.6
+10-15 14:47:53 |   load r5 decode=331.4
+10-15 14:47:53 |   load r6 decode=313.2
+10-15 14:47:53 |   load r7 decode=300.2
+10-15 14:47:53 |   load r8 decode=294.7
+10-15 14:48:04 | pair5 pdl=1 cyc13 probe decode=115.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=5/108
+10-15 14:50:29 |   load r1 decode=236.4
+10-15 14:50:29 |   load r2 decode=107.5
+10-15 14:50:29 |   load r3 decode=284.8
+10-15 14:50:29 |   load r4 decode=286.5
+10-15 14:50:29 |   load r5 decode=279.6
+10-15 14:50:29 |   load r6 decode=115.8
+10-15 14:50:29 |   load r7 decode=303.8
+10-15 14:50:29 |   load r8 decode=290.3
+10-15 14:50:39 | pair5 pdl=1 cyc14 probe decode=116.4 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=5/116
+10-15 14:50:49 | WINDOW pair=5 pdl_off=1 n=14 valley=0 rate=0% deep=0 | load rounds=116 loadSlow=5 (4.3%)
+10-15 14:51:20 | engine start (pdl_off=0) ready=True | [ninfer] PDL: programmatic-dependent launches ENABLED (native 120a)
+10-15 14:53:16 |   load r1 decode=205.5
+10-15 14:53:16 |   load r2 decode=122.0
+10-15 14:53:16 |   load r3 decode=126.3
+10-15 14:53:16 |   load r4 decode=170.8
+10-15 14:53:16 |   load r5 decode=257.1
+10-15 14:53:16 |   load r6 decode=246.0
+10-15 14:53:16 |   load r7 decode=274.3
+10-15 14:53:16 |   load r8 decode=188.8
+10-15 14:53:26 | pair6 pdl=0 cyc1 probe decode=115.5 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 14:55:51 |   load r1 decode=168.9
+10-15 14:55:51 |   load r2 decode=106.3
+10-15 14:55:51 |   load r3 decode=301.4
+10-15 14:55:51 |   load r4 decode=354.9
+10-15 14:55:51 |   load r5 decode=345.3
+10-15 14:55:51 |   load r6 decode=313.1
+10-15 14:55:51 |   load r7 decode=298.2
+10-15 14:55:51 |   load r8 decode=266.3
+10-15 14:56:01 | pair6 pdl=0 cyc2 probe decode=116.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 14:58:26 |   load r1 decode=236.3
+10-15 14:58:26 |   load r2 decode=148.0
+10-15 14:58:26 |   load r3 decode=125.9
+10-15 14:58:26 |   load r4 decode=177.6
+10-15 14:58:26 |   load r5 decode=329.3
+10-15 14:58:26 |   load r6 decode=311.3
+10-15 14:58:26 |   load r7 decode=304.1
+10-15 14:58:26 |   load r8 decode=267.2
+10-15 14:58:44 |   loadlong wall=18.3s decode=399.4
+10-15 14:58:54 | pair6 pdl=0 cyc3 probe decode=113.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 15:01:20 |   load r1 decode=224.6
+10-15 15:01:20 |   load r2 decode=109.4
+10-15 15:01:20 |   load r3 decode=128.2
+10-15 15:01:20 |   load r4 decode=151.6
+10-15 15:01:20 |   load r5 decode=319.9
+10-15 15:01:20 |   load r6 decode=299.2
+10-15 15:01:20 |   load r7 decode=290.5
+10-15 15:01:20 |   load r8 decode=259.2
+10-15 15:01:30 | pair6 pdl=0 cyc4 probe decode=115.7 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 15:03:56 |   load r1 decode=253.6
+10-15 15:03:56 |   load r2 decode=132.8
+10-15 15:03:56 |   load r3 decode=144.1
+10-15 15:03:56 |   load r4 decode=221.2
+10-15 15:03:56 |   load r5 decode=326.1
+10-15 15:03:56 |   load r6 decode=149.4
+10-15 15:03:56 |   load r7 decode=127.5
+10-15 15:03:56 |   load r8 decode=262.5
+10-15 15:04:06 | pair6 pdl=0 cyc5 probe decode=116.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 15:06:32 |   load r1 decode=134.5
+10-15 15:06:32 |   load r2 decode=140.4
+10-15 15:06:32 |   load r3 decode=160.3
+10-15 15:06:32 |   load r4 decode=196.8
+10-15 15:06:32 |   load r5 decode=327.8
+10-15 15:06:32 |   load r6 decode=313.1
+10-15 15:06:32 |   load r7 decode=304.2
+10-15 15:06:32 |   load r8 decode=265.5
+10-15 15:07:00 |   loadlong wall=28.3s decode=153.6
+10-15 15:07:10 | pair6 pdl=0 cyc6 probe decode=116.3 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 15:09:35 |   load r1 decode=234.5
+10-15 15:09:35 |   load r2 decode=135.0
+10-15 15:09:35 |   load r3 decode=150.3
+10-15 15:09:35 |   load r4 decode=159.0
+10-15 15:09:35 |   load r5 decode=325.6
+10-15 15:09:35 |   load r6 decode=312.5
+10-15 15:09:35 |   load r7 decode=304.4
+10-15 15:09:35 |   load r8 decode=273.8
+10-15 15:09:45 | pair6 pdl=0 cyc7 probe decode=115.7 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 15:12:11 |   load r1 decode=145.1
+10-15 15:12:11 |   load r2 decode=122.0
+10-15 15:12:11 |   load r3 decode=199.7
+10-15 15:12:11 |   load r4 decode=316.2
+10-15 15:12:11 |   load r5 decode=328.4
+10-15 15:12:11 |   load r6 decode=313.6
+10-15 15:12:11 |   load r7 decode=304.3
+10-15 15:12:11 |   load r8 decode=236.3
+10-15 15:12:21 | pair6 pdl=0 cyc8 probe decode=113.6 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 15:14:47 |   load r1 decode=155.2
+10-15 15:14:47 |   load r2 decode=120.8
+10-15 15:14:47 |   load r3 decode=159.3
+10-15 15:14:47 |   load r4 decode=180.2
+10-15 15:14:47 |   load r5 decode=330.2
+10-15 15:14:47 |   load r6 decode=313.6
+10-15 15:14:47 |   load r7 decode=299.0
+10-15 15:14:47 |   load r8 decode=265.3
+10-15 15:15:09 |   loadlong wall=22.4s decode=243.2
+10-15 15:15:19 | pair6 pdl=0 cyc9 probe decode=115.2 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 15:17:45 |   load r1 decode=241.1
+10-15 15:17:45 |   load r2 decode=142.7
+10-15 15:17:45 |   load r3 decode=125.9
+10-15 15:17:45 |   load r4 decode=154.1
+10-15 15:17:45 |   load r5 decode=328.0
+10-15 15:17:45 |   load r6 decode=314.0
+10-15 15:17:45 |   load r7 decode=288.8
+10-15 15:17:45 |   load r8 decode=284.6
+10-15 15:17:55 | pair6 pdl=0 cyc10 probe decode=116.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 15:20:21 |   load r1 decode=221.7
+10-15 15:20:21 |   load r2 decode=128.2
+10-15 15:20:21 |   load r3 decode=121.4
+10-15 15:20:21 |   load r4 decode=166.1
+10-15 15:20:21 |   load r5 decode=330.1
+10-15 15:20:21 |   load r6 decode=314.6
+10-15 15:20:21 |   load r7 decode=294.9
+10-15 15:20:21 |   load r8 decode=288.2
+10-15 15:20:31 | pair6 pdl=0 cyc11 probe decode=115.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 15:22:56 |   load r1 decode=130.4
+10-15 15:22:56 |   load r2 decode=118.4
+10-15 15:22:56 |   load r3 decode=159.6
+10-15 15:22:56 |   load r4 decode=337.3
+10-15 15:22:56 |   load r5 decode=328.0
+10-15 15:22:56 |   load r6 decode=291.9
+10-15 15:22:56 |   load r7 decode=286.4
+10-15 15:22:56 |   load r8 decode=286.3
+10-15 15:23:24 |   loadlong wall=27.5s decode=161.6
+10-15 15:23:34 | pair6 pdl=0 cyc12 probe decode=115.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 15:25:59 |   load r1 decode=250.4
+10-15 15:25:59 |   load r2 decode=141.0
+10-15 15:25:59 |   load r3 decode=153.9
+10-15 15:25:59 |   load r4 decode=153.7
+10-15 15:25:59 |   load r5 decode=327.1
+10-15 15:25:59 |   load r6 decode=309.6
+10-15 15:25:59 |   load r7 decode=297.1
+10-15 15:25:59 |   load r8 decode=286.8
+10-15 15:26:09 | pair6 pdl=0 cyc13 probe decode=115 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 15:28:34 |   load r1 decode=246.8
+10-15 15:28:34 |   load r2 decode=154.2
+10-15 15:28:34 |   load r3 decode=124.0
+10-15 15:28:34 |   load r4 decode=304.2
+10-15 15:28:34 |   load r5 decode=197.2
+10-15 15:28:34 |   load r6 decode=272.2
+10-15 15:28:34 |   load r7 decode=291.8
+10-15 15:28:34 |   load r8 decode=287.0
+10-15 15:28:44 | pair6 pdl=0 cyc14 probe decode=115.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 15:31:09 |   load r1 decode=255.8
+10-15 15:31:10 |   load r2 decode=103.0
+10-15 15:31:10 |   load r3 decode=171.0
+10-15 15:31:10 |   load r4 decode=310.1
+10-15 15:31:10 |   load r5 decode=343.5
+10-15 15:31:10 |   load r6 decode=326.3
+10-15 15:31:10 |   load r7 decode=297.1
+10-15 15:31:10 |   load r8 decode=282.6
+10-15 15:31:28 |   loadlong wall=18.1s decode=415.8
+10-15 15:31:38 | pair6 pdl=0 cyc15 probe decode=115.1 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 15:31:48 | WINDOW pair=6 pdl_off=0 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 15:32:19 | engine start (pdl_off=1) ready=True | [ninfer] PDL: programmatic-dependent launches DISABLED (NINFER_PDL_OFF=1
+10-15 15:34:14 |   load r1 decode=275.1
+10-15 15:34:14 |   load r2 decode=128.6
+10-15 15:34:14 |   load r3 decode=144.2
+10-15 15:34:14 |   load r4 decode=243.4
+10-15 15:34:14 |   load r5 decode=278.2
+10-15 15:34:14 |   load r6 decode=131.6
+10-15 15:34:14 |   load r7 decode=129.5
+10-15 15:34:14 |   load r8 decode=263.0
+10-15 15:34:24 | pair6 pdl=1 cyc1 probe decode=115.7 wall=10 verify=-1(fresh=False) valley=0 | loadSlow=0/8
+10-15 15:36:51 |   load r1 decode=247.2
+10-15 15:36:51 |   load r2 decode=89.2
+10-15 15:36:51 |   load r3 decode=135.8
+10-15 15:36:51 |   load r4 decode=163.4
+10-15 15:36:51 |   load r5 decode=330.4
+10-15 15:36:51 |   load r6 decode=315.0
+10-15 15:36:51 |   load r7 decode=300.0
+10-15 15:36:51 |   load r8 decode=280.3
+10-15 15:37:01 | pair6 pdl=1 cyc2 probe decode=116.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/16
+10-15 15:39:27 |   load r1 decode=200.9
+10-15 15:39:27 |   load r2 decode=139.5
+10-15 15:39:27 |   load r3 decode=103.1
+10-15 15:39:27 |   load r4 decode=148.4
+10-15 15:39:27 |   load r5 decode=318.7
+10-15 15:39:27 |   load r6 decode=311.5
+10-15 15:39:27 |   load r7 decode=299.5
+10-15 15:39:27 |   load r8 decode=247.2
+10-15 15:39:46 |   loadlong wall=18.8s decode=372.5
+10-15 15:39:56 | pair6 pdl=1 cyc3 probe decode=115.2 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/25
+10-15 15:42:18 |   load r1 decode=231.9
+10-15 15:42:18 |   load r2 decode=239.3
+10-15 15:42:18 |   load r3 decode=342.0
+10-15 15:42:18 |   load r4 decode=355.1
+10-15 15:42:18 |   load r5 decode=326.9
+10-15 15:42:18 |   load r6 decode=318.5
+10-15 15:42:18 |   load r7 decode=301.3
+10-15 15:42:18 |   load r8 decode=297.2
+10-15 15:42:28 | pair6 pdl=1 cyc4 probe decode=116.2 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/33
+10-15 15:44:55 |   load r1 decode=121.1
+10-15 15:44:55 |   load r2 decode=114.4
+10-15 15:44:55 |   load r3 decode=133.4
+10-15 15:44:55 |   load r4 decode=157.7
+10-15 15:44:55 |   load r5 decode=326.7
+10-15 15:44:55 |   load r6 decode=312.6
+10-15 15:44:55 |   load r7 decode=304.1
+10-15 15:44:55 |   load r8 decode=268.4
+10-15 15:45:05 | pair6 pdl=1 cyc5 probe decode=116.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/41
+10-15 15:47:30 |   load r1 decode=238.8
+10-15 15:47:30 |   load r2 decode=128.1
+10-15 15:47:30 |   load r3 decode=302.9
+10-15 15:47:30 |   load r4 decode=357.2
+10-15 15:47:30 |   load r5 decode=152.2
+10-15 15:47:30 |   load r6 decode=165.2
+10-15 15:47:30 |   load r7 decode=298.3
+10-15 15:47:30 |   load r8 decode=275.3
+10-15 15:47:49 |   loadlong wall=18.3s decode=399.0
+10-15 15:47:58 | pair6 pdl=1 cyc6 probe decode=116.6 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/50
+10-15 15:50:25 |   load r1 decode=142.2
+10-15 15:50:25 |   load r2 decode=109.8
+10-15 15:50:25 |   load r3 decode=163.1
+10-15 15:50:25 |   load r4 decode=343.2
+10-15 15:50:25 |   load r5 decode=331.0
+10-15 15:50:25 |   load r6 decode=127.3
+10-15 15:50:25 |   load r7 decode=262.1
+10-15 15:50:25 |   load r8 decode=286.4
+10-15 15:50:35 | pair6 pdl=1 cyc7 probe decode=115.4 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/58
+10-15 15:53:00 |   load r1 decode=232.2
+10-15 15:53:00 |   load r2 decode=128.2
+10-15 15:53:00 |   load r3 decode=122.2
+10-15 15:53:00 |   load r4 decode=173.5
+10-15 15:53:00 |   load r5 decode=328.5
+10-15 15:53:00 |   load r6 decode=306.2
+10-15 15:53:00 |   load r7 decode=304.3
+10-15 15:53:00 |   load r8 decode=274.4
+10-15 15:53:10 | pair6 pdl=1 cyc8 probe decode=115.8 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/66
+10-15 15:55:37 |   load r1 decode=238.6
+10-15 15:55:37 |   load r2 decode=126.6
+10-15 15:55:37 |   load r3 decode=159.9
+10-15 15:55:37 |   load r4 decode=329.8
+10-15 15:55:37 |   load r5 decode=327.7
+10-15 15:55:37 |   load r6 decode=114.3
+10-15 15:55:37 |   load r7 decode=150.7
+10-15 15:55:37 |   load r8 decode=274.7
+10-15 15:55:56 |   loadlong wall=18.6s decode=386.1
+10-15 15:56:06 | pair6 pdl=1 cyc9 probe decode=116.4 wall=9.6 verify=-1(fresh=False) valley=0 | loadSlow=0/75
+10-15 15:58:31 |   load r1 decode=121.2
+10-15 15:58:31 |   load r2 decode=151.3
+10-15 15:58:31 |   load r3 decode=279.4
+10-15 15:58:31 |   load r4 decode=354.0
+10-15 15:58:31 |   load r5 decode=317.5
+10-15 15:58:31 |   load r6 decode=316.7
+10-15 15:58:31 |   load r7 decode=298.1
+10-15 15:58:31 |   load r8 decode=281.6
+10-15 15:58:41 | pair6 pdl=1 cyc10 probe decode=115.6 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/83
+10-15 16:01:06 |   load r1 decode=248.3
+10-15 16:01:06 |   load r2 decode=145.7
+10-15 16:01:06 |   load r3 decode=322.9
+10-15 16:01:06 |   load r4 decode=356.7
+10-15 16:01:06 |   load r5 decode=345.9
+10-15 16:01:06 |   load r6 decode=223.8
+10-15 16:01:06 |   load r7 decode=158.8
+10-15 16:01:06 |   load r8 decode=273.8
+10-15 16:01:16 | pair6 pdl=1 cyc11 probe decode=116.3 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/91
+10-15 16:03:41 |   load r1 decode=130.0
+10-15 16:03:41 |   load r2 decode=119.3
+10-15 16:03:41 |   load r3 decode=174.5
+10-15 16:03:41 |   load r4 decode=341.9
+10-15 16:03:41 |   load r5 decode=325.7
+10-15 16:03:41 |   load r6 decode=312.3
+10-15 16:03:41 |   load r7 decode=300.7
+10-15 16:03:41 |   load r8 decode=284.7
+10-15 16:04:09 |   loadlong wall=27.8s decode=158.8
+10-15 16:04:19 | pair6 pdl=1 cyc12 probe decode=116.1 wall=9.9 verify=-1(fresh=False) valley=0 | loadSlow=0/100
+10-15 16:06:45 |   load r1 decode=124.9
+10-15 16:06:45 |   load r2 decode=213.5
+10-15 16:06:45 |   load r3 decode=164.9
+10-15 16:06:45 |   load r4 decode=150.4
+10-15 16:06:45 |   load r5 decode=297.3
+10-15 16:06:45 |   load r6 decode=302.1
+10-15 16:06:45 |   load r7 decode=316.0
+10-15 16:06:45 |   load r8 decode=283.0
+10-15 16:06:55 | pair6 pdl=1 cyc13 probe decode=116.1 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/108
+10-15 16:09:22 |   load r1 decode=163.4
+10-15 16:09:22 |   load r2 decode=122.3
+10-15 16:09:22 |   load r3 decode=323.9
+10-15 16:09:22 |   load r4 decode=354.1
+10-15 16:09:22 |   load r5 decode=283.6
+10-15 16:09:22 |   load r6 decode=309.5
+10-15 16:09:22 |   load r7 decode=291.7
+10-15 16:09:22 |   load r8 decode=279.5
+10-15 16:09:32 | pair6 pdl=1 cyc14 probe decode=112.2 wall=9.8 verify=-1(fresh=False) valley=0 | loadSlow=0/116
+10-15 16:12:00 |   load r1 decode=121.9
+10-15 16:12:00 |   load r2 decode=99.3
+10-15 16:12:00 |   load r3 decode=108.2
+10-15 16:12:00 |   load r4 decode=282.2
+10-15 16:12:00 |   load r5 decode=332.5
+10-15 16:12:00 |   load r6 decode=304.5
+10-15 16:12:00 |   load r7 decode=295.7
+10-15 16:12:00 |   load r8 decode=245.5
+10-15 16:12:20 |   loadlong wall=20.0s decode=321.5
+10-15 16:12:30 | pair6 pdl=1 cyc15 probe decode=114.9 wall=9.7 verify=-1(fresh=False) valley=0 | loadSlow=0/125
+10-15 16:12:40 | WINDOW pair=6 pdl_off=1 n=15 valley=0 rate=0% deep=0 | load rounds=125 loadSlow=0 (0%)
+10-15 16:12:40 | ==== SUMMARY ====
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   
+10-15 16:12:40 |   

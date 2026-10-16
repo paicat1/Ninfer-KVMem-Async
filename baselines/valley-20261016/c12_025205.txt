@@ -1,0 +1,8 @@
+﻿02:52:05 | C12 IDLE TEST start; idle 1500s then first request (hard timeout 30s)
+02:52:09 |   warm-pre: answered in 3.3s decode=157.2
+02:52:09 |   (pre means the engine is serving normally before the idle)
+02:52:09 |   idling 1500s with no requests ...
+03:17:11 |   first-after-idle: answered in 2.8s decode=165.1
+03:17:14 |   second: answered in 2.8s decode=165.1
+03:17:14 | RESULT pre=157.2 first_after_idle=165.1 second=165.1
+03:17:14 | VERDICT: no hang at this idle length (engine answered the first request)

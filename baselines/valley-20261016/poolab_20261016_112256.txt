@@ -1,0 +1,24 @@
+11:22:56 | OVERPOOL-ASYNC start (segmented CLI run; steps equivalent to scripts\overpool_async_onoff.ps1; sandbox blocks detached spawn so executed stepwise)
+11:22:56 | authorized: user (mobile CLI), 2026-10-16; note: docs\CLI致CB-用户安排说明-20261016.md
+11:22:56 | watch log backup copied .temp\valleywatch_before_poolab_20261016_112256.log
+11:23:21 | stop platform: killed engine pid=22952 ;; killed cmd pid=20892 ;; freed after ~3s; vram used=864 MiB
+11:23:21 | ==== ARM off (NINFER_ASYNC_DEMOTE=0, tag=pab_off) ====
+11:23:23 | start: vram before start: used=864 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_pab_off.log
+11:23:39 | waitready: READY
+11:24:45 | ARM=off run 1 round 1  51.4s  decode=254.1  accepted=539/626  len=2463  sha=aa963e19f6c578b7 ;; written: J:\ninfer-kvmem\.temp\gate_pab_off.json | wall=52s
+11:25:08 | ARM=off(run2) run 1 round 1  2.8s  decode=270.2  accepted=542/612  len=2332  sha=f4ab2a0219a88501 ;; written: J:\ninfer-kvmem\.temp\gate_pab_off.json
+11:25:11 | ARM=off(run3) run 1 round 1  3.0s  decode=226.7  accepted=525/658  len=2480  sha=f8e5a4badda94835 ;; written: J:\ninfer-kvmem\.temp\gate_pab_off.json
+11:25:30 | stop pab_off: killed engine pid=18056 ;; killed cmd pid=24220 ;; freed after ~3s; vram used=867 MiB
+11:25:30 | ==== ARM on (NINFER_ASYNC_DEMOTE=1, tag=valleywatch) ====
+11:25:31 | start: vram before start: used=863 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_valleywatch.log
+11:25:43 | waitready: READY
+11:27:05 | ARM=on(run1) run 1 round 1  50.4s  decode=216.7  accepted=519/661  len=2376  sha=800a491b29d95237 ;; written: J:\ninfer-kvmem\.temp\gate_pab_on.json | wall=51s
+11:27:08 | ARM=on(run2) run 1 round 1  3.1s  decode=223.9  accepted=519/657  len=2383  sha=2d48341d8ac6aa12 ;; written: J:\ninfer-kvmem\.temp\gate_pab_on.json
+11:27:11 | ARM=on(run3) run 1 round 1  3.0s  decode=229.7  accepted=520/635  len=2310  sha=127bbe36d2ee179d ;; written: J:\ninfer-kvmem\.temp\gate_pab_on.json
+----------
+11:30:04 | ==== SUMMARY ====
+11:30:04 | off decode=[254.1,270.2,226.7] median=254.1 | on decode=[216.7,223.9,229.7] median=223.9
+11:30:04 | r=OFF/ON=1.13 -> >0.85 -> per pre-reg: arms tied (net gain unproven in this workload; point estimate within n=3 noise)
+11:30:04 | validity: both READY; prompt-exceeds 2/2; demote-profile lines 59/91; ring 405/453; reqs done 3/3 each
+11:30:04 | final: ON arm left as standard platform (tag=valleywatch); A-group log archived; .temp insurance copy kept; window_watch untouched
+11:30:04 | OVERPOOL-ASYNC end

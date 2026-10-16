@@ -1,0 +1,93 @@
+17:32:40 | DEEP-HUNT start (deep-tier reproduction hunt; authorized: user mobile CLI "B")
+17:32:40 | pre-reg: docs\实验-深档搜索-预登记-CodeBuddyCLI-20261016.md
+17:32:40 | engine pid=13896 no-restart; deep hit = any probe decode <= 3.0; plan R1 1200x300 / R2 2400x300 / R3 3600x300 / R4 1200x600 / R5 6x(1200x30) / R6 2400x600
+17:38:26 | R1 ledger=longhold_173242.txt
+  R1 | 17:33:01 |   pre: 167.7/168.9/168.9
+  R1 | 17:38:24 |   during n=3 min=1.6 med=8.8 slow=3 (100%)
+  R1 | 17:38:24 |   during raw: 1.6 / 1.6 / 8.8
+  R1 | 17:38:24 |   post: 166.3/171.1/169
+17:39:11 | R1 HIT (deep): during [1.6, 1.6, 8.8] min=1.6 <= 3.0; pre 167.7/168.9/168.9; post 166.3/171.1/169
+  R1eng | 2026-10-16 17:38:20.659  INFO  req#16 done | openai-chat | output limit | prompt 11,171 | output 200 | cache 11,166 (100.0%, turn closure) | TTFT 753 ms | total 1.9s | queue 50.7 ms | prefill 6.8 tok/
+  R1eng | 2026-10-16 17:38:22.678  INFO  req#17 done | openai-chat | output limit | prompt 11,171 | output 200 | cache 11,166 (100.0%, turn closure) | TTFT 662 ms | total 1.8s | queue 74.7 ms | prefill 7.8 tok/
+  R1eng | 2026-10-16 17:38:24.675  INFO  req#18 done | openai-chat | output limit | prompt 11,171 | output 200 | cache 11,166 (100.0%, turn closure) | TTFT 658 ms | total 1.8s | queue 74.0 ms | prefill 7.8 tok/
+17:44:45 | R2 ledger=longhold_173912.txt
+  R2 | 17:39:18 |   pre: 168.1/169.1/167.9
+  R2 | 17:44:43 |   during n=3 min=1.6 med=7.8 slow=3 (100%)
+  R2 | 17:44:43 |   during raw: 1.6 / 1.6 / 7.8
+  R2 | 17:44:43 |   post: 169.2/170.7/170.4
+17:45:40 | R2 HIT (deep): during [1.6, 1.6, 7.8] min=1.6; pre 168.1/169.1/167.9; post 169.2/170.7/170.4
+17:53 | SALVAGE R3: client killed at abort; window done lines=10 (see log)
+17:53 | R3 rerun start (clean); first attempt 17:45:47 killed at client abort before summary
+17:57:41 | R3 ledger=longhold_175208.txt
+  R3 | 17:52:14 |   pre: 169.2/168.4/168.8
+  R3 | 17:57:39 |   during n=8 min=7 med=7 slow=8 (100%)
+  R3 | 17:57:39 |   during raw: 7 / 7 / 7.8 / 7 / 7 / 7 / 7 / 10.1
+  R3 | 17:57:39 |   post: 167.3/170.7/170.5
+17:58 | R3 result: VALLEY [7x7,10.1] n=8 min=7 -- deep seen 2/2 at 1200/2400, none at 3600
+17:58 | R1rep start (replicate the deep condition 1200x300 at current state)
+18:03:50 | R1rep ledger=longhold_175824.txt
+  R1rep | 17:58:30 |   pre: 168.8/169.2/168.5
+  R1rep | 18:03:48 |   during n=11 min=12 med=12.2 slow=11 (100%)
+  R1rep | 18:03:48 |   during raw: 12.2 / 12.3 / 12.2 / 12.2 / 13.3 / 12.1 / 12 / 12.2 / 12.1 / 12.2 / 12.2
+  R1rep | 18:03:48 |   post: 169.8/167.2/169.6
+18:04 | R1rep result: VALLEY [12.2x11] n=11 min=12 -- deep NOT repeatable at 1200x300 in current state (deep was R1,R2 only)
+18:04 | GPU before R4: 15496 MiB, 16303 MiB
+18:14:45 | R4 ledger=longhold_180418.txt
+  R4 | 18:04:24 |   pre: 171.3/168.8/169.4
+  R4 | 18:14:43 |   during n=22 min=11.9 med=12.3 slow=22 (100%)
+  R4 | 18:14:43 |   during raw: 12.2 / 13.6 / 13.4 / 12.3 / 12.3 / 12.5 / 12.4 / 12.1 / 12.2 / 12.2 / 12.2 / 12.2 / 12.4 / 12.1 / 12.3 / 12.2 / 12.2 / 12.3 / 13 / 11.9 / 12.2 / 12.3
+  R4 | 18:14:43 |   post: 41.6/168.7/169.1
+18:15 | R4 result: VALLEY [12.2x22] n=22 min=11.9 -- duration axis also valley; deep confined to holds #1-2
+18:19:53 | R5 ledger=arm_P_181531.txt
+  R5 | 18:19:51 |   baseline: n=6 min=168.3 median=169.2 slow(<60)=0/6 (0%)
+  R5 | 18:19:51 |   during_apply: n=18 min=11.9 median=18.7 slow(<60)=12/18 (66.7%)
+  R5 | 18:19:51 |   after_release: n=12 min=168.3 median=169.4 slow(<60)=0/12 (0%)
+18:20 | R5 result: VALLEY pulses [12-18-169 shape x6] min=11.9 slow 12/18 -- no deep
+18:20 | REST start (~8.5 min, no pressure no probes) GPU=15499 MiB, 16303 MiB
+18:28:44 | REST end; GPU=15499 MiB, 16303 MiB
+18:28:55 | R7 start (post-rest replication of the deep condition: 1200x300)
+18:34:29 | R7 ledger=longhold_182856.txt
+  R7 | 18:29:02 |   pre: 165.4/169.6/168.6
+  R7 | 18:34:27 |   during n=12 min=12 med=12.3 slow=12 (100%)
+  R7 | 18:34:27 |   during raw: 12.3 / 13.6 / 12.3 / 12.3 / 16.4 / 12 / 12.4 / 12.2 / 12.8 / 12.2 / 12 / 43.3
+  R7 | 18:34:27 |   post: 169.6/170.8/170.6
+19:23:01 | SHOT-1 (untested cell, user-authorized "开枪"): engine RESTART -> FIRST long-hold 1200x300; deep hit = any probe decode <= 3.0 (criterion pre-registered here before data)
+19:23:06 | SHOT-1 stop: killed engine pid=13896 ;; killed tee pid=3600 ;; killed cmd pid=19928 ;; freed after ~3s; vram used=645 MiB
+19:23:08 | SHOT-1 start: vram before start: used=645 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_valleywatch.log
+19:23:19 | SHOT-1 waitready: READY
+19:29:03 | SHOT-1 ledger=longhold_192329.txt
+  SHOT-1 | 19:23:39 |   pre: 170.9/170.9/169.8
+  SHOT-1 | 19:29:01 |   during n=3 min=1.6 med=9.7 slow=3 (100%)
+  SHOT-1 | 19:29:01 |   during raw: 1.6 / 1.6 / 9.7
+  SHOT-1 | 19:29:01 |   post: 168.1/168/169
+19:29:03 | SHOT-1 VERDICT: DEEP HIT (<=3.0)
+19:29:35 | SHOT-1 VERDICT: DEEP HIT [1.6,1.6,9.7] -- restart->first-hold reproduced the deep tier (1/1)
+19:29:35 | SHOT-2 start (replication: restart -> first-hold 1200x300, same criterion)
+19:29:40 | SHOT-2 stop: killed engine pid=23180 ;; killed cmd pid=21044 ;; freed after ~3s; vram used=622 MiB
+19:29:42 | SHOT-2 start: vram before start: used=622 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_valleywatch.log
+19:29:58 | SHOT-2 waitready: READY
+19:35:32 | SHOT-2 ledger=longhold_192959.txt
+  SHOT-2 | 19:30:09 |   pre: 168.8/167.2/168.9
+  SHOT-2 | 19:35:30 |   during n=3 min=1.5 med=9.8 slow=3 (100%)
+  SHOT-2 | 19:35:30 |   during raw: 1.5 / 1.6 / 9.8
+  SHOT-2 | 19:35:30 |   post: 169/170.9/171
+19:35:32 | SHOT-2 VERDICT: DEEP HIT (<=3.0)
+19:36:15 | SHOT-2 VERDICT: DEEP HIT [1.5,1.6,9.8] -- restart->first-hold 2/2 => protocol v0 confirmed tonight
+19:36:15 | DEEP-HUNT complete: deep hits = R1,R2,SHOT-1,SHOT-2 (4/4 first-or-second holds); valley from hold #3+; shape [~1.6,~1.6,~9]; rest 8.5min no recovery; restart resets the window; platform = SHOT-2 engine
+20:42:31 | SHOT-3 start (untested cell per TELE review #2: the 2nd hold of a RESTARTED instance; engine pid 8944, ~1h after its first hold; deep hit = any probe decode <= 3.0; criterion pre-registered here before data)
+20:50:23 | SHOT-D (双持, user-defined spec): restart -> NEW engine -> hold#1 then hold#2 (1200x300 each, SAME engine, no swap). Criterion (pre-registered here before data): deep hit per hold = any probe decode <= 3.0. Purpose: fill untested cell "2nd hold of a restarted instance" + re-test at a new time slot (~20:5x). Predictions: #1 deep per protocol v0 (4/4); #2 = the test cell.
+20:50:28 | SHOT-D stop: killed engine pid=8944 ;; killed cmd pid=19392 ;; freed after ~3s; vram used=623 MiB
+20:50:30 | SHOT-D start: vram before start: used=623 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_valleywatch.log
+20:50:46 | SHOT-D waitready: READY
+20:56:22 | SHOT-D fire1 ledger=longhold_205055.txt
+  SHOT-D#1 | 20:51:05 |   pre: 169/168/168.9
+  SHOT-D#1 | 20:56:20 |   during n=12 min=12.1 med=12.7 slow=11 (91.7%)
+  SHOT-D#1 | 20:56:20 |   during raw: 12.1 / 12.7 / 13 / 12.7 / 13.5 / 12.3 / 12.6 / 12.2 / 12.2 / 13.6 / 12.8 / 87.6
+  SHOT-D#1 | 20:56:20 |   post: 39.1/169.2/167.9
+20:56:22 | SHOT-D fire1 VERDICT: no deep
+21:02:07 | SHOT-D fire2 ledger=longhold_205644.txt
+  SHOT-D#2 | 20:56:48 |   pre: 165.5/169/169.3
+  SHOT-D#2 | 21:02:05 |   during n=12 min=11.9 med=12.5 slow=12 (100%)
+  SHOT-D#2 | 21:02:05 |   during raw: 12 / 12.2 / 11.9 / 12.2 / 13.6 / 12.3 / 15.5 / 12.3 / 15.1 / 16.5 / 16.9 / 12.5
+  SHOT-D#2 | 21:02:05 |   post: 168.9/170.6/170.6
+21:02:07 | SHOT-D fire2 VERDICT: no deep

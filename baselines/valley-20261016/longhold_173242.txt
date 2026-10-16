@@ -1,0 +1,6 @@
+﻿17:32:42 | LONG-HOLD start: 1200 MiB for 300s, probe every ~10s
+17:33:01 |   pre: 167.7/168.9/168.9
+17:38:24 |   during n=3 min=1.6 med=8.8 slow=3 (100%)
+17:38:24 |   during raw: 1.6 / 1.6 / 8.8
+17:38:24 |   post: 166.3/171.1/169
+17:38:24 | LONG-HOLD end

@@ -1,0 +1,315 @@
+﻿10-14 05:46:50 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 05:47:20 | engine start FAILED; retry in 60s
+10-14 05:49:43 | probe sec=49.2 | gpu=0 %, 2917 MHz, 15814 MiB | run 1 round 1  49.2s  decode=27.5  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 05:49:43 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 05:51:04 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 05:51:18 | probe sec=7.8 | gpu=1 %, 870 MHz, 15751 MiB | run 1 round 1  7.8s  decode=27.1  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:01:36 | probe sec=11.5 | gpu=5 %, 862 MHz, 15725 MiB | run 1 round 1  11.5s  decode=19.1  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:11:50 | probe sec=7.5 | gpu=1 %, 607 MHz, 15746 MiB | run 1 round 1  7.5s  decode=28.1  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:22:04 | probe sec=7.5 | gpu=0 %, 645 MHz, 15746 MiB | run 1 round 1  7.5s  decode=28.0  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:32:17 | probe sec=7.4 | gpu=5 %, 915 MHz, 15746 MiB | run 1 round 1  7.4s  decode=28.5  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:42:31 | probe sec=7.5 | gpu=0 %, 600 MHz, 15746 MiB | run 1 round 1  7.5s  decode=28.1  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 06:52:45 | probe sec=7.5 | gpu=0 %, 607 MHz, 15780 MiB | run 1 round 1  7.5s  decode=28.3  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:02:58 | probe sec=7.4 | gpu=0 %, 757 MHz, 15780 MiB | run 1 round 1  7.4s  decode=28.5  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:13:12 | probe sec=7.5 | gpu=0 %, 600 MHz, 15785 MiB | run 1 round 1  7.5s  decode=28.4  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:23:26 | probe sec=7.5 | gpu=0 %, 615 MHz, 15780 MiB | run 1 round 1  7.5s  decode=28.2  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:33:39 | probe sec=7.5 | gpu=0 %, 727 MHz, 15780 MiB | run 1 round 1  7.5s  decode=28.2  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:43:48 | probe sec=2 | gpu=2 %, 750 MHz, 15688 MiB | run 1 round 1  2.0s  decode=124.6  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 07:54:01 | probe sec=7.5 | gpu=0 %, 637 MHz, 15688 MiB | run 1 round 1  7.5s  decode=28.3  accepted=156/246  len=633  sha=f1626c594a78a9ce
+10-14 08:25:43 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 08:25:52 | probe sec=0 decode=0 tok/s | prompt_ms=0 cached=0 | gpu=3 %, 667 MHz, 1081 MiB
+10-14 08:27:38 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 08:29:35 | probe sec=88.4 decode=12.8 tok/s | prompt_ms=72746 cached=0 | gpu=0 %, 2917 MHz, 15761 MiB
+10-14 08:29:35 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 08:34:45 | probe sec=2.7 decode=87.9 tok/s | prompt_ms=397 cached=11166 | gpu=3 %, 1057 MHz, 15767 MiB
+10-14 08:44:54 | probe sec=2.7 decode=86.4 tok/s | prompt_ms=329 cached=11166 | gpu=3 %, 1125 MHz, 15763 MiB
+10-14 08:55:02 | probe sec=2.5 decode=91.8 tok/s | prompt_ms=259 cached=11166 | gpu=3 %, 997 MHz, 15763 MiB
+10-14 09:05:11 | probe sec=2.7 decode=83.2 tok/s | prompt_ms=242 cached=11166 | gpu=3 %, 1462 MHz, 15764 MiB
+10-14 09:15:20 | probe sec=2.6 decode=85.5 tok/s | prompt_ms=199 cached=11166 | gpu=3 %, 1222 MHz, 15764 MiB
+10-14 09:25:43 | probe sec=15.9 decode=12.8 tok/s | prompt_ms=263 cached=11166 | gpu=4 %, 952 MHz, 15764 MiB
+10-14 09:25:43 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 09:30:52 | probe sec=2.6 decode=91 tok/s | prompt_ms=338 cached=11166 | gpu=6 %, 930 MHz, 15769 MiB
+10-14 09:41:13 | probe sec=15.3 decode=13.4 tok/s | prompt_ms=381 cached=11166 | gpu=3 %, 1297 MHz, 15764 MiB
+10-14 09:41:13 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 09:46:31 | probe sec=11.7 decode=17.5 tok/s | prompt_ms=289 cached=11166 | gpu=5 %, 1012 MHz, 15769 MiB
+10-14 09:46:31 | STATE=SLOW streak=2 -> sampler+dmon 300s
+10-14 09:51:49 | probe sec=10.9 decode=18.7 tok/s | prompt_ms=221 cached=11166 | gpu=4 %, 847 MHz, 15764 MiB
+10-14 09:51:49 | STATE=SLOW streak=3 -> sampler+dmon 300s
+10-14 09:57:13 | probe sec=17.8 decode=11.7 tok/s | prompt_ms=736 cached=11166 | gpu=3 %, 952 MHz, 15769 MiB
+10-14 09:57:13 | STATE=SLOW streak=4 -> sampler+dmon 300s
+10-14 10:02:31 | probe sec=11.6 decode=17.6 tok/s | prompt_ms=260 cached=11166 | gpu=3 %, 1297 MHz, 15769 MiB
+10-14 10:02:31 | STATE=SLOW streak=5 -> sampler+dmon 300s
+10-14 10:07:53 | probe sec=15.7 decode=13 tok/s | prompt_ms=361 cached=11166 | gpu=5 %, 1147 MHz, 15764 MiB
+10-14 10:07:53 | STATE=SLOW streak=6 -> sampler+dmon 300s
+10-14 10:13:15 | probe sec=15.9 decode=12.8 tok/s | prompt_ms=280 cached=11166 | gpu=4 %, 907 MHz, 15769 MiB
+10-14 10:13:15 | STATE=SLOW streak=7 -> sampler+dmon 300s
+10-14 10:18:39 | probe sec=17.8 decode=11.5 tok/s | prompt_ms=386 cached=11166 | gpu=2 %, 1042 MHz, 15762 MiB
+10-14 10:18:39 | STATE=SLOW streak=8 -> sampler+dmon 300s
+10-14 10:23:56 | probe sec=10.9 decode=18.8 tok/s | prompt_ms=255 cached=11166 | gpu=3 %, 825 MHz, 15762 MiB
+10-14 10:23:56 | STATE=SLOW streak=9 -> sampler+dmon 300s
+10-14 10:29:12 | probe sec=8.7 decode=23.9 tok/s | prompt_ms=288 cached=11166 | gpu=4 %, 885 MHz, 15757 MiB
+10-14 10:29:12 | STATE=SLOW streak=10 -> sampler+dmon 300s
+10-14 10:34:35 | probe sec=17.5 decode=11.9 tok/s | prompt_ms=733 cached=11166 | gpu=3 %, 915 MHz, 15762 MiB
+10-14 10:34:35 | STATE=SLOW streak=11 -> sampler+dmon 300s
+10-14 10:39:53 | probe sec=11.2 decode=18.3 tok/s | prompt_ms=298 cached=11166 | gpu=2 %, 1065 MHz, 15762 MiB
+10-14 10:39:53 | STATE=SLOW streak=12 -> sampler+dmon 300s
+10-14 10:45:06 | probe sec=6.9 decode=30.3 tok/s | prompt_ms=252 cached=11166 | gpu=3 %, 915 MHz, 15692 MiB
+10-14 10:45:06 | STATE=SLOW streak=13 -> sampler+dmon 300s
+10-14 10:50:20 | probe sec=7.3 decode=28.7 tok/s | prompt_ms=363 cached=11166 | gpu=0 %, 622 MHz, 15726 MiB
+10-14 10:50:20 | STATE=SLOW streak=14 -> sampler+dmon 300s
+10-14 10:55:32 | probe sec=6 decode=34.8 tok/s | prompt_ms=197 cached=11166 | gpu=1 %, 645 MHz, 15721 MiB
+10-14 10:55:32 | STATE=SLOW streak=15 -> sampler+dmon 300s
+10-14 11:00:40 | probe sec=1.9 decode=125 tok/s | prompt_ms=297 cached=11166 | gpu=1 %, 705 MHz, 15726 MiB
+10-14 11:00:40 | STATE=RECOVERED after streak=15
+10-14 11:10:54 | probe sec=7.4 decode=28.6 tok/s | prompt_ms=397 cached=11166 | gpu=1 %, 652 MHz, 15730 MiB
+10-14 11:10:54 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 11:16:08 | probe sec=7.4 decode=28.5 tok/s | prompt_ms=392 cached=11166 | gpu=1 %, 667 MHz, 15735 MiB
+10-14 11:16:08 | STATE=SLOW streak=2 -> sampler+dmon 300s
+10-14 11:21:23 | probe sec=8.3 decode=25.7 tok/s | prompt_ms=478 cached=11166 | gpu=1 %, 705 MHz, 15733 MiB
+10-14 11:21:23 | STATE=SLOW streak=3 -> sampler+dmon 300s
+10-14 11:26:38 | probe sec=7.3 decode=28.6 tok/s | prompt_ms=314 cached=11166 | gpu=0 %, 2670 MHz, 15741 MiB
+10-14 11:26:38 | STATE=SLOW streak=4 -> sampler+dmon 300s
+10-14 11:31:50 | probe sec=5.8 decode=36.7 tok/s | prompt_ms=277 cached=11166 | gpu=1 %, 645 MHz, 15735 MiB
+10-14 11:31:50 | STATE=SLOW streak=5 -> sampler+dmon 300s
+10-14 11:37:03 | probe sec=6.2 decode=34.1 tok/s | prompt_ms=332 cached=11166 | gpu=1 %, 667 MHz, 15741 MiB
+10-14 11:37:03 | STATE=SLOW streak=6 -> sampler+dmon 300s
+10-14 11:42:15 | probe sec=6 decode=34.7 tok/s | prompt_ms=200 cached=11166 | gpu=1 %, 855 MHz, 15735 MiB
+10-14 11:42:15 | STATE=SLOW streak=7 -> sampler+dmon 300s
+10-14 11:47:29 | probe sec=7.2 decode=28.9 tok/s | prompt_ms=282 cached=11166 | gpu=4 %, 652 MHz, 15741 MiB
+10-14 11:47:29 | STATE=SLOW streak=8 -> sampler+dmon 300s
+10-14 11:52:42 | probe sec=6.9 decode=30.4 tok/s | prompt_ms=341 cached=11166 | gpu=1 %, 645 MHz, 15735 MiB
+10-14 11:52:42 | STATE=SLOW streak=9 -> sampler+dmon 300s
+10-14 11:57:55 | probe sec=6.9 decode=30 tok/s | prompt_ms=250 cached=11166 | gpu=1 %, 652 MHz, 15741 MiB
+10-14 11:57:55 | STATE=SLOW streak=10 -> sampler+dmon 300s
+10-14 12:03:08 | probe sec=6.8 decode=30.5 tok/s | prompt_ms=211 cached=11166 | gpu=1 %, 712 MHz, 15736 MiB
+10-14 12:03:08 | STATE=SLOW streak=11 -> sampler+dmon 300s
+10-14 12:08:22 | probe sec=7.4 decode=28.9 tok/s | prompt_ms=446 cached=11166 | gpu=1 %, 697 MHz, 15741 MiB
+10-14 12:08:22 | STATE=SLOW streak=12 -> sampler+dmon 300s
+10-14 12:13:35 | probe sec=6.1 decode=35.2 tok/s | prompt_ms=348 cached=11166 | gpu=1 %, 667 MHz, 15736 MiB
+10-14 12:13:35 | STATE=SLOW streak=13 -> sampler+dmon 300s
+10-14 12:18:47 | probe sec=6.2 decode=33.6 tok/s | prompt_ms=196 cached=11166 | gpu=1 %, 630 MHz, 15741 MiB
+10-14 12:18:47 | STATE=SLOW streak=14 -> sampler+dmon 300s
+10-14 12:23:58 | probe sec=5 decode=43.1 tok/s | prompt_ms=294 cached=11166 | gpu=1 %, 652 MHz, 15736 MiB
+10-14 12:23:58 | STATE=SLOW streak=15 -> sampler+dmon 300s
+10-14 12:29:10 | probe sec=5.7 decode=37.8 tok/s | prompt_ms=348 cached=11166 | gpu=1 %, 675 MHz, 15735 MiB
+10-14 12:29:10 | STATE=SLOW streak=16 -> sampler+dmon 300s
+10-14 12:34:21 | probe sec=4.9 decode=43 tok/s | prompt_ms=225 cached=11166 | gpu=3 %, 682 MHz, 15727 MiB
+10-14 12:34:21 | STATE=SLOW streak=17 -> sampler+dmon 300s
+10-14 12:39:35 | probe sec=6.9 decode=30.5 tok/s | prompt_ms=283 cached=11166 | gpu=1 %, 675 MHz, 15706 MiB
+10-14 12:39:35 | STATE=SLOW streak=18 -> sampler+dmon 300s
+10-14 12:44:36 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 12:49:30 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 12:51:35 | probe sec=95.9 decode=11.4 tok/s | prompt_ms=78427 cached=0 | gpu=3 %, 1432 MHz, 15711 MiB
+10-14 12:51:35 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 12:56:59 | probe sec=17.3 decode=11.7 tok/s | prompt_ms=261 cached=11166 | gpu=3 %, 885 MHz, 15718 MiB
+10-14 12:56:59 | STATE=SLOW streak=2 -> sampler+dmon 300s
+10-14 13:02:23 | probe sec=17.6 decode=11.6 tok/s | prompt_ms=361 cached=11166 | gpu=3 %, 1020 MHz, 15719 MiB
+10-14 13:02:23 | STATE=SLOW streak=3 -> sampler+dmon 300s
+10-14 13:07:38 | probe sec=8.9 decode=23.3 tok/s | prompt_ms=337 cached=11166 | gpu=3 %, 1125 MHz, 15719 MiB
+10-14 13:07:38 | STATE=SLOW streak=4 -> sampler+dmon 300s
+10-14 13:12:51 | probe sec=6.2 decode=33.2 tok/s | prompt_ms=196 cached=11166 | gpu=6 %, 1102 MHz, 15746 MiB
+10-14 13:12:51 | STATE=SLOW streak=5 -> sampler+dmon 300s
+10-14 13:18:04 | probe sec=6.4 decode=32.9 tok/s | prompt_ms=332 cached=11166 | gpu=3 %, 1200 MHz, 15751 MiB
+10-14 13:18:04 | STATE=SLOW streak=6 -> sampler+dmon 300s
+10-14 13:23:17 | probe sec=6.7 decode=31.2 tok/s | prompt_ms=288 cached=11166 | gpu=5 %, 1050 MHz, 15746 MiB
+10-14 13:23:17 | STATE=SLOW streak=7 -> sampler+dmon 300s
+10-14 13:28:30 | probe sec=7.2 decode=29.2 tok/s | prompt_ms=346 cached=11166 | gpu=3 %, 922 MHz, 15751 MiB
+10-14 13:28:30 | STATE=SLOW streak=8 -> sampler+dmon 300s
+10-14 13:33:39 | probe sec=2 decode=121.9 tok/s | prompt_ms=321 cached=11166 | gpu=7 %, 1245 MHz, 15746 MiB
+10-14 13:33:39 | STATE=RECOVERED after streak=8
+10-14 13:43:46 | probe sec=1.4 decode=170.3 tok/s | prompt_ms=180 cached=11166 | gpu=3 %, 945 MHz, 15799 MiB
+10-14 13:53:54 | probe sec=1.5 decode=170.4 tok/s | prompt_ms=306 cached=11166 | gpu=5 %, 982 MHz, 15799 MiB
+10-14 14:04:02 | probe sec=1.5 decode=167.6 tok/s | prompt_ms=241 cached=11166 | gpu=4 %, 945 MHz, 15799 MiB
+10-14 14:14:10 | probe sec=1.6 decode=165.8 tok/s | prompt_ms=327 cached=11166 | gpu=2 %, 982 MHz, 15799 MiB
+10-14 14:24:18 | probe sec=1.5 decode=168.4 tok/s | prompt_ms=225 cached=11166 | gpu=3 %, 1282 MHz, 15795 MiB
+10-14 14:34:26 | probe sec=1.4 decode=165.3 tok/s | prompt_ms=181 cached=11166 | gpu=3 %, 1425 MHz, 15804 MiB
+10-14 14:44:34 | probe sec=1.3 decode=166.3 tok/s | prompt_ms=79 cached=11166 | gpu=4 %, 1162 MHz, 15807 MiB
+10-14 14:57:27 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 14:58:41 | probe sec=44.9 decode=25.5 tok/s | prompt_ms=37061 cached=0 | gpu=3 %, 1305 MHz, 15781 MiB
+10-14 14:58:41 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 15:02:59 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 15:04:13 | probe sec=44.7 decode=25.2 tok/s | prompt_ms=36765 cached=0 | gpu=3 %, 1627 MHz, 15761 MiB
+10-14 15:04:13 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 15:09:26 | probe sec=6.3 decode=33.4 tok/s | prompt_ms=312 cached=11166 | gpu=3 %, 1357 MHz, 15772 MiB
+10-14 15:09:26 | STATE=SLOW streak=2 -> sampler+dmon 300s
+10-14 15:14:34 | probe sec=2.1 decode=115.5 tok/s | prompt_ms=281 cached=11166 | gpu=4 %, 1207 MHz, 15763 MiB
+10-14 15:14:34 | STATE=RECOVERED after streak=2
+10-14 15:24:43 | probe sec=1.9 decode=119.5 tok/s | prompt_ms=216 cached=11166 | gpu=3 %, 1132 MHz, 15763 MiB
+10-14 15:34:51 | probe sec=2.1 decode=113.8 tok/s | prompt_ms=302 cached=11166 | gpu=5 %, 1132 MHz, 15763 MiB
+10-14 15:45:06 | probe sec=8.4 decode=25.6 tok/s | prompt_ms=530 cached=11166 | gpu=3 %, 1140 MHz, 15767 MiB
+10-14 15:45:06 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 15:50:21 | probe sec=8.4 decode=25.7 tok/s | prompt_ms=579 cached=11166 | gpu=4 %, 930 MHz, 15772 MiB
+10-14 15:50:21 | STATE=SLOW streak=2 -> sampler+dmon 300s
+10-14 15:55:29 | probe sec=1.5 decode=173.1 tok/s | prompt_ms=294 cached=11166 | gpu=2 %, 1005 MHz, 15787 MiB
+10-14 15:55:29 | STATE=RECOVERED after streak=2
+10-14 16:05:37 | probe sec=1.5 decode=168.5 tok/s | prompt_ms=239 cached=11166 | gpu=3 %, 1237 MHz, 15785 MiB
+10-14 16:15:44 | probe sec=1.5 decode=164.9 tok/s | prompt_ms=206 cached=11166 | gpu=4 %, 1050 MHz, 15755 MiB
+10-14 16:25:52 | probe sec=1.5 decode=170.8 tok/s | prompt_ms=290 cached=11166 | gpu=3 %, 1020 MHz, 15764 MiB
+10-14 16:36:00 | probe sec=1.4 decode=169.4 tok/s | prompt_ms=197 cached=11166 | gpu=2 %, 1027 MHz, 15764 MiB
+10-14 16:46:08 | probe sec=1.4 decode=170 tok/s | prompt_ms=191 cached=11166 | gpu=3 %, 1335 MHz, 15759 MiB
+10-14 16:56:16 | probe sec=1.5 decode=167.4 tok/s | prompt_ms=215 cached=11166 | gpu=3 %, 945 MHz, 15764 MiB
+10-14 17:06:23 | probe sec=1.4 decode=169.6 tok/s | prompt_ms=183 cached=11166 | gpu=3 %, 1125 MHz, 15776 MiB
+10-14 17:16:31 | probe sec=1.4 decode=164.8 tok/s | prompt_ms=170 cached=11166 | gpu=3 %, 1402 MHz, 15776 MiB
+10-14 17:26:39 | probe sec=1.5 decode=170.8 tok/s | prompt_ms=317 cached=11166 | gpu=3 %, 990 MHz, 15777 MiB
+10-14 17:36:47 | probe sec=1.5 decode=169.1 tok/s | prompt_ms=259 cached=11166 | gpu=3 %, 1117 MHz, 15786 MiB
+10-14 17:46:55 | probe sec=1.5 decode=166.9 tok/s | prompt_ms=223 cached=11166 | gpu=3 %, 1455 MHz, 15777 MiB
+10-14 17:57:02 | probe sec=1.4 decode=171 tok/s | prompt_ms=169 cached=11166 | gpu=0 %, 600 MHz, 15784 MiB
+10-14 18:07:10 | probe sec=1.5 decode=176.3 tok/s | prompt_ms=271 cached=11166 | gpu=2 %, 720 MHz, 15708 MiB
+10-14 18:17:18 | probe sec=1.4 decode=165.1 tok/s | prompt_ms=170 cached=11166 | gpu=4 %, 1590 MHz, 15818 MiB
+10-14 18:27:30 | probe sec=5.5 decode=39.5 tok/s | prompt_ms=432 cached=11166 | gpu=5 %, 2280 MHz, 15551 MiB
+10-14 18:27:30 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 18:46:06 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 18:47:16 | probe sec=41.8 decode=26.2 tok/s | prompt_ms=34119 cached=0 | gpu=6 %, 1350 MHz, 15797 MiB
+10-14 18:47:16 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 19:02:34 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 19:03:09 | probe sec=6.6 decode=170.2 tok/s | prompt_ms=5416 cached=0 | gpu=4 %, 1320 MHz, 15602 MiB
+10-14 19:16:22 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 19:16:57 | probe sec=6.6 decode=170.5 tok/s | prompt_ms=5432 cached=0 | gpu=3 %, 1192 MHz, 15617 MiB
+10-14 19:27:05 | probe sec=1.5 decode=167.6 tok/s | prompt_ms=300 cached=11166 | gpu=3 %, 1117 MHz, 15619 MiB
+10-14 19:44:22 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 19:44:57 | probe sec=6.7 decode=170.3 tok/s | prompt_ms=5451 cached=0 | gpu=3 %, 1230 MHz, 15547 MiB
+10-14 19:55:05 | probe sec=1.4 decode=170.5 tok/s | prompt_ms=224 cached=11166 | gpu=3 %, 1237 MHz, 15554 MiB
+10-14 20:25:10 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 20:25:46 | probe sec=6.8 decode=167.7 tok/s | prompt_ms=5515 cached=0 | gpu=5 %, 1237 MHz, 15651 MiB
+10-14 20:32:52 | WATCHER start (interval=600s hours=8 filler=45KB)
+10-14 20:33:27 | probe sec=6.5 decode=172.5 tok/s | prompt_ms=5340 cached=0 | gpu=3 %, 855 MHz, 15644 MiB
+10-14 20:36:16 | Ninfer-KVMem-Async瀹堟湜鑰?start (interval=600s hours=8 filler=45KB)
+10-14 20:36:24 | probe sec=1.4 decode=165.7 tok/s | prompt_ms=119 cached=11166 | gpu=1 %, 600 MHz, 15648 MiB
+10-14 20:47:08 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 20:47:17 | probe sec=0 decode=0 tok/s | prompt_ms=0 cached=0 | gpu=3 %, 705 MHz, 826 MiB
+10-14 20:50:23 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 20:50:31 | probe sec=0 decode=0 tok/s | prompt_ms=0 cached=0 | gpu=2 %, 997 MHz, 896 MiB
+10-14 20:51:52 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 20:52:01 | probe sec=0 decode=0 tok/s | prompt_ms=0 cached=0 | gpu=30 %, 1477 MHz, 888 MiB
+10-14 20:53:38 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 20:53:46 | probe sec=1.5 decode=148.7 tok/s | prompt_ms=114 cached=11166 | gpu=1 %, 607 MHz, 15544 MiB
+10-14 21:03:55 | probe sec=1.7 decode=146.7 tok/s | prompt_ms=328 cached=11166 | gpu=2 %, 697 MHz, 15602 MiB
+10-14 21:04:56 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:05:04 | probe sec=1.5 decode=144.1 tok/s | prompt_ms=117 cached=11166 | gpu=1 %, 622 MHz, 15550 MiB
+10-14 21:08:38 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:08:51 | probe sec=6.9 decode=149.5 tok/s | prompt_ms=5515 cached=0 | gpu=1 %, 615 MHz, 15394 MiB
+10-14 21:12:23 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:12:37 | probe sec=7.2 decode=142.6 tok/s | prompt_ms=5746 cached=0 | gpu=4 %, 1095 MHz, 15398 MiB
+10-14 21:22:48 | probe sec=1.7 decode=142.8 tok/s | prompt_ms=248 cached=11166 | gpu=2 %, 735 MHz, 15479 MiB
+10-14 21:29:10 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:29:24 | probe sec=6.8 decode=149.9 tok/s | prompt_ms=5450 cached=0 | gpu=1 %, 622 MHz, 15546 MiB
+10-14 21:31:55 | ABA-TRIGGER start (max=3 poll=60s cooldown=900s)
+10-14 21:37:26 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:37:34 | probe sec=1.5 decode=167.7 tok/s | prompt_ms=254 cached=11166 | gpu=1 %, 682 MHz, 15491 MiB
+10-14 21:38:03 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 21:38:11 | probe sec=1.6 decode=165.5 tok/s | prompt_ms=402 cached=11166 | gpu=8 %, 1132 MHz, 15526 MiB
+10-14 21:50:43 | probe sec=145.1 decode=162.6 tok/s | prompt_ms=7173 cached=0 | gpu=99 %, 2857 MHz, 15586 MiB
+10-14 22:01:01 | probe sec=11.4 decode=151.2 tok/s | prompt_ms=7956 cached=0 | gpu=99 %, 2857 MHz, 15707 MiB
+10-14 22:11:10 | probe sec=1.8 decode=157.8 tok/s | prompt_ms=539 cached=11166 | gpu=8 %, 1267 MHz, 15751 MiB
+10-14 22:21:38 | probe sec=21.7 decode=64.2 tok/s | prompt_ms=18583 cached=0 | gpu=13 %, 1552 MHz, 15669 MiB
+10-14 22:21:38 | STATE=SLOW streak=1 -> sampler+dmon 300s
+10-14 22:29:46 | probe sec=181.3 decode=161.9 tok/s | prompt_ms=8084 cached=0 | gpu=99 %, 2850 MHz, 15802 MiB
+10-14 22:33:21 | ABA-TRIGGER start (max=3 poll=60s cooldown=900s)
+10-14 22:34:21 | ABA-TRIGGER: SLOW 检出 -> 启动 auto2234（01/3）
+10-14 22:38:18 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 22:38:25 | ABA-TRIGGER: auto2234 完成（累计 1/3）
+10-14 22:38:32 | probe sec=7.1 decode=144 tok/s | prompt_ms=5649 cached=0 | gpu=4 %, 915 MHz, 15502 MiB
+10-14 22:39:25 | ABA-TRIGGER: SLOW 但检测到你正在用机（reqlog 活跃）-> 跳过捕获
+10-14 22:40:25 | ABA-TRIGGER: SLOW 但检测到你正在用机（reqlog 活跃）-> 跳过捕获
+10-14 22:45:25 | HUNT start (poll=20s max=6 kv=nvfp4/81920)
+10-14 22:47:22 | HUNT start (poll=20s max=6 kv=nvfp4/81920)
+10-14 22:48:04 | HUNT start (poll=20s max=6 kv=nvfp4/81920)
+10-14 22:50:34 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 22:50:45 | HUNT start (poll=20s max=6 kv=nvfp4/81920)
+10-14 22:54:29 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-14 22:56:55 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-14 22:57:55 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-14 23:13:11 | INDUCE end (cycles=6 captures=0)
+10-14 23:13:12 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 23:13:20 | probe sec=1.6 decode=149.5 tok/s | prompt_ms=276 cached=11166 | gpu=0 %, 667 MHz, 15718 MiB
+10-14 23:16:31 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-14 23:26:19 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-14 23:50:23 | INDUCE end (cycles=6 captures=0)
+10-14 23:50:25 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-14 23:50:33 | probe sec=1.6 decode=165.3 tok/s | prompt_ms=380 cached=11166 | verify=19.95ms | gpu=3 %, 930 MHz, 15632 MiB
+10-15 00:00:41 | probe sec=1.5 decode=164.5 tok/s | prompt_ms=269 cached=11166 | verify=19.95ms | gpu=5 %, 1350 MHz, 15726 MiB
+10-15 00:04:20 | SUPERVISOR start (kv=nvfp4/81920 hunter=30min rounds=12)
+10-15 00:04:21 | SUPERVISOR: 轮 1 诱发器起
+10-15 00:04:24 | INDUCE start (deep=240KB x3 cycles=6 kv=nvfp4/81920)
+10-15 00:29:00 | INDUCE end (cycles=6 captures=0)
+10-15 00:29:00 | SUPERVISOR: 轮 1 诱发器完，接猎谷机 30min
+10-15 00:29:01 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 00:29:04 | HUNT start (poll=20s max=6 kv=nvfp4/81920)
+10-15 00:49:28 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 00:53:58 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 00:54:30 | probe sec=7.1 decode=159.7 tok/s | prompt_ms=5863 cached=0 | verify=0ms | gpu=5 %, 2917 MHz, 15647 MiB
+10-15 00:56:26 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 00:57:51 | NIGHT: valley detected (decode=16.6 verify=116.47) -> fast 5-arm A-B-A
+10-15 00:59:31 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 00:59:38 | NIGHT: A-B-A done -> .temp\pdl_aba_night0057.txt
+10-15 01:01:12 | NIGHT: valley detected (decode=0 verify=-1) -> fast 5-arm A-B-A
+10-15 01:08:48 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 01:08:54 | NIGHT: A-B-A done -> .temp\pdl_aba_night0101.txt
+10-15 01:10:29 | NIGHT: valley detected (decode=0 verify=-1) -> fast 5-arm A-B-A
+10-15 01:16:23 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 01:16:30 | NIGHT: A-B-A done -> .temp\pdl_aba_night0110.txt
+10-15 01:20:21 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 01:20:54 | NIGHT: valley detected (decode=15.1 verify=-1) -> fast 5-arm A-B-A
+10-15 01:21:43 | NIGHT: A-B-A done -> .temp\pdl_aba_night0120.txt
+10-15 01:22:16 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 01:22:43 | NIGHT: valley detected (decode=109.5 verify=-1) -> fast 5-arm A-B-A
+10-15 01:36:34 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 01:36:41 | NIGHT: A-B-A done -> .temp\pdl_aba_night0122.txt
+10-15 01:36:51 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 01:37:59 | NIGHT: NIGHT start (model=Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer kv=rk2v4-e8/65536 maxcap=5 hours=8)
+10-15 02:13:34 | NIGHT: valley detected (decode=5.8 verify=163.3) -> fast 5-arm A-B-A
+10-15 02:27:34 | INCIDENCE: INCIDENCE start (window=45min pairs=4)
+10-15 02:28:20 | Ninfer-KVMem-Async守望者 start (interval=600s hours=8 filler=45KB)
+10-15 02:28:52 | probe sec=6.8 decode=167.9 tok/s | prompt_ms=5538 cached=0 | verify=19.55ms | gpu=5 %, 2910 MHz, 15702 MiB
+10-15 02:38:59 | probe sec=1.4 decode=162.3 tok/s | prompt_ms=191 cached=11166 | verify=19.55ms | gpu=3 %, 1432 MHz, 15680 MiB
+10-15 02:49:07 | probe sec=1.5 decode=168.9 tok/s | prompt_ms=285 cached=11166 | verify=19.55ms | gpu=3 %, 802 MHz, 15680 MiB
+10-15 02:59:15 | probe sec=1.4 decode=167.2 tok/s | prompt_ms=201 cached=11166 | verify=19.55ms | gpu=3 %, 870 MHz, 15681 MiB
+10-15 03:09:23 | probe sec=1.5 decode=170.9 tok/s | prompt_ms=325 cached=11166 | verify=19.55ms | gpu=3 %, 892 MHz, 15681 MiB
+10-15 03:19:31 | probe sec=1.4 decode=171.3 tok/s | prompt_ms=228 cached=11166 | verify=19.26ms | gpu=3 %, 975 MHz, 15678 MiB
+10-15 03:29:38 | probe sec=1.3 decode=171.1 tok/s | prompt_ms=108 cached=11166 | verify=19.26ms | gpu=3 %, 1095 MHz, 15678 MiB
+10-15 03:39:46 | probe sec=1.3 decode=172.5 tok/s | prompt_ms=77 cached=11166 | verify=19.26ms | gpu=1 %, 2137 MHz, 15678 MiB
+10-15 03:49:54 | probe sec=1.3 decode=170.6 tok/s | prompt_ms=79 cached=11166 | verify=19.26ms | gpu=2 %, 2902 MHz, 15678 MiB
+10-15 04:00:27 | probe sec=3.9 decode=166.6 tok/s | prompt_ms=80 cached=11166 | verify=0ms | gpu=99 %, 2820 MHz, 15378 MiB
+10-15 04:10:34 | probe sec=1.4 decode=159.8 tok/s | prompt_ms=113 cached=11166 | verify=0ms | gpu=1 %, 1117 MHz, 15380 MiB
+10-15 04:20:42 | probe sec=1.4 decode=159.6 tok/s | prompt_ms=117 cached=11166 | verify=0ms | gpu=2 %, 795 MHz, 15380 MiB
+10-15 04:30:50 | probe sec=1.5 decode=167.2 tok/s | prompt_ms=328 cached=11166 | verify=0ms | gpu=3 %, 1215 MHz, 15380 MiB
+10-15 04:40:58 | probe sec=1.4 decode=165.9 tok/s | prompt_ms=185 cached=11166 | verify=0ms | gpu=3 %, 855 MHz, 15380 MiB
+10-15 04:51:06 | probe sec=1.4 decode=168.4 tok/s | prompt_ms=184 cached=11166 | verify=19.3ms | gpu=2 %, 795 MHz, 15678 MiB
+10-15 05:01:13 | probe sec=1.3 decode=168.6 tok/s | prompt_ms=112 cached=11166 | verify=19.3ms | gpu=3 %, 855 MHz, 15678 MiB
+10-15 05:11:21 | probe sec=1.3 decode=168.6 tok/s | prompt_ms=120 cached=11166 | verify=19.3ms | gpu=3 %, 975 MHz, 15678 MiB
+10-15 05:21:29 | probe sec=1.4 decode=163.6 tok/s | prompt_ms=119 cached=11166 | verify=19.3ms | gpu=3 %, 1162 MHz, 15678 MiB
+10-15 05:31:42 | probe sec=6.6 decode=169 tok/s | prompt_ms=5414 cached=0 | verify=18.89ms | gpu=2 %, 2910 MHz, 15678 MiB
+10-15 05:41:50 | probe sec=1.5 decode=171.9 tok/s | prompt_ms=318 cached=11166 | verify=18.89ms | gpu=3 %, 780 MHz, 15680 MiB
+10-15 05:51:58 | probe sec=1.4 decode=170.8 tok/s | prompt_ms=208 cached=11166 | verify=18.89ms | gpu=3 %, 810 MHz, 15681 MiB
+10-15 06:02:06 | probe sec=1.4 decode=171.3 tok/s | prompt_ms=181 cached=11166 | verify=18.89ms | gpu=4 %, 870 MHz, 15681 MiB
+10-15 06:12:14 | probe sec=1.6 decode=170.1 tok/s | prompt_ms=357 cached=11166 | verify=18.89ms | gpu=3 %, 832 MHz, 15681 MiB
+10-15 06:22:22 | probe sec=1.3 decode=169.8 tok/s | prompt_ms=80 cached=11166 | verify=19.7ms | gpu=2 %, 2917 MHz, 15679 MiB
+10-15 06:32:30 | probe sec=1.3 decode=169.3 tok/s | prompt_ms=81 cached=11166 | verify=19.7ms | gpu=2 %, 2910 MHz, 15679 MiB
+10-15 06:42:38 | probe sec=1.8 decode=168.8 tok/s | prompt_ms=85 cached=11166 | verify=19.7ms | gpu=3 %, 870 MHz, 15679 MiB
+10-15 06:52:47 | probe sec=1.5 decode=166.7 tok/s | prompt_ms=315 cached=11166 | verify=19.7ms | gpu=2 %, 930 MHz, 15679 MiB
+10-15 07:03:34 | probe sec=6.7 decode=166.2 tok/s | prompt_ms=5508 cached=0 | verify=0ms | gpu=3 %, 1342 MHz, 15315 MiB
+10-15 07:11:17 | INCIDENCE: INCIDENCE start (window=45min pairs=4)
+10-15 07:13:03 | LOADINC: LOADINC start (window=40min pairs=6 load=60KBx8 rounds)
+10-15 07:13:55 | probe sec=14.2 decode=173.6 tok/s | prompt_ms=6078 cached=0 | verify=18.75ms | gpu=99 %, 2827 MHz, 15634 MiB
+10-15 07:24:25 | probe sec=22.7 decode=168.8 tok/s | prompt_ms=9329 cached=0 | verify=18.75ms | gpu=99 %, 2865 MHz, 15642 MiB
+10-15 07:34:51 | probe sec=19.7 decode=169.9 tok/s | prompt_ms=9401 cached=0 | verify=18.75ms | gpu=95 %, 2850 MHz, 15642 MiB
+10-15 07:45:13 | probe sec=14.8 decode=168.2 tok/s | prompt_ms=9333 cached=0 | verify=18.75ms | gpu=100 %, 2850 MHz, 15642 MiB
+10-15 07:55:26 | probe sec=6.1 decode=173.8 tok/s | prompt_ms=383 cached=11166 | verify=18.75ms | gpu=99 %, 2865 MHz, 15697 MiB
+10-15 07:57:12 | LOADINC: LOADINC start (window=40min pairs=6 load=60KBx8 rounds)
+10-15 08:05:59 | probe sec=25.7 decode=160.9 tok/s | prompt_ms=10187 cached=0 | verify=20.98ms | gpu=99 %, 2872 MHz, 15699 MiB
+10-15 08:16:22 | probe sec=16.2 decode=134.4 tok/s | prompt_ms=10313 cached=0 | verify=20.98ms | gpu=100 %, 2865 MHz, 15655 MiB
+10-15 08:26:51 | probe sec=22.3 decode=168.5 tok/s | prompt_ms=9325 cached=0 | verify=20.98ms | gpu=99 %, 2850 MHz, 15648 MiB
+10-15 08:37:14 | probe sec=15.8 decode=135.6 tok/s | prompt_ms=10632 cached=0 | verify=20.98ms | gpu=100 %, 2872 MHz, 15653 MiB
+10-15 08:47:48 | probe sec=27.7 decode=156.1 tok/s | prompt_ms=10166 cached=0 | verify=19.8ms | gpu=99 %, 2857 MHz, 15655 MiB
+10-15 08:58:12 | probe sec=17.5 decode=167.1 tok/s | prompt_ms=9312 cached=0 | verify=19.8ms | gpu=97 %, 2850 MHz, 15630 MiB
+10-15 09:08:49 | probe sec=30.2 decode=167.5 tok/s | prompt_ms=9398 cached=0 | verify=19.8ms | gpu=96 %, 2880 MHz, 15627 MiB
+10-15 09:19:12 | probe sec=16.1 decode=167.7 tok/s | prompt_ms=9342 cached=0 | verify=19.8ms | gpu=99 %, 2865 MHz, 15630 MiB
+10-15 09:29:30 | probe sec=10.4 decode=174.5 tok/s | prompt_ms=9138 cached=0 | verify=18.96ms | gpu=99 %, 2887 MHz, 15629 MiB
+10-15 09:40:04 | probe sec=27.9 decode=173.1 tok/s | prompt_ms=9048 cached=0 | verify=18.96ms | gpu=99 %, 2887 MHz, 15634 MiB
+10-15 09:50:28 | probe sec=17.1 decode=173.3 tok/s | prompt_ms=9049 cached=0 | verify=18.96ms | gpu=99 %, 2857 MHz, 15629 MiB
+10-15 10:00:55 | probe sec=19.9 decode=173.7 tok/s | prompt_ms=9158 cached=0 | verify=18.96ms | gpu=65 %, 2850 MHz, 15634 MiB
+10-15 10:11:28 | probe sec=26.1 decode=174.4 tok/s | prompt_ms=9147 cached=0 | verify=18.82ms | gpu=100 %, 2842 MHz, 15635 MiB
+10-15 10:21:57 | probe sec=22.3 decode=173.7 tok/s | prompt_ms=9043 cached=0 | verify=18.82ms | gpu=70 %, 2842 MHz, 15627 MiB
+10-15 10:31:57 | WATCHER end
+10-15 16:12:40 | LOADINC: LOADINC done -> .temp\loadinc_20261015_0757.txt
+10-15 19:25:11 | S13: S13 start (long-run 6h, no restart inside the group, catch-and-reproduce)

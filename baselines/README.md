@@ -11,3 +11,5 @@ bisect `scripts\bisect_env.ps1` / 机器级探针 `tools\gpu_probe.exe` / 窗口
 
 **纪律**：① 冻结集只增不改（新结论另起文件）；② 换模型 = 换一整套（启动器 `MODEL_BUNDLES` 自动切 KV/池/Graph/视觉）；
 ③ 跨档对比必须同池同上下文（池 ≥ 上下文，否则测到的是检索子集效应）；④ golden SHA 只在同模型同档内可比。
+
+- `valley-20261016/` —— **死亡谷攻关证据链台账**（35 件 / 1.64 MiB，见其 README）。

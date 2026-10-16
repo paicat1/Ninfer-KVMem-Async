@@ -1,0 +1,8 @@
+﻿03:20:43 | C12 2x2 cell: idle+pressure(1200 MiB), idle 1500s, first-request timeout 30s
+03:20:47 |   pre: answered in 3.2s decode=161.9
+03:20:47 |   pre decode = 161.9
+03:20:47 |   pressure applied for the whole idle window
+03:46:02 |   first-after-idle: answered in 15.5s decode=14.4
+03:46:21 |   second: answered in 19s decode=11.9
+03:46:21 | RESULT cell=idle+pressure(1200 MiB) pre=161.9 first=14.4 second=11.9
+03:46:21 | VERDICT: no hang in this cell

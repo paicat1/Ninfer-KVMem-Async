@@ -1,0 +1,17 @@
+﻿10-15 01:20:55 | RT-ABA start tag=night0120 probes/phase=2 flag=J:\ninfer-kvmem\.temp\pdl_off.flag
+10-15 01:20:59 | phase on1 flag=0 engine-said=(no switch line yet)
+10-15 01:21:09 |   on1 probe1 decode=21.4 wall=9.9s verify=120.31ms
+10-15 01:21:18 |   on1 probe2 decode=23.2 wall=9.1s verify=120.31ms
+10-15 01:21:21 | phase off2 flag=1 engine-said=(no switch line yet)
+10-15 01:21:23 |   off2 probe1 decode=159.3 wall=1.5s verify=20.1ms
+10-15 01:21:24 |   off2 probe2 decode=161.2 wall=1.3s verify=20.1ms
+10-15 01:21:27 | phase on3 flag=0 engine-said=(no switch line yet)
+10-15 01:21:29 |   on3 probe1 decode=159.7 wall=1.4s verify=20.1ms
+10-15 01:21:30 |   on3 probe2 decode=160.1 wall=1.4s verify=20.1ms
+10-15 01:21:33 | phase off4 flag=1 engine-said=(no switch line yet)
+10-15 01:21:35 |   off4 probe1 decode=156.3 wall=1.4s verify=20.1ms
+10-15 01:21:37 |   off4 probe2 decode=160.9 wall=1.3s verify=20.1ms
+10-15 01:21:40 | phase on5 flag=0 engine-said=(no switch line yet)
+10-15 01:21:41 |   on5 probe1 decode=157.1 wall=1.4s verify=20.1ms
+10-15 01:21:43 |   on5 probe2 decode=162.9 wall=1.3s verify=20.1ms
+10-15 01:21:43 | RT-ABA done -> .temp\pdl_rt_night0120.txt

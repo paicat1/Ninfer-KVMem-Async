@@ -1,0 +1,36 @@
+{
+  "arm": "ns_long41",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "elapsed_s": 52.4,
+      "usage": {
+        "completion_tokens": 1200,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1200
+        },
+        "prompt_tokens": 59833,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 61033
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 1283,
+        "draft_n_accepted": 1051,
+        "predicted_ms": 5048.9944,
+        "predicted_n": 1200,
+        "predicted_per_second": 237.4730302731174,
+        "predicted_per_token_ms": 4.211004503753127,
+        "prompt_ms": 47155.656,
+        "prompt_n": 59833,
+        "prompt_per_second": 1268.840369859344,
+        "prompt_per_token_ms": 0.7881212040178497
+      },
+      "sha": "ceb678d6f49eefb4",
+      "length": 4722
+    }
+  ]
+}

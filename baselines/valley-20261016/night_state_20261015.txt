@@ -1,0 +1,137 @@
+﻿10-15 00:49:29 | cy1 shape=idle decode=107.8 verify=34.04ms vram_used=15789MiB
+10-15 00:49:55 | cy2 shape=idle decode=103.4 verify=34.04ms vram_used=15750MiB
+10-15 00:50:21 | cy3 shape=idle decode=101.6 verify=34.04ms vram_used=15741MiB
+10-15 00:50:47 | cy4 shape=idle decode=102.8 verify=34.04ms vram_used=15767MiB
+10-15 00:57:22 | cy1 shape=idle decode=17.4 wall=55.9s verify=124.94(fresh=True) vram=15766MiB
+10-15 00:57:51 | cy2 shape=idle decode=16.6 wall=4.1s verify=116.47(fresh=True) vram=15786MiB
+10-15 01:00:43 | cy3 shape=idle decode=0 wall=0s verify=-1(fresh=False) vram=1111MiB
+10-15 01:01:12 | cy4 shape=idle decode=0 wall=0s verify=-1(fresh=False) vram=1190MiB
+10-15 01:09:59 | cy5 shape=idle decode=0 wall=0s verify=-1(fresh=False) vram=960MiB
+10-15 01:10:29 | cy6 shape=idle decode=0 wall=0s verify=-1(fresh=False) vram=993MiB
+10-15 01:20:25 | cy1 shape=idle decode=18.2 wall=3.7s verify=120.31(fresh=True) vram=15701MiB
+10-15 01:20:54 | cy2 shape=idle decode=15.1 wall=4.4s verify=-1(fresh=False) vram=15761MiB
+10-15 01:22:17 | cy1 shape=idle decode=101.6 wall=0.8s verify=20.1(fresh=True) vram=15719MiB
+10-15 01:22:43 | cy2 shape=idle decode=109.5 wall=0.6s verify=-1(fresh=False) vram=15745MiB
+10-15 01:36:51 | engine down -> restart (old profile)
+10-15 01:37:09 |   ready=READY
+10-15 01:37:15 | cy1 shape=idle decode=118.4 wall=5.7s verify=18.36(fresh=True) vram=15751MiB
+10-15 01:37:41 | cy2 shape=idle decode=112.8 wall=0.8s verify=-1(fresh=False) vram=15738MiB
+10-15 01:38:00 | cy1 shape=idle decode=118.5 wall=0.7s verify=18.36(fresh=True) vram=15773MiB
+10-15 01:38:26 | cy2 shape=idle decode=114.2 wall=0.9s verify=-1(fresh=False) vram=15753MiB
+10-15 01:38:52 | cy3 shape=idle decode=111.1 wall=0.8s verify=-1(fresh=False) vram=15742MiB
+10-15 01:39:18 | cy4 shape=idle decode=111.1 wall=0.9s verify=-1(fresh=False) vram=15759MiB
+10-15 01:39:44 | cy5 shape=idle decode=111 wall=0.8s verify=-1(fresh=False) vram=15688MiB
+10-15 01:40:10 | cy6 shape=idle decode=110.8 wall=0.8s verify=-1(fresh=False) vram=15767MiB
+10-15 01:40:36 | cy7 shape=idle decode=117.8 wall=0.7s verify=-1(fresh=False) vram=15701MiB
+10-15 01:41:02 | cy8 shape=idle decode=115.1 wall=0.8s verify=-1(fresh=False) vram=15701MiB
+10-15 01:41:28 | cy9 shape=idle decode=119 wall=0.8s verify=-1(fresh=False) vram=15701MiB
+10-15 01:41:54 | cy10 shape=idle decode=118 wall=0.8s verify=-1(fresh=False) vram=15744MiB
+10-15 01:42:20 | cy11 shape=idle decode=108.7 wall=0.8s verify=-1(fresh=False) vram=15763MiB
+10-15 01:42:46 | cy12 shape=idle decode=109.8 wall=0.8s verify=-1(fresh=False) vram=15671MiB
+10-15 01:43:12 | cy13 shape=idle decode=110.7 wall=0.9s verify=-1(fresh=False) vram=15647MiB
+10-15 01:43:38 | cy14 shape=idle decode=105.3 wall=0.8s verify=-1(fresh=False) vram=15691MiB
+10-15 01:44:05 | cy15 shape=deep60k decode=113.3 wall=0.9s verify=-1(fresh=False) vram=15639MiB
+10-15 01:44:40 |   [load deep60k] decode=132.7
+10-15 01:44:46 | cy16 shape=deep60k decode=112.6 wall=0.9s verify=-1(fresh=False) vram=15736MiB
+10-15 01:44:49 |   [load deep60k] decode=126.9
+10-15 01:44:55 | cy17 shape=deep60k decode=118.7 wall=0.8s verify=-1(fresh=False) vram=15719MiB
+10-15 01:44:57 |   [load deep60k] decode=131.5
+10-15 01:45:03 | cy18 shape=deep60k decode=115.7 wall=0.9s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:05 |   [load deep60k] decode=131.5
+10-15 01:45:11 | cy19 shape=deep60k decode=118.8 wall=0.8s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:13 |   [load deep60k] decode=131.4
+10-15 01:45:19 | cy20 shape=deep60k decode=117.2 wall=0.9s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:21 |   [load deep60k] decode=131.3
+10-15 01:45:27 | cy21 shape=deep60k decode=117.9 wall=0.9s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:30 |   [load deep60k] decode=131.4
+10-15 01:45:36 | cy22 shape=deep60k decode=119.2 wall=0.8s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:38 |   [load deep60k] decode=131.5
+10-15 01:45:44 | cy23 shape=deep60k decode=118.5 wall=0.9s verify=-1(fresh=False) vram=15700MiB
+10-15 01:45:46 |   [load deep60k] decode=129.9
+10-15 01:45:52 | cy24 shape=multiturn decode=113.1 wall=0.9s verify=-1(fresh=False) vram=15700MiB
+10-15 01:47:08 |   [load multiturn r1] decode=206.7
+10-15 01:47:09 |   [load multiturn r2] decode=120.6
+10-15 01:47:09 |   [load multiturn r3] decode=128.2
+10-15 01:47:09 |   [load multiturn r4] decode=330.5
+10-15 01:47:09 |   [load multiturn r5] decode=303.6
+10-15 01:47:09 |   [load multiturn r6] decode=137.2
+10-15 01:47:23 | cy25 shape=multiturn decode=107.9 wall=8.9s verify=-1(fresh=False) vram=15683MiB
+10-15 01:48:47 |   [load multiturn r1] decode=166.3
+10-15 01:48:47 |   [load multiturn r2] decode=189.9
+10-15 01:48:47 |   [load multiturn r3] decode=312.5
+10-15 01:48:47 |   [load multiturn r4] decode=292.0
+10-15 01:48:47 |   [load multiturn r5] decode=275.1
+10-15 01:48:47 |   [load multiturn r6] decode=88.9
+10-15 01:49:00 | cy26 shape=multiturn decode=116.7 wall=8.3s verify=-1(fresh=False) vram=15679MiB
+10-15 01:50:26 |   [load multiturn r1] decode=122.0
+10-15 01:50:26 |   [load multiturn r2] decode=174.2
+10-15 01:50:26 |   [load multiturn r3] decode=259.5
+10-15 01:50:26 |   [load multiturn r4] decode=259.0
+10-15 01:50:26 |   [load multiturn r5] decode=119.6
+10-15 01:50:26 |   [load multiturn r6] decode=226.7
+10-15 01:50:40 | cy27 shape=multiturn decode=110.1 wall=8.9s verify=-1(fresh=False) vram=15780MiB
+10-15 01:52:06 |   [load multiturn r1] decode=166.5
+10-15 01:52:06 |   [load multiturn r2] decode=133.1
+10-15 01:52:06 |   [load multiturn r3] decode=276.4
+10-15 01:52:06 |   [load multiturn r4] decode=281.9
+10-15 01:52:06 |   [load multiturn r5] decode=270.6
+10-15 01:52:06 |   [load multiturn r6] decode=257.8
+10-15 01:52:20 | cy28 shape=multiturn decode=118.9 wall=8.4s verify=-1(fresh=False) vram=15706MiB
+10-15 01:53:42 |   [load multiturn r1] decode=176.1
+10-15 01:53:42 |   [load multiturn r2] decode=221.3
+10-15 01:53:42 |   [load multiturn r3] decode=313.0
+10-15 01:53:42 |   [load multiturn r4] decode=301.8
+10-15 01:53:42 |   [load multiturn r5] decode=274.9
+10-15 01:53:42 |   [load multiturn r6] decode=102.3
+10-15 01:53:56 | cy29 shape=multiturn decode=116.4 wall=8.6s verify=-1(fresh=False) vram=15779MiB
+10-15 01:55:20 |   [load multiturn r1] decode=99.7
+10-15 01:55:20 |   [load multiturn r2] decode=159.6
+10-15 01:55:20 |   [load multiturn r3] decode=352.1
+10-15 01:55:20 |   [load multiturn r4] decode=311.8
+10-15 01:55:20 |   [load multiturn r5] decode=292.0
+10-15 01:55:20 |   [load multiturn r6] decode=288.9
+10-15 01:55:34 | cy30 shape=multiturn decode=109.1 wall=8.9s verify=-1(fresh=False) vram=15736MiB
+10-15 01:56:56 |   [load multiturn r1] decode=201.1
+10-15 01:56:56 |   [load multiturn r2] decode=150.6
+10-15 01:56:56 |   [load multiturn r3] decode=129.3
+10-15 01:56:56 |   [load multiturn r4] decode=279.8
+10-15 01:56:56 |   [load multiturn r5] decode=327.5
+10-15 01:56:56 |   [load multiturn r6] decode=322.4
+10-15 01:57:10 | cy31 shape=multiturn decode=117.8 wall=8.7s verify=-1(fresh=False) vram=15716MiB
+10-15 01:58:54 |   [load multiturn r1] decode=105.9
+10-15 01:58:54 |   [load multiturn r2] decode=154.4
+10-15 01:58:54 |   [load multiturn r3] decode=0
+10-15 01:58:54 |   [load multiturn r4] decode=300.1
+10-15 01:58:54 |   [load multiturn r5] decode=310.7
+10-15 01:58:54 |   [load multiturn r6] decode=319.1
+10-15 01:59:08 | cy32 shape=multiturn decode=108.9 wall=8.9s verify=-1(fresh=False) vram=15764MiB
+10-15 02:00:31 |   [load multiturn r1] decode=172.3
+10-15 02:00:31 |   [load multiturn r2] decode=248.5
+10-15 02:00:31 |   [load multiturn r3] decode=341.5
+10-15 02:00:31 |   [load multiturn r4] decode=329.4
+10-15 02:00:31 |   [load multiturn r5] decode=319.0
+10-15 02:00:31 |   [load multiturn r6] decode=324.0
+10-15 02:00:44 | cy33 shape=longdecode decode=115.6 wall=8.5s verify=-1(fresh=False) vram=15725MiB
+10-15 02:01:35 |   [load longdecode] decode=262.4
+10-15 02:01:48 | cy34 shape=longdecode decode=118.9 wall=8.4s verify=-1(fresh=False) vram=15679MiB
+10-15 02:02:48 |   [load longdecode] decode=90.9
+10-15 02:03:02 | cy35 shape=longdecode decode=110 wall=8.8s verify=-1(fresh=False) vram=15687MiB
+10-15 02:03:54 |   [load longdecode] decode=285.6
+10-15 02:04:08 | cy36 shape=longdecode decode=106.6 wall=9s verify=-1(fresh=False) vram=15700MiB
+10-15 02:05:06 |   [load longdecode] decode=127.5
+10-15 02:05:21 | cy37 shape=longdecode decode=105.6 wall=9.1s verify=-1(fresh=False) vram=15727MiB
+10-15 02:06:19 |   [load longdecode] decode=120.1
+10-15 02:06:33 | cy38 shape=longdecode decode=112.4 wall=8.8s verify=-1(fresh=False) vram=15688MiB
+10-15 02:07:25 |   [load longdecode] decode=313.0
+10-15 02:07:39 | cy39 shape=longdecode decode=107.3 wall=9.2s verify=-1(fresh=False) vram=15720MiB
+10-15 02:08:34 |   [load longdecode] decode=211.2
+10-15 02:08:48 | cy40 shape=longdecode decode=101.8 wall=9.2s verify=-1(fresh=False) vram=15726MiB
+10-15 02:09:42 |   [load longdecode] decode=217.7
+10-15 02:09:57 | cy41 shape=longdecode decode=104.9 wall=9s verify=-1(fresh=False) vram=15665MiB
+10-15 02:10:49 |   [load longdecode] decode=237.5
+10-15 02:11:03 | cy42 shape= decode=111.9 wall=8.8s verify=-1(fresh=False) vram=15677MiB
+10-15 02:11:30 | cy43 shape= decode=105.6 wall=1s verify=-1(fresh=False) vram=15695MiB
+10-15 02:11:56 | cy44 shape= decode=107.1 wall=0.9s verify=-1(fresh=False) vram=15696MiB
+10-15 02:12:23 | cy45 shape= decode=91.5 wall=1s verify=-1(fresh=False) vram=15692MiB
+10-15 02:12:58 | cy46 shape=idle decode=7.1 wall=10.3s verify=212.67(fresh=True) vram=15755MiB
+10-15 02:13:34 | cy47 shape=idle decode=5.8 wall=10.7s verify=163.3(fresh=True) vram=15818MiB

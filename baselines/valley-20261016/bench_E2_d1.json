@@ -1,0 +1,38 @@
+{
+  "tag": "E2_d1",
+  "port": 8094,
+  "filler_kb": 165,
+  "max_tokens": 400,
+  "rounds": [
+    {
+      "round": 1,
+      "started": "08:27:06",
+      "http": 200,
+      "elapsed_s": 61.8,
+      "usage": {
+        "completion_tokens": 400,
+        "completion_tokens_details": {
+          "reasoning_tokens": 400
+        },
+        "prompt_tokens": 41147,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 41547
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 581,
+        "draft_n_accepted": 267,
+        "predicted_ms": 3820.7409000000002,
+        "predicted_n": 400,
+        "predicted_per_second": 104.43000727947818,
+        "predicted_per_token_ms": 9.575791729323308,
+        "prompt_ms": 57876.0914,
+        "prompt_n": 41147,
+        "prompt_per_second": 710.9498759275234,
+        "prompt_per_token_ms": 1.4065689211850194
+      }
+    }
+  ]
+}

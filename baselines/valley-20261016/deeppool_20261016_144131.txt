@@ -1,0 +1,33 @@
+14:41:31 | DEEPPOOL-ASYNC start (segmented CLI run; steps equivalent to scripts\deeppool_async_onoff.ps1; detached orchestrator not allowed in this toolchain, executed stepwise)
+14:41:31 | pre-reg: docs\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
+14:41:31 | authorized: user (mobile CLI), 2026-10-16 (heavy deep-turn follow-up of the over-pool ablation)
+14:41:31 | plan: per arm 3 runs x (rounds=3, filler-kb 300, max-tokens 2000); order off(tag=dp_off) -> on(tag=valleywatch, platform restore)
+14:41:31 | note: window_watch reads test_valleywatch.log; it will show stale during arm dp_off (expected, not a fault)
+14:41:31 | VARIANT: 2026-10-16 11:25  from=engine\lineage\I3b_step13_fourlayer_20261015.exe  tag=valleywatch  depth=2
+14:41:31 | git HEAD: 69da242
+14:41:31 | watch log backup copied (.temp\valleywatch_before_deeppool_20261016_144131.log)
+14:41:36 | stop platform: killed engine pid=21872 ;; killed cmd pid=21396 ;; freed after ~3s; vram used=894 MiB
+14:41:36 | ==== ARM off (NINFER_ASYNC_DEMOTE=0, tag=dp_off) ====
+14:41:36 | env check: NINFER_ASYNC_DEMOTE=0
+14:41:38 | start: vram before start: used=894 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_dp_off.log
+14:41:49 | waitready: READY
+14:48:56 | ATTEMPT-1 (aborted): user session interrupt killed the driver mid-round3 at 14:45:21; engine-side salvaged: req#1 74,700p/2,000o decode=224.1 prefill=1.53k; req#2 151,362p cache 49.3% (turn closure) decode=198.3 prefill=816; req#3 228,024p CANCELLED (client abort, output 0) -- not an engine fault; full run1 redone below
+14:54:52 | ARM=off(run1 redo) run 1 round 1  86.4s  decode=327.6  accepted=1847/1947  len=8344  sha=dfb0509f4a40925c ;; run 1 round 2  117.3s  decode=218.9  accepted=1787/2068  len=8212  sha=af3eb72572753f87 ;; run 1 round 3  152.3s  decode=228.1  accepted=1847/1948  len=8349  sha=edc937dd75d11538 ;; written: J:\ninfer-kvmem\.temp\gate_dp_off.json | wall=356s
+15:01:45 | ARM=off(run2) run 1 round 1  99.4s  decode=332.0  accepted=1849/1919  len=8260  sha=0ac571395cd8416f ;; run 1 round 2  132.4s  decode=191.5  accepted=1740/2108  len=7171  sha=0c0fd2bc974dbc78 ;; run 1 round 3  171.0s  decode=107.5  accepted=1501/2032  len=5963  sha=e53818f8f998d794 ;; written: J:\ninfer-kvmem\.temp\gate_dp_off.json | wall=403s
+15:08:46 | ARM=off(run3) run 1 round 1  99.5s  decode=325.8  accepted=1846/1945  len=8323  sha=bb8c4ec3e9029101 ;; run 1 round 2  130.4s  decode=256.7  accepted=1835/1975  len=8892  sha=8b8e431be724dfed ;; run 1 round 3  168.7s  decode=119.4  accepted=1597/2403  len=5015  sha=ed1c11cd45bd0dd6 ;; written: J:\ninfer-kvmem\.temp\gate_dp_off.json | wall=399s
+15:09:19 | log stat arm=off exceeds=12 done=12 demote_profile=2443 ring=4979 stall=35 turnClosure=7
+15:09:24 | stop dp_off: killed engine pid=23908 ;; killed tee pid=11524 ;; killed cmd pid=3276 ;; freed after ~3s; vram used=894 MiB
+15:09:24 | ==== ARM on (NINFER_ASYNC_DEMOTE=1, tag=valleywatch) ====
+15:09:24 | env check: NINFER_ASYNC_DEMOTE=1
+15:09:25 | start: vram before start: used=894 MiB / 16303 MiB ;; start: exe=J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe ;; start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_valleywatch.log
+15:09:37 | waitready: READY
+15:14:54 | ARM=on(run1) run 1 round 1  56.0s  decode=293.9  accepted=1827/1989  len=8321  sha=35bbafa0740511e8 ;; run 1 round 2  101.2s  decode=285.7  accepted=1865/1889  len=8434  sha=7b7e6eda53a726fb ;; run 1 round 3  146.1s  decode=237.3  accepted=1853/1939  len=8433  sha=9a4669d27e348757 ;; written: J:\ninfer-kvmem\.temp\gate_dp_on.json | wall=304s
+15:21:35 | ARM=on(run2) run 1 round 1  100.1s  decode=303.1  accepted=1828/1965  len=8250  sha=40365b78e1e9dab0 ;; run 1 round 2  128.9s  decode=264.2  accepted=1841/1961  len=8161  sha=b91f6655f79b6a13 ;; run 1 round 3  164.3s  decode=125.8  accepted=1574/1748  len=8514  sha=1b3667fe0c0b5614 ;; written: J:\ninfer-kvmem\.temp\gate_dp_on.json | wall=394s
+15:28:15 | ARM=on(run3) run 1 round 1  99.5s  decode=330.1  accepted=1849/1941  len=8320  sha=f9a3af1e67342d0b ;; run 1 round 2  130.3s  decode=234.2  accepted=1811/2027  len=8613  sha=cbab8bd8bad8448a ;; run 1 round 3  156.9s  decode=235.6  accepted=1855/1936  len=8115  sha=a04e7cd3a4cf2558 ;; written: J:\ninfer-kvmem\.temp\gate_dp_on.json | wall=387s
+15:28:49 | log stat arm=on exceeds=9 done=9 demote_profile=3199 ring=3525 stall=4 turnClosure=6
+15:28:49 | ==== SUMMARY ====
+15:28:49 | deep(r2-3) off=[223.5,149.5,188.1] median=188.1 | on=[261.5,195,234.9] median=234.9
+15:28:49 | r=OFF/ON=0.801 -> per pre-reg: NET GAIN CONFIRMED (deep regime)
+15:28:49 | r1 (secondary) off=[327.6,332,325.8] on=[293.9,303.1,330.1]
+15:28:49 | final: ON arm left as standard platform (pid 13896, tag=valleywatch); OFF attempt-1 client-abort recorded
+15:28:49 | DEEPPOOL-ASYNC end

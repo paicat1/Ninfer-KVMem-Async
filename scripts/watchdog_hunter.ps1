@@ -17,9 +17,14 @@ while (((Get-Date) - $t0).TotalHours -lt $MaxHours) {
            Sort-Object LastWriteTime -Descending | Select-Object -First 1
     $alive = 0
     $alive = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*valley_hunter*' }).Count
+    # 前置（TELE 第四轮建议）：引擎进程是否还在 —— 引擎没了是另一类告警，不能混为"猎人静默死亡"
+    $eng = @(Get-Process ninfer-serve -ErrorAction SilentlyContinue).Count
     if ($led) {
         $age = ((Get-Date) - $led.LastWriteTime).TotalSeconds
-        if ($age -gt $StaleSec) {
+        if ($eng -eq 0) {
+            $l2 = ("{0} | ALERT(ENGINE): ninfer-serve not running | ledger={1}" -f (Get-Date -Format "MM-dd HH:mm:ss"), $led.Name)
+            Add-Content -LiteralPath $alert -Value $l2 -Encoding UTF8; Write-Output $l2
+        } elseif ($age -gt $StaleSec) {
             $line = ('{0} | ALERT: hunter ledger silent {1}s (>{2}s) | proc={3} | ledger={4}' -f
                      (Get-Date -Format 'MM-dd HH:mm:ss'), [int]$age, $StaleSec, $alive, $led.Name)
             Add-Content -LiteralPath $alert -Value $line -Encoding UTF8

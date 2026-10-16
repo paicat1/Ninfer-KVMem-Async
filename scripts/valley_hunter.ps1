@@ -83,9 +83,13 @@ function Snap($name) {
 Say "hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=${LogCapMB}MB | maxHours=$MaxHours | NO pressure, NO restart, NO config change"
 $script:lastLen = $null
 $t0 = Get-Date
+$script:powHist = @()
 $n = 0; $streak = 0; $cases = 0
     $base = PowerFingerprint   # TELE 意见①：起服时的**空闲基线**（判据按此归一化）
     Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
+    $idleBasePow = [double]$base.pow   # 相对判据的空闲基座（TELE 第四轮：跨批次会漂移，必须每批重取）
+    $idleBaseClk = [double]$base.clk
+    Say ("CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active powers (default 215W until 5 samples)"
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'
@@ -94,12 +98,27 @@ while ($true) {
     $fv = FreshVerify
     $n++
     $fp = PowerFingerprint
+    # —— 判据 v2（2026-10-17 06:2x 预登记，**相对基线**，取代 v1 的绝对 100 W）——
+    #   起因（TELE 第四轮实测）：IDLE BASELINE 跨批次漂移（同引擎未重启：660MHz/2%/21.68W → 1770MHz/30%/30.94W）
+    #   + probe#7 分歧行（decode=39 属谷档量级，但 109 W 未过绝对 100 W 门槛 ⇒ v1 漏判）。
+    #   公式：thr_rel = idleBase + 0.5 × (healthyRef − idleBase)
+    #        healthyRef = 近 30 条"健康活动"样本（util≥90 且 decode≥100）的功耗中位；样本 <5 条时用 215 W 默认。
+    if ($fp.util -ge 90 -and $p.decode -ge 100 -and $fp.pow -gt 0) {
+        $script:powHist = @(@($script:powHist) + $fp.pow) | Select-Object -Last 30
+    }
+    if (@($script:powHist).Count -ge 5) {
+        $sorted = @([double[]]$script:powHist | Sort-Object)
+        $healthyRef = [double]$sorted[[math]::Floor($sorted.Count / 2)]
+    } else { $healthyRef = 215.0 }
+    $thrRel = $idleBasePow + 0.5 * ($healthyRef - $idleBasePow)
+    $corrobAbs = ($fp.pow -ge 0 -and $fp.pow -lt 100 -and $fp.util -ge 90)
+    $corrobRel = ($fp.pow -ge 0 -and $fp.pow -lt $thrRel -and $fp.util -ge 90)
     if ($fv.v -ge 0) {
         $corrob = ($fv.v -ge 100); $how = "freshVerify=$($fv.v)"
     } else {
-        # fresh verify 在当前仪表档取不到（恒 -1）⇒ 退到功耗指纹（永远可用）
-        $corrob = ($fp.pow -ge 0 -and $fp.pow -lt 100 -and $fp.util -ge 90)
-        $how = "clk=$($fp.clk)MHz power=$($fp.pow)W util=$($fp.util)%"
+        $corrob = $corrobRel
+        $how = ("clk={0}MHz power={1}W util={2}% | thr_rel={3:N1}W (idle={4:N1} ref={5:N1}) | v1abs={6}" -f `
+                $fp.clk, $fp.pow, $fp.util, $thrRel, $idleBasePow, $healthyRef, $corrobAbs)
     }
     # 预登记排除：起步前两探 = 空闲后首发（冷启动本来就慢：实测 #1 decode 23-29、功耗 ~95W），
     # 不是谷 ⇒ 不计入 streak，避免把冷启动误判成案卷。

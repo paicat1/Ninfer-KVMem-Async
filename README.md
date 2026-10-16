@@ -2,7 +2,43 @@
 
 **在两代前序工程跑通的架构上，部署更大的模型（Qwen3.8-27B-Coder390，27B）。**
 
+## 这个仓是做什么的（30 秒版）
+
+在 **16 GB 消费显卡**上跑 **27B 模型**做**长上下文 Agent 会话**——原生放不下（百万 token 的 KV ≈ 32 GiB），靠 **KVMem 虚拟化**（KV 分层存放 + 按需召回）"装得下"；本仓的核心增量是**异步页流水（Async Page Pipeline）**：页搬运与解码计算**流水并行**（搬运不等解码、解码不等页），让"超池"不等于"减速"，并配齐正确性工程（池内 vs 超池输出逐字无损）与全套实测标定（池 / KV 精度档 / 投机档）。
+
+- **怎么来的**：三代工程接力——Bonsai-27B-NInfer（引擎与量化）→ Bonsai-27B-NInfer-kvmem（KVMem 环）→ 本仓（异步页流水），详见下方三代演进表；
+- **当前状态**：**限定场景（单路长上下文、显存独占）生产可用**；一个已知未决课题 = 时段性慢态（"死亡谷"：可按需复现、机制已定位到驱动提交路径、持续攻关中）；
+- **怎么读这个仓**：下面先看关键节点与全部战役（精选）；逐轮完整过程（含每次决策的证据链）见[项目构建史](docs/ninfer-kvmem-项目构建史.md)。
+
 > English condensed edition → [README.en.md](README.en.md)
+
+
+三代演进：
+
+| 代 | 仓 | 沉淀 |
+|---|---|---|
+| 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层，两分支一体） | **Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer**：Ambolio 移植 + CraneBW 内核、改 CMake `89\|120a`、自产 v2 制品；Device/Host **双层 KV**（被动容量）；MTP / DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s |
+| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
+| 三 | [**paicat1/Ninfer-KVMem-Async**](https://github.com/paicat1/Ninfer-KVMem-Async)（本仓；2026-10-13 由 Qwen38-27B-NInfer-kvmem 改名） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
+
+> 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
+
+---
+
+## 从两仓成果到今天：继承与全部战役
+
+### 继承：前两仓留下的武器库
+
+| 武器 | 来自 | 在本仓的作用 |
+|---|---|---|
+| **混合投机（dflash2 + MTP + ngram）与调参方法论** | 仓二：K=7 甜点、K≥10 崩塌、**接受率是强语料依赖指标**（不能用合成文本测）、真实负载 748.6 峰值 | 本仓的 MTP K4 + ngram 档位、`test_ab_arm1.py` 的接受率/速度统计方法，全部照此模式验收 |
+| **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
+| **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
+| **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 发放包预编译成品 exe 不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
+| **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 10 预设 + 校验告警 + KV_ENV 注入 |
+
+
+### 关键节点（精选）
 
 > ## ★ 2026-10-16 · 异步页流水拿到同条件对照铁证 + 死亡谷攻关里程碑（连续 120 小时不间断压测）
 >
@@ -18,7 +54,7 @@
 >
 > **③ 此间（10-14~15）其他进展**：Swift-1.5（IQ3_S）换底座与 KV 档 A/B（rk8v4 快且稳）；v2 转正为日常基线（127 轮连跑 0×500、峰值 403.7）；S12 发生率对照 12 窗全 0 ⇒ 发现"活跃窗口"结构；S11 GDN 常驻修复（字节相同输出）。详见[构建史](docs/ninfer-kvmem-项目构建史.md) §50-73。
 >
-> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [**PDF 版（GitHub 可在线翻页）**](docs/异步页流水-技术说明.pdf) · [**English 版**](docs/Async-Page-Pipeline-Technical-Brief.pptx)（[PDF](docs/Async-Page-Pipeline-Technical-Brief.pdf)）· [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
+> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [PDF 版（下载查看）](docs/异步页流水-技术说明.pdf) · [**English 版**](docs/Async-Page-Pipeline-Technical-Brief.pptx)（[PDF](docs/Async-Page-Pipeline-Technical-Brief.pdf)）· [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
 
 > ## ★ 2026-10-13 07:15 · 新峰 463.9（H1 基线 · agentic 首战）
 >
@@ -50,30 +86,6 @@
 > （问题背景 / 机理 / v2 实现与正确性契约 / **与 KVMem 逐项对照 + 常见误解澄清** / 实机验证 /
 > 死亡谷分析 / 施工档案与回滚锚）；工程记录详见[构建史](docs/ninfer-kvmem-项目构建史.md) §三·十九。
 
-三代演进：
-
-| 代 | 仓 | 沉淀 |
-|---|---|---|
-| 一 | [**paicat1/Bonsai-27B-NInfer**](https://github.com/paicat1/Bonsai-27B-NInfer)（main=项目层 / engine-main=引擎层，两分支一体） | **Bonsai-2-27B 三元量化（2.125 bit，9.81 GiB）跑上 NInfer**：Ambolio 移植 + CraneBW 内核、改 CMake `89\|120a`、自产 v2 制品；Device/Host **双层 KV**（被动容量）；MTP / DFlash2 投机。极值：prefill 2,850 / decode 396.9 tok/s |
-| 二 | [**paicat1/Bonsai-27B-NInfer-kvmem**](https://github.com/paicat1/Bonsai-27B-NInfer-kvmem) | **KVMem 环（主动检索）**：显存小池 + 主机卸载、`--kv-capacity` 可小于上下文、内容打分 SELECT、五开关；**混合投机**：dflash2（K1-15）+ MTP（K1-5）+ ngram，**K=7 甜点**（K≥10 崩塌）、接受率语料效应（数数字 91% vs 散文 3.7-13.4%）；自编整套引擎（MSVC 补丁 ×7 + Design C 治"思考区 stop 空正文"）+ 双引擎对照；GUI 启动器与 serve_tee 日志工具自建。极值：**prefill 3,820 / decode 748.6 tok/s**（真实负载 19 请求，接受率 35.7-94.4%） |
-| 三 | [**paicat1/Ninfer-KVMem-Async**](https://github.com/paicat1/Ninfer-KVMem-Async)（本仓；2026-10-13 由 Qwen38-27B-NInfer-kvmem 改名） | 换大模型：**Qwen3.8-27B-Coder390-EfficientThink**——自转 MTP 头（iq4_nl）、思考熔断三连缺陷修复（W1-W4）、growth 定案、池标定 51,200、视觉塔嫁接、256K 逻辑上下文；**并作为 Qwen 4 27B（Bonsai/NInfer 格式）的着陆预备** |
-
-> 硬件基线：RTX 5080 16 GB + 128 GB RAM，Windows，全部结论为实测（非推测）。
-
----
-
-## 从两仓成果到今天：继承与全部战役
-
-### 继承：前两仓留下的武器库
-
-| 武器 | 来自 | 在本仓的作用 |
-|---|---|---|
-| **混合投机（dflash2 + MTP + ngram）与调参方法论** | 仓二：K=7 甜点、K≥10 崩塌、**接受率是强语料依赖指标**（不能用合成文本测）、真实负载 748.6 峰值 | 本仓的 MTP K4 + ngram 档位、`test_ab_arm1.py` 的接受率/速度统计方法，全部照此模式验收 |
-| **KVMem 环（主动检索式 KV 卸载）** | 仓二：显存小池 + 主机卸载、内容打分 SELECT、五开关（缺一静默答错）、埋针判活方法论（问句独立回合、MAXQ=256） | 256K 深度的根基；本仓的召回探针（`probe_recall*.py`）与 KV_ENV 注入直接继承 |
-| **自编引擎方法论** | 仓一+仓二：MSVC 编译兼容补丁、双分支（项目层/引擎层）、产物 hash 台账、复现指南 | 本仓 W1-W4 patch 与构建部署照此模式（`patches/` + 产物对账 + `.bak` 回滚锚） |
-| **思考预算（Design C）** | 仓二：自编 serve 的 `--default-thinking-budget` 生效 vs 发放包预编译成品 exe 不解析该字段 | 本线 tb 熔断的前身——W1-W4 修的正是它的三连缺陷（`==` 失灵/越界 abort/交接拒绝） |
-| **GUI 启动器 + serve_tee** | 仓二自建（作者分发包只有 bat） | 本仓扩展到 10 预设 + 校验告警 + KV_ENV 注入 |
-
 ### 全部战役（按 [构建史](docs/ninfer-kvmem-项目构建史.md) 逐节对应）
 
 | # | 战役 | 结果 | 构建史 |
@@ -93,6 +105,13 @@
 | 12 | **自主实验夜**：64K 池标定（graph-allowance）+ **页漂移定案**（多轮 replay 挤出早期页 → decode 3 tok/s）+ **stream 挂起双重缺陷**（挂账 41）+ 挂账 39 销案 | 三类新形态定性 | §三·十七 |
 | 13 | 上游 23 提交逐条评审（无重复；B34/B35/B37 对应）+ sink=5120 实施（skeleton 4→80 页）+ KVMem 源头侦察（issue #114 / tancau brief / 挂账 42 蓝图） | 缓解落地 + 施工设计待审 | §12/§13 |
 | 14 | DSH 联调：自动压缩触发调参（ctx 229,376）+ maxTokens 24,000 封顶 | 长会话工作流闭环 | §三·十七 §8 |
+| 15 | **v2 转正**：独立交叉审核（2×40 轮深压）+ 实况 127 轮连跑 0×500、峰值 403.7 | 异步流水成为日常运行档 | §三·十九~二十九 / 40-47 |
+| 16 | **换底座**：Swift-1.5 IQ3_S 实载（11.3 GiB / 9.4 s）+ KV 档 A/B（rk8v4 速度与接受率双优）+ 请求线实测（中位 56,440 / 最大 96,430） | 生产切 IQ3_S + rk8v4 @ 65,536 | §36-39 |
+| 17 | **谷（时段性慢态）攻关 S1-S13**：四区段仪表化 → 路径收敛 → 逐项排除（PDL / 页中转 / 宿主路径 / 页档位 / 池大小 / 节流）→ **可按需复现** → **机制定位 = host 侧提交阻塞（驱动内部）** | 可控（指纹可检 / 分钟级自愈 / 回避手段已确证）；行号级根因待钉 | §48-73 |
+| 18 | **异步贡献判决实验**：深轮重载 ON/OFF 同条件对照——拆掉异步 decode 拖慢约 20%（r=0.80），最深段差约 2.0 倍 | 异步价值主张获对照铁证 | 夜研-1/2/3 |
+| 19 | **公开材料**：双语 README + 双语 18 页 PPT + PDF + 公开技术说明 | 面向社区 / 上游协同 | docs/ |
+
+> 以上为主要战役**精选**；**逐轮完整过程**（每次决策的证据链、失败与回归记录）见 **[项目构建史](docs/ninfer-kvmem-项目构建史.md)**（v1-v73，约 2,900 行，含挂账台账与仪表链）。
 
 ### 压榨：每个参数都标定过
 

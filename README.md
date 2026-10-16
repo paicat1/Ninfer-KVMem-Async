@@ -360,6 +360,8 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；
 - `docs/KV档A-B-*` / `docs/深上下文池收益与A2适用域-20261014.md` / `docs/Swift换底座-三臂结果与int8预算-20261014.md` —— 精度-池-底座三组实测；
 - `docs/审核-*.md` ×19（另 `交叉审核-*` ×2）—— TeleAgent 与 CodeBuddy 双向交叉审核记录；
+- **`docs/FAQ-死亡谷-20261016.md`** —— **谷 FAQ**（怎么判断/会不会答错/怎么恢复/怎么预防/已排除什么）；
+- **`docs/Minimal-Reproduction-Valley-On-Demand-20261016.md`**（EN）+ `docs/研判-驱动提交阻塞-最小复现与可行动项-20261016.md`（中文）—— **≈2 分钟最小复现协议**（一条命令：`scripts\valley_minrepro.ps1`），供社区/上游/驱动侧研判；
 - `docs/调研-*.md` ×3 —— tancau 同源引擎对比、撞墙机制、目标路径；
 - `build/README.md`、`build/产物清单.md` —— 引擎构建细节。
 

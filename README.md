@@ -54,7 +54,7 @@
 >
 > **③ 此间（10-14~15）其他进展**：Swift-1.5（IQ3_S）换底座与 KV 档 A/B（rk8v4 快且稳）；v2 转正为日常基线（127 轮连跑 0×500、峰值 403.7）；S12 发生率对照 12 窗全 0 ⇒ 发现"活跃窗口"结构；S11 GDN 常驻修复（字节相同输出）。详见[构建史](docs/ninfer-kvmem-项目构建史.md) §50-73。
 >
-> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [PDF 版（下载查看）](docs/异步页流水-技术说明.pdf) · [**English 版**](docs/Async-Page-Pipeline-Technical-Brief.pptx)（[PDF](docs/Async-Page-Pipeline-Technical-Brief.pdf)）· [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
+> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [**English 版**](docs/Async-Page-Pipeline-Technical-Brief.pptx) · [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
 
 > ## ★ 2026-10-13 07:15 · 新峰 463.9（H1 基线 · agentic 首战）
 >
@@ -351,7 +351,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 ## 文档索引
 
-- **`docs/异步页流水-技术说明.pptx`**（18 页演示）/ **同名 `.pdf`**（GitHub 可在线翻页）/ **`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`**（公开版科普说明）——对外介绍与原理；
+- **`docs/异步页流水-技术说明.pptx`**（18 页演示，另有英文版 `Async-Page-Pipeline-Technical-Brief.pptx`）/ **`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`**（公开版科普说明）——对外介绍与原理；
 - **`docs/ninfer-kvmem-项目构建史.md`** —— v1-v73 完整历程（每个决策的证据链），**先读这个**；
 - **`docs/引擎启动参数与配置档-20261014.md`** —— 启动参数逐项解释 + 两档配置（SWIFT 现行 / Coder390 定稿）+ 环境变量六开关；
 - `docs/教程-KVMem与短测-给agent与使用者.md` —— 使用教程；

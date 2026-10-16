@@ -16,7 +16,8 @@ param(
     [int]$Port = 8094,
     [int]$MaxHours = 12,
     [int]$LogCapMB = 500,
-    [string]$CaseDir = '.temp\cases'
+    [string]$CaseDir = '.temp\cases',
+    [int]$PostHitWaitSec = 0
 )
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $Host.UI.RawUI.WindowTitle = 'VALLEY-HUNTER [running] -- 1 probe/min, case on decode<60+verify>=100 x2; auto-stop after $MaxHours h or log cap $LogCapMB MB'
@@ -89,10 +90,14 @@ while ($true) {
         $d = Snap $cid
         Say "VALLEY CONFIRMED -> case dir $d (decode=$($p.decode), freshVerify=$($fv.v)); scene frozen: NO restart / NO config change / NO pressure"
         $streak = 0
-        Start-Sleep -Seconds 120     # 现场留给二级（若获批）：不扰动，只等
-        $p2 = ProbeOnce; $fv2 = FreshVerify
-        Say ("post-120s probe decode={0} freshVerify={1} (释放即恢复? 与人造谷行为对照)" -f $p2.decode, $fv2.v)
-        Add-Content -LiteralPath (Join-Path $d 'probe_series.txt') -Value ("trigger decode=$($p.decode) freshVerify=$($fv.v)`npost120s decode=$($p2.decode) freshVerify=$($fv2.v)") -Encoding UTF8
+        if ($PostHitWaitSec -gt 0) {
+            Start-Sleep -Seconds $PostHitWaitSec   # 仅当你显式开启：测'是否恢复'需先确认无我方压力注入
+            $p2 = ProbeOnce; $fv2 = FreshVerify
+            Say ("post-${PostHitWaitSec}s probe decode={0} freshVerify={1}" -f $p2.decode, $fv2.v)
+            Add-Content -LiteralPath (Join-Path $d 'probe_series.txt') -Value ("trigger decode=$($p.decode) freshVerify=$($fv.v)`npost${PostHitWaitSec}s decode=$($p2.decode) freshVerify=$($fv2.v)") -Encoding UTF8
+        } else {
+            Say 'post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)'
+        }
     }
     if ($n % 10 -eq 0) { Say "heartbeat: probes=$n cases=$cases engine_uptime_h=$([math]::Round(((Get-Date) - (Get-CimInstance Win32_Process -Filter \"Name='ninfer-serve.exe'\" | Select-Object -First 1).CreationDate).TotalHours,2))" }
     Start-Sleep -Seconds 60

@@ -151,6 +151,7 @@ while ($true) {
     $streak = $script:streak
     try {
         [pscustomobject]@{ last_ts = [int64]([DateTimeOffset]::Now.ToUnixTimeSeconds()); streak = $script:streak; pwflags = @($script:pwFlags) } |
+            ConvertTo-Json | Set-Content -LiteralPath $STREAK_FILE -Encoding UTF8
     } catch {
         Say ("WARN: streak_state.json 写入失败（streak 将随本次进程结束丢失）：{0}" -f $_.Exception.Message)
     }

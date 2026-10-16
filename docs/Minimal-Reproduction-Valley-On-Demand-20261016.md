@@ -32,6 +32,20 @@ It performs: baseline probe -> hold 1200 MiB from a second process -> probe duri
 
 **Dose and saturation**: external added demand **200 MiB ⇒ no effect at all (0/9 slow)**; **400-600 MiB ⇒ exactly one valley-grade probe per application**; **≥400 MiB held 4-5 minutes ⇒ sustained valley (decode ~1.5)**. The threshold is **absolute, not relative to the engine's headroom** (600 MiB triggers even with 909 MiB headroom).
 
+## Self-test of this protocol (in this repository)
+
+| run | baseline | during hold | after release | verdict |
+|---|---|---|---|---|
+| #1 | 162 | **2.2** (deep band) | 105 at +10 s -> **misread as not recovered** | not reproduced (criterion defect) |
+| #2 | - | - | 36.5 -> 165 -> 161.9 | script error (fixed) |
+| **#3 (final script)** | **163.3** | **6.3 / 6.3** (GPU 100 %, **73.9 W**) | **38.7 -> 164.9 -> 164.8** | **REPRODUCED** |
+
+Two lessons are baked into the script: **recovery takes roughly half a minute** after a 4-minute hold
+(so a single probe right after release misreads it), and the probe helper must return only the number
+(the first version polluted its own result pipeline). The script now settles 20 s, reads a three-probe
+trend, and **warns explicitly when the baseline is already slow** (in that case the during-reading
+cannot be attributed to the hold alone).
+
 ## Observed fingerprint (independent of the trigger)
 
 | signal | healthy | valley |

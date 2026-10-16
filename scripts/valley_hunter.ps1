@@ -89,7 +89,7 @@ $n = 0; $streak = 0; $cases = 0
     Say ("IDLE BASELINE (pre-first-probe): clk={0}MHz util={1}% pow={2}W | criterion must be normalised against this" -f $base.clk, $base.util, $base.pow)
     $idleBasePow = [double]$base.pow   # 相对判据的空闲基座（TELE 第四轮：跨批次会漂移，必须每批重取）
     $idleBaseClk = [double]$base.clk
-    Say ("CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active powers (default 215W until 5 samples)")
+    Say ("CRITERION v3 (effective now): decode<60 AND power<thr_rel [NO util gate] AND 3 consecutive; thr_rel = idleBase + 0.5*(healthyRef - idleBase); warmup excludes first probe only")
 while ($true) {
     if (((Get-Date) - $t0).TotalHours -ge $MaxHours) { Say "max hours reached, stop"; break }
     $log = 'logs\test_valleywatch.log'
@@ -112,7 +112,9 @@ while ($true) {
     } else { $healthyRef = 215.0 }
     $thrRel = $idleBasePow + 0.5 * ($healthyRef - $idleBasePow)
     $corrobAbs = ($fp.pow -ge 0 -and $fp.pow -lt 100 -and $fp.util -ge 90)
-    $corrobRel = ($fp.pow -ge 0 -and $fp.pow -lt $thrRel -and $fp.util -ge 90)
+    # v3（2026-10-17 07:2x）：**去掉 util>=90% 门槛** —— 谷的判别量是功耗（相对基线），
+    #   util 是 nvidia-smi 的时段占比、会采样错位与抖动，实测误杀真谷（062707 #6 decode=37.7/power=174W 但 util=85% ⇒ 未立案）。
+    $corrobRel = ($fp.pow -ge 0 -and $fp.pow -lt $thrRel)
     if ($fv.v -ge 0) {
         $corrob = ($fv.v -ge 100); $how = "freshVerify=$($fv.v)"
     } else {
@@ -120,14 +122,13 @@ while ($true) {
         $how = ("clk={0}MHz power={1}W util={2}% | thr_rel={3:N1}W (idle={4:N1} ref={5:N1}) | v1abs={6}" -f `
                 $fp.clk, $fp.pow, $fp.util, $thrRel, $idleBasePow, $healthyRef, $corrobAbs)
     }
-    # 预登记排除：起步前两探 = 空闲后首发（冷启动本来就慢：实测 #1 decode 23-29、功耗 ~95W），
-    # 不是谷 ⇒ 不计入 streak，避免把冷启动误判成案卷。
-    $warmup = ($n -le 2)
+    # v3：只排除**首探**（冷启动那一发确实特殊）；其余交给"连续 3 拍"的持续性判据去区分预热与谷。
+    $warmup = ($n -le 1)
     $hit = (-not $warmup -and $p.decode -ge 0 -and $p.decode -lt 60 -and $corrob)
     if ($hit) { $streak++ } else { $streak = 0 }
     $wtag = $(if ($warmup) { " [warmup: 起步探不计数]" } else { "" })
     Say ("probe #{0} decode={1} {2} (newlines={3}) streak={4}{5}" -f $n, $p.decode, $how, $fv.n, $streak, $wtag)
-    if ($streak -ge 2) {
+    if ($streak -ge 3) {   # v3：连续 **3 拍**（预热实测只持续 2 拍即恢复，谷会持续数分钟 ⇒ 用持续性区分）
         $cases++
         $cid = "case_{0:yyyyMMdd_HHmmss}" -f (Get-Date)
         $d = Snap $cid

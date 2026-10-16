@@ -18,7 +18,7 @@
 >
 > **③ 此间（10-14~15）其他进展**：Swift-1.5（IQ3_S）换底座与 KV 档 A/B（rk8v4 快且稳）；v2 转正为日常基线（127 轮连跑 0×500、峰值 403.7）；S12 发生率对照 12 窗全 0 ⇒ 发现"活跃窗口"结构；S11 GDN 常驻修复（字节相同输出）。详见[构建史](docs/ninfer-kvmem-项目构建史.md) §50-73。
 >
-> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [**PDF 版（GitHub 可在线翻页）**](docs/异步页流水-技术说明.pdf) · [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
+> **📄 演示材料**：[`异步页流水-技术说明.pptx`（18 页）](docs/异步页流水-技术说明.pptx) · [**PDF 版（GitHub 可在线翻页）**](docs/异步页流水-技术说明.pdf) · [**English 版**](docs/Async-Page-Pipeline-Technical-Brief.pptx)（[PDF](docs/Async-Page-Pipeline-Technical-Brief.pdf)）· [公开说明（MD）](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
 
 > ## ★ 2026-10-13 07:15 · 新峰 463.9（H1 基线 · agentic 首战）
 >

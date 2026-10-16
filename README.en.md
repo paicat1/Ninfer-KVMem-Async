@@ -47,7 +47,8 @@ Three generations:
 
 ## Materials
 
-- **Slide deck** (18 pages, Chinese): [`.pptx`](docs/异步页流水-技术说明.pptx) · [**PDF — viewable directly on GitHub**](docs/异步页流水-技术说明.pdf)
+- **Slide deck (English, 18 pages)**: [`.pptx`](docs/Async-Page-Pipeline-Technical-Brief.pptx) · [**PDF — viewable directly on GitHub**](docs/Async-Page-Pipeline-Technical-Brief.pdf)
+- **Slide deck (Chinese)**: [`.pptx`](docs/异步页流水-技术说明.pptx) · [PDF](docs/异步页流水-技术说明.pdf)
 - **Public technical note** (CN, plain-language): [`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
 - **Build history** (the full record, the place to dig in): [`docs/ninfer-kvmem-项目构建史.md`](docs/ninfer-kvmem-项目构建史.md)
 

@@ -1,0 +1,25 @@
+git log:
+a029757 11:35 docs(valley): rewrite the deep-pool pre-registration with the corrected decision logic -- a single deep request carries both the request-shape and the machine-state features so slow cannot be read as support for the machine state, and the plan now reads slow as a successful reproduction of the combination and fast as a failure that implies a third variable, adds a shallow control under the same edge state to separate the two, orders warmup then shallow then deep to avoid the known first-request-after-idle hang, and adds four checks of its own, namely measuring the rate from the request itself rather than the window average, capturing the migration lines, host time and free memory per request, pausing the hunter because with one concurrency slot its probe would queue behind the test, and recording the unexplained window state
+ea77215 11:28 tools(governance): let the gate find its interpreter instead of assuming one on the path -- the checks were invoked as plain python so a shell without it on the path turned the gate into a false blocker and stopped a push, the gate now tries the command, then py, then the usual install locations and skips with a warning rather than blocking when none is found
+460e082 11:27 docs(valley): park the file relocation during the deep-pool test and pre-register the test itself -- the pre-flight found nothing in flight on the file side, the tree is clean, no batch was started and all four watchers are alive, so the relocation is parked rather than blocking, with a rule that no file operation happens during the test because irregular tool activity is a known confounder; the test plan pre-registers how a single heavy request with a deeply over-pooled context and a long output will decide between the request shape and the machine state as the cause, and records the blocker that the freeze lock from the morning case still forbids injecting load until the user releases it
+18f828c 11:22 tools(governance): fix the unpushed listing in the scope check -- the argument list was concatenated with a string so the check raised a type error when invoked before a push, which the push path surfaced immediately; the fix passes the range as a single argument and the mode is now exercised with an empty run and with a temporary commit before being committed
+24b8a2d 11:22 docs(governance): track the evidence readme the user chose to keep -- the evidence area is defined as tracked while the scratch area is ignored, so this single readme is committed and the tree becomes clean for the push; the note inside states that existing evidence still lives in the scratch folder because running tools hard code that path and frozen cases must not be moved
+332aeb6 11:22 docs(review): commit the reviewing agent batch with explicit user approval -- the audit report sections and the queue additions had been declared as pending the user decision, and the user has now approved processing them, so they are committed with the explicit allow flag rather than being swept in by a broad add
+
+
+我方进程:
+14796 | cmd.exe | C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --port 8321 --add-dir 
+10812 | node.exe | "node"   "C:\Users\PC\AppData\Roaming\npm\\node_modules\@tencent-ai\codebuddy-code\bin\codebuddy" --serve --po
+22032 | cmd.exe | "C:\Windows\System32\cmd.exe" /k python serve_tee.py J:\ninfer-kvmem\logs\test_valleywatch.log J:\ninfer-kvmem
+8876 | python.exe | python  serve_tee.py J:\ninfer-kvmem\logs\test_valleywatch.log J:\ninfer-kvmem\engine\test-run\ninfer-serve.ex
+22808 | ninfer-serve.exe | J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe J:\ninfer-kvmem\models\Qwen3.8-27B-Coder390-EfficientThink-Q2
+7816 | pythonw.exe | "J:\miniconda3\pythonw.exe"  "J:\ninfer-kvmem\ninfer_launcher.py"
+29544 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+30692 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+22216 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\valley_logwatch.py
+21456 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+19944 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+17992 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 work\20261017\round4_decode_pressure.
+22132 | vram_hold.exe | J:\ninfer-kvmem\tools\vram_hold.exe 400 900
+18608 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 J:\ninfer-kvmem\.temp\round4_snapshot
+4464 | powershell.exe | powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*ninfer*'

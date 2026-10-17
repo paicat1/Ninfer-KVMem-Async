@@ -1,0 +1,14 @@
+﻿07:26:43 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+07:26:43 | IDLE BASELINE (pre-first-probe): clk=697MHz util=2% pow=22.32W | criterion must be normalised against this
+07:26:43 | CRITERION v3 (effective now): decode<60 AND power<thr_rel [NO util gate] AND 3 consecutive; thr_rel = idleBase + 0.5*(healthyRef - idleBase); warmup excludes first probe only
+07:26:45 | probe #1 decode=169.3 clk=2865MHz power=227.75W util=99% | thr_rel=118.7W (idle=22.3 ref=215.0) | v1abs=False (newlines=17857) streak=0 [warmup: 起步探不计数]
+07:27:47 | probe #2 decode=167.8 clk=2857MHz power=256.25W util=99% | thr_rel=118.7W (idle=22.3 ref=215.0) | v1abs=False (newlines=56) streak=0
+07:28:49 | probe #3 decode=159.9 clk=2872MHz power=261.9W util=99% | thr_rel=118.7W (idle=22.3 ref=215.0) | v1abs=False (newlines=56) streak=0
+07:29:51 | probe #4 decode=142.8 clk=2865MHz power=226.9W util=98% | thr_rel=118.7W (idle=22.3 ref=215.0) | v1abs=False (newlines=57) streak=0
+07:30:52 | probe #5 decode=159.5 clk=2865MHz power=213.9W util=99% | thr_rel=125.0W (idle=22.3 ref=227.8) | v1abs=False (newlines=56) streak=0
+07:31:54 | probe #6 decode=133.1 clk=2865MHz power=232.3W util=99% | thr_rel=127.3W (idle=22.3 ref=232.3) | v1abs=False (newlines=57) streak=0
+07:32:56 | probe #7 decode=116.6 clk=2880MHz power=204.03W util=99% | thr_rel=125.0W (idle=22.3 ref=227.8) | v1abs=False (newlines=57) streak=0
+07:33:59 | probe #8 decode=103.5 clk=2887MHz power=186.46W util=99% | thr_rel=125.0W (idle=22.3 ref=227.8) | v1abs=False (newlines=56) streak=0
+07:35:01 | probe #9 decode=116.7 clk=2872MHz power=214.1W util=99% | thr_rel=124.6W (idle=22.3 ref=226.9) | v1abs=False (newlines=57) streak=0
+07:36:02 | probe #10 decode=168.2 clk=2872MHz power=269.59W util=98% | thr_rel=125.0W (idle=22.3 ref=227.8) | v1abs=False (newlines=56) streak=0
+07:36:03 | heartbeat: probes=10 cases=0 engine_uptime_h=10.76

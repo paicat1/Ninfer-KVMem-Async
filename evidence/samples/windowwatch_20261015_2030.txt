@@ -1,0 +1,7 @@
+# window watch (host x engine state timeline) -- 2026-10-15 20:30:13
+10-15 20:30:17 | up=91.5h cpu=62% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2857,241.44,99,15640 | verify=-1ms decode=29.8 stamps=0 | s13=cy?:ok
+10-15 20:31:21 | up=91.5h cpu=67% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2880,191.20,98,15655 | verify=-1ms decode=7.0 stamps=0 | s13=cy70:ok
+10-15 20:32:24 | up=91.5h cpu=40% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=645,28.62,1,15639 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:33:27 | up=91.6h cpu=31% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=720,23.33,2,15639 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:34:30 | up=91.6h cpu=47% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=720,23.26,1,15635 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:35:33 | up=91.6h cpu=59% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1305,31.11,4,15658 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok

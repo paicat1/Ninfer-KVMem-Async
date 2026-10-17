@@ -1,0 +1,7 @@
+# window watch vw2 (freshness-aware) -- 2026-10-17 06:34:18
+# verify/decode 只在【新增行】里取；无新增行写 stale。target-split 打印门见文件头注释。
+10-17 06:34:22 | w2 | up=125.6h cpu=46% freemem_mib=91223 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2902,89.06,96,15699 | verify=stale decode_win5s=1.2 newlines=30 ts_lines=0 | s13=cy71:ok/stale(2042m)
+10-17 06:35:26 | w2 | up=125.6h cpu=37% freemem_mib=91162 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1147,28.85,6,15645 | verify=stale decode_win5s=19.8 newlines=29 ts_lines=0 | s13=cy71:ok/stale(2043m)
+10-17 06:36:30 | w2 | up=125.6h cpu=50% freemem_mib=91161 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1875,36.38,10,15671 | verify=stale decode_win5s=9.6 newlines=59 ts_lines=0 | s13=cy71:ok/stale(2044m)
+10-17 06:37:35 | w2 | up=125.6h cpu=62% freemem_mib=91098 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1455,33.05,5,15830 | verify=stale decode_win5s=28.8 newlines=57 ts_lines=0 | s13=cy71:ok/stale(2045m)
+10-17 06:38:39 | w2 | up=125.6h cpu=57% freemem_mib=91165 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1957,34.61,23,15770 | verify=stale decode_win5s=39.8 newlines=56 ts_lines=0 | s13=cy71:ok/stale(2046m)

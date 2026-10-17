@@ -9,14 +9,14 @@
 #   辅证    FreshVerify（新追加日志行里的 target-split verify 最大值）>= 100 ms
 #   确认    连续 2 拍都满足才立案（防单点噪声；宁慢十秒不冤枉一次）
 # 动作（命中即秒级落案卷，不申请——现场易腐）：
-#   .temp\cases\case_<时间戳>\ 内落：案发基线、nvidia-smi -q、引擎日志尾、reqlog 尾、
+#   evidence\cases\case_<时间戳>\ 内落：案发基线、nvidia-smi -q、引擎日志尾、reqlog 尾、
 #   我方活动时间线（±30min：git log / 我方进程 / scripts·tools·.temp 的近期改动）、探针序列
 # 护栏：探针 <=1 发/分钟；日志帽 500MB；每 10 分钟写心跳行（防静默死亡）；默认 12h 自停（可调）。
 param(
     [int]$Port = 8094,
     [int]$MaxHours = 12,
     [int]$LogCapMB = 500,
-    [string]$CaseDir = '.temp\cases',
+    [string]$CaseDir = 'evidence\cases',
     [int]$PostHitWaitSec = 0
 )
 Set-Location (Split-Path $PSScriptRoot -Parent)
@@ -90,7 +90,7 @@ function Snap($name) {
     nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,power.draw --format=csv | Out-File -FilePath (Join-Path $d 'gpu_brief.csv') -Encoding utf8
     nvidia-smi --query-compute-apps=pid,used_memory --format=csv | Out-File -FilePath (Join-Path $d 'compute_apps.csv') -Encoding utf8
     if (Test-Path 'logs\test_valleywatch.log') { Get-Content 'logs\test_valleywatch.log' -Tail 400 | Out-File -FilePath (Join-Path $d 'engine_log_tail.txt') -Encoding utf8 }
-    if (Test-Path '.temp\reqlog_watch.jsonl') { Get-Content '.temp\reqlog_watch.jsonl' -Tail 60 | Out-File -FilePath (Join-Path $d 'reqlog_tail.txt') -Encoding utf8 }
+    if (Test-Path 'evidence\reqlogs\reqlog_watch.jsonl') { Get-Content 'evidence\reqlogs\reqlog_watch.jsonl' -Tail 60 | Out-File -FilePath (Join-Path $d 'reqlog_tail.txt') -Encoding utf8 }
     Get-CimInstance Win32_Process -Filter "Name='ninfer-serve.exe'" | ForEach-Object { "pid=$($_.ProcessId) started=$($_.CreationDate)" } | Out-File -FilePath (Join-Path $d 'engine_proc.txt') -Encoding utf8
     # 我方活动时间线（±30min）——自诱导审计的第一问：案发时我们自己在干什么？
     $since = (Get-Date).AddMinutes(-30).ToString('yyyy-MM-dd HH:mm')
@@ -214,7 +214,7 @@ while ($true) {
         # —— 冻结锁机器化（2026-10-17 08:3x 补齐；CLI 草案 §3.1 与 TELE 意见④）——
         #   纪律行只"写给人看"；锁文件 + 队列表行是**机器可读**的，TELE/CLI 心跳即见。
         $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-        $lockPath = Join-Path (Join-Path $Repo '.temp') 'cases\CASE_LOCKED.json'
+        $lockPath = Join-Path (Join-Path $Repo 'evidence') 'cases\CASE_LOCKED.json'
         $lock = [pscustomobject]@{
             case       = $cid
             time       = (Get-Date -Format 'MM-dd HH:mm:ss')

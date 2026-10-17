@@ -1,0 +1,300 @@
+[ninfer] mask hidden: which=text site=commit span=1432 resident=1013 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=backend site=commit span=1432 resident=1016 hidden=416 first_hidden=80 last_hidden=495 mid_hidden=0 mid_lo=501 mid_hi=1002
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1432 resident=1013 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=backend site=mapped span=1432 resident=1016 hidden=416 first_hidden=80 last_hidden=495 mid_hidden=0 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=text site=commit span=1432 resident=1013 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=backend site=commit span=1432 resident=1016 hidden=416 first_hidden=80 last_hidden=495 mid_hidden=0 mid_lo=501 mid_hi=1002
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1432 resident=1013 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=backend site=mapped span=1432 resident=1016 hidden=416 first_hidden=80 last_hidden=495 mid_hidden=0 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=text site=commit span=1432 resident=1013 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1002
+[ninfer] mask hidden: which=backend site=commit span=1432 resident=1016 hidden=416 first_hidden=80 last_hidden=495 mid_hidden=0 mid_lo=501 mid_hi=1002
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1433 resident=1014 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1433 resident=1016 hidden=417 first_hidden=80 last_hidden=496 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=mapped span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=text site=commit span=1434 resident=1015 hidden=419 first_hidden=80 last_hidden=578 mid_hidden=78 mid_lo=501 mid_hi=1003
+[ninfer] mask hidden: which=backend site=commit span=1434 resident=1016 hidden=418 first_hidden=80 last_hidden=497 mid_hidden=0 mid_lo=501 mid_hi=1003
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] demote profile: batch=8 submit (prepare=0.00 launch=4.97 since=0.00)
+[ninfer] demote profile: batch=8 submit (prepare=0.00 launch=4.98 since=0.03)
+[ninfer] demote profile: batch=8 since=0.03 prepare=0.00 copy=4.82 publish=0.00 tail=0.00 demoted=8
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1435 resident=1008 hidden=427 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=mapped span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=text site=commit span=1435 resident=1008 hidden=427 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=commit span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote profile: retire wait=0.00ms publish+drop=0.00ms
+[ninfer] demote profile: retire wait=0.00ms publish+drop=0.00ms
+[ninfer] mask hidden: which=text site=mapped span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=mapped span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=text site=commit span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=commit span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=mapped span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=text site=commit span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=commit span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=mapped span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=text site=commit span=1435 resident=992 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1004
+[ninfer] mask hidden: which=backend site=commit span=1435 resident=1016 hidden=419 first_hidden=80 last_hidden=498 mid_hidden=0 mid_lo=502 mid_hi=1004
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1436 resident=993 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1436 resident=1016 hidden=420 first_hidden=80 last_hidden=499 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=mapped span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=text site=commit span=1437 resident=994 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=77 mid_lo=502 mid_hi=1005
+[ninfer] mask hidden: which=backend site=commit span=1437 resident=1016 hidden=421 first_hidden=80 last_hidden=500 mid_hidden=0 mid_lo=502 mid_hi=1005
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=mapped span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=text site=commit span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=commit span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=mapped span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=text site=commit span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=commit span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=mapped span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=text site=commit span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=commit span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=mapped span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=text site=commit span=1438 resident=995 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1006
+[ninfer] mask hidden: which=backend site=commit span=1438 resident=1016 hidden=422 first_hidden=80 last_hidden=501 mid_hidden=0 mid_lo=503 mid_hi=1006
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=mapped span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=text site=commit span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=commit span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=mapped span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=text site=commit span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=commit span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=mapped span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=text site=commit span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=commit span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=mapped span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=text site=commit span=1439 resident=996 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=76 mid_lo=503 mid_hi=1007
+[ninfer] mask hidden: which=backend site=commit span=1439 resident=1016 hidden=423 first_hidden=80 last_hidden=502 mid_hidden=0 mid_lo=503 mid_hi=1007
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1440 resident=997 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1440 resident=1016 hidden=424 first_hidden=80 last_hidden=503 mid_hidden=0 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=mapped span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=text site=commit span=1441 resident=998 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1008
+[ninfer] mask hidden: which=backend site=commit span=1441 resident=1016 hidden=425 first_hidden=80 last_hidden=504 mid_hidden=1 mid_lo=504 mid_hi=1008
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=mapped span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=text site=commit span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=commit span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=mapped span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=text site=commit span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=commit span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=mapped span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ninfer] ring profile window: calls=256 avg ms sel=0.004 rr=0.063 mp=0.007 rs=0.008 mk=0.070 other=0.000 | max ms sel=0.0 rr=14.9 mp=0.2 rs=0.1 mk=1.0 other=0.0
+[ninfer] mask hidden: which=text site=commit span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=commit span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=mapped span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=text site=commit span=1442 resident=999 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=75 mid_lo=504 mid_hi=1009
+[ninfer] mask hidden: which=backend site=commit span=1442 resident=1016 hidden=426 first_hidden=80 last_hidden=505 mid_hidden=2 mid_lo=504 mid_hi=1009
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1443 resident=1000 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1443 resident=1016 hidden=427 first_hidden=80 last_hidden=506 mid_hidden=2 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=mapped span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=text site=commit span=1444 resident=1001 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1010
+[ninfer] mask hidden: which=backend site=commit span=1444 resident=1016 hidden=428 first_hidden=80 last_hidden=507 mid_hidden=3 mid_lo=505 mid_hi=1010
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=mapped span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=text site=commit span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=commit span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=mapped span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=text site=commit span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=commit span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=mapped span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=text site=commit span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=commit span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] mask hidden: which=text site=mapped span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=mapped span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=text site=commit span=1445 resident=1002 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=74 mid_lo=505 mid_hi=1011
+[ninfer] mask hidden: which=backend site=commit span=1445 resident=1016 hidden=429 first_hidden=80 last_hidden=508 mid_hidden=4 mid_lo=505 mid_hi=1011
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=816 (pool 1024) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] demote-other short: freed=0 want=1 slots=1 invalid=0 noresident=177 pins=0 stalehost=0 partial=1 dup=0 flushfail=0 declined=0 pending=0
+[ninfer] mask hidden: which=text site=mapped span=1446 resident=1003 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=73 mid_lo=506 mid_hi=1012
+[ninfer] mask hidden: which=backend site=mapped span=1446 resident=1016 hidden=430 first_hidden=80 last_hidden=509 mid_hidden=4 mid_lo=506 mid_hi=1012
+[ninfer] mask hidden: which=text site=commit span=1446 resident=1003 hidden=443 first_hidden=80 last_hidden=578 mid_hidden=73 mid_lo=506 mid_hi=1012
+[ninfer] mask hidden: which=backend site=commit span=1446 resident=1016 hidden=430 first_hidden=80 last_hidden=509 mid_hidden=4 mid_lo=506 mid_hi=1012
+2026-10-17 11:40:58.709  INFO  req#547 done | openai-chat | output limit | prompt 90,482 | output 2,000 | cache 90,477 (100.0%, turn closure) | TTFT 656 ms | total 15.4s | queue 179 ms | prefill 12.0 tok/s | decode 136.3 tok/s | mixed speculation accepted 1,626/2,350 (69.2%) | ngram 1,159/1,174 accepted, 79 rounds | thinking 2,000/16,000
+2026-10-17 11:41:00.189  INFO  throughput | 5.0s | decode 248.2 tok/s (1,240 tok) | running 0 | batch 1.00 | host 69.7% (3.5s)

@@ -1,0 +1,51 @@
+﻿09:13:27 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+09:13:27 | IDLE BASELINE (pre-first-probe): clk=720MHz util=1% pow=22.77W | criterion must be normalised against this
+09:13:27 | CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+09:13:29 | probe #1 decode=169.9 clk=2865MHz power=279.1W util=99% | thr_rel=118.9W (idle=22.8 ref=215.0) | v1abs=False (newlines=31191) streak=0
+09:14:31 | probe #2 decode=169.2 clk=2857MHz power=268.2W util=99% | thr_rel=118.9W (idle=22.8 ref=215.0) | v1abs=False (newlines=59) streak=0
+09:15:33 | probe #3 decode=172.7 clk=2857MHz power=249.66W util=98% | thr_rel=118.9W (idle=22.8 ref=215.0) | v1abs=False (newlines=58) streak=0
+09:16:34 | probe #4 decode=171.7 clk=2865MHz power=199.62W util=99% | thr_rel=118.9W (idle=22.8 ref=215.0) | v1abs=False (newlines=59) streak=0
+09:17:36 | probe #5 decode=136 clk=2872MHz power=228.17W util=98% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=59) streak=0
+09:18:38 | probe #6 decode=161.1 clk=2865MHz power=244.17W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=58) streak=0
+09:19:40 | probe #7 decode=158.9 clk=2865MHz power=267.73W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=59) streak=0
+09:20:49 | probe #8 decode=24.6 clk=2902MHz power=88.83W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=59) streak=1
+09:21:56 | probe #9 decode=29.4 clk=2902MHz power=92.05W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=61) streak=2
+09:23:04 | probe #10 decode=29.2 clk=2902MHz power=94.95W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=59) streak=3
+09:23:05 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_092304 (decode=29.2, clk=2902MHz power=94.95W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True); scene frozen: NO restart / NO config change / NO pressure
+09:23:05 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+09:23:05 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+09:23:05 | heartbeat: probes=10 cases=1 engine_uptime_h=12.54
+09:24:13 | probe #11 decode=28.9 clk=2902MHz power=95.25W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=59) streak=1
+09:25:21 | probe #12 decode=28.3 clk=2910MHz power=94.86W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=60) streak=2
+09:26:28 | probe #13 decode=28.7 clk=2902MHz power=93.18W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=59) streak=3
+09:26:29 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_092628 (decode=28.7, clk=2902MHz power=93.18W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True); scene frozen: NO restart / NO config change / NO pressure
+09:26:29 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+09:26:29 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+09:27:37 | probe #14 decode=30.3 clk=2902MHz power=90.11W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=60) streak=1
+09:28:45 | probe #15 decode=27.7 clk=2902MHz power=87.22W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=60) streak=2
+09:29:52 | probe #16 decode=28.2 clk=2902MHz power=95.35W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=59) streak=3
+09:29:53 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_092952 (decode=28.2, clk=2902MHz power=95.35W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True); scene frozen: NO restart / NO config change / NO pressure
+09:29:53 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+09:29:53 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+09:31:10 | probe #17 decode=14.1 clk=2902MHz power=93.98W util=100% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=True (newlines=61) streak=1
+09:32:12 | probe #18 decode=141.6 clk=2872MHz power=231.85W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=58) streak=0
+09:33:14 | probe #19 decode=135.8 clk=2887MHz power=228.09W util=100% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=False (newlines=58) streak=0
+09:34:16 | probe #20 decode=146 clk=2872MHz power=255.13W util=96% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=60) streak=0
+09:34:16 | heartbeat: probes=20 cases=3 engine_uptime_h=12.73
+09:35:17 | probe #21 decode=163.8 clk=2857MHz power=209.77W util=99% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=False (newlines=58) streak=0
+09:36:19 | probe #22 decode=164.2 clk=2865MHz power=252.81W util=99% | thr_rel=136.2W (idle=22.8 ref=249.7) | v1abs=False (newlines=58) streak=0
+09:37:21 | probe #23 decode=168 clk=2865MHz power=234.89W util=99% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=False (newlines=59) streak=0
+09:48:21 | probe #24 decode=0 clk=2910MHz power=84.33W util=100% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=True (newlines=3019) streak=1
+09:59:00 | probe #25 decode=16.2 clk=2910MHz power=77.66W util=100% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=True (newlines=2077) streak=2
+10:00:25 | probe #26 decode=47 clk=2880MHz power=189.81W util=99% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=False (newlines=270) streak=0
+10:01:27 | probe #27 decode=118.5 clk=2887MHz power=203.49W util=99% | thr_rel=133.5W (idle=22.8 ref=244.2) | v1abs=False (newlines=94) streak=0
+10:02:29 | probe #28 decode=115.7 clk=2872MHz power=207.76W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=58) streak=0
+10:03:31 | probe #29 decode=118.2 clk=2887MHz power=205.2W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=60) streak=0
+10:04:34 | probe #30 decode=119.8 clk=2880MHz power=213.84W util=99% | thr_rel=127.3W (idle=22.8 ref=231.9) | v1abs=False (newlines=58) streak=0
+10:04:34 | heartbeat: probes=30 cases=3 engine_uptime_h=13.23
+10:05:36 | probe #31 decode=138.9 clk=2872MHz power=244.11W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=59) streak=0
+10:06:38 | probe #32 decode=166.9 clk=2865MHz power=274.02W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=58) streak=0
+10:07:39 | probe #33 decode=162.5 clk=2857MHz power=231.77W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=58) streak=0
+10:08:41 | probe #34 decode=163.6 clk=2865MHz power=262.88W util=99% | thr_rel=128.8W (idle=22.8 ref=234.9) | v1abs=False (newlines=59) streak=0
+10:09:43 | probe #35 decode=165.6 clk=2872MHz power=278.21W util=99% | thr_rel=133.4W (idle=22.8 ref=244.1) | v1abs=False (newlines=59) streak=0
+10:10:45 | probe #36 decode=172.6 clk=2857MHz power=241.07W util=99% | thr_rel=131.9W (idle=22.8 ref=241.1) | v1abs=False (newlines=58) streak=0

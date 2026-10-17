@@ -1,0 +1,185 @@
+﻿03:12:02 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=8 | NO pressure, NO restart, NO config change
+03:12:04 | probe #1 decode=171.1 power=268.22W util=99% (newlines=4060) streak=0 [warmup: 起步探不计数] [warmup: 起步探不计数]
+03:13:05 | probe #2 decode=168.9 power=243.72W util=98% (newlines=57) streak=0 [warmup: 起步探不计数] [warmup: 起步探不计数]
+03:14:07 | probe #3 decode=169.1 power=263.64W util=99% (newlines=56) streak=0
+03:15:09 | probe #4 decode=152.8 power=260.14W util=99% (newlines=56) streak=0
+03:16:11 | probe #5 decode=136.7 power=225.83W util=99% (newlines=58) streak=0
+03:17:13 | probe #6 decode=136.1 power=225.34W util=99% (newlines=56) streak=0
+03:18:14 | probe #7 decode=164.2 power=211.27W util=99% (newlines=56) streak=0
+03:19:16 | probe #8 decode=147.9 power=231.57W util=99% (newlines=57) streak=0
+03:20:18 | probe #9 decode=145.9 power=241.17W util=99% (newlines=56) streak=0
+03:21:20 | probe #10 decode=139.7 power=241.86W util=98% (newlines=58) streak=0
+03:21:20 | heartbeat: probes=10 cases=0 engine_uptime_h=
+03:22:22 | probe #11 decode=167.6 power=272.97W util=99% (newlines=56) streak=0
+03:23:24 | probe #12 decode=168.8 power=222.6W util=99% (newlines=56) streak=0
+03:24:26 | probe #13 decode=157.3 power=267.1W util=99% (newlines=57) streak=0
+03:25:27 | probe #14 decode=163.3 power=234.7W util=99% (newlines=56) streak=0
+03:26:29 | probe #15 decode=166.2 power=271.73W util=98% (newlines=57) streak=0
+03:27:31 | probe #16 decode=162.2 power=214.74W util=98% (newlines=57) streak=0
+03:28:33 | probe #17 decode=166 power=271.7W util=99% (newlines=56) streak=0
+03:29:35 | probe #18 decode=163 power=226.52W util=99% (newlines=56) streak=0
+03:30:36 | probe #19 decode=168.9 power=256.52W util=99% (newlines=56) streak=0
+03:31:38 | probe #20 decode=165.6 power=199.23W util=99% (newlines=56) streak=0
+03:31:38 | heartbeat: probes=20 cases=0 engine_uptime_h=
+03:32:40 | probe #21 decode=160.2 power=246.39W util=96% (newlines=58) streak=0
+03:33:42 | probe #22 decode=164.2 power=267.74W util=99% (newlines=56) streak=0
+03:34:44 | probe #23 decode=165.5 power=239.29W util=99% (newlines=56) streak=0
+03:35:45 | probe #24 decode=159.8 power=261.57W util=99% (newlines=57) streak=0
+03:36:47 | probe #25 decode=167.8 power=223.98W util=99% (newlines=56) streak=0
+03:37:49 | probe #26 decode=165.2 power=261.12W util=99% (newlines=57) streak=0
+03:38:51 | probe #27 decode=164.2 power=255.73W util=99% (newlines=57) streak=0
+03:39:52 | probe #28 decode=165.5 power=268.76W util=99% (newlines=56) streak=0
+03:40:54 | probe #29 decode=165 power=220.54W util=99% (newlines=56) streak=0
+03:41:56 | probe #30 decode=166 power=267.43W util=99% (newlines=57) streak=0
+03:41:56 | heartbeat: probes=30 cases=0 engine_uptime_h=
+03:42:58 | probe #31 decode=166 power=221.93W util=99% (newlines=56) streak=0
+03:43:59 | probe #32 decode=167 power=263.29W util=99% (newlines=57) streak=0
+03:45:01 | probe #33 decode=167.3 power=205.7W util=99% (newlines=57) streak=0
+03:46:03 | probe #34 decode=160.1 power=257.22W util=99% (newlines=56) streak=0
+03:47:05 | probe #35 decode=164.7 power=218.07W util=99% (newlines=56) streak=0
+03:48:06 | probe #36 decode=165.6 power=269.39W util=99% (newlines=56) streak=0
+03:49:08 | probe #37 decode=165.6 power=216.2W util=99% (newlines=57) streak=0
+03:50:10 | probe #38 decode=166.2 power=264.64W util=99% (newlines=57) streak=0
+03:51:12 | probe #39 decode=165.8 power=269.27W util=94% (newlines=56) streak=0
+03:52:14 | probe #40 decode=164.6 power=239.22W util=99% (newlines=56) streak=0
+03:52:14 | heartbeat: probes=40 cases=0 engine_uptime_h=
+03:53:16 | probe #41 decode=163.6 power=260.33W util=99% (newlines=57) streak=0
+03:54:17 | probe #42 decode=166.1 power=238.84W util=99% (newlines=56) streak=0
+03:55:19 | probe #43 decode=167.9 power=273.17W util=99% (newlines=57) streak=0
+03:56:21 | probe #44 decode=157.7 power=236.95W util=99% (newlines=57) streak=0
+03:57:22 | probe #45 decode=166.8 power=271.31W util=99% (newlines=56) streak=0
+03:58:24 | probe #46 decode=165.9 power=264.13W util=99% (newlines=56) streak=0
+03:59:26 | probe #47 decode=164.6 power=268.92W util=99% (newlines=57) streak=0
+04:00:28 | probe #48 decode=165.5 power=225.31W util=99% (newlines=57) streak=0
+04:01:30 | probe #49 decode=163.9 power=269.35W util=99% (newlines=56) streak=0
+04:02:31 | probe #50 decode=167.2 power=206.74W util=99% (newlines=56) streak=0
+04:02:31 | heartbeat: probes=50 cases=0 engine_uptime_h=
+04:03:33 | probe #51 decode=161.8 power=269.32W util=99% (newlines=56) streak=0
+04:04:35 | probe #52 decode=163.6 power=222.55W util=99% (newlines=57) streak=0
+04:05:37 | probe #53 decode=165.5 power=269.94W util=99% (newlines=56) streak=0
+04:06:38 | probe #54 decode=165.9 power=222.98W util=99% (newlines=57) streak=0
+04:07:40 | probe #55 decode=161.8 power=257.13W util=99% (newlines=57) streak=0
+04:08:42 | probe #56 decode=165.3 power=271.43W util=99% (newlines=56) streak=0
+04:09:44 | probe #57 decode=169.2 power=258.9W util=99% (newlines=56) streak=0
+04:10:46 | probe #58 decode=158.6 power=195.58W util=99% (newlines=57) streak=0
+04:11:47 | probe #59 decode=165.4 power=269.33W util=99% (newlines=57) streak=0
+04:12:49 | probe #60 decode=165.3 power=239.72W util=98% (newlines=56) streak=0
+04:12:49 | heartbeat: probes=60 cases=0 engine_uptime_h=
+04:13:51 | probe #61 decode=163.9 power=266.05W util=99% (newlines=57) streak=0
+04:14:53 | probe #62 decode=167.3 power=267.72W util=82% (newlines=56) streak=0
+04:15:54 | probe #63 decode=165.6 power=234.81W util=99% (newlines=56) streak=0
+04:16:56 | probe #64 decode=162.5 power=265.54W util=99% (newlines=58) streak=0
+04:17:58 | probe #65 decode=166.6 power=225.75W util=99% (newlines=56) streak=0
+04:19:00 | probe #66 decode=164.1 power=267.23W util=85% (newlines=57) streak=0
+04:20:02 | probe #67 decode=166.6 power=220.14W util=99% (newlines=56) streak=0
+04:21:03 | probe #68 decode=170.1 power=264.09W util=98% (newlines=56) streak=0
+04:22:05 | probe #69 decode=152 power=212.75W util=99% (newlines=57) streak=0
+04:23:07 | probe #70 decode=168.2 power=271.49W util=99% (newlines=57) streak=0
+04:23:07 | heartbeat: probes=70 cases=0 engine_uptime_h=
+04:24:09 | probe #71 decode=163.1 power=233.03W util=98% (newlines=56) streak=0
+04:25:10 | probe #72 decode=159.9 power=250.25W util=99% (newlines=57) streak=0
+04:26:12 | probe #73 decode=162.4 power=193.67W util=99% (newlines=56) streak=0
+04:27:14 | probe #74 decode=166.6 power=259.19W util=99% (newlines=56) streak=0
+04:28:16 | probe #75 decode=161.9 power=267.45W util=96% (newlines=58) streak=0
+04:29:18 | probe #76 decode=155.9 power=225.95W util=99% (newlines=56) streak=0
+04:30:19 | probe #77 decode=167.5 power=271.95W util=99% (newlines=56) streak=0
+04:31:21 | probe #78 decode=167.9 power=227.79W util=99% (newlines=57) streak=0
+04:32:23 | probe #79 decode=162.7 power=267.69W util=99% (newlines=56) streak=0
+04:33:25 | probe #80 decode=165.2 power=236.95W util=99% (newlines=56) streak=0
+04:33:25 | heartbeat: probes=80 cases=0 engine_uptime_h=
+04:34:26 | probe #81 decode=167.1 power=267.28W util=99% (newlines=57) streak=0
+04:35:28 | probe #82 decode=166.8 power=260.98W util=99% (newlines=56) streak=0
+04:36:30 | probe #83 decode=165 power=267.48W util=87% (newlines=57) streak=0
+04:37:32 | probe #84 decode=164.6 power=255.27W util=99% (newlines=56) streak=0
+04:38:33 | probe #85 decode=166.5 power=199.35W util=99% (newlines=56) streak=0
+04:39:35 | probe #86 decode=159.1 power=237.18W util=99% (newlines=58) streak=0
+04:40:37 | probe #87 decode=167.7 power=273.33W util=99% (newlines=56) streak=0
+04:41:39 | probe #88 decode=141.2 power=247.85W util=99% (newlines=56) streak=0
+04:42:41 | probe #89 decode=161.4 power=262.4W util=99% (newlines=57) streak=0
+04:43:42 | probe #90 decode=165 power=222.38W util=99% (newlines=56) streak=0
+04:43:42 | heartbeat: probes=90 cases=0 engine_uptime_h=
+04:44:44 | probe #91 decode=165.1 power=267.62W util=99% (newlines=56) streak=0
+04:45:46 | probe #92 decode=164.6 power=198.82W util=99% (newlines=58) streak=0
+04:46:48 | probe #93 decode=167.5 power=239.29W util=99% (newlines=56) streak=0
+04:47:49 | probe #94 decode=167.2 power=265.5W util=62% (newlines=56) streak=0
+04:48:51 | probe #95 decode=165.1 power=259.02W util=99% (newlines=57) streak=0
+04:49:53 | probe #96 decode=166.8 power=273.09W util=98% (newlines=56) streak=0
+04:50:55 | probe #97 decode=160.7 power=242.93W util=98% (newlines=58) streak=0
+04:51:56 | probe #98 decode=165.9 power=269.05W util=99% (newlines=56) streak=0
+04:52:58 | probe #99 decode=165.3 power=236.25W util=99% (newlines=56) streak=0
+04:54:00 | probe #100 decode=161.5 power=264.23W util=99% (newlines=57) streak=0
+04:54:00 | heartbeat: probes=100 cases=0 engine_uptime_h=
+04:55:02 | probe #101 decode=167.5 power=242.54W util=99% (newlines=56) streak=0
+04:56:04 | probe #102 decode=168.4 power=273.17W util=99% (newlines=56) streak=0
+04:57:05 | probe #103 decode=162.1 power=218.7W util=98% (newlines=58) streak=0
+04:58:07 | probe #104 decode=170 power=277.87W util=99% (newlines=56) streak=0
+04:59:09 | probe #105 decode=166.3 power=204.46W util=99% (newlines=56) streak=0
+05:00:11 | probe #106 decode=158.5 power=261.11W util=99% (newlines=57) streak=0
+05:01:12 | probe #107 decode=166.6 power=219.13W util=99% (newlines=56) streak=0
+05:02:14 | probe #108 decode=165.7 power=268.15W util=98% (newlines=57) streak=0
+05:03:16 | probe #109 decode=161.7 power=262.73W util=99% (newlines=57) streak=0
+05:04:18 | probe #110 decode=165.4 power=270.33W util=99% (newlines=56) streak=0
+05:04:18 | heartbeat: probes=110 cases=0 engine_uptime_h=
+05:05:19 | probe #111 decode=165 power=235.15W util=99% (newlines=56) streak=0
+05:06:21 | probe #112 decode=164.6 power=269.04W util=99% (newlines=57) streak=0
+05:07:23 | probe #113 decode=167.9 power=244.04W util=99% (newlines=56) streak=0
+05:08:25 | probe #114 decode=160.9 power=265.15W util=81% (newlines=57) streak=0
+05:09:26 | probe #115 decode=166.8 power=271.56W util=98% (newlines=56) streak=0
+05:10:28 | probe #116 decode=164.4 power=271.03W util=96% (newlines=56) streak=0
+05:11:30 | probe #117 decode=164 power=247.34W util=99% (newlines=57) streak=0
+05:12:32 | probe #118 decode=164.5 power=267.16W util=99% (newlines=56) streak=0
+05:13:34 | probe #119 decode=166.7 power=241.93W util=99% (newlines=57) streak=0
+05:14:35 | probe #120 decode=160.9 power=263.96W util=99% (newlines=57) streak=0
+05:14:35 | heartbeat: probes=120 cases=0 engine_uptime_h=
+05:15:37 | probe #121 decode=166.1 power=221.2W util=99% (newlines=56) streak=0
+05:16:39 | probe #122 decode=164.4 power=267.67W util=99% (newlines=56) streak=0
+05:17:41 | probe #123 decode=161.9 power=266.51W util=99% (newlines=57) streak=0
+05:18:43 | probe #124 decode=169.8 power=247.77W util=99% (newlines=57) streak=0
+05:19:44 | probe #125 decode=167.6 power=218.99W util=99% (newlines=56) streak=0
+05:20:46 | probe #126 decode=161.8 power=263.01W util=99% (newlines=57) streak=0
+05:21:48 | probe #127 decode=167.3 power=222.67W util=99% (newlines=56) streak=0
+05:22:49 | probe #128 decode=166 power=268.82W util=99% (newlines=56) streak=0
+05:23:51 | probe #129 decode=165.8 power=241.39W util=99% (newlines=57) streak=0
+05:24:53 | probe #130 decode=166.1 power=271.63W util=99% (newlines=57) streak=0
+05:24:53 | heartbeat: probes=130 cases=0 engine_uptime_h=
+05:25:55 | probe #131 decode=163.6 power=218.48W util=99% (newlines=57) streak=0
+05:26:57 | probe #132 decode=167 power=271.91W util=99% (newlines=56) streak=0
+05:27:58 | probe #133 decode=169.5 power=237.67W util=99% (newlines=56) streak=0
+05:29:00 | probe #134 decode=163.3 power=267.94W util=99% (newlines=57) streak=0
+05:30:02 | probe #135 decode=166.9 power=239.21W util=98% (newlines=57) streak=0
+05:31:04 | probe #136 decode=165.1 power=268.37W util=99% (newlines=56) streak=0
+05:32:05 | probe #137 decode=161 power=231.94W util=99% (newlines=57) streak=0
+05:33:07 | probe #138 decode=165.3 power=259.84W util=99% (newlines=56) streak=0
+05:34:09 | probe #139 decode=165.8 power=215.55W util=99% (newlines=56) streak=0
+05:35:11 | probe #140 decode=161.6 power=255.22W util=99% (newlines=57) streak=0
+05:35:11 | heartbeat: probes=140 cases=0 engine_uptime_h=
+05:36:13 | probe #141 decode=165.5 power=270.57W util=98% (newlines=57) streak=0
+05:37:14 | probe #142 decode=168.4 power=241.36W util=99% (newlines=56) streak=0
+05:38:16 | probe #143 decode=164.1 power=270.22W util=99% (newlines=57) streak=0
+05:39:18 | probe #144 decode=165.4 power=241.09W util=99% (newlines=56) streak=0
+05:40:20 | probe #145 decode=158.6 power=265.64W util=99% (newlines=56) streak=0
+05:41:21 | probe #146 decode=168.3 power=240.76W util=99% (newlines=57) streak=0
+05:42:23 | probe #147 decode=165.5 power=269.41W util=98% (newlines=56) streak=0
+05:43:25 | probe #148 decode=162.2 power=259.39W util=99% (newlines=57) streak=0
+05:44:27 | probe #149 decode=167.2 power=272.92W util=99% (newlines=56) streak=0
+05:45:29 | probe #150 decode=166.7 power=224.87W util=99% (newlines=56) streak=0
+05:45:29 | heartbeat: probes=150 cases=0 engine_uptime_h=
+05:46:30 | probe #151 decode=161.6 power=251.96W util=99% (newlines=57) streak=0
+05:47:32 | probe #152 decode=166.6 power=216.52W util=99% (newlines=57) streak=0
+05:48:34 | probe #153 decode=167.4 power=264.12W util=99% (newlines=56) streak=0
+05:49:36 | probe #154 decode=155.9 power=213.13W util=99% (newlines=57) streak=0
+05:50:37 | probe #155 decode=165.2 power=268.11W util=99% (newlines=56) streak=0
+05:51:39 | probe #156 decode=165.8 power=223.36W util=99% (newlines=56) streak=0
+05:52:41 | probe #157 decode=163.5 power=253.82W util=99% (newlines=58) streak=0
+05:53:43 | probe #158 decode=167.4 power=201.13W util=99% (newlines=56) streak=0
+05:54:44 | probe #159 decode=166.6 power=263.2W util=99% (newlines=56) streak=0
+05:55:46 | probe #160 decode=156.7 power=196.18W util=99% (newlines=57) streak=0
+05:55:46 | heartbeat: probes=160 cases=0 engine_uptime_h=
+05:56:48 | probe #161 decode=164.9 power=268.79W util=99% (newlines=56) streak=0
+05:57:50 | probe #162 decode=163.6 power=220.99W util=99% (newlines=56) streak=0
+05:58:51 | probe #163 decode=166.5 power=260.3W util=99% (newlines=57) streak=0
+05:59:53 | probe #164 decode=165.7 power=204.86W util=99% (newlines=56) streak=0
+06:00:55 | probe #165 decode=157.6 power=261.57W util=99% (newlines=57) streak=0
+06:01:57 | probe #166 decode=160.9 power=218.84W util=98% (newlines=56) streak=0
+06:02:58 | probe #167 decode=171.3 power=265.76W util=99% (newlines=56) streak=0
+06:04:00 | probe #168 decode=155.7 power=241.25W util=76% (newlines=58) streak=0

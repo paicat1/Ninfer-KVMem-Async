@@ -1,0 +1,488 @@
+09:04:17 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+09:05:17 | decode_min=18.0 tok/s (valley) | n_samples=1 | gpu=1290 MHz, 5 %, 30.73 W, 15730 MiB
+09:06:17 | decode_min=7.0 tok/s (valley) | n_samples=2 | gpu=2595 MHz, 3 %, 47.52 W, 15792 MiB
+09:07:41 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+09:08:42 | decode_min=1.2 tok/s (vdeep) | n=2 | clk=765 MHz util=1 % pow=26.83 W mem=15739 MiB
+09:08:42 |    slow lines: 1.2(throughput | 5.0s | prefill 1.0 tok/s (5 tok) | decode 1.2 tok/s (6 to) ;; 26.1(throughput | 5.0s | decode 26.1 tok/s (131 tok) | running 1)
+09:09:16 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+09:09:44 | decode_min=11.4 tok/s (valley) | n=1 | clk=2902 MHz util=100 % pow=100.40 W mem=15726 MiB
+09:09:44 |    slow lines: 11.4@09:09:32
+09:11:09 | decode_min=16.8 tok/s (valley) | n=1 | clk=2910 MHz util=100 % pow=73.95 W mem=15861 MiB
+09:11:09 |    slow lines: 16.8@09:10:42
+09:12:05 | decode_min=0.6 tok/s (vdeep) | n=1 | clk=825 MHz util=1 % pow=27.72 W mem=15849 MiB
+09:12:05 |    slow lines: 0.6@09:11:47
+09:14:54 | decode_min=1.0 tok/s (vdeep) | n=1 | clk=697 MHz util=1 % pow=23.26 W mem=15852 MiB
+09:14:54 |    slow lines: 1.0@09:14:27
+09:20:03 | decode_min=29.2 tok/s (valley) | n=1 | clk=1245 MHz util=4 % pow=23.90 W mem=15851 MiB
+09:20:03 |    slow lines: 29.2@09:19:37
+09:20:59 | decode_min=13.0 tok/s (valley) | n=1 | clk=2910 MHz util=25 % pow=51.75 W mem=15847 MiB
+09:20:59 |    slow lines: 13.0@09:20:42
+09:22:23 | decode_min=0.6 tok/s (vdeep) | n=2 | clk=660 MHz util=1 % pow=22.20 W mem=15849 MiB
+09:22:23 |    slow lines: 0.6@09:21:47 ;; 23.6@09:21:52
+09:23:20 | decode_min=10.8 tok/s (valley) | n=1 | clk=690 MHz util=0 % pow=28.33 W mem=15843 MiB
+09:23:20 |    slow lines: 10.8@09:22:57
+09:24:44 | decode_min=16.0 tok/s (valley) | n=1 | clk=2902 MHz util=99 % pow=99.85 W mem=15835 MiB
+09:24:44 |    slow lines: 16.0@09:24:07
+09:25:40 | decode_min=3.0 tok/s (deep) | n=2 | clk=652 MHz util=0 % pow=26.87 W mem=15835 MiB
+09:25:40 |    slow lines: 3.0@09:25:12 ;; 26.8@09:25:17
+09:26:36 | decode_min=12.6 tok/s (valley) | n=1 | clk=2902 MHz util=100 % pow=95.45 W mem=15835 MiB
+09:26:36 |    slow lines: 12.6@09:26:22
+09:28:00 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+09:28:40 | decode_min=10.0 tok/s (valley) | n=1 | clk=690 MHz util=1 % pow=22.69 W mem=15837 MiB
+09:28:40 |    slow lines: 10.0@09:28:37
+09:30:01 | decode_min=17.8 tok/s (valley) | n=1 | clk=2895 MHz util=100 % pow=83.13 W mem=15812 MiB
+09:30:01 |    slow lines: 17.8@09:29:47
+09:31:02 | decode_min=1.2 tok/s (vdeep) | n=1 | clk=2910 MHz util=100 % pow=66.62 W mem=15784 MiB
+09:31:02 |    slow lines: 1.2@09:30:57
+09:31:02 | VALLEY CONFIRMED (log channel) -> case_20261017_093102_logwatch | tier=vdeep | recent=['10.0', '17.8', '1.2'] | scene frozen
+09:31:22 | decode_min=5.8 tok/s (deep) | n=1 | clk=2910 MHz util=100 % pow=70.04 W mem=15820 MiB
+09:31:22 |    slow lines: 5.8@09:31:02
+09:34:24 | decode_min=11.4 tok/s (valley) | n=1 | clk=2310 MHz util=93 % pow=43.62 W mem=15805 MiB
+09:34:24 |    slow lines: 11.4@09:34:12
+09:36:10 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+09:38:31 | decode_min=2.6 tok/s (deep) | n=2 | clk=2910 MHz util=100 % pow=65.62 W mem=15741 MiB
+09:38:31 |    slow lines: 2.6@09:38:22 ;; 10.0@09:38:27
+09:39:12 | decode_min=14.0 tok/s (valley) | n=2 | clk=2895 MHz util=100 % pow=99.24 W mem=15828 MiB
+09:39:12 |    slow lines: 18.4@09:39:02 ;; 14.0@09:39:07
+09:39:32 | decode_min=17.8 tok/s (valley) | n=4 | clk=2895 MHz util=100 % pow=100.83 W mem=15803 MiB
+09:39:32 |    slow lines: 17.8@09:39:12 ;; 20.0@09:39:17 ;; 20.2@09:39:22
+09:39:34 | VALLEY CONFIRMED (log channel) -> case_20261017_093932_logwatch | tier=valley | recent=['2.6', '14.0', '17.8'] | scene frozen
+09:39:54 | decode_min=14.4 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=100.06 W mem=15821 MiB
+09:39:54 |    slow lines: 15.2@09:39:32 ;; 14.4@09:39:37 ;; 14.4@09:39:42
+09:40:14 | decode_min=12.6 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=84.03 W mem=15730 MiB
+09:40:14 |    slow lines: 15.6@09:39:52 ;; 14.0@09:39:57 ;; 14.4@09:40:02
+09:40:34 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2910 MHz util=99 % pow=68.97 W mem=15738 MiB
+09:40:34 |    slow lines: 0.6@09:40:12 ;; 1.0@09:40:17 ;; 4.6@09:40:22
+09:40:36 | VALLEY CONFIRMED (log channel) -> case_20261017_094034_logwatch | tier=vdeep | recent=['14.4', '12.6', '0.6'] | scene frozen
+09:40:56 | decode_min=7.0 tok/s (valley) | n=5 | clk=2910 MHz util=100 % pow=84.38 W mem=15816 MiB
+09:40:56 |    slow lines: 7.0@09:40:32 ;; 23.2@09:40:37 ;; 17.6@09:40:42
+09:41:16 | decode_min=14.4 tok/s (valley) | n=4 | clk=2895 MHz util=100 % pow=97.57 W mem=15826 MiB
+09:41:16 |    slow lines: 18.8@09:40:57 ;; 15.4@09:41:02 ;; 15.2@09:41:07
+09:41:37 | decode_min=13.0 tok/s (valley) | n=4 | clk=2895 MHz util=99 % pow=99.10 W mem=15826 MiB
+09:41:37 |    slow lines: 14.2@09:41:17 ;; 13.8@09:41:22 ;; 13.0@09:41:27
+09:41:38 | VALLEY CONFIRMED (log channel) -> case_20261017_094137_logwatch | tier=valley | recent=['7.0', '14.4', '13.0'] | scene frozen
+09:41:59 | decode_min=12.6 tok/s (valley) | n=4 | clk=2902 MHz util=98 % pow=94.57 W mem=15877 MiB
+09:41:59 |    slow lines: 12.6@09:41:37 ;; 13.2@09:41:42 ;; 12.8@09:41:47
+09:42:19 | decode_min=9.4 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=93.36 W mem=15875 MiB
+09:42:19 |    slow lines: 9.4@09:41:57 ;; 11.2@09:42:02 ;; 12.6@09:42:07
+09:42:39 | decode_min=13.4 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=94.69 W mem=15868 MiB
+09:42:39 |    slow lines: 14.6@09:42:17 ;; 14.4@09:42:22 ;; 13.4@09:42:27
+09:42:41 | VALLEY CONFIRMED (log channel) -> case_20261017_094239_logwatch | tier=valley | recent=['12.6', '9.4', '13.4'] | scene frozen
+09:43:01 | decode_min=11.2 tok/s (valley) | n=5 | clk=2902 MHz util=99 % pow=90.39 W mem=15862 MiB
+09:43:01 |    slow lines: 14.4@09:42:37 ;; 14.6@09:42:42 ;; 11.2@09:42:47
+09:43:21 | decode_min=12.4 tok/s (valley) | n=4 | clk=2902 MHz util=99 % pow=89.20 W mem=15868 MiB
+09:43:21 |    slow lines: 12.4@09:43:02 ;; 14.8@09:43:07 ;; 14.4@09:43:12
+09:43:42 | decode_min=10.2 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=88.07 W mem=15896 MiB
+09:43:42 |    slow lines: 10.2@09:43:22 ;; 13.4@09:43:27 ;; 11.2@09:43:32
+09:43:43 | VALLEY CONFIRMED (log channel) -> case_20261017_094342_logwatch | tier=valley | recent=['11.2', '12.4', '10.2'] | scene frozen
+09:44:03 | decode_min=8.8 tok/s (valley) | n=4 | clk=2902 MHz util=99 % pow=86.05 W mem=15873 MiB
+09:44:03 |    slow lines: 14.6@09:43:42 ;; 11.2@09:43:47 ;; 8.8@09:43:52
+09:44:24 | decode_min=8.8 tok/s (valley) | n=4 | clk=2910 MHz util=96 % pow=84.18 W mem=15778 MiB
+09:44:24 |    slow lines: 13.6@09:44:02 ;; 13.4@09:44:07 ;; 10.0@09:44:12
+09:44:44 | decode_min=5.8 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=75.04 W mem=15860 MiB
+09:44:44 |    slow lines: 10.0@09:44:22 ;; 9.8@09:44:27 ;; 12.6@09:44:32
+09:44:46 | VALLEY CONFIRMED (log channel) -> case_20261017_094444_logwatch | tier=deep | recent=['8.8', '8.8', '5.8'] | scene frozen
+09:45:06 | decode_min=4.4 tok/s (deep) | n=5 | clk=2917 MHz util=100 % pow=74.08 W mem=15848 MiB
+09:45:06 |    slow lines: 4.4@09:44:42 ;; 9.4@09:44:47 ;; 11.0@09:44:52
+09:45:27 | decode_min=9.6 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=85.45 W mem=15804 MiB
+09:45:27 |    slow lines: 13.0@09:45:07 ;; 9.6@09:45:12 ;; 17.2@09:45:17
+09:45:47 | decode_min=11.8 tok/s (valley) | n=4 | clk=2910 MHz util=98 % pow=84.94 W mem=15817 MiB
+09:45:47 |    slow lines: 18.4@09:45:27 ;; 15.8@09:45:32 ;; 11.8@09:45:37
+09:45:48 | VALLEY CONFIRMED (log channel) -> case_20261017_094547_logwatch | tier=valley | recent=['4.4', '9.6', '11.8'] | scene frozen
+09:46:09 | decode_min=13.2 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=79.26 W mem=15835 MiB
+09:46:09 |    slow lines: 16.4@09:45:47 ;; 18.6@09:45:52 ;; 18.1@09:45:57
+09:46:29 | decode_min=5.4 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=72.62 W mem=15588 MiB
+09:46:29 |    slow lines: 5.4@09:46:07 ;; 15.2@09:46:12 ;; 15.0@09:46:17
+09:46:49 | decode_min=17.4 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=82.47 W mem=15748 MiB
+09:46:49 |    slow lines: 23.0@09:46:27 ;; 18.0@09:46:32 ;; 17.4@09:46:37
+09:46:51 | VALLEY CONFIRMED (log channel) -> case_20261017_094649_logwatch | tier=valley | recent=['13.2', '5.4', '17.4'] | scene frozen
+09:47:12 | decode_min=16.6 tok/s (valley) | n=5 | clk=2910 MHz util=99 % pow=84.61 W mem=15749 MiB
+09:47:12 |    slow lines: 19.0@09:46:47 ;; 19.2@09:46:52 ;; 17.8@09:46:57
+09:47:32 | decode_min=15.2 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=84.79 W mem=15739 MiB
+09:47:32 |    slow lines: 15.2@09:47:12 ;; 15.4@09:47:17 ;; 17.2@09:47:22
+09:47:52 | decode_min=12.4 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=83.50 W mem=15715 MiB
+09:47:52 |    slow lines: 19.4@09:47:32 ;; 12.4@09:47:37 ;; 14.0@09:47:42
+09:47:54 | VALLEY CONFIRMED (log channel) -> case_20261017_094752_logwatch | tier=valley | recent=['16.6', '15.2', '12.4'] | scene frozen
+09:48:14 | decode_min=14.8 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=83.80 W mem=15754 MiB
+09:48:14 |    slow lines: 16.8@09:47:52 ;; 14.8@09:47:57 ;; 15.0@09:48:02
+09:48:35 | decode_min=14.6 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=86.69 W mem=15657 MiB
+09:48:35 |    slow lines: 17.4@09:48:12 ;; 14.6@09:48:17 ;; 16.6@09:48:22
+09:48:55 | decode_min=13.0 tok/s (valley) | n=5 | clk=2910 MHz util=100 % pow=81.82 W mem=15653 MiB
+09:48:55 |    slow lines: 16.8@09:48:32 ;; 17.2@09:48:37 ;; 14.6@09:48:42
+09:48:57 | VALLEY CONFIRMED (log channel) -> case_20261017_094855_logwatch | tier=valley | recent=['14.8', '14.6', '13.0'] | scene frozen
+09:49:17 | decode_min=14.6 tok/s (valley) | n=4 | clk=2917 MHz util=99 % pow=79.91 W mem=15681 MiB
+09:49:17 |    slow lines: 14.6@09:48:57 ;; 18.0@09:49:02 ;; 15.2@09:49:07
+09:49:37 | decode_min=14.6 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=82.43 W mem=15666 MiB
+09:49:37 |    slow lines: 14.6@09:49:17 ;; 16.8@09:49:22 ;; 15.2@09:49:27
+09:49:57 | decode_min=15.4 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=80.59 W mem=15604 MiB
+09:49:57 |    slow lines: 17.6@09:49:37 ;; 17.6@09:49:42 ;; 16.6@09:49:47
+09:49:59 | VALLEY CONFIRMED (log channel) -> case_20261017_094957_logwatch | tier=valley | recent=['14.6', '14.6', '15.4'] | scene frozen
+09:50:19 | decode_min=13.2 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=82.31 W mem=15646 MiB
+09:50:19 |    slow lines: 18.2@09:49:57 ;; 15.8@09:50:02 ;; 13.2@09:50:07
+09:50:40 | decode_min=12.4 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=79.65 W mem=15615 MiB
+09:50:40 |    slow lines: 14.4@09:50:17 ;; 13.4@09:50:22 ;; 12.6@09:50:27
+09:51:00 | decode_min=10.8 tok/s (valley) | n=5 | clk=2910 MHz util=99 % pow=81.67 W mem=15701 MiB
+09:51:00 |    slow lines: 14.6@09:50:37 ;; 14.4@09:50:42 ;; 10.8@09:50:47
+09:51:02 | VALLEY CONFIRMED (log channel) -> case_20261017_095100_logwatch | tier=valley | recent=['13.2', '12.4', '10.8'] | scene frozen
+09:51:22 | decode_min=10.8 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=73.56 W mem=15637 MiB
+09:51:22 |    slow lines: 15.0@09:51:02 ;; 12.2@09:51:07 ;; 15.8@09:51:12
+09:51:42 | decode_min=4.2 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=71.09 W mem=15618 MiB
+09:51:42 |    slow lines: 12.6@09:51:22 ;; 4.2@09:51:27 ;; 4.4@09:51:32
+09:52:02 | decode_min=9.4 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=79.35 W mem=15612 MiB
+09:52:02 |    slow lines: 14.4@09:51:42 ;; 9.4@09:51:47 ;; 11.4@09:51:52
+09:52:04 | VALLEY CONFIRMED (log channel) -> case_20261017_095202_logwatch | tier=valley | recent=['10.8', '4.2', '9.4'] | scene frozen
+09:52:24 | decode_min=10.2 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=76.31 W mem=15616 MiB
+09:52:24 |    slow lines: 10.2@09:52:02 ;; 11.4@09:52:07 ;; 11.4@09:52:12
+09:52:44 | decode_min=11.2 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=79.07 W mem=15637 MiB
+09:52:44 |    slow lines: 13.0@09:52:22 ;; 12.2@09:52:27 ;; 11.2@09:52:32
+09:53:05 | decode_min=11.0 tok/s (valley) | n=5 | clk=2910 MHz util=100 % pow=81.43 W mem=15632 MiB
+09:53:05 |    slow lines: 14.6@09:52:42 ;; 11.0@09:52:47 ;; 13.4@09:52:52
+09:53:07 | VALLEY CONFIRMED (log channel) -> case_20261017_095305_logwatch | tier=valley | recent=['10.2', '11.2', '11.0'] | scene frozen
+09:53:27 | decode_min=7.8 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=76.06 W mem=15637 MiB
+09:53:27 |    slow lines: 11.4@09:53:07 ;; 12.0@09:53:12 ;; 14.0@09:53:17
+09:53:47 | decode_min=7.4 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=78.72 W mem=15632 MiB
+09:53:47 |    slow lines: 7.4@09:53:27 ;; 11.6@09:53:32 ;; 11.8@09:53:37
+09:54:07 | decode_min=10.2 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=72.68 W mem=15633 MiB
+09:54:07 |    slow lines: 10.6@09:53:47 ;; 10.2@09:53:52 ;; 13.2@09:53:57
+09:54:09 | VALLEY CONFIRMED (log channel) -> case_20261017_095407_logwatch | tier=valley | recent=['7.8', '7.4', '10.2'] | scene frozen
+09:54:29 | decode_min=7.8 tok/s (valley) | n=4 | clk=2917 MHz util=99 % pow=78.85 W mem=15637 MiB
+09:54:29 |    slow lines: 13.8@09:54:07 ;; 13.2@09:54:12 ;; 7.8@09:54:17
+09:54:50 | decode_min=11.0 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=80.55 W mem=15633 MiB
+09:54:50 |    slow lines: 11.0@09:54:27 ;; 13.4@09:54:32 ;; 12.0@09:54:37
+09:55:10 | decode_min=10.8 tok/s (valley) | n=5 | clk=2910 MHz util=100 % pow=76.58 W mem=15633 MiB
+09:55:10 |    slow lines: 10.8@09:54:47 ;; 12.0@09:54:52 ;; 13.0@09:54:57
+09:55:11 | VALLEY CONFIRMED (log channel) -> case_20261017_095510_logwatch | tier=valley | recent=['7.8', '11.0', '10.8'] | scene frozen
+09:55:32 | decode_min=10.0 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=73.85 W mem=15637 MiB
+09:55:32 |    slow lines: 11.0@09:55:12 ;; 10.0@09:55:17 ;; 10.4@09:55:22
+09:55:52 | decode_min=8.6 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=78.94 W mem=15637 MiB
+09:55:52 |    slow lines: 8.6@09:55:32 ;; 10.6@09:55:37 ;; 11.6@09:55:42
+09:56:12 | decode_min=11.4 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=78.32 W mem=15637 MiB
+09:56:12 |    slow lines: 12.0@09:55:52 ;; 12.2@09:55:57 ;; 11.8@09:56:02
+09:56:14 | VALLEY CONFIRMED (log channel) -> case_20261017_095612_logwatch | tier=valley | recent=['10.0', '8.6', '11.4'] | scene frozen
+09:56:34 | decode_min=8.2 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=73.00 W mem=15637 MiB
+09:56:34 |    slow lines: 11.8@09:56:12 ;; 12.0@09:56:17 ;; 10.0@09:56:22
+09:56:54 | decode_min=10.4 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=78.82 W mem=15632 MiB
+09:56:54 |    slow lines: 10.4@09:56:32 ;; 12.4@09:56:37 ;; 12.6@09:56:42
+09:57:15 | decode_min=10.0 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=76.62 W mem=15637 MiB
+09:57:15 |    slow lines: 10.0@09:56:52 ;; 13.4@09:56:57 ;; 11.6@09:57:02
+09:57:16 | VALLEY CONFIRMED (log channel) -> case_20261017_095715_logwatch | tier=valley | recent=['8.2', '10.4', '10.0'] | scene frozen
+09:57:37 | decode_min=8.4 tok/s (valley) | n=5 | clk=2917 MHz util=100 % pow=78.08 W mem=15637 MiB
+09:57:37 |    slow lines: 8.4@09:57:12 ;; 10.0@09:57:17 ;; 13.8@09:57:22
+09:57:57 | decode_min=7.2 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=72.46 W mem=15637 MiB
+09:57:57 |    slow lines: 9.4@09:57:37 ;; 9.0@09:57:42 ;; 7.8@09:57:47
+09:58:17 | decode_min=7.4 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=72.83 W mem=15637 MiB
+09:58:17 |    slow lines: 9.8@09:57:57 ;; 7.4@09:58:02 ;; 9.6@09:58:07
+09:58:19 | VALLEY CONFIRMED (log channel) -> case_20261017_095817_logwatch | tier=valley | recent=['8.4', '7.2', '7.4'] | scene frozen
+09:58:39 | decode_min=6.2 tok/s (valley) | n=4 | clk=2917 MHz util=100 % pow=71.46 W mem=15637 MiB
+09:58:39 |    slow lines: 6.2@09:58:17 ;; 10.0@09:58:22 ;; 8.8@09:58:27
+09:59:00 | decode_min=6.8 tok/s (valley) | n=4 | clk=2910 MHz util=99 % pow=81.36 W mem=15658 MiB
+09:59:00 |    slow lines: 10.0@09:58:37 ;; 9.8@09:58:42 ;; 6.8@09:58:47
+09:59:20 | decode_min=2.6 tok/s (deep) | n=5 | clk=2910 MHz util=100 % pow=77.66 W mem=15644 MiB
+09:59:20 |    slow lines: 22.8@09:58:57 ;; 2.6@09:59:02 ;; 7.8@09:59:07
+09:59:22 | VALLEY CONFIRMED (log channel) -> case_20261017_095920_logwatch | tier=deep | recent=['6.2', '6.8', '2.6'] | scene frozen
+09:59:42 | decode_min=5.4 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=73.65 W mem=15701 MiB
+09:59:42 |    slow lines: 7.6@09:59:22 ;; 8.4@09:59:27 ;; 5.4@09:59:32
+10:00:02 | decode_min=6.0 tok/s (valley) | n=4 | clk=2910 MHz util=100 % pow=73.29 W mem=15708 MiB
+10:00:02 |    slow lines: 7.4@09:59:42 ;; 6.0@09:59:47 ;; 6.0@09:59:52
+10:00:23 | decode_min=4.6 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=72.45 W mem=15706 MiB
+10:00:23 |    slow lines: 5.4@10:00:02 ;; 4.6@10:00:07 ;; 8.8@10:00:12
+10:00:24 | VALLEY CONFIRMED (log channel) -> case_20261017_100023_logwatch | tier=deep | recent=['5.4', '6.0', '4.6'] | scene frozen
+10:00:45 | decode_min=39.9 tok/s (valley) | n=1 | clk=2910 MHz util=100 % pow=82.67 W mem=15675 MiB
+10:00:45 |    slow lines: 39.9@10:00:22
+10:05:48 | decode_min=10.8 tok/s (valley) | n=1 | clk=1530 MHz util=3 % pow=32.26 W mem=15668 MiB
+10:05:48 |    slow lines: 10.8@10:05:32
+10:14:34 | decode_min=17.8 tok/s (valley) | n=1 | clk=1642 MHz util=7 % pow=33.15 W mem=15690 MiB
+10:14:34 |    slow lines: 17.8@10:14:17
+10:17:36 | decode_min=7.0 tok/s (valley) | n=1 | clk=1065 MHz util=2 % pow=24.19 W mem=15670 MiB
+10:17:36 |    slow lines: 7.0@10:17:22
+10:20:39 | decode_min=2.0 tok/s (deep) | n=1 | clk=1372 MHz util=4 % pow=31.71 W mem=15607 MiB
+10:20:39 |    slow lines: 2.0@10:20:27
+10:22:40 | decode_min=29.0 tok/s (valley) | n=1 | clk=1582 MHz util=6 % pow=27.33 W mem=15658 MiB
+10:22:40 |    slow lines: 29.0@10:22:32
+10:25:42 | decode_min=11.0 tok/s (valley) | n=1 | clk=735 MHz util=1 % pow=22.42 W mem=15674 MiB
+10:25:42 |    slow lines: 11.0@10:25:37
+10:29:04 | decode_min=1.2 tok/s (vdeep) | n=1 | clk=1627 MHz util=21 % pow=26.34 W mem=15655 MiB
+10:29:04 |    slow lines: 1.2@10:28:42
+10:31:06 | decode_min=27.4 tok/s (valley) | n=1 | clk=1515 MHz util=4 % pow=25.98 W mem=15656 MiB
+10:31:06 |    slow lines: 27.4@10:30:47
+10:34:07 | decode_min=3.8 tok/s (deep) | n=1 | clk=1620 MHz util=5 % pow=26.33 W mem=15656 MiB
+10:34:07 |    slow lines: 3.8@10:33:52
+10:42:13 | decode_min=17.0 tok/s (valley) | n=1 | clk=1792 MHz util=31 % pow=30.33 W mem=15652 MiB
+10:42:13 |    slow lines: 17.0@10:42:07
+10:45:15 | decode_min=11.4 tok/s (valley) | n=1 | clk=2700 MHz util=3 % pow=43.74 W mem=15657 MiB
+10:45:15 |    slow lines: 11.4@10:45:12
+10:53:41 | decode_min=17.4 tok/s (valley) | n=1 | clk=780 MHz util=4 % pow=24.70 W mem=15754 MiB
+10:53:41 |    slow lines: 17.4@10:53:27
+10:56:43 | decode_min=10.0 tok/s (valley) | n=1 | clk=832 MHz util=10 % pow=25.44 W mem=15760 MiB
+10:56:43 |    slow lines: 10.0@10:56:32
+11:01:46 | decode_min=28.9 tok/s (valley) | n=1 | clk=1537 MHz util=5 % pow=32.63 W mem=15616 MiB
+11:01:46 |    slow lines: 28.9@11:01:42
+11:05:08 | decode_min=16.8 tok/s (valley) | n=1 | clk=1875 MHz util=31 % pow=34.34 W mem=15616 MiB
+11:05:08 |    slow lines: 16.8@11:04:47
+11:08:10 | decode_min=6.0 tok/s (valley) | n=1 | clk=1875 MHz util=17 % pow=32.16 W mem=15756 MiB
+11:08:10 |    slow lines: 6.0@11:07:52
+11:13:14 | decode_min=18.0 tok/s (valley) | n=1 | clk=1207 MHz util=32 % pow=25.69 W mem=15665 MiB
+11:13:14 |    slow lines: 18.0@11:13:02
+11:16:16 | decode_min=10.0 tok/s (valley) | n=1 | clk=1155 MHz util=3 % pow=22.46 W mem=15660 MiB
+11:16:16 |    slow lines: 10.0@11:16:07
+11:21:39 | decode_min=27.4 tok/s (valley) | n=1 | clk=2017 MHz util=94 % pow=39.11 W mem=15751 MiB
+11:21:39 |    slow lines: 27.4@11:21:17
+11:24:41 | decode_min=7.0 tok/s (valley) | n=1 | clk=667 MHz util=0 % pow=26.44 W mem=15625 MiB
+11:24:41 |    slow lines: 7.0@11:24:22
+11:32:46 | decode_min=10.6 tok/s (valley) | n=1 | clk=1012 MHz util=6 % pow=21.99 W mem=15587 MiB
+11:32:46 |    slow lines: 10.6@11:32:37
+11:37:50 | decode_min=37.1 tok/s (valley) | n=1 | clk=1470 MHz util=3 % pow=32.80 W mem=15674 MiB
+11:37:50 |    slow lines: 37.1@11:37:47
+11:38:50 | decode_min=31.4 tok/s (valley) | n=1 | clk=2910 MHz util=0 % pow=50.55 W mem=15592 MiB
+11:38:50 |    slow lines: 31.4@11:38:47
+11:39:11 | decode_min=8.4 tok/s (valley) | n=1 | clk=2857 MHz util=99 % pow=284.54 W mem=15592 MiB
+11:39:11 |    slow lines: 8.4@11:38:52
+11:39:12 | VALLEY CONFIRMED (log channel) -> case_20261017_113911_logwatch | tier=valley | recent=['37.1', '31.4', '8.4'] | scene frozen
+11:40:33 | decode_min=43.9 tok/s (valley) | n=4 | clk=2865 MHz util=99 % pow=243.02 W mem=15594 MiB
+11:40:33 |    slow lines: 43.9@11:40:12
+11:40:53 | decode_min=19.6 tok/s (valley) | n=3 | clk=2722 MHz util=3 % pow=48.81 W mem=15740 MiB
+11:40:53 |    slow lines: 19.6@11:40:42 ;; 38.9@11:40:47
+11:41:14 | decode_min=93.3 tok/s (ok) | n=1 | clk=705 MHz util=3 % pow=25.24 W mem=15669 MiB
+11:41:15 | VALLEY CONFIRMED (log channel) -> case_20261017_114114_logwatch | tier=ok | recent=['43.9', '19.6', '93.3'] | scene frozen
+11:56:49 | decode_min=33.8 tok/s (valley) | n=1 | clk=1665 MHz util=15 % pow=30.12 W mem=15658 MiB
+11:56:49 |    slow lines: 33.8@11:56:36
+11:57:34 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+11:59:55 | decode_min=3.2 tok/s (deep) | n=1 | clk=1252 MHz util=13 % pow=27.32 W mem=15646 MiB
+11:59:55 |    slow lines: 3.2@11:59:41
+12:04:58 | decode_min=4.0 tok/s (deep) | n=1 | clk=1282 MHz util=2 % pow=22.74 W mem=15621 MiB
+12:04:58 |    slow lines: 4.0@12:04:51
+12:10:21 | decode_min=10.6 tok/s (valley) | n=1 | clk=1057 MHz util=5 % pow=22.34 W mem=15633 MiB
+12:10:21 |    slow lines: 10.6@12:10:01
+12:15:24 | decode_min=16.0 tok/s (valley) | n=1 | clk=945 MHz util=3 % pow=23.41 W mem=15633 MiB
+12:15:24 |    slow lines: 16.0@12:15:11
+12:20:28 | decode_min=21.0 tok/s (valley) | n=1 | clk=787 MHz util=4 % pow=22.43 W mem=15633 MiB
+12:20:28 |    slow lines: 21.0@12:20:21
+12:23:29 | decode_min=1.2 tok/s (vdeep) | n=1 | clk=810 MHz util=3 % pow=20.41 W mem=15633 MiB
+12:23:29 |    slow lines: 1.2@12:23:26
+12:25:51 | decode_min=33.9 tok/s (valley) | n=1 | clk=885 MHz util=4 % pow=21.64 W mem=15633 MiB
+12:25:51 |    slow lines: 33.9@12:25:31
+12:28:53 | decode_min=5.0 tok/s (deep) | n=1 | clk=780 MHz util=3 % pow=20.93 W mem=15634 MiB
+12:28:53 |    slow lines: 5.0@12:28:36
+12:33:56 | decode_min=12.0 tok/s (valley) | n=1 | clk=885 MHz util=5 % pow=21.38 W mem=15634 MiB
+12:33:56 |    slow lines: 12.0@12:33:46
+12:39:19 | decode_min=12.0 tok/s (valley) | n=1 | clk=945 MHz util=3 % pow=21.52 W mem=15634 MiB
+12:39:19 |    slow lines: 12.0@12:38:56
+12:44:22 | decode_min=12.6 tok/s (valley) | n=1 | clk=1125 MHz util=5 % pow=22.82 W mem=15634 MiB
+12:44:22 |    slow lines: 12.6@12:44:06
+12:49:25 | decode_min=18.0 tok/s (valley) | n=1 | clk=825 MHz util=3 % pow=20.96 W mem=15634 MiB
+12:49:25 |    slow lines: 18.0@12:49:16
+12:54:48 | decode_min=29.0 tok/s (valley) | n=1 | clk=2917 MHz util=97 % pow=52.29 W mem=15634 MiB
+12:54:48 |    slow lines: 29.0@12:54:26
+12:57:50 | decode_min=3.2 tok/s (deep) | n=1 | clk=840 MHz util=3 % pow=21.17 W mem=15634 MiB
+12:57:50 |    slow lines: 3.2@12:57:31
+13:02:53 | decode_min=10.0 tok/s (valley) | n=1 | clk=1087 MHz util=10 % pow=21.40 W mem=15634 MiB
+13:02:53 |    slow lines: 10.0@13:02:41
+13:07:56 | decode_min=15.0 tok/s (valley) | n=1 | clk=997 MHz util=6 % pow=21.67 W mem=15634 MiB
+13:07:56 |    slow lines: 15.0@13:07:51
+13:13:19 | decode_min=16.8 tok/s (valley) | n=1 | clk=990 MHz util=3 % pow=22.84 W mem=15634 MiB
+13:13:19 |    slow lines: 16.8@13:13:01
+13:18:22 | decode_min=20.0 tok/s (valley) | n=1 | clk=1575 MHz util=3 % pow=27.51 W mem=15634 MiB
+13:18:22 |    slow lines: 20.0@13:18:11
+13:21:24 | decode_min=2.0 tok/s (deep) | n=1 | clk=1252 MHz util=3 % pow=25.33 W mem=15634 MiB
+13:21:24 |    slow lines: 2.0@13:21:16
+13:26:48 | decode_min=4.0 tok/s (deep) | n=1 | clk=930 MHz util=3 % pow=22.56 W mem=15634 MiB
+13:26:48 |    slow lines: 4.0@13:26:26
+13:31:51 | decode_min=16.8 tok/s (valley) | n=1 | clk=945 MHz util=3 % pow=22.39 W mem=15634 MiB
+13:31:51 |    slow lines: 16.8@13:31:36
+13:36:54 | decode_min=27.4 tok/s (valley) | n=1 | clk=900 MHz util=3 % pow=22.39 W mem=15634 MiB
+13:36:54 |    slow lines: 27.4@13:36:46
+13:39:56 | decode_min=1.8 tok/s (deep) | n=1 | clk=907 MHz util=2 % pow=22.32 W mem=15634 MiB
+13:39:56 |    slow lines: 1.8@13:39:51
+13:42:17 | decode_min=33.8 tok/s (valley) | n=1 | clk=1125 MHz util=5 % pow=23.46 W mem=15634 MiB
+13:42:17 |    slow lines: 33.8@13:41:56
+13:45:19 | decode_min=7.0 tok/s (valley) | n=1 | clk=945 MHz util=3 % pow=22.36 W mem=15634 MiB
+13:45:19 |    slow lines: 7.0@13:45:01
+13:50:22 | decode_min=12.6 tok/s (valley) | n=1 | clk=1117 MHz util=4 % pow=24.71 W mem=15634 MiB
+13:50:22 |    slow lines: 12.6@13:50:11
+13:55:25 | decode_min=17.8 tok/s (valley) | n=1 | clk=885 MHz util=3 % pow=21.41 W mem=15634 MiB
+13:55:25 |    slow lines: 17.8@13:55:21
+14:00:48 | decode_min=19.0 tok/s (valley) | n=1 | clk=922 MHz util=13 % pow=21.99 W mem=15634 MiB
+14:00:48 |    slow lines: 19.0@14:00:31
+14:03:50 | decode_min=0.6 tok/s (vdeep) | n=1 | clk=930 MHz util=2 % pow=22.49 W mem=15634 MiB
+14:03:50 |    slow lines: 0.6@14:03:36
+14:05:51 | decode_min=29.8 tok/s (valley) | n=1 | clk=990 MHz util=4 % pow=22.35 W mem=15634 MiB
+14:05:51 |    slow lines: 29.8@14:05:41
+14:08:53 | decode_min=4.0 tok/s (deep) | n=1 | clk=1095 MHz util=3 % pow=24.20 W mem=15634 MiB
+14:08:53 |    slow lines: 4.0@14:08:46
+14:14:16 | decode_min=10.8 tok/s (valley) | n=1 | clk=1020 MHz util=5 % pow=23.03 W mem=15634 MiB
+14:14:16 |    slow lines: 10.8@14:13:56
+14:19:19 | decode_min=15.0 tok/s (valley) | n=1 | clk=870 MHz util=3 % pow=21.81 W mem=15634 MiB
+14:19:19 |    slow lines: 15.0@14:19:06
+14:24:22 | decode_min=19.0 tok/s (valley) | n=1 | clk=1005 MHz util=3 % pow=23.67 W mem=15634 MiB
+14:24:22 |    slow lines: 19.0@14:24:16
+14:29:45 | decode_min=27.4 tok/s (valley) | n=1 | clk=840 MHz util=3 % pow=21.00 W mem=15634 MiB
+14:29:45 |    slow lines: 27.4@14:29:26
+14:32:47 | decode_min=2.0 tok/s (deep) | n=1 | clk=870 MHz util=3 % pow=22.58 W mem=15634 MiB
+14:32:47 |    slow lines: 2.0@14:32:31
+14:34:48 | decode_min=30.7 tok/s (valley) | n=1 | clk=2887 MHz util=99 % pow=117.15 W mem=15634 MiB
+14:34:48 |    slow lines: 30.7@14:34:36
+14:37:50 | decode_min=5.0 tok/s (deep) | n=1 | clk=780 MHz util=3 % pow=20.70 W mem=15634 MiB
+14:37:50 |    slow lines: 5.0@14:37:41
+14:43:13 | decode_min=5.0 tok/s (deep) | n=1 | clk=1830 MHz util=100 % pow=27.10 W mem=15622 MiB
+14:43:13 |    slow lines: 5.0@14:42:51
+14:48:16 | decode_min=12.6 tok/s (valley) | n=1 | clk=1432 MHz util=5 % pow=24.10 W mem=15622 MiB
+14:48:16 |    slow lines: 12.6@14:48:01
+14:53:19 | decode_min=17.4 tok/s (valley) | n=1 | clk=870 MHz util=3 % pow=21.87 W mem=15622 MiB
+14:53:19 |    slow lines: 17.4@14:53:11
+14:58:43 | decode_min=29.0 tok/s (valley) | n=1 | clk=997 MHz util=3 % pow=22.81 W mem=15622 MiB
+14:58:43 |    slow lines: 29.0@14:58:21
+15:01:44 | decode_min=2.6 tok/s (deep) | n=1 | clk=1192 MHz util=3 % pow=22.20 W mem=15622 MiB
+15:01:44 |    slow lines: 2.6@15:01:26
+15:04:29 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+15:04:49 | decode_min=111.0 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=295.12 W mem=15686 MiB
+15:05:09 | decode_min=109.4 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=294.97 W mem=15666 MiB
+15:05:30 | decode_min=85.4 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=295.44 W mem=15745 MiB
+15:05:50 | decode_min=126.6 tok/s (ok) | n=3 | clk=2910 MHz util=100 % pow=82.23 W mem=15676 MiB
+15:07:11 | decode_min=63.5 tok/s (ok) | n=1 | clk=2857 MHz util=99 % pow=276.60 W mem=15650 MiB
+15:07:31 | decode_min=82.8 tok/s (ok) | n=4 | clk=2857 MHz util=98 % pow=279.71 W mem=15650 MiB
+15:07:51 | decode_min=88.2 tok/s (ok) | n=4 | clk=2857 MHz util=99 % pow=276.93 W mem=15650 MiB
+15:08:11 | decode_min=17.6 tok/s (valley) | n=4 | clk=2902 MHz util=100 % pow=100.30 W mem=15603 MiB
+15:08:11 |    slow lines: 17.6@15:07:56
+15:08:32 | decode_min=95.3 tok/s (ok) | n=1 | clk=772 MHz util=1 % pow=29.69 W mem=15665 MiB
+15:11:54 | decode_min=97.4 tok/s (ok) | n=2 | clk=2857 MHz util=99 % pow=284.20 W mem=15655 MiB
+15:12:14 | decode_min=43.1 tok/s (valley) | n=5 | clk=2902 MHz util=100 % pow=103.84 W mem=15585 MiB
+15:12:14 |    slow lines: 46.5@15:11:56 ;; 43.1@15:12:01
+15:12:16 | VALLEY CONFIRMED (log channel) -> case_20261017_151214_logwatch | tier=valley | recent=['82.8', '88.2', '17.6', '95.3', '97.4', '43.1'] | scene frozen
+15:12:37 | decode_min=90.5 tok/s (ok) | n=4 | clk=2857 MHz util=99 % pow=284.30 W mem=15663 MiB
+15:12:57 | decode_min=88.6 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=286.23 W mem=15635 MiB
+15:13:17 | decode_min=92.1 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=290.49 W mem=15635 MiB
+15:13:37 | decode_min=97.5 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=291.89 W mem=15635 MiB
+15:13:57 | decode_min=94.4 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=292.22 W mem=15635 MiB
+15:14:18 | decode_min=95.7 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=297.14 W mem=15635 MiB
+15:14:38 | decode_min=95.6 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=297.44 W mem=15635 MiB
+15:14:58 | decode_min=94.3 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=297.43 W mem=15635 MiB
+15:15:18 | decode_min=98.5 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=297.97 W mem=15635 MiB
+15:15:38 | decode_min=99.7 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=297.67 W mem=15635 MiB
+15:15:59 | decode_min=99.5 tok/s (ok) | n=2 | clk=645 MHz util=2 % pow=28.51 W mem=15635 MiB
+16:05:09 | decode_min=68.4 tok/s (ok) | n=1 | clk=2857 MHz util=99 % pow=271.46 W mem=15594 MiB
+16:05:29 | decode_min=1.0 tok/s (vdeep) | n=4 | clk=2910 MHz util=100 % pow=66.76 W mem=15646 MiB
+16:05:29 |    slow lines: 57.6@16:05:16 ;; 1.6@16:05:21 ;; 1.0@16:05:26
+16:05:49 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2910 MHz util=100 % pow=66.96 W mem=15651 MiB
+16:05:49 |    slow lines: 0.6@16:05:31 ;; 0.6@16:05:36 ;; 0.6@16:05:41
+16:05:52 | VALLEY CONFIRMED (log channel) -> case_20261017_160549_logwatch | tier=vdeep | recent=['68.4', '1.0', '0.6'] | scene frozen
+16:06:12 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.06 W mem=15651 MiB
+16:06:12 |    slow lines: 0.8@16:05:51 ;; 0.8@16:05:56 ;; 0.8@16:06:01
+16:06:33 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=67.09 W mem=15650 MiB
+16:06:33 |    slow lines: 1.4@16:06:11 ;; 0.6@16:06:16 ;; 0.8@16:06:21
+16:06:53 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.83 W mem=15691 MiB
+16:06:53 |    slow lines: 0.8@16:06:31 ;; 0.8@16:06:36 ;; 1.2@16:06:41
+16:06:55 | VALLEY CONFIRMED (log channel) -> case_20261017_160653_logwatch | tier=vdeep | recent=['0.8', '0.6', '0.8'] | scene frozen
+16:07:16 | decode_min=0.6 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.62 W mem=15708 MiB
+16:07:16 |    slow lines: 1.4@16:06:51 ;; 0.6@16:06:56 ;; 1.0@16:07:01
+16:07:36 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.54 W mem=15652 MiB
+16:07:36 |    slow lines: 0.8@16:07:16 ;; 1.0@16:07:21 ;; 0.8@16:07:26
+16:07:56 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.47 W mem=15648 MiB
+16:07:56 |    slow lines: 1.2@16:07:36 ;; 1.8@16:07:41 ;; 0.6@16:07:46
+16:07:59 | VALLEY CONFIRMED (log channel) -> case_20261017_160756_logwatch | tier=vdeep | recent=['0.6', '0.6', '0.6'] | scene frozen
+16:08:19 | decode_min=0.6 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.56 W mem=15648 MiB
+16:08:19 |    slow lines: 0.8@16:07:56 ;; 1.4@16:08:01 ;; 0.6@16:08:06
+16:08:39 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=65.88 W mem=15648 MiB
+16:08:39 |    slow lines: 1.6@16:08:21 ;; 1.0@16:08:26 ;; 0.6@16:08:31
+16:08:59 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.51 W mem=15648 MiB
+16:08:59 |    slow lines: 0.8@16:08:41 ;; 1.2@16:08:46 ;; 0.8@16:08:51
+16:09:02 | VALLEY CONFIRMED (log channel) -> case_20261017_160859_logwatch | tier=vdeep | recent=['0.6', '0.6', '0.8'] | scene frozen
+16:09:22 | decode_min=1.2 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.43 W mem=15648 MiB
+16:09:22 |    slow lines: 1.8@16:09:01 ;; 1.2@16:09:06 ;; 1.6@16:09:11
+16:09:42 | decode_min=1.2 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.55 W mem=15648 MiB
+16:09:42 |    slow lines: 1.6@16:09:21 ;; 1.2@16:09:26 ;; 1.2@16:09:31
+16:10:03 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.03 W mem=15648 MiB
+16:10:03 |    slow lines: 1.0@16:09:41 ;; 1.2@16:09:46 ;; 2.0@16:09:51
+16:10:05 | VALLEY CONFIRMED (log channel) -> case_20261017_161003_logwatch | tier=vdeep | recent=['1.2', '1.2', '0.6'] | scene frozen
+16:10:25 | decode_min=1.0 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.54 W mem=15674 MiB
+16:10:25 |    slow lines: 1.2@16:10:01 ;; 1.6@16:10:06 ;; 1.6@16:10:11
+16:10:46 | decode_min=1.0 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.21 W mem=15687 MiB
+16:10:46 |    slow lines: 1.6@16:10:26 ;; 1.0@16:10:31 ;; 2.0@16:10:36
+16:11:06 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.46 W mem=15655 MiB
+16:11:06 |    slow lines: 1.8@16:10:46 ;; 1.6@16:10:51 ;; 0.8@16:10:56
+16:11:09 | VALLEY CONFIRMED (log channel) -> case_20261017_161106_logwatch | tier=vdeep | recent=['1.0', '1.0', '0.8'] | scene frozen
+16:11:29 | decode_min=0.6 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.39 W mem=15660 MiB
+16:11:29 |    slow lines: 1.4@16:11:06 ;; 0.6@16:11:11 ;; 1.4@16:11:16
+16:11:49 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=64.21 W mem=15716 MiB
+16:11:49 |    slow lines: 1.2@16:11:31 ;; 1.2@16:11:36 ;; 0.8@16:11:41
+16:12:09 | decode_min=0.2 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=64.46 W mem=15685 MiB
+16:12:09 |    slow lines: 0.8@16:11:51 ;; 2.0@16:11:56 ;; 1.6@16:12:01
+16:12:12 | VALLEY CONFIRMED (log channel) -> case_20261017_161209_logwatch | tier=vdeep | recent=['0.6', '0.4', '0.2'] | scene frozen
+16:12:32 | decode_min=1.0 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=64.53 W mem=15634 MiB
+16:12:32 |    slow lines: 1.0@16:12:11 ;; 1.4@16:12:16 ;; 1.6@16:12:21
+16:12:52 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.36 W mem=15476 MiB
+16:12:52 |    slow lines: 0.8@16:12:31 ;; 0.8@16:12:36 ;; 2.0@16:12:41
+16:13:13 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.76 W mem=15467 MiB
+16:13:13 |    slow lines: 0.4@16:12:51 ;; 1.0@16:12:56 ;; 0.6@16:13:01
+16:13:15 | VALLEY CONFIRMED (log channel) -> case_20261017_161313_logwatch | tier=vdeep | recent=['1.0', '0.8', '0.4'] | scene frozen
+16:13:36 | decode_min=0.6 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.33 W mem=15504 MiB
+16:13:36 |    slow lines: 1.0@16:13:11 ;; 0.6@16:13:16 ;; 1.2@16:13:21
+16:13:56 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=63.84 W mem=15474 MiB
+16:13:56 |    slow lines: 0.8@16:13:36 ;; 1.0@16:13:41 ;; 1.2@16:13:46
+16:14:16 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=65.98 W mem=15517 MiB
+16:14:16 |    slow lines: 1.0@16:13:56 ;; 0.8@16:14:01 ;; 1.6@16:14:06
+16:14:19 | VALLEY CONFIRMED (log channel) -> case_20261017_161416_logwatch | tier=vdeep | recent=['0.6', '0.8', '0.8'] | scene frozen
+16:14:39 | decode_min=0.4 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.96 W mem=15480 MiB
+16:14:39 |    slow lines: 1.0@16:14:16 ;; 1.4@16:14:21 ;; 0.6@16:14:26
+16:14:59 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.19 W mem=15517 MiB
+16:14:59 |    slow lines: 1.4@16:14:41 ;; 1.2@16:14:46 ;; 0.4@16:14:51
+16:15:19 | decode_min=0.8 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=67.05 W mem=15614 MiB
+16:15:19 |    slow lines: 0.8@16:15:01 ;; 0.8@16:15:06 ;; 0.8@16:15:11
+16:15:22 | VALLEY CONFIRMED (log channel) -> case_20261017_161519_logwatch | tier=vdeep | recent=['0.4', '0.4', '0.8'] | scene frozen
+16:15:42 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.63 W mem=15513 MiB
+16:15:42 |    slow lines: 0.6@16:15:21 ;; 1.8@16:15:26 ;; 0.8@16:15:31
+16:16:03 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.35 W mem=15516 MiB
+16:16:03 |    slow lines: 2.0@16:15:41 ;; 1.2@16:15:46 ;; 0.4@16:15:51
+16:16:23 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.60 W mem=15513 MiB
+16:16:23 |    slow lines: 1.4@16:16:01 ;; 0.4@16:16:06 ;; 0.6@16:16:11
+16:16:26 | VALLEY CONFIRMED (log channel) -> case_20261017_161623_logwatch | tier=vdeep | recent=['0.6', '0.4', '0.4'] | scene frozen
+16:16:46 | decode_min=0.4 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=65.57 W mem=15508 MiB
+16:16:46 |    slow lines: 0.4@16:16:21 ;; 1.6@16:16:26 ;; 1.0@16:16:31
+16:17:06 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=67.34 W mem=15531 MiB
+16:17:06 |    slow lines: 0.6@16:16:46 ;; 0.8@16:16:51 ;; 0.4@16:16:56
+16:17:26 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.65 W mem=15528 MiB
+16:17:26 |    slow lines: 0.8@16:17:06 ;; 0.4@16:17:11 ;; 1.6@16:17:16
+16:17:29 | VALLEY CONFIRMED (log channel) -> case_20261017_161726_logwatch | tier=vdeep | recent=['0.4', '0.4', '0.4'] | scene frozen
+16:17:49 | decode_min=0.6 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=66.39 W mem=15467 MiB
+16:17:49 |    slow lines: 0.8@16:17:26 ;; 0.8@16:17:31 ;; 0.6@16:17:36
+16:18:09 | decode_min=0.6 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=66.79 W mem=15522 MiB
+16:18:09 |    slow lines: 0.8@16:17:51 ;; 1.2@16:17:56 ;; 0.6@16:18:01
+16:18:29 | decode_min=0.2 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=62.86 W mem=15458 MiB
+16:18:29 |    slow lines: 0.8@16:18:11 ;; 0.4@16:18:16 ;; 0.2@16:18:21
+16:18:32 | VALLEY CONFIRMED (log channel) -> case_20261017_161829_logwatch | tier=vdeep | recent=['0.6', '0.6', '0.2'] | scene frozen
+16:18:53 | decode_min=0.2 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=64.98 W mem=15458 MiB
+16:18:53 |    slow lines: 1.2@16:18:31 ;; 0.6@16:18:36 ;; 0.6@16:18:41
+16:19:13 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=63.49 W mem=15458 MiB
+16:19:13 |    slow lines: 0.8@16:18:51 ;; 1.0@16:18:56 ;; 0.4@16:19:01
+16:19:33 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=63.40 W mem=15458 MiB
+16:19:33 |    slow lines: 1.0@16:19:11 ;; 0.4@16:19:16 ;; 1.2@16:19:21
+16:19:36 | VALLEY CONFIRMED (log channel) -> case_20261017_161933_logwatch | tier=vdeep | recent=['0.2', '0.4', '0.4'] | scene frozen
+16:19:56 | decode_min=0.4 tok/s (vdeep) | n=5 | clk=2917 MHz util=100 % pow=65.04 W mem=15514 MiB
+16:19:56 |    slow lines: 1.6@16:19:31 ;; 0.8@16:19:36 ;; 1.6@16:19:41
+16:20:16 | decode_min=0.4 tok/s (vdeep) | n=4 | clk=2917 MHz util=100 % pow=63.16 W mem=15472 MiB
+16:20:16 |    slow lines: 0.8@16:19:56 ;; 0.6@16:20:01 ;; 0.4@16:20:06
+16:20:36 | decode_min=2.0 tok/s (deep) | n=4 | clk=2917 MHz util=100 % pow=63.09 W mem=15474 MiB
+16:20:36 |    slow lines: 2.0@16:20:16 ;; 24.9@16:20:21
+16:20:39 | VALLEY CONFIRMED (log channel) -> case_20261017_162036_logwatch | tier=deep | recent=['0.4', '0.4', '2.0'] | scene frozen
+16:21:00 | decode_min=77.2 tok/s (ok) | n=5 | clk=2857 MHz util=99 % pow=252.65 W mem=15578 MiB
+16:21:20 | decode_min=89.1 tok/s (ok) | n=4 | clk=2857 MHz util=99 % pow=268.03 W mem=15731 MiB
+16:21:40 | decode_min=81.8 tok/s (ok) | n=4 | clk=2857 MHz util=95 % pow=269.99 W mem=15566 MiB
+16:22:00 | decode_min=77.4 tok/s (ok) | n=4 | clk=2857 MHz util=99 % pow=276.23 W mem=15642 MiB
+16:22:20 | decode_min=85.1 tok/s (ok) | n=4 | clk=2865 MHz util=98 % pow=260.81 W mem=15584 MiB
+16:22:41 | decode_min=75.9 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=276.73 W mem=15579 MiB
+16:23:01 | decode_min=84.0 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=281.97 W mem=15579 MiB
+16:23:21 | decode_min=79.9 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=246.30 W mem=15579 MiB
+16:23:41 | decode_min=91.8 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=295.78 W mem=15553 MiB
+16:24:02 | decode_min=94.7 tok/s (ok) | n=4 | clk=2850 MHz util=99 % pow=290.12 W mem=15587 MiB
+16:24:22 | decode_min=77.5 tok/s (ok) | n=3 | clk=2047 MHz util=24 % pow=37.17 W mem=15558 MiB
+16:26:23 | decode_min=29.0 tok/s (valley) | n=1 | clk=2887 MHz util=99 % pow=44.48 W mem=15574 MiB
+16:26:23 |    slow lines: 29.0@16:26:16
+16:28:24 | decode_min=29.0 tok/s (valley) | n=1 | clk=2692 MHz util=36 % pow=44.35 W mem=15573 MiB
+16:28:24 |    slow lines: 29.0@16:28:21
+16:28:27 | VALLEY CONFIRMED (log channel) -> case_20261017_162824_logwatch | tier=valley | recent=['91.8', '94.7', '77.5', '29.0', '29.0'] | scene frozen
+16:33:51 | decode_min=3.6 tok/s (deep) | n=1 | clk=1125 MHz util=7 % pow=27.18 W mem=15565 MiB
+16:33:51 |    slow lines: 3.6@16:33:31
+16:35:52 | decode_min=29.8 tok/s (valley) | n=1 | clk=1117 MHz util=6 % pow=22.43 W mem=15565 MiB
+16:35:52 |    slow lines: 29.8@16:35:36
+16:38:54 | decode_min=3.8 tok/s (deep) | n=1 | clk=1950 MHz util=1 % pow=27.20 W mem=15668 MiB
+16:38:54 |    slow lines: 3.8@16:38:41
+16:51:57 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change

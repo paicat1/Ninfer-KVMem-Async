@@ -1,0 +1,203 @@
+﻿11:55:35 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+11:55:35 | IDLE BASELINE (pre-first-probe): clk=1117MHz util=13% pow=29.15W | criterion must be normalised against this
+11:55:35 | CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+11:55:37 | probe #1 decode=156.8 clk=2865MHz power=250.05W util=99% | thr_rel=122.1W (idle=29.2 ref=215.0) | v1abs=False (newlines=51578) streak=0
+11:56:39 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+11:57:41 | probe #3 decode=158.6 clk=2865MHz power=256.3W util=99% | thr_rel=122.1W (idle=29.2 ref=215.0) | v1abs=False (newlines=56) streak=0
+11:58:43 | probe #4 decode=166.6 clk=2872MHz power=260.83W util=99% | thr_rel=122.1W (idle=29.2 ref=215.0) | v1abs=False (newlines=56) streak=0
+11:59:45 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:00:47 | probe #6 decode=163.4 clk=2865MHz power=252.53W util=99% | thr_rel=122.1W (idle=29.2 ref=215.0) | v1abs=False (newlines=57) streak=0
+12:01:49 | probe #7 decode=169.9 clk=2865MHz power=276.24W util=99% | thr_rel=142.7W (idle=29.2 ref=256.3) | v1abs=False (newlines=56) streak=0
+12:02:51 | probe #8 decode=163.9 clk=2872MHz power=269.91W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:03:53 | probe #9 decode=169.4 clk=2865MHz power=275.05W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:04:55 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:04:55 | heartbeat(busy): probes=10 cases=0
+12:05:57 | probe #11 decode=158.6 clk=2857MHz power=216.6W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:06:59 | probe #12 decode=169.5 clk=2857MHz power=223.69W util=99% | thr_rel=142.7W (idle=29.2 ref=256.3) | v1abs=False (newlines=56) streak=0
+12:08:01 | probe #13 decode=168.6 clk=2857MHz power=236.99W util=99% | thr_rel=142.7W (idle=29.2 ref=256.3) | v1abs=False (newlines=56) streak=0
+12:09:03 | probe #14 decode=167.1 clk=2857MHz power=243.28W util=99% | thr_rel=140.8W (idle=29.2 ref=252.5) | v1abs=False (newlines=56) streak=0
+12:10:05 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:11:06 | probe #16 decode=163.6 clk=2872MHz power=261.48W util=99% | thr_rel=142.7W (idle=29.2 ref=256.3) | v1abs=False (newlines=56) streak=0
+12:12:08 | probe #17 decode=168.3 clk=2872MHz power=273.65W util=99% | thr_rel=142.7W (idle=29.2 ref=256.3) | v1abs=False (newlines=57) streak=0
+12:13:10 | probe #18 decode=166.4 clk=2872MHz power=271.37W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:14:12 | probe #19 decode=165.1 clk=2872MHz power=271W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:15:14 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:15:14 | heartbeat(busy): probes=20 cases=0
+12:16:16 | probe #21 decode=164.4 clk=2857MHz power=238.62W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:17:18 | probe #22 decode=168.2 clk=2857MHz power=257.11W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=57) streak=0
+12:18:20 | probe #23 decode=167 clk=2865MHz power=262.21W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:19:22 | probe #24 decode=166.6 clk=2857MHz power=244.14W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=56) streak=0
+12:20:24 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:21:26 | probe #26 decode=167.1 clk=2857MHz power=264.54W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:22:28 | probe #27 decode=167.6 clk=2865MHz power=270.06W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:23:30 | probe #28 decode=170 clk=2865MHz power=203.36W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:24:32 | probe #29 decode=162.6 clk=2880MHz power=266.41W util=92% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:25:34 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:25:34 | heartbeat(busy): probes=30 cases=0
+12:26:36 | probe #31 decode=169.4 clk=2872MHz power=273.93W util=99% | thr_rel=145.3W (idle=29.2 ref=261.5) | v1abs=False (newlines=56) streak=0
+12:27:38 | probe #32 decode=165.7 clk=2872MHz power=258.1W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:28:40 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:29:42 | probe #34 decode=163.3 clk=2872MHz power=268.92W util=95% | thr_rel=145.3W (idle=29.2 ref=261.5) | v1abs=False (newlines=56) streak=0
+12:30:43 | probe #35 decode=169 clk=2857MHz power=208.99W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:31:45 | probe #36 decode=169.6 clk=2857MHz power=221.31W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:32:47 | probe #37 decode=169.4 clk=2857MHz power=221.88W util=99% | thr_rel=143.6W (idle=29.2 ref=258.1) | v1abs=False (newlines=56) streak=0
+12:33:49 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:34:51 | probe #39 decode=161.5 clk=2857MHz power=264.1W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:35:53 | probe #40 decode=168.9 clk=2857MHz power=254.91W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=56) streak=0
+12:35:53 | heartbeat: probes=40 cases=0 engine_uptime_h=15.76
+12:36:55 | probe #41 decode=165.1 clk=2857MHz power=237.58W util=99% | thr_rel=145.0W (idle=29.2 ref=260.8) | v1abs=False (newlines=57) streak=0
+12:37:57 | probe #42 decode=166.4 clk=2857MHz power=227.07W util=99% | thr_rel=143.6W (idle=29.2 ref=258.1) | v1abs=False (newlines=56) streak=0
+12:38:59 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:40:01 | probe #44 decode=164.5 clk=2857MHz power=251.74W util=94% | thr_rel=143.6W (idle=29.2 ref=258.1) | v1abs=False (newlines=57) streak=0
+12:41:03 | probe #45 decode=165.5 clk=2857MHz power=242.79W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=56) streak=0
+12:42:05 | probe #46 decode=167.3 clk=2865MHz power=246.55W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=57) streak=0
+12:43:07 | probe #47 decode=165.8 clk=2865MHz power=251.37W util=99% | thr_rel=140.4W (idle=29.2 ref=251.7) | v1abs=False (newlines=56) streak=0
+12:44:09 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:45:11 | probe #49 decode=158.4 clk=2865MHz power=259.35W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=57) streak=0
+12:46:13 | probe #50 decode=165.6 clk=2872MHz power=272.95W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=56) streak=0
+12:46:13 | heartbeat: probes=50 cases=0 engine_uptime_h=15.93
+12:47:15 | probe #51 decode=165.7 clk=2872MHz power=268.07W util=85% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=57) streak=0
+12:48:17 | probe #52 decode=158.7 clk=2872MHz power=261.6W util=99% | thr_rel=143.6W (idle=29.2 ref=258.1) | v1abs=False (newlines=56) streak=0
+12:49:19 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:50:21 | probe #54 decode=168.7 clk=2857MHz power=240.2W util=99% | thr_rel=143.6W (idle=29.2 ref=258.1) | v1abs=False (newlines=56) streak=0
+12:51:23 | probe #55 decode=169.5 clk=2857MHz power=242.09W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=57) streak=0
+12:52:25 | probe #56 decode=168.3 clk=2865MHz power=261.52W util=99% | thr_rel=143.1W (idle=29.2 ref=257.1) | v1abs=False (newlines=57) streak=0
+12:53:27 | probe #57 decode=169 clk=2857MHz power=256.13W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=56) streak=0
+12:54:29 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:55:31 | probe #59 decode=169.4 clk=2872MHz power=270.12W util=80% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=56) streak=0
+12:56:33 | probe #60 decode=166 clk=2865MHz power=262.14W util=72% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=57) streak=0
+12:56:33 | heartbeat: probes=60 cases=0 engine_uptime_h=16.1
+12:57:35 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+12:58:37 | probe #62 decode=161.6 clk=2857MHz power=249.17W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=56) streak=0
+12:59:39 | probe #63 decode=168 clk=2865MHz power=257.35W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=56) streak=0
+13:00:41 | probe #64 decode=163.3 clk=2872MHz power=254.7W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=56) streak=0
+13:01:43 | probe #65 decode=167.2 clk=2865MHz power=271.55W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=56) streak=0
+13:02:45 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:03:46 | probe #67 decode=162.6 clk=2872MHz power=265.79W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=56) streak=0
+13:04:48 | probe #68 decode=171.2 clk=2857MHz power=202.78W util=99% | thr_rel=142.0W (idle=29.2 ref=254.9) | v1abs=False (newlines=56) streak=0
+13:05:50 | probe #69 decode=165.2 clk=2857MHz power=226.95W util=99% | thr_rel=141.9W (idle=29.2 ref=254.7) | v1abs=False (newlines=57) streak=0
+13:06:52 | probe #70 decode=168.1 clk=2865MHz power=241.16W util=99% | thr_rel=141.9W (idle=29.2 ref=254.7) | v1abs=False (newlines=56) streak=0
+13:06:52 | heartbeat: probes=70 cases=0 engine_uptime_h=16.27
+13:07:54 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:08:56 | probe #72 decode=165.1 clk=2857MHz power=242.23W util=99% | thr_rel=140.4W (idle=29.2 ref=251.7) | v1abs=False (newlines=56) streak=0
+13:09:58 | probe #73 decode=171 clk=2857MHz power=239.37W util=99% | thr_rel=140.3W (idle=29.2 ref=251.4) | v1abs=False (newlines=56) streak=0
+13:11:00 | probe #74 decode=162.3 clk=2857MHz power=221.45W util=99% | thr_rel=139.2W (idle=29.2 ref=249.2) | v1abs=False (newlines=57) streak=0
+13:12:02 | probe #75 decode=162.9 clk=2865MHz power=234.98W util=99% | thr_rel=137.9W (idle=29.2 ref=246.6) | v1abs=False (newlines=56) streak=0
+13:13:04 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:14:06 | probe #77 decode=166.3 clk=2872MHz power=271.43W util=99% | thr_rel=139.2W (idle=29.2 ref=249.2) | v1abs=False (newlines=56) streak=0
+13:15:08 | probe #78 decode=170.9 clk=2872MHz power=281.13W util=99% | thr_rel=140.3W (idle=29.2 ref=251.4) | v1abs=False (newlines=56) streak=0
+13:16:10 | probe #79 decode=167.8 clk=2872MHz power=274.76W util=99% | thr_rel=140.4W (idle=29.2 ref=251.7) | v1abs=False (newlines=57) streak=0
+13:17:12 | probe #80 decode=165.6 clk=2872MHz power=269.45W util=99% | thr_rel=140.4W (idle=29.2 ref=251.7) | v1abs=False (newlines=56) streak=0
+13:17:12 | heartbeat: probes=80 cases=0 engine_uptime_h=16.44
+13:18:14 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:19:16 | probe #82 decode=167.1 clk=2857MHz power=219.36W util=99% | thr_rel=140.3W (idle=29.2 ref=251.4) | v1abs=False (newlines=57) streak=0
+13:20:18 | probe #83 decode=170.2 clk=2857MHz power=267.3W util=99% | thr_rel=140.4W (idle=29.2 ref=251.7) | v1abs=False (newlines=56) streak=0
+13:21:20 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:22:22 | probe #85 decode=163.2 clk=2865MHz power=264.42W util=99% | thr_rel=141.9W (idle=29.2 ref=254.7) | v1abs=False (newlines=56) streak=0
+13:23:24 | probe #86 decode=165.8 clk=2872MHz power=269.88W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=56) streak=0
+13:24:26 | probe #87 decode=165.4 clk=2872MHz power=270.38W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=57) streak=0
+13:25:28 | probe #88 decode=166.5 clk=2872MHz power=272.95W util=99% | thr_rel=144.3W (idle=29.2 ref=259.4) | v1abs=False (newlines=56) streak=0
+13:26:30 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:27:32 | probe #90 decode=165.3 clk=2857MHz power=244.98W util=99% | thr_rel=144.3W (idle=29.2 ref=259.4) | v1abs=False (newlines=56) streak=0
+13:27:32 | heartbeat: probes=90 cases=0 engine_uptime_h=16.62
+13:28:34 | probe #91 decode=169.2 clk=2857MHz power=253.38W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=56) streak=0
+13:29:36 | probe #92 decode=167.8 clk=2857MHz power=243.7W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=57) streak=0
+13:30:37 | probe #93 decode=170.4 clk=2857MHz power=267.84W util=99% | thr_rel=142.6W (idle=29.2 ref=256.1) | v1abs=False (newlines=57) streak=0
+13:31:39 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:32:41 | probe #95 decode=163.9 clk=2872MHz power=267.64W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=56) streak=0
+13:33:43 | probe #96 decode=169.5 clk=2857MHz power=230.88W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=56) streak=0
+13:34:45 | probe #97 decode=165.8 clk=2865MHz power=258.78W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=57) streak=0
+13:35:47 | probe #98 decode=165.8 clk=2857MHz power=237.52W util=99% | thr_rel=143.3W (idle=29.2 ref=257.4) | v1abs=False (newlines=57) streak=0
+13:36:49 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:37:51 | probe #100 decode=164.5 clk=2865MHz power=270.28W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=56) streak=0
+13:37:51 | heartbeat: probes=100 cases=0 engine_uptime_h=16.79
+13:38:53 | probe #101 decode=170.4 clk=2872MHz power=280.23W util=99% | thr_rel=146.8W (idle=29.2 ref=264.4) | v1abs=False (newlines=56) streak=0
+13:39:55 | probe #102 decode=168.9 clk=2865MHz power=273.68W util=99% | thr_rel=147.5W (idle=29.2 ref=265.8) | v1abs=False (newlines=57) streak=0
+13:40:57 | probe #103 decode=163.4 clk=2872MHz power=267.56W util=99% | thr_rel=147.5W (idle=29.2 ref=265.8) | v1abs=False (newlines=56) streak=0
+13:41:59 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:43:01 | probe #105 decode=167.7 clk=2857MHz power=235.82W util=99% | thr_rel=146.8W (idle=29.2 ref=264.4) | v1abs=False (newlines=56) streak=0
+13:44:03 | probe #106 decode=164.9 clk=2857MHz power=246.71W util=99% | thr_rel=146.8W (idle=29.2 ref=264.4) | v1abs=False (newlines=56) streak=0
+13:45:05 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:46:07 | probe #108 decode=161.6 clk=2865MHz power=263.84W util=99% | thr_rel=146.8W (idle=29.2 ref=264.4) | v1abs=False (newlines=56) streak=0
+13:47:08 | probe #109 decode=163.2 clk=2865MHz power=268.4W util=99% | thr_rel=148.2W (idle=29.2 ref=267.3) | v1abs=False (newlines=57) streak=0
+13:48:10 | probe #110 decode=166.6 clk=2872MHz power=266.79W util=76% | thr_rel=148.2W (idle=29.2 ref=267.3) | v1abs=False (newlines=57) streak=0
+13:48:11 | heartbeat: probes=110 cases=0 engine_uptime_h=16.96
+13:49:12 | probe #111 decode=165.5 clk=2865MHz power=269.22W util=91% | thr_rel=148.4W (idle=29.2 ref=267.6) | v1abs=False (newlines=56) streak=0
+13:50:14 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:51:16 | probe #113 decode=164.5 clk=2857MHz power=225.93W util=99% | thr_rel=148.4W (idle=29.2 ref=267.6) | v1abs=False (newlines=56) streak=0
+13:52:18 | probe #114 decode=169.7 clk=2857MHz power=215.17W util=99% | thr_rel=148.4W (idle=29.2 ref=267.6) | v1abs=False (newlines=56) streak=0
+13:53:20 | probe #115 decode=166.5 clk=2857MHz power=230.29W util=99% | thr_rel=148.4W (idle=29.2 ref=267.6) | v1abs=False (newlines=58) streak=0
+13:54:22 | probe #116 decode=165 clk=2865MHz power=248.64W util=99% | thr_rel=148.2W (idle=29.2 ref=267.3) | v1abs=False (newlines=56) streak=0
+13:55:24 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+13:56:26 | probe #118 decode=161.9 clk=2865MHz power=261.93W util=99% | thr_rel=146.8W (idle=29.2 ref=264.4) | v1abs=False (newlines=56) streak=0
+13:57:28 | probe #119 decode=167.1 clk=2865MHz power=262.9W util=99% | thr_rel=146.5W (idle=29.2 ref=263.8) | v1abs=False (newlines=56) streak=0
+13:58:30 | probe #120 decode=169.5 clk=2865MHz power=260.22W util=99% | thr_rel=146.0W (idle=29.2 ref=262.9) | v1abs=False (newlines=58) streak=0
+13:58:30 | heartbeat: probes=120 cases=0 engine_uptime_h=17.13
+13:59:32 | probe #121 decode=165.4 clk=2865MHz power=256.87W util=99% | thr_rel=146.0W (idle=29.2 ref=262.9) | v1abs=False (newlines=56) streak=0
+14:00:34 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:01:36 | probe #123 decode=163.9 clk=2865MHz power=225.71W util=99% | thr_rel=145.5W (idle=29.2 ref=261.9) | v1abs=False (newlines=56) streak=0
+14:02:38 | probe #124 decode=166.6 clk=2857MHz power=239.15W util=99% | thr_rel=144.7W (idle=29.2 ref=260.2) | v1abs=False (newlines=56) streak=0
+14:03:40 | probe #125 decode=167.5 clk=2857MHz power=241.64W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=58) streak=0
+14:04:42 | probe #126 decode=164.5 clk=2857MHz power=231.57W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:05:44 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:06:46 | probe #128 decode=165.6 clk=2865MHz power=269.08W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:07:48 | probe #129 decode=168.8 clk=2872MHz power=277.66W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=56) streak=0
+14:08:50 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:08:50 | heartbeat(busy): probes=130 cases=0
+14:09:52 | probe #131 decode=164.4 clk=2857MHz power=220.54W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=57) streak=0
+14:10:54 | probe #132 decode=168.3 clk=2857MHz power=221.95W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=56) streak=0
+14:11:56 | probe #133 decode=169.7 clk=2857MHz power=259.15W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=56) streak=0
+14:12:58 | probe #134 decode=168.8 clk=2857MHz power=240.57W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:14:00 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:15:01 | probe #136 decode=157.6 clk=2865MHz power=259.86W util=99% | thr_rel=144.0W (idle=29.2 ref=258.8) | v1abs=False (newlines=57) streak=0
+14:16:03 | probe #137 decode=169.2 clk=2865MHz power=274.94W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=56) streak=0
+14:17:05 | probe #138 decode=169.4 clk=2872MHz power=275.13W util=99% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=57) streak=0
+14:18:07 | probe #139 decode=165.1 clk=2865MHz power=268.63W util=92% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:19:09 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:19:09 | heartbeat(busy): probes=140 cases=0
+14:20:11 | probe #141 decode=160.5 clk=2857MHz power=251.19W util=85% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:21:13 | probe #142 decode=170.9 clk=2857MHz power=221.26W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=57) streak=0
+14:22:15 | probe #143 decode=168.8 clk=2857MHz power=208.83W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=57) streak=0
+14:23:17 | probe #144 decode=171.7 clk=2857MHz power=215.24W util=99% | thr_rel=138.9W (idle=29.2 ref=248.6) | v1abs=False (newlines=56) streak=0
+14:24:19 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:25:21 | probe #146 decode=165.8 clk=2865MHz power=268.72W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:26:23 | probe #147 decode=170.3 clk=2872MHz power=267.51W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=57) streak=0
+14:27:25 | probe #148 decode=167.7 clk=2872MHz power=268.31W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=57) streak=0
+14:28:27 | probe #149 decode=165.6 clk=2872MHz power=264.11W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=56) streak=0
+14:29:29 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:29:29 | heartbeat(busy): probes=150 cases=0
+14:30:31 | probe #151 decode=167.2 clk=2865MHz power=202.33W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:31:33 | probe #152 decode=168.1 clk=2865MHz power=226.78W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:32:35 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:33:37 | probe #154 decode=164.8 clk=2857MHz power=246.86W util=99% | thr_rel=143.0W (idle=29.2 ref=256.9) | v1abs=False (newlines=56) streak=0
+14:34:39 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:35:41 | probe #156 decode=164.3 clk=2857MHz power=266.64W util=99% | thr_rel=144.2W (idle=29.2 ref=259.2) | v1abs=False (newlines=56) streak=0
+14:36:43 | probe #157 decode=171.5 clk=2872MHz power=273.92W util=99% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:37:45 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:38:47 | probe #159 decode=165.9 clk=2872MHz power=269.63W util=99% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:39:49 | probe #160 decode=166.1 clk=2872MHz power=270.95W util=99% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:39:49 | heartbeat: probes=160 cases=0 engine_uptime_h=17.82
+14:40:51 | probe #161 decode=171.8 clk=2872MHz power=281.25W util=99% | thr_rel=144.5W (idle=29.2 ref=259.9) | v1abs=False (newlines=56) streak=0
+14:41:53 | probe #162 decode=172.1 clk=2872MHz power=281.64W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=56) streak=0
+14:42:55 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:43:57 | probe #164 decode=162.9 clk=2857MHz power=217.86W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=57) streak=0
+14:44:58 | probe #165 decode=165.4 clk=2857MHz power=240.15W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=56) streak=0
+14:46:00 | probe #166 decode=166.2 clk=2857MHz power=253.15W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=57) streak=0
+14:47:02 | probe #167 decode=169.8 clk=2865MHz power=256.5W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=56) streak=0
+14:48:04 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:49:06 | probe #169 decode=164 clk=2865MHz power=267.97W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=57) streak=0
+14:50:08 | probe #170 decode=169 clk=2865MHz power=273.99W util=99% | thr_rel=146.6W (idle=29.2 ref=264.1) | v1abs=False (newlines=56) streak=0
+14:50:08 | heartbeat: probes=170 cases=0 engine_uptime_h=17.99
+14:51:10 | probe #171 decode=165.9 clk=2872MHz power=270.8W util=99% | thr_rel=147.9W (idle=29.2 ref=266.6) | v1abs=False (newlines=57) streak=0
+14:52:12 | probe #172 decode=167.5 clk=2872MHz power=267.94W util=99% | thr_rel=148.3W (idle=29.2 ref=267.5) | v1abs=False (newlines=56) streak=0
+14:53:14 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:54:16 | probe #174 decode=163.5 clk=2857MHz power=223.93W util=99% | thr_rel=148.3W (idle=29.2 ref=267.5) | v1abs=False (newlines=57) streak=0
+14:55:18 | probe #175 decode=165.6 clk=2865MHz power=239.64W util=99% | thr_rel=148.3W (idle=29.2 ref=267.5) | v1abs=False (newlines=56) streak=0
+14:56:20 | probe #176 decode=167 clk=2865MHz power=260.57W util=99% | thr_rel=148.3W (idle=29.2 ref=267.5) | v1abs=False (newlines=57) streak=0
+14:57:22 | probe #177 decode=169.1 clk=2865MHz power=264.8W util=99% | thr_rel=147.9W (idle=29.2 ref=266.6) | v1abs=False (newlines=56) streak=0
+14:58:24 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+14:59:26 | probe #179 decode=165.5 clk=2872MHz power=268.59W util=99% | thr_rel=147.9W (idle=29.2 ref=266.6) | v1abs=False (newlines=56) streak=0
+15:00:28 | probe #180 decode=165.3 clk=2872MHz power=268.07W util=92% | thr_rel=147.9W (idle=29.2 ref=266.6) | v1abs=False (newlines=57) streak=0
+15:00:28 | heartbeat: probes=180 cases=0 engine_uptime_h=18.17
+15:01:30 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+15:02:32 | probe #182 decode=151.4 clk=2872MHz power=257.05W util=99% | thr_rel=147.9W (idle=29.2 ref=266.6) | v1abs=False (newlines=56) streak=0

@@ -1,0 +1,16 @@
+﻿06:04:39 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=8 | NO pressure, NO restart, NO config change
+06:04:39 | IDLE BASELINE (pre-first-probe): clk=660MHz util=2% pow=21.68W | criterion must be normalised against this
+06:04:41 | probe #1 decode=165.3 clk=2865MHz power=274.23W util=95% (newlines=13553) streak=0 [warmup: 起步探不计数]
+06:05:43 | probe #2 decode=171.2 clk=2865MHz power=277.15W util=99% (newlines=56) streak=0 [warmup: 起步探不计数]
+06:06:44 | probe #3 decode=145 clk=2880MHz power=247.61W util=99% (newlines=56) streak=0
+06:07:46 | probe #4 decode=150.2 clk=2872MHz power=241.91W util=99% (newlines=57) streak=0
+06:08:48 | probe #5 decode=129.8 clk=2872MHz power=214.33W util=99% (newlines=57) streak=0
+06:09:50 | probe #6 decode=164.3 clk=2857MHz power=217.05W util=99% (newlines=57) streak=0
+06:10:56 | probe #7 decode=39 clk=2895MHz power=109.31W util=98% (newlines=57) streak=0
+06:11:57 | probe #8 decode=170.5 clk=2857MHz power=247.01W util=98% (newlines=56) streak=0
+06:12:59 | probe #9 decode=169.7 clk=2872MHz power=280.53W util=99% (newlines=56) streak=0
+06:14:01 | probe #10 decode=172.6 clk=2865MHz power=225.32W util=99% (newlines=57) streak=0
+06:14:01 | heartbeat: probes=10 cases=0 engine_uptime_h=
+06:15:03 | probe #11 decode=170.4 clk=2857MHz power=243.18W util=98% (newlines=57) streak=0
+06:16:05 | probe #12 decode=155 clk=2872MHz power=264.02W util=98% (newlines=56) streak=0
+06:17:06 | probe #13 decode=137.2 clk=2880MHz power=226.45W util=99% (newlines=56) streak=0

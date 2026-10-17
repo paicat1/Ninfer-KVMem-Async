@@ -1,0 +1,10 @@
+﻿cmd.exe pid=14796 C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --
+node.exe pid=10812 "node"   "C:\Users\PC\AppData\Roaming\npm\\node_modules\@tencent-ai\codebuddy-code\bin\cod
+pythonw.exe pid=7816 "J:\miniconda3\pythonw.exe"  "J:\ninfer-kvmem\ninfer_launcher.py"
+powershell.exe pid=29544 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=30692 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=21456 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+python.exe pid=4020 "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\window_wa
+powershell.exe pid=24908 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=29676 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+python.exe pid=15740 "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 J:\ninfer-kvmem\.

@@ -12,10 +12,10 @@ import time
 
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGETS = [
-    ('猎人 valley_hunter', 'powershell', 'valley_hunter.ps1', os.path.join(R, '.temp', 'cases')),
-    ('看门狗 watchdog_hunter', 'powershell', 'watchdog_hunter.ps1', os.path.join(R, '.temp', 'cases')),
-    ('日志通道 valley_logwatch', 'python', 'valley_logwatch.py', os.path.join(R, '.temp', 'cases')),
-    ('采样器 window_watch', 'python', 'window_watch.py', os.path.join(R, '.temp')),
+    ('猎人 valley_hunter', 'powershell', 'valley_hunter.ps1', os.path.join(R, 'evidence', 'cases')),
+    ('看门狗 watchdog_hunter', 'powershell', 'watchdog_hunter.ps1', os.path.join(R, 'evidence', 'cases')),
+    ('日志通道 valley_logwatch', 'python', 'valley_logwatch.py', os.path.join(R, 'evidence', 'cases')),
+    ('采样器 window_watch', 'python', 'window_watch.py', os.path.join(R, 'evidence', 'samples')),
 ]
 PS = ("Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(python|pwsh|powershell)' } | "
       "ForEach-Object { $_.ProcessId.ToString() + '|' + $_.Name + '|' + $_.CommandLine }")

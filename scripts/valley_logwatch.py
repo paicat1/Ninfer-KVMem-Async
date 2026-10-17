@@ -20,7 +20,7 @@ import time
 
 ROOT = r'J:\ninfer-kvmem'
 LOG = os.path.join(ROOT, 'logs', 'test_valleywatch.log')
-CASEDIR = os.path.join(ROOT, '.temp', 'cases')
+CASEDIR = os.path.join(ROOT, 'evidence', 'cases')
 LEDGER = os.path.join(CASEDIR, 'logwatch_ledger.txt')
 LOCK = os.path.join(CASEDIR, 'CASE_LOCKED.json')
 QUEUE = os.path.join(ROOT, 'docs', '协作状态-当前待办与交接-20261016.md')

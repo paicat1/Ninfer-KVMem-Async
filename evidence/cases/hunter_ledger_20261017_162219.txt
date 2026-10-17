@@ -1,0 +1,40 @@
+﻿16:22:20 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+16:22:20 | IDLE BASELINE (pre-first-probe): clk=2865MHz util=99% pow=249.38W | criterion must be normalised against this
+16:22:20 | CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+16:24:15 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:25:17 | probe #2 decode=156.7 clk=2872MHz power=263.74W util=98% | thr_rel=232.2W (idle=249.4 ref=215.0) | v1abs=False (newlines=56) streak=0
+16:26:19 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:27:22 | probe #4 decode=115.5 clk=2887MHz power=203.02W util=91% | thr_rel=232.2W (idle=249.4 ref=215.0) | v1abs=False (newlines=56) streak=0
+16:28:24 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:29:27 | probe #6 decode=111.6 clk=2880MHz power=200.34W util=99% | thr_rel=232.2W (idle=249.4 ref=215.0) | v1abs=False (newlines=57) streak=0
+16:30:29 | probe #7 decode=161.4 clk=2872MHz power=247.24W util=4% | thr_rel=232.2W (idle=249.4 ref=215.0) | v1abs=False (newlines=56) streak=0
+16:31:31 | probe #8 decode=161.8 clk=2857MHz power=254.81W util=99% | thr_rel=232.2W (idle=249.4 ref=215.0) | v1abs=False (newlines=56) streak=0
+16:32:33 | probe #9 decode=162.9 clk=2857MHz power=262.59W util=99% | thr_rel=252.1W (idle=249.4 ref=254.8) | v1abs=False (newlines=56) streak=0
+16:33:35 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:33:35 | heartbeat(busy): probes=10 cases=0
+16:34:37 | probe #11 decode=159.9 clk=2865MHz power=264.42W util=99% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=56) streak=0
+16:35:39 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:36:41 | probe #13 decode=164.6 clk=2872MHz power=269.23W util=99% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=56) streak=0
+16:37:43 | probe #14 decode=171.6 clk=2887MHz power=266.8W util=35% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=56) streak=0
+16:38:45 | defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window
+16:39:49 | probe #16 decode=0 clk=690MHz power=23.36W util=2% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=5) streak=1
+16:40:54 | probe #17 decode=0 clk=690MHz power=22.72W util=2% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=2
+16:41:58 | probe #18 decode=0 clk=697MHz power=22.39W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=3
+16:41:59 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_164158 (decode=0, clk=697MHz power=22.39W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:41:59 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+16:41:59 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:43:04 | probe #19 decode=0 clk=690MHz power=22.67W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=1
+16:44:08 | probe #20 decode=0 clk=682MHz power=22.49W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=2
+16:44:08 | heartbeat: probes=20 cases=1 engine_uptime_h=-1
+16:45:12 | probe #21 decode=0 clk=1057MHz power=27.1W util=3% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=3
+16:45:13 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_164512 (decode=0, clk=1057MHz power=27.1W util=3% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:45:14 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+16:45:14 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:46:18 | probe #22 decode=0 clk=1005MHz power=24.57W util=12% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=1
+16:47:22 | probe #23 decode=0 clk=892MHz power=25.59W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=2
+16:48:27 | probe #24 decode=0 clk=652MHz power=26.31W util=2% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=323) streak=3
+16:48:28 | VALLEY CONFIRMED -> case dir .temp\cases\case_20261017_164827 (decode=0, clk=652MHz power=26.31W util=2% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:48:28 | FREEZE LOCK written: J:\ninfer-kvmem\.temp\cases\CASE_LOCKED.json (queue line appended)
+16:48:28 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:49:32 | probe #25 decode=0 clk=735MHz power=22.84W util=1% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=1
+16:50:37 | probe #26 decode=0 clk=2662MHz power=43.99W util=2% | thr_rel=256.0W (idle=249.4 ref=262.6) | v1abs=False (newlines=0) streak=2

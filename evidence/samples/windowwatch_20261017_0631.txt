@@ -1,0 +1,5 @@
+# window watch vw2 (freshness-aware) -- 2026-10-17 06:31:03
+# verify/decode 只在【新增行】里取；无新增行写 stale。target-split 打印门见文件头注释。
+10-17 06:31:08 | w2 | up=125.5h cpu=57% freemem_mib=90908 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2070,32.55,15,15766 | verify=stale decode_win5s=stale newlines=0 ts_lines=0 | s13=cy71:ok/stale(2039m)
+10-17 06:32:12 | w2 | up=125.5h cpu=69% freemem_mib=90937 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2010,32.45,4,15780 | verify=stale decode_win5s=39.7 newlines=56 ts_lines=0 | s13=cy71:ok/stale(2040m)
+10-17 06:33:16 | w2 | up=125.6h cpu=56% freemem_mib=91123 pf_mib=188 top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2670,42.47,23,15793 | verify=stale decode_win5s=36.6 newlines=57 ts_lines=0 | s13=cy71:ok/stale(2041m)

@@ -1,0 +1,14 @@
+# window watch (host x engine state timeline) -- 2026-10-15 20:47:43
+10-15 20:47:46 | up=91.8h cpu=37% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=682,23.45,2,15649 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:48:50 | up=91.8h cpu=49% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=697,24.17,1,15668 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:49:53 | up=91.8h cpu=11% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=697,23.50,1,15659 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:50:56 | up=91.9h cpu=65% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2662,47.52,1,15719 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:52:00 | up=91.9h cpu=64% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=817,24.57,3,15678 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:53:03 | up=91.9h cpu=34% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=840,24.17,4,15661 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:54:07 | up=91.9h cpu=57% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=2115,30.32,1,15664 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:55:10 | up=91.9h cpu=46% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=772,23.26,3,15690 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:56:14 | up=91.9h cpu=40% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=727,22.64,1,15630 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:57:17 | up=92h cpu=53% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=825,24.44,5,15720 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:58:20 | up=92h cpu=9% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=705,21.66,1,15657 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 20:59:23 | up=92h cpu=43% freemem=99MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1462,25.59,31,15670 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok
+10-15 21:00:27 | up=92h cpu=62% freemem=100MiB pf=0MiB top=CodeBuddy CN/CodeBuddy CN/Taskmgr | gpu=1800,30.87,18,15754 | verify=-1ms decode=11.8 stamps=0 | s13=cy71:ok

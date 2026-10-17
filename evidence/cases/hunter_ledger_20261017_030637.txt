@@ -1,0 +1,5 @@
+﻿03:06:37 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=8 | NO pressure, NO restart, NO config change
+03:06:46 | probe #1 decode=23.5 freshVerify=-1(n=3717) streak=0
+03:07:48 | probe #2 decode=168.6 freshVerify=-1(n=56) streak=0
+03:08:50 | probe #3 decode=171.2 freshVerify=-1(n=57) streak=0
+03:10:00 | probe #4 decode=20.8 freshVerify=-1(n=58) streak=0

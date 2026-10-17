@@ -1,0 +1,16 @@
+﻿
+LastWriteTime      Name                         
+-------------      ----                         
+2026/10/17 9:09:09 valley_logwatch.py           
+2026/10/17 9:07:32 watchdog_hunter.ps1          
+2026/10/17 9:01:32 check_catch.py               
+2026/10/17 9:07:31 fix_all4.py                  
+2026/10/17 9:09:09 fix_pairing.py               
+2026/10/17 9:10:48 gate_hunt.json               
+2026/10/17 9:04:15 logwatch_run.ps1             
+2026/10/17 9:04:13 make_logwatch.py             
+2026/10/17 9:10:48 reqlog_watch.jsonl           
+2026/10/17 9:03:16 why_deep.py                  
+2026/10/17 9:10:41 windowwatch_20261017_0639.txt
+
+

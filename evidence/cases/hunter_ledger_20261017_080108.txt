@@ -1,0 +1,26 @@
+﻿08:01:08 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+08:01:09 | IDLE BASELINE (pre-first-probe): clk=802MHz util=8% pow=23.32W | criterion must be normalised against this
+08:01:09 | CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+08:01:10 | STREAK-BREAK: previous streak=2 dropped after gap=611s (>180s; machine state may have changed) -- auditable
+08:01:11 | probe #1 decode=160.7 clk=2872MHz power=261.76W util=99% | thr_rel=119.2W (idle=23.3 ref=215.0) | v1abs=False (newlines=19667) streak=0
+08:02:16 | probe #2 decode=41.3 clk=2902MHz power=101.44W util=100% | thr_rel=119.2W (idle=23.3 ref=215.0) | v1abs=False (newlines=57) streak=1
+08:03:18 | probe #3 decode=122.2 clk=2857MHz power=219.75W util=99% | thr_rel=119.2W (idle=23.3 ref=215.0) | v1abs=False (newlines=56) streak=0
+08:04:20 | probe #4 decode=170.1 clk=2872MHz power=275.28W util=98% | thr_rel=119.2W (idle=23.3 ref=215.0) | v1abs=False (newlines=57) streak=0
+08:05:22 | probe #5 decode=106.7 clk=2887MHz power=194.89W util=99% | thr_rel=119.2W (idle=23.3 ref=215.0) | v1abs=False (newlines=56) streak=0
+08:06:24 | probe #6 decode=115.9 clk=2872MHz power=206.14W util=99% | thr_rel=121.5W (idle=23.3 ref=219.8) | v1abs=False (newlines=57) streak=0
+08:07:26 | probe #7 decode=169.6 clk=2865MHz power=270.94W util=98% | thr_rel=142.5W (idle=23.3 ref=261.8) | v1abs=False (newlines=57) streak=0
+08:08:28 | probe #8 decode=170 clk=2872MHz power=277.24W util=99% | thr_rel=142.5W (idle=23.3 ref=261.8) | v1abs=False (newlines=56) streak=0
+08:09:30 | probe #9 decode=161.4 clk=2865MHz power=258.6W util=94% | thr_rel=142.5W (idle=23.3 ref=261.8) | v1abs=False (newlines=56) streak=0
+08:10:32 | probe #10 decode=121.8 clk=2887MHz power=195.34W util=99% | thr_rel=141.0W (idle=23.3 ref=258.6) | v1abs=False (newlines=56) streak=0
+08:10:32 | heartbeat: probes=10 cases=0 engine_uptime_h=11.33
+08:11:34 | probe #11 decode=124.5 clk=2865MHz power=210.5W util=99% | thr_rel=141.0W (idle=23.3 ref=258.6) | v1abs=False (newlines=56) streak=0
+08:12:36 | probe #12 decode=141.1 clk=2865MHz power=243.93W util=99% | thr_rel=133.6W (idle=23.3 ref=243.9) | v1abs=False (newlines=58) streak=0
+08:13:38 | probe #13 decode=162.1 clk=2872MHz power=264.97W util=99% | thr_rel=141.0W (idle=23.3 ref=258.6) | v1abs=False (newlines=56) streak=0
+08:14:40 | probe #14 decode=173 clk=2857MHz power=244.09W util=98% | thr_rel=133.7W (idle=23.3 ref=244.1) | v1abs=False (newlines=56) streak=0
+08:15:41 | probe #15 decode=163 clk=2865MHz power=228.86W util=99% | thr_rel=133.7W (idle=23.3 ref=244.1) | v1abs=False (newlines=56) streak=0
+08:16:43 | probe #16 decode=143.1 clk=2857MHz power=245.67W util=96% | thr_rel=133.7W (idle=23.3 ref=244.1) | v1abs=False (newlines=56) streak=0
+08:17:45 | probe #17 decode=160.6 clk=2865MHz power=248.04W util=99% | thr_rel=134.5W (idle=23.3 ref=245.7) | v1abs=False (newlines=57) streak=0
+08:18:46 | probe #18 decode=161.2 clk=2865MHz power=265.19W util=99% | thr_rel=134.5W (idle=23.3 ref=245.7) | v1abs=False (newlines=56) streak=0
+08:19:48 | probe #19 decode=168.9 clk=2865MHz power=237.72W util=99% | thr_rel=134.5W (idle=23.3 ref=245.7) | v1abs=False (newlines=56) streak=0
+08:20:50 | probe #20 decode=165.9 clk=2857MHz power=205.14W util=98% | thr_rel=133.7W (idle=23.3 ref=244.1) | v1abs=False (newlines=57) streak=0
+08:20:50 | heartbeat: probes=20 cases=0 engine_uptime_h=11.51

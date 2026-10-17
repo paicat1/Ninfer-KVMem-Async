@@ -132,7 +132,7 @@
       "reason": "证据混在临时区",
       "plan": "P3 → evidence/（先改工具路径）",
       "match": [
-        ".temp/cases/*",
+        "evidence/cases/*",
         ".temp/hunter_ledger_*",
         ".temp/logwatch_ledger.txt",
         ".temp/windowwatch_*",

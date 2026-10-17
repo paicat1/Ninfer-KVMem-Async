@@ -1,0 +1,7 @@
+﻿06:18:00 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=8 | NO pressure, NO restart, NO config change
+06:18:00 | IDLE BASELINE (pre-first-probe): clk=1770MHz util=30% pow=30.94W | criterion must be normalised against this
+06:18:02 | probe #1 decode=158.9 clk=2857MHz power=251.67W util=99% (newlines=14287) streak=0 [warmup: 起步探不计数]
+06:19:08 | probe #2 decode=37.9 clk=2880MHz power=149.07W util=99% (newlines=57) streak=0 [warmup: 起步探不计数]
+06:20:10 | probe #3 decode=123.9 clk=2872MHz power=201.56W util=99% (newlines=58) streak=0
+06:21:12 | probe #4 decode=125.9 clk=2865MHz power=218.4W util=99% (newlines=56) streak=0
+06:22:13 | probe #5 decode=160.1 clk=2857MHz power=238.52W util=98% (newlines=56) streak=0

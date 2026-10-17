@@ -1,0 +1,1 @@
+﻿10-17 07:51:46 | GATE-BLOCK: valley_hunter.ps1 syntax error, NOT started | L89: Expressions are only allowed as the first element of a pipeline.

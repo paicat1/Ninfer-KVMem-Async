@@ -1,0 +1,10 @@
+﻿07:38:33 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+07:38:33 | IDLE BASELINE (pre-first-probe): clk=667MHz util=2% pow=22.95W | criterion must be normalised against this
+07:38:33 | CRITERION v4 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time (persists across hunter restarts)**; warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+07:38:35 | probe #1 decode=165 clk=2872MHz power=271.44W util=98% | thr_rel=119.0W (idle=23.0 ref=215.0) | v1abs=False (newlines=18535) streak=0
+07:39:37 | probe #2 decode=151 clk=2865MHz power=245.87W util=99% | thr_rel=119.0W (idle=23.0 ref=215.0) | v1abs=False (newlines=56) streak=0
+07:40:39 | probe #3 decode=117.4 clk=2872MHz power=208.66W util=99% | thr_rel=119.0W (idle=23.0 ref=215.0) | v1abs=False (newlines=56) streak=0
+07:41:41 | probe #4 decode=114.3 clk=2872MHz power=206.16W util=99% | thr_rel=119.0W (idle=23.0 ref=215.0) | v1abs=False (newlines=57) streak=0
+07:42:43 | probe #5 decode=117.8 clk=2872MHz power=211.8W util=99% | thr_rel=117.4W (idle=23.0 ref=211.8) | v1abs=False (newlines=57) streak=0
+07:43:45 | probe #6 decode=124.6 clk=2872MHz power=213.63W util=99% | thr_rel=118.3W (idle=23.0 ref=213.6) | v1abs=False (newlines=57) streak=0
+07:44:47 | probe #7 decode=167.9 clk=2865MHz power=222.35W util=97% | thr_rel=118.3W (idle=23.0 ref=213.6) | v1abs=False (newlines=56) streak=0

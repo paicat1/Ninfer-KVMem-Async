@@ -5,19 +5,19 @@
 #   本仓被 S13 计数停摆、陈旧值拖 12h 咬过；常驻件"静默死"比"死"更危险。
 #
 # 行为：每 120 s 查一次最新 hunter_ledger 的 mtime；超过 StaleSec（默认 420 s = 2 个探针周期 + 余量）
-#       ⇒ 在 .temp\cases\WATCHDOG_ALERT.txt 追加一行，并在共享队列可发现处落一条（告警行）。
+#       ⇒ 在 evidence\cases\WATCHDOG_ALERT.txt 追加一行，并在共享队列可发现处落一条（告警行）。
 param([int]$StaleSec = 420, [int]$MaxHours = 10)
 Set-Location J:\ninfer-kvmem
 $host.UI.RawUI.WindowTitle = 'HUNTER-WATCHDOG [running] -- alert if hunter ledger silent > 420s; close window = stop'
-$cases = '.temp\cases'
+$cases = 'evidence\cases'
 $alert = Join-Path $cases 'WATCHDOG_ALERT.txt'
 $t0 = Get-Date
 while (((Get-Date) - $t0).TotalHours -lt $MaxHours) {
     $led = Get-ChildItem $cases -File -Filter 'hunter_ledger_*' -ErrorAction SilentlyContinue |
            Sort-Object LastWriteTime -Descending | Select-Object -First 1
     # v2（2026-10-17 09:1x）：**扩展为看全部同伴**（原只看猎人 ⇒ 日志通道/采样器静默死无人知）
-    $logwatch = Get-Item '.temp\cases\logwatch_ledger.txt' -ErrorAction SilentlyContinue
-    $sampler  = Get-ChildItem '.temp' -File -Filter 'windowwatch_*' -ErrorAction SilentlyContinue |
+    $logwatch = Get-Item 'evidence\cases\logwatch_ledger.txt' -ErrorAction SilentlyContinue
+    $sampler  = Get-ChildItem 'evidence\samples' -File -Filter 'windowwatch_*' -ErrorAction SilentlyContinue |
                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
     $logwatchAlive = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*valley_logwatch*' }).Count
     $samplerAlive  = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*window_watch*' }).Count

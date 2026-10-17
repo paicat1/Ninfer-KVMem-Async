@@ -1,0 +1,138 @@
+﻿
+==============NVSMI LOG==============
+
+Timestamp                                              : Sat Oct 17 16:41:58 2026
+Driver Version                                         : 616.92 [Deprecated; will be removed in CUDA 14.0. Use KMD Version instead]
+CUDA Version                                           : 13.4 [Deprecated; will be removed in CUDA 14.0. Use CUDA UMD Version instead]
+KMD Version                                            : 616.92
+CUDA UMD Version                                       : 13.4
+
+Attached GPUs                                          : 1
+GPU 00000000:01:00.0
+    FB Memory Usage
+        Total                                          : 16303 MiB
+        Reserved                                       : 324 MiB
+        Used                                           : 708 MiB
+        Free                                           : 15272 MiB
+    BAR1 Memory Usage
+        Total                                          : 256 MiB
+        Used                                           : 227 MiB
+        Free                                           : 29 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : N/A
+        Used                                           : N/A
+        Free                                           : N/A
+    Utilization
+        GPU                                            : 1 %
+        Memory                                         : 23 %
+        Encoder                                        : 0 %
+        Decoder                                        : 0 %
+        JPEG                                           : 0 %
+        OFA                                            : 0 %
+    GPU Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 4 %
+        Min                                            : 1 %
+        Avg                                            : 1 %
+    Memory Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 25 %
+        Min                                            : 21 %
+        Avg                                            : 23 %
+    ENC Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 0 %
+        Min                                            : 0 %
+        Avg                                            : 0 %
+    DEC Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 0 %
+        Min                                            : 0 %
+        Avg                                            : 0 %
+    JPG Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 0 %
+        Min                                            : 0 %
+        Avg                                            : 0 %
+    OFA Utilization Samples
+        Duration                                       : 14.09 sec
+        Number of Samples                              : 71
+        Max                                            : 0 %
+        Min                                            : 0 %
+        Avg                                            : 0 %
+    GPU Power Readings
+        Average Power Draw                             : 22.39 W
+        Instantaneous Power Draw                       : 22.47 W
+        GPU Ceiling Power Limit
+            Current Power Limit                        : 360.00 W
+            Requested Power Limit                      : 360.00 W
+            Default Power Limit                        : 360.00 W
+        GPU Base Power
+            Current Base Power                         : N/A
+            Requested Base Power                       : N/A
+            Default Base Power                         : N/A
+            Adaptive TGP Adjusted Base Power           : N/A
+        Min Power Limit                                : 250.00 W
+        Max Power Limit                                : 360.00 W
+    Power Samples
+        Duration                                       : 2.37 sec
+        Number of Samples                              : 119
+        Max                                            : 26.85 W
+        Min                                            : 20.68 W
+        Avg                                            : 22.36 W
+    GPU Memory Power Readings 
+        Average Power Draw                             : N/A
+        Instantaneous Power Draw                       : N/A
+    Module Power Readings
+        Average Power Draw                             : N/A
+        Instantaneous Power Draw                       : N/A
+        Current Power Limit                            : N/A
+        Requested Power Limit                          : N/A
+        Default Power Limit                            : N/A
+        Min Power Limit                                : N/A
+        Max Power Limit                                : N/A
+    EDPp Multiplier                                    : N/A
+    Clocks
+        Graphics                                       : 697 MHz
+        SM                                             : 697 MHz
+        Memory                                         : 810 MHz
+        Video                                          : 915 MHz
+    Applications Clocks
+        Graphics                                       : Requested functionality has been deprecated
+        Memory                                         : Requested functionality has been deprecated
+    Default Applications Clocks
+        Graphics                                       : Requested functionality has been deprecated
+        Memory                                         : Requested functionality has been deprecated
+    Deferred Clocks
+        Memory                                         : N/A
+    Max Clocks
+        Graphics                                       : 3090 MHz
+        SM                                             : 3090 MHz
+        Memory                                         : 15001 MHz
+        Video                                          : 3090 MHz
+    Max Customer Boost Clocks
+        Graphics                                       : N/A
+    SM Clock Samples
+        Duration                                       : N/A
+        Number of Samples                              : N/A
+        Max                                            : N/A
+        Min                                            : N/A
+        Avg                                            : N/A
+    Memory Clock Samples
+        Duration                                       : N/A
+        Number of Samples                              : N/A
+        Max                                            : N/A
+        Min                                            : N/A
+        Avg                                            : N/A
+    Clock Policy
+        Auto Boost                                     : N/A
+        Auto Boost Default                             : N/A
+    DLA Clocks
+        Engine                                         : N/A
+        Max Engine                                     : N/A
+

@@ -1,0 +1,2 @@
+﻿489c690 09:06 docs(collab): commit the reviewer's latest queue and letter entries
+3fd1ce5 09:05 tools(valley): add the engine-log channel so real traffic is watched -- the hunter only measures its own light two-hundred-token probe while the deep slow-downs were happening in the user's own requests, so this reads the engine log for every in-flight request and tiers readings below sixty as valley, below six as deep and below one point five as very deep, files a case with a freeze lock when two of three samples are slow, and sends no requests of its own

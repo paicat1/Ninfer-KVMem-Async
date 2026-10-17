@@ -1,0 +1,3 @@
+﻿03:08:36 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=0 | NO pressure, NO restart, NO config change
+03:08:36 | max hours reached, stop
+03:08:36 | hunter stop

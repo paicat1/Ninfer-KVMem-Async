@@ -1,0 +1,8 @@
+﻿16:51:38 | hunter start | criteria: decode<60 AND freshVerify>=100 AND 2 consecutive | cap=500MB | maxHours=12 | NO pressure, NO restart, NO config change
+16:51:38 | IDLE BASELINE (pre-first-probe): clk=727MHz util=2% pow=22.64W | criterion must be normalised against this
+16:51:38 | CRITERION v4.1 (effective now): decode<60 AND [power<thr_rel in >=2 of last 3 beats] AND 3 consecutive **by physical time**; streak persists across hunter restarts **only if gap <=180s** (longer outage breaks the chain and is disclosed in the plan); warmup = engine started <2min ago; thr_rel = idleBase + 0.5*(healthyRef - idleBase)
+16:51:43 | probe #1 decode=0 clk=682MHz power=22.68W util=2% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=89877) streak=3
+16:51:44 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_165143 (decode=0, clk=682MHz power=22.68W util=2% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:51:44 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+16:51:44 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:52:48 | probe #2 decode=0 clk=675MHz power=22.61W util=2% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1

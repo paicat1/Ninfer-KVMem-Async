@@ -1,0 +1,62 @@
+[1017_062707] 06:27:07 | IDLE BASELINE (pre-first-probe): clk=682MHz util=1% pow=22.14W | criterion must be normalised against this
+[1017_062707] 06:27:07 | CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active power
+[1017_062707] 06:27:16 | probe #1 decode=23 clk=2902MHz power=91.46W util=100% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=True (newlines=14572) streak=0 [warmup: 起步探不计数]
+[1017_062707] 06:28:22 | probe #2 decode=39.6 clk=2902MHz power=98.85W util=100% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=True (newlines=57) streak=0 [warmup: 起步探不计数]
+[1017_062707] 06:29:24 | probe #3 decode=161.7 clk=2865MHz power=255.91W util=99% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=False (newlines=56) streak=0
+[1017_062707] 06:30:26 | probe #4 decode=142.3 clk=2872MHz power=235.47W util=97% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=False (newlines=58) streak=0
+[1017_062707] 06:31:28 | probe #5 decode=143.6 clk=2872MHz power=246.61W util=97% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=False (newlines=56) streak=0
+[1017_062707] 06:32:34 | probe #6 decode=37.7 clk=2872MHz power=174.19W util=85% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=False (newlines=57) streak=0
+[1017_062707] 06:33:43 | probe #7 decode=24.5 clk=2902MHz power=90.42W util=100% | thr_rel=118.6W (idle=22.1 ref=215.0) | v1abs=True (newlines=58) streak=1
+[1017_063418] 06:34:19 | IDLE BASELINE (pre-first-probe): clk=1275MHz util=4% pow=26.94W | criterion must be normalised against this
+[1017_063418] 06:34:19 | CRITERION v2 (relative, effective now): thr_rel = idleBase + 0.5*(healthyRef - idleBase); healthyRef = rolling median of last 30 healthy-active power
+[1017_063418] 06:34:33 | probe #1 decode=15.1 clk=2910MHz power=86.49W util=100% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=True (newlines=14973) streak=0 [warmup: 起步探不计数
+[1017_063418] 06:35:41 | probe #2 decode=26.9 clk=2902MHz power=94.67W util=100% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=True (newlines=59) streak=0 [warmup: 起步探不计数]
+[1017_063418] 06:36:47 | probe #3 decode=37.4 clk=2872MHz power=115.34W util=98% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=57) streak=1
+[1017_063418] 06:37:48 | probe #4 decode=152.1 clk=2872MHz power=254.64W util=99% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:38:51 | probe #5 decode=140.2 clk=2872MHz power=239.61W util=98% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:39:52 | probe #6 decode=163.2 clk=2872MHz power=269.34W util=88% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:40:54 | probe #7 decode=162 clk=2865MHz power=254W util=99% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:41:56 | probe #8 decode=173.1 clk=2865MHz power=240.06W util=99% | thr_rel=121.0W (idle=26.9 ref=215.0) | v1abs=False (newlines=58) streak=0
+[1017_063418] 06:42:57 | probe #9 decode=167.3 clk=2872MHz power=273.65W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:43:59 | probe #10 decode=168 clk=2865MHz power=243.35W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:45:01 | probe #11 decode=170.1 clk=2857MHz power=246.81W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:46:03 | probe #12 decode=168.2 clk=2857MHz power=202.13W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:47:05 | probe #13 decode=165.3 clk=2865MHz power=269.38W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:48:06 | probe #14 decode=165.6 clk=2857MHz power=241.76W util=98% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:49:08 | probe #15 decode=166.5 clk=2857MHz power=271.03W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:50:10 | probe #16 decode=166 clk=2865MHz power=204.16W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:51:12 | probe #17 decode=166.5 clk=2865MHz power=270.96W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:52:13 | probe #18 decode=166.1 clk=2865MHz power=225.86W util=99% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:53:15 | probe #19 decode=165.5 clk=2872MHz power=271.77W util=98% | thr_rel=136.9W (idle=26.9 ref=246.8) | v1abs=False (newlines=58) streak=0
+[1017_063418] 06:54:17 | probe #20 decode=162.8 clk=2865MHz power=265.86W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:55:19 | probe #21 decode=163.9 clk=2872MHz power=266.5W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:56:20 | probe #22 decode=164.8 clk=2857MHz power=236.93W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:57:22 | probe #23 decode=166.3 clk=2865MHz power=271.49W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=56) streak=0
+[1017_063418] 06:58:24 | probe #24 decode=165.6 clk=2857MHz power=258.83W util=99% | thr_rel=140.8W (idle=26.9 ref=254.6) | v1abs=False (newlines=57) streak=0
+[1017_063418] 06:59:25 | probe #25 decode=169.6 clk=2857MHz power=196.81W util=99% | thr_rel=140.5W (idle=26.9 ref=254.0) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:00:27 | probe #26 decode=164.5 clk=2857MHz power=255.67W util=98% | thr_rel=140.8W (idle=26.9 ref=254.6) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:01:29 | probe #27 decode=163.9 clk=2865MHz power=265.6W util=97% | thr_rel=140.8W (idle=26.9 ref=254.6) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:02:31 | probe #28 decode=166.3 clk=2857MHz power=258.6W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:03:33 | probe #29 decode=165.7 clk=2872MHz power=270.57W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:04:34 | probe #30 decode=166.2 clk=2865MHz power=225.48W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:05:36 | probe #31 decode=168.8 clk=2857MHz power=262.08W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:06:38 | probe #32 decode=164.5 clk=2865MHz power=203.99W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:07:40 | probe #33 decode=166.8 clk=2857MHz power=238.99W util=99% | thr_rel=140.8W (idle=26.9 ref=254.6) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:08:42 | probe #34 decode=168.1 clk=2865MHz power=272.61W util=97% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:09:43 | probe #35 decode=165.3 clk=2865MHz power=242.08W util=99% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:10:45 | probe #36 decode=164.8 clk=2872MHz power=267.92W util=99% | thr_rel=142.8W (idle=26.9 ref=258.6) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:11:47 | probe #37 decode=169.2 clk=2857MHz power=224.75W util=99% | thr_rel=142.8W (idle=26.9 ref=258.6) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:12:49 | probe #38 decode=167 clk=2865MHz power=271.95W util=98% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:13:50 | probe #39 decode=164.5 clk=2857MHz power=234.16W util=99% | thr_rel=142.8W (idle=26.9 ref=258.6) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:14:52 | probe #40 decode=164 clk=2872MHz power=267.15W util=99% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:15:54 | probe #41 decode=167.5 clk=2857MHz power=218.77W util=99% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:16:56 | probe #42 decode=169.2 clk=2865MHz power=265.57W util=99% | thr_rel=144.5W (idle=26.9 ref=262.1) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:17:58 | probe #43 decode=165.5 clk=2865MHz power=222.04W util=99% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:18:59 | probe #44 decode=170.1 clk=2865MHz power=271.33W util=99% | thr_rel=144.5W (idle=26.9 ref=262.1) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:20:01 | probe #45 decode=164.1 clk=2857MHz power=234.96W util=99% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:21:03 | probe #46 decode=164.7 clk=2872MHz power=270.18W util=99% | thr_rel=144.5W (idle=26.9 ref=262.1) | v1abs=False (newlines=57) streak=0
+[1017_063418] 07:22:05 | probe #47 decode=159.1 clk=2865MHz power=213.89W util=93% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:23:06 | probe #48 decode=165.7 clk=2865MHz power=259.62W util=99% | thr_rel=143.3W (idle=26.9 ref=259.6) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:24:08 | probe #49 decode=163.7 clk=2857MHz power=254.93W util=99% | thr_rel=142.9W (idle=26.9 ref=258.8) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:25:10 | probe #50 decode=165.4 clk=2865MHz power=230.29W util=98% | thr_rel=142.8W (idle=26.9 ref=258.6) | v1abs=False (newlines=56) streak=0
+[1017_063418] 07:26:12 | probe #51 decode=168.5 clk=2857MHz power=244.52W util=98% | thr_rel=141.3W (idle=26.9 ref=255.7) | v1abs=False (newlines=57) streak=0

@@ -1,0 +1,1 @@
+freemem=88,647MB total=130,908MB

@@ -273,7 +273,11 @@
     },
     "work": {
       "warn_gib": 2,
-      "action": "7 天自动清"
+      "action": "7 天自动清",
+      "preserve": [
+        "README.md"
+      ],
+      "_note": "work/README.md 是规则说明件，**清理时豁免**（否则自相矛盾）"
     },
     "engine": {
       "rule": "同 sha 只留一份（active + lineage 版本关系除外）"
@@ -315,17 +319,22 @@
     "_safety_backups": "删前副本（30 天）"
   },
   "agent_owned": {
-    "_doc": "**他方所属文件**：提交时**必须跳过**（等其本人攒批 + 用户批准）；由 scripts/commit_scope.py 拦截",
-    "tele": [
-      "docs/TELE审核-*.md",
+    "_doc": "文件归属：提交时按类别处理。`exclusive`=他方专属（**必须跳过**，等其本人攒批+用户批准）；`shared`=**多写者通道**（双方各自追加自己的节，允许提交，但**不得覆盖他人节**）",
+    "exclusive": {
+      "tele": [
+        "docs/TELE审核-*.md",
+        "docs/审核-*.md",
+        "docs/复核-*.md"
+      ],
+      "cli": [
+        "docs/*CodeBuddyCLI*.md",
+        "docs/实验-*-预登记-CodeBuddyCLI-*.md"
+      ]
+    },
+    "shared": [
       "docs/协作状态-当前待办与交接-*.md",
       "docs/CB致TELE-*.md",
-      "docs/审核-*.md",
-      "docs/复核-*.md"
-    ],
-    "cli": [
-      "docs/*CodeBuddyCLI*.md",
-      "docs/实验-*-预登记-CodeBuddyCLI-*.md"
+      "docs/TELE致CB-*.md"
     ]
   }
 }

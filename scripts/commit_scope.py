@@ -23,15 +23,32 @@ def staged():
     return [l.strip() for l in o.splitlines() if l.strip()]
 
 
+def unpushed():
+    """未推提交里改动的全部文件（origin/main..HEAD）。"""
+    rng = subprocess.run(['git', 'rev-list', 'origin/main..HEAD'], cwd=ROOT, capture_output=True).stdout.decode('utf-8', 'replace')
+    shas = [l.strip() for l in rng.splitlines() if l.strip()]
+    if not shas:
+        return []
+    o = subprocess.run(['git', 'diff', '--name-only'] + shas[-1] + '~1..HEAD', cwd=ROOT, capture_output=True)
+    out = (o.stdout or b'').decode('utf-8', 'replace')
+    if not out.strip():
+        o2 = subprocess.run(['git', 'show', '--pretty=format:', '--name-only'] + shas, cwd=ROOT, capture_output=True)
+        out = (o2.stdout or b'').decode('utf-8', 'replace')
+    return [l.strip() for l in out.splitlines() if l.strip()]
+
+
 def main():
-    files = staged()
+    warn_only = '--warn' in sys.argv
+    files = unpushed() if '--unpushed' in sys.argv else staged()
+    scope = '未推提交' if '--unpushed' in sys.argv else '暂存区'
     if '--list' in sys.argv:
         for f in files:
             print('   ' + f)
         return 0
     p = os.path.join(ROOT, 'structure.json')
     rules = json.load(io.open(p, encoding='utf-8')) if os.path.exists(p) else {}
-    owned = rules.get('agent_owned', {})
+    owned = rules.get('agent_owned', {}).get('exclusive', {})
+    shared = rules.get('agent_owned', {}).get('shared', [])
     bad = []
     for who, pats in owned.items():
         if who.startswith('_'):
@@ -40,7 +57,7 @@ def main():
             for f in files:
                 if fnmatch.fnmatch(f, pat):
                     bad.append((who, f))
-    print('commit_scope: 暂存 %d 个文件' % len(files))
+    print('commit_scope: %s %d 个文件（shared 通道不计越界）' % (scope, len(files)))
     if bad:
         print('\n❌ 越界：暂存区含他方所属文件（等其本人攒批 + 用户批准）')
         for who, f in bad:
@@ -48,8 +65,11 @@ def main():
         if '--allow-agent-files' in sys.argv:
             print('   （--allow-agent-files 已显式放行）')
             return 0
+        if warn_only:
+            print('   （--warn：仅报告，不阻断）')
+            return 0
         return 1
-    print('✅ 未含他方所属文件')
+    print('✅ 未含他方专属文件（shared 通道 %d 类允许提交）' % len(shared))
     return 0
 
 

@@ -14,7 +14,7 @@ import time
 import urllib.request
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTDIR = os.path.join(R, 'work', '20261017')
+OUTDIR = os.path.join(R, 'work', time.strftime('%Y%m%d'))   # 按当天日期（TELE 复核：原硬编码日期）
 URL = 'http://127.0.0.1:8094/v1/chat/completions'
 MODEL = 'qwen3.8-27b-coder390'
 VRAM_HOLD = os.path.join(R, 'tools', 'vram_hold.exe')

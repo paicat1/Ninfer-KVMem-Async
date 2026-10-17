@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 r"""round2b_15k.py -- 第二轮 b：强制跑满 15k+ 输出（隔离"输出长度"这一个变量）
 判据：host/round（reqlog）。若 15k token 仍 ~30 ms ⇒ 输出长度不是爬升的成因。
-用法：python -X utf8 work/20261017/round2b_15k.py
+用法：python -X utf8 work/<当天>/round2b_15k.py
 """
 import glob
 import io
@@ -12,7 +12,7 @@ import time
 import urllib.request
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTDIR = os.path.join(R, 'work', '20261017')
+OUTDIR = os.path.join(R, 'work', time.strftime('%Y%m%d'))   # 按当天日期（TELE 复核：原硬编码日期）
 URL = 'http://127.0.0.1:8094/v1/chat/completions'
 MODEL = 'qwen3.8-27b-coder390'
 FILLER = ('The memory subsystem moves key value blocks between the device and the host. ')

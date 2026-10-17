@@ -3,7 +3,7 @@ r"""round3_shape_pressure.py -- 第三轮：437 形态 + 外部显存压力 400 
 流程：基线 → 加压 → 发 437 形态请求 → 每 30 s 采 host/round → 释放 → 恢复
 判据：host/round ≥150 ms（或爬升）⇒ 复现；仍 25–30 ms ⇒ 外压也不是成因
 安全：剂量有界 · hold 有超时 · 引擎报错即停并保现场 · 不重启
-用法：python -X utf8 work/20261017/round3_shape_pressure.py [--mib 400] [--hold-sec 780] [--max-min 14]
+用法：python -X utf8 work/<当天>/round3_shape_pressure.py [--mib 400] [--hold-sec 780] [--max-min 14]
 """
 import argparse
 import glob
@@ -15,7 +15,7 @@ import time
 import urllib.request
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTDIR = os.path.join(R, 'work', '20261017')
+OUTDIR = os.path.join(R, 'work', time.strftime('%Y%m%d'))   # 按当天日期（TELE 复核：原硬编码日期）
 URL = 'http://127.0.0.1:8094/v1/chat/completions'
 MODEL = 'qwen3.8-27b-coder390'
 VRAM_HOLD = os.path.join(R, 'tools', 'vram_hold.exe')

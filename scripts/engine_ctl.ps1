@@ -36,6 +36,8 @@ param(
 
     [int]$WaitSec = 240,
 
+    [string[]]$Env = @(),          # 额外环境变量 KEY=VALUE（2026-10-17 加：trace 开关用；改守卫而非绕开）
+
     [int]$Score = -1,
 
     [int]$StepProfile = 0,
@@ -279,6 +281,8 @@ if ($StepProfile -ge 1) { $env:NINFER_STEP_PROFILE = [string]$StepProfile; $env:
 if ($Score -eq 0) { $env:NINFER_TERNARY_KVMEM_SCORE = '0'; Write-Output 'knob: content scoring OFF (NINFER_TERNARY_KVMEM_SCORE=0)' }
 
 $env:PATH = (Join-Path $root 'engine') + ';' + (Join-Path $root 'engine\self-built-20261008') + ';' + $env:PATH
+# 应用 -Env（2026-10-17：trace 开关等；单变量纪律用）
+foreach ($kv in $Env) { if ($kv -match '^([^=]+)=(.*)$') { Set-Item -Path ('Env:' + $matches[1]) -Value $matches[2] } }
 
 
 

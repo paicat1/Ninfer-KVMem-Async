@@ -72,11 +72,14 @@ def main():
     import subprocess as _sp
     miss = []
     for pat in rules.get('git_boundary', {}).get('must_ignore', []):
-        probe = pat.rstrip('/')
-        if probe.startswith('*'):
-            probe = 'probe' + probe.lstrip('*')
-        if not probe:
-            continue
+        # 2026-10-17 修：**目录模式不得去掉尾斜杠**（否则 `git check-ignore __pycache__`
+        #   匹配不上模式 `__pycache__/` ⇒ 删掉该目录后出现"假违规"）。目录模式补一个假文件名。
+        if pat.endswith('/'):
+            probe = pat + 'probe_ignore_check.tmp'
+        elif pat.startswith('*'):
+            probe = 'probe' + pat.lstrip('*')
+        else:
+            probe = pat
         rc = _sp.run(['git', 'check-ignore', '-q', probe], cwd=ROOT).returncode
         if rc != 0:
             miss.append(pat)

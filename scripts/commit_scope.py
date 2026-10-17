@@ -29,7 +29,7 @@ def unpushed():
     shas = [l.strip() for l in rng.splitlines() if l.strip()]
     if not shas:
         return []
-    o = subprocess.run(['git', 'diff', '--name-only'] + shas[-1] + '~1..HEAD', cwd=ROOT, capture_output=True)
+    o = subprocess.run(['git', 'diff', '--name-only', shas[-1] + '~1..HEAD'], cwd=ROOT, capture_output=True)
     out = (o.stdout or b'').decode('utf-8', 'replace')
     if not out.strip():
         o2 = subprocess.run(['git', 'show', '--pretty=format:', '--name-only'] + shas, cwd=ROOT, capture_output=True)

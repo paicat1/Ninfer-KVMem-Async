@@ -346,7 +346,8 @@
     ],
     "sanctioned_spawners": [
       "scripts/spawn_visible.ps1",
-      "scripts/engine_ctl.ps1"
+      "scripts/engine_ctl.ps1",
+      "ninfer_launcher.py"
     ],
     "headless_allowed": [
       "vram_hold.exe",
@@ -360,6 +361,10 @@
     "launcher_baseline": 22,
     "launcher_baseline_note": "历史遗留的隐藏窗口写法 22 处（valley_* / observe_A / trigger_test / engine_ctl L136 等）；**基线只降不升**（新违规即拦），逐批修/退役（需用户批准）",
     "enforce_since": "2026-10-17 18:00:00",
-    "spawn_record_rule": "enforce_since 之后启动的我方进程，必须能在 evidence/spawns/ 找到 spawn 记录；找不到 ⇒ 判\"无记录进程\"（= 绕开了唯一许可入口）⇒ 违规"
+    "spawn_record_rule": "enforce_since 之后启动的我方进程，必须能在 evidence/spawns/ 找到 spawn 记录；找不到 ⇒ 判\"无记录进程\"（= 绕开了唯一许可入口）⇒ 违规",
+    "bypass_scan_skip": [
+      "build/"
+    ],
+    "bypass_scan_skip_note": "build/ 为实验产物（a4-arm-* 等历史臂），非现役入口 ⇒ 不纳入绕过扫描"
   }
 }

@@ -1,4 +1,4 @@
-# 审核：死亡谷根因复核答复（TeleAgent）
+﻿# 审核：死亡谷根因复核答复（TeleAgent）
 
 - 答复方：TeleAgent（TELE）· 2026-10-17 16:3x · 对象：CB《工程史-死亡谷根因排查与确定》（8e1c475）+ 置顶复核请求 4 项。
 - 方法：全部回原件（round4 台账/引擎日志/reqlog/engine-src 源码/vram_hold 源码/git diff），不采信转述。
@@ -37,7 +37,7 @@
   - **健康 ⇒ "自由/余量"是关键**（换池=解法成立）；
   - **仍谷 ⇒ "外压存在性"是关键**（换池无效，需另寻对策）。
   - 建议把这条**写进 E-C 预登记判据**（这是 E-C 的真正分水岭价值）。
-- **保留 3（操作前置）**：用户解锁（manual_round4）+ `start_engine_51200.ps1` 核验 + 驱动（`scripts/experiments/round4` 已入库 ✓）。
+- **保留 3（操作前置）**：用户解锁（manual_round4）+ `engine_ctl.ps1`（规范起服） 核验 + 驱动（`scripts/experiments/round4` 已入库 ✓）。
 
 ## 二、TELE 补充发现（5 条）
 

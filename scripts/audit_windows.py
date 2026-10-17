@@ -14,6 +14,7 @@ r"""audit_windows.py -- 独立窗口状态审计（T-WINDOW 审计层，不依�
 退出码：0 = 全部合格；3 = 有违规
 """
 import io
+import json
 import os
 import subprocess
 import sys
@@ -83,6 +84,58 @@ if viol:
     for v in viol:
         print('   pid=%s %s 有窗口=%s 最小化=%s 可见=%s "%s"' % (v[0], v[1], v[2], v[3], v[4], v[5]))
     sys.exit(3)
+
+# —— 判据 2：无记录进程（绕开唯一许可入口的可检出性）——
+rec_dir = os.path.join(R, 'evidence', 'spawns')
+try:
+    enforce_since = (json.load(io.open(os.path.join(R, 'structure.json'), encoding='utf-8'))
+                     .get('window_discipline', {}).get('enforce_since') or '')
+except Exception:
+    enforce_since = ''
+unrecorded = []
+if enforce_since:
+    import datetime
+    try:
+        since_ts = datetime.datetime.strptime(enforce_since, '%Y-%m-%d %H:%M:%S').timestamp()
+    except Exception:
+        since_ts = None
+    rec_pids = set()
+    if os.path.isdir(rec_dir):
+        for f in os.listdir(rec_dir):
+            try:
+                rj = json.load(io.open(os.path.join(rec_dir, f), encoding='utf-8'))
+                rec_pids.add(str(rj.get('pid')))
+            except Exception:
+                pass
+    if since_ts:
+        ps2 = ("Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'ninfer|python|powershell|cmd|vram_hold' "
+               "} | ForEach-Object { $_.ProcessId.ToString() + '|' + $_.CreationDate.ToString('yyyy-MM-dd HH:mm:ss') + '|' + $_.Name }")
+        o2 = subprocess.run(['powershell', '-NoProfile', '-Command', ps2], capture_output=True).stdout.decode('utf-8', 'replace')
+        for line in o2.splitlines():
+            parts = line.split('|')
+            if len(parts) < 3:
+                continue
+            pid2, cts, nm = parts[0].strip(), parts[1].strip(), parts[2].strip()
+            try:
+                c_t = datetime.datetime.strptime(cts, '%Y-%m-%d %H:%M:%S').timestamp()
+            except Exception:
+                continue
+            if c_t > since_ts and pid2 not in rec_pids:
+                unrecorded.append((pid2, nm, cts))
+    if unrecorded:
+        p2 = os.path.join(AUD, 'VIOLATION_unrecorded_spawn_%s.md' % time.strftime('%Y%m%d_%H%M%S'))
+        with io.open(p2, 'w', encoding='utf-8', newline='\n') as f:
+            f.write('# 违规记录：无 spawn 记录的我方进程（T-WINDOW 判据 2）\n\n')
+            f.write('- 时刻：%s\n- 生效时刻（enforce_since）：%s\n' % (ts, enforce_since))
+            f.write('- 含义：该进程**未走唯一许可入口** `scripts\\spawn_visible.ps1`（或未留记录）\n\n')
+            f.write('| pid | 进程 | 启动时刻 |\n|---|---|---|\n')
+            for u in unrecorded:
+                f.write('| %s | %s | %s |\n' % u)
+            f.write('\n**处置**：说明该进程来源；若确为绕开许可入口 ⇒ 记 T0。本文件为独立证据，不得删除。\n')
+        print('❌ 无记录进程 %d 个 ⇒ %s' % (len(unrecorded), os.path.relpath(p2, R)))
+        for u in unrecorded:
+            print('   pid=%s %s 启动于 %s' % u)
+        sys.exit(4)
 
 if '--quiet' not in sys.argv:
     print('✅ 窗口审计通过：%d 个进程全部可见且非最小化' % len(rows))

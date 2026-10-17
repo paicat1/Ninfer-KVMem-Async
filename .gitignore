@@ -85,3 +85,9 @@ scripts/count_watch.py
 
 # nsys 导出的 sqlite 工作件（**案卷里的副本才是归档件**；根目录这份是分析中间产物）
 *.sqlite
+
+# 引擎二进制 / 成品 —— 不得入库（2026-10-18 补：retired 下 1.27GB exe 差点被 git add）
+retired/**/*.exe
+retired/**/*.step*
+*.dll
+*.pdb

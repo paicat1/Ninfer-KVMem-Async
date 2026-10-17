@@ -69,6 +69,16 @@ def host_round_ex():
     return None, age
 
 
+def holding():
+    """CUDA 侧持有构成（nvidia-smi --query-compute-apps）。注意：只显示 CUDA 进程，图形进程不可见。"""
+    try:
+        o = subprocess.run(['nvidia-smi', '--query-compute-apps=pid,used_memory', '--format=csv,noheader'],
+                           capture_output=True).stdout.decode('utf-8', 'replace').strip()
+        return [l.strip() for l in o.splitlines() if l.strip()]
+    except Exception:
+        return []
+
+
 def msgs_437():
     return [
         {'role': 'user', 'content': '我们要写一份超长技术手册。先确认你能持续输出长文，不需要总结。'},
@@ -80,7 +90,7 @@ def msgs_437():
     ]
 
 
-def run_level(mib, hold_sec, sample_every, max_min, emit):
+def run_level(mib, hold_sec, sample_every, max_min, emit, shot=None, exposure=None):
     """一级：基线 → 加压 → 请求+采样 → 释放 → 恢复。返回判据 dict。"""
     res = {'level_mib': mib}
     res['free_before'] = free_mib()
@@ -178,6 +188,9 @@ def run_level(mib, hold_sec, sample_every, max_min, emit):
         res['verdict'] = 'DEGRADED(100-150ms)'
     else:
         res['verdict'] = 'HEALTHY(<100ms)'
+    res['shot'] = shot
+    res['exposure_history'] = exposure or []      # 此前各拍判据（时变候选：暴露史）
+    res['holding'] = holding()                     # CUDA 侧持有构成
     emit({'event': 'level_end', **{k: v for k, v in res.items() if k != 'host_round_samples'}})
     return res
 
@@ -210,17 +223,20 @@ def main():
 
     results = []
     for lv in [int(x) for x in a.levels.split(',') if x.strip()]:
-        r = run_level(lv, a.hold_sec, a.sample_every, a.max_min, emit)
+        r = run_level(lv, a.hold_sec, a.sample_every, a.max_min, emit,
+                      shot=len(results) + 1,
+                      exposure=[x.get('verdict') for x in results])
         results.append(r)
         print('   ⇒ 级 %d MiB：%s（host/round 中位 %s µs · free %s→%s）' % (
             lv, r['verdict'], r['host_round_median'], r['free_before'], r['free_after_release']))
         time.sleep(20)
 
     print('\n== E-E 汇总 ==')
-    print('   %-8s %-22s %-14s %-10s %-10s' % ('级(MiB)', '判据', 'host/round中位', 'free前', 'free后'))
+    print('   %-4s %-8s %-20s %-12s %-8s %-8s %s' % ('拍', '级(MiB)', '判据', 'host/round中位', 'free前', 'free后', '曝光史'))
     for r in results:
-        print('   %-8d %-22s %-14s %-10s %-10s' % (
-            r['level_mib'], r['verdict'], r['host_round_median'], r['free_before'], r['free_after_release']))
+        print('   %-4s %-8d %-20s %-12s %-8s %-8s %s' % (
+            r.get('shot'), r['level_mib'], r['verdict'], r['host_round_median'],
+            r['free_before'], r['free_after_release'], '>'.join(r.get('exposure_history') or []) or '(首拍)'))
     emit({'event': 'summary', 'results': [{k: v for k, v in r.items() if k != 'host_round_samples'} for r in results]})
 
 

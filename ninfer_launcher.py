@@ -33,7 +33,10 @@ import urllib.error
 ROOT        = os.path.dirname(os.path.abspath(__file__))          # 项目根（便携：不写死盘符）
 ENGINE      = os.path.join(ROOT, "engine", "ninfer-serve-120a.exe")            # 官方成品（无 Design C）
 ENGINE_DIR  = os.path.dirname(ENGINE)
-ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（20261008 + 全部补丁）
+# ⚠ 2026-10-17 修（TELE 第十七轮 B1）：原指向 engine\self-built-20261008\ninfer-serve.exe，
+#   该文件已在 T2 清理中被处置（与 lineage\G2 同 sha）⇒ **启动器曾会直接起服失败**。
+#   现改为谱系末端件（MANIFEST 末端、与在役 sha 322A972D 同件）。
+ENGINE_SELF = os.path.join(ROOT, "engine", "lineage", "I3b_step13_fourlayer_20261015.exe")   # 谱系末端·在役
 ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 前序回退锚（20261003）——P0 实测：本线 engine\ 下**无** self-built\ 目录，此路径**不存在**（GUI 选中会给出"未找到引擎"提示，不会崩）
 # 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
 #   · self_prev（engine\self-built\ninfer-serve.exe）—— **该目录本线不存在**，选中只会报"未找到引擎"（死项）；
@@ -528,6 +531,13 @@ PRESET_ENV = {
 # ---------------------------------------------------------------
 # 校验 / 命令构造
 # ---------------------------------------------------------------
+def _exe_guard(exe):
+    """B1 护栏：起服件不存在时必须显式告警（原缺陷：指向已清理文件却无声失败）。"""
+    if exe and not os.path.exists(exe):
+        return "⚠ 起服件不存在：%s —— 请检查 ENGINE_SELF / 登记册路径（勿指向已清理的 self-built-20261008）" % exe
+    return None
+
+
 def validate(combo, exe=None):
     """返回告警列表（空 = 无告警）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）

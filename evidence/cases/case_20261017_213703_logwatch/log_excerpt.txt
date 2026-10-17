@@ -1,0 +1,6 @@
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] ring retrieve: which=text preferred=98 restored=98 first=80 last=177
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 21:36:43.741  INFO  throughput | 5.0s | prefill 1.0 tok/s (5 tok) | decode 37.0 tok/s (185 tok) | running 1 (decode-ready 1) | batch 1.00 | host 31.6% (1.6s)
+2026-10-17 21:36:43.748  INFO  req#101 done | openai-chat | output limit | prompt 11,171 | output 200 | cache 11,166 (100.0%, turn closure) | TTFT 259 ms | total 1.8s | queue 83.3 ms | prefill 21.0 tok/s | decode 131.1 tok/s | mixed speculation accepted 156/246 (63.4%) | ngram 94/102 accepted, 7 rounds | thinking 200/16,000
+2026-10-17 21:36:48.744  INFO  throughput | 5.0s | decode 2.8 tok/s (14 tok) | running 0 | batch 1.00 | host 0.8% (41.6 ms)

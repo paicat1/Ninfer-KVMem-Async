@@ -15,6 +15,7 @@ r"""audit_windows.py -- 独立窗口状态审计（T-WINDOW 审计层，不依�
 """
 import io
 import json
+import re
 import os
 import subprocess
 import sys

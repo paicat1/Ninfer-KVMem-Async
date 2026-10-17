@@ -103,7 +103,7 @@
         "start-v1c2-*.bat",
         "start-v2-control-*.bat",
         "start-v21-*.bat",
-        "v1c2_resume.bat"
+        "retired/launchers-20261017/v1c2_resume.bat"
       ]
     },
     {

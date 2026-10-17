@@ -119,7 +119,11 @@ if enforce_since:
             except Exception:
                 pass
     if since_ts:
-        ps2 = ("Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'ninfer|python|powershell|cmd|vram_hold' "
+        # 2026-10-17 修（第三类假阳性）：集合 = **exe 名本身是服务** + **命令行含 watcher/driver 标记**；
+        #   排除"只是命令行里提到服务名"的壳（我的工具调用壳含 ninfer/serve_tee 等字样 ⇒ 被误判为无记录进程）。
+        ps2 = ("Get-CimInstance Win32_Process | Where-Object { "
+               "($_.Name -match 'ninfer-serve|ninfer-calibrate|ninfer-perplexity|vram_hold') -or "
+               "($_.CommandLine -match 'valley_hunter|watchdog_hunter|valley_logwatch|window_watch|serve_tee|round4_decode|round2b|round3_shape') "
                "} | ForEach-Object { $_.ProcessId.ToString() + '|' + $_.CreationDate.ToString('yyyy-MM-dd HH:mm:ss') + '|' + $_.Name }")
         o2 = subprocess.run(['powershell', '-NoProfile', '-Command', ps2], capture_output=True).stdout.decode('utf-8', 'replace')
         for line in o2.splitlines():
@@ -135,14 +139,35 @@ if enforce_since:
             #   瞬时诊断进程（几秒即退）不应制造噪声 —— 否则审计会天天红、被无视）
             age_s = time.time() - c_t
             if c_t > since_ts and pid2 not in rec_pids and age_s >= 30:
+                # 壳类且**无窗口** ⇒ 排除（我的工具调用壳：提到服务名但不是服务本身）
+                if nm.lower() in ('cmd.exe', 'powershell.exe', 'python.exe', 'conhost.exe', 'node.exe'):
+                    try:
+                        _w = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                             "(Get-Process -Id %s -ErrorAction SilentlyContinue).MainWindowHandle" % pid2],
+                                            capture_output=True).stdout.decode('utf-8', 'replace').strip()
+                    except Exception:
+                        _w = ''
+                    if _w in ('', '0'):
+                        continue
                 # 父进程有记录 ⇒ 继承（见上）
-                try:
-                    ppid2 = subprocess.run(['powershell', '-NoProfile', '-Command',
-                                            "(Get-CimInstance Win32_Process -Filter \"ProcessId=%s\").ParentProcessId" % pid2],
-                                           capture_output=True).stdout.decode('utf-8', 'replace').strip()
-                except Exception:
-                    ppid2 = ''
-                if ppid2 and ppid2 in rec_pids:
+                # 2026-10-17 修：**查祖先链（≤5 层）** —— spawn 记录的是进程树根（如 engine_ctl 起的 cmd），
+                #   而服务进程往往是孙/曾孙（cmd → python serve_tee → ninfer-serve）⇒ 只查一层会漏。
+                _cur = pid2
+                _covered = False
+                for _ in range(5):
+                    try:
+                        _pp = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                              "(Get-CimInstance Win32_Process -Filter \"ProcessId=%s\").ParentProcessId" % _cur],
+                                             capture_output=True).stdout.decode('utf-8', 'replace').strip()
+                    except Exception:
+                        _pp = ''
+                    if not _pp or _pp == '0':
+                        break
+                    if _pp in rec_pids:
+                        _covered = True
+                        break
+                    _cur = _pp
+                if _covered:
                     continue
                 # 2026-10-17 自豁免：**计划任务**调用的本审计器自身（每 5 分钟一次，
                 #   不经 spawn_visible 是设计如此 —— 它是"已声明的无界面后台审计"）。

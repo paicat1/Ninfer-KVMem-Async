@@ -78,7 +78,14 @@ def traverse_rules(paths, token):
     nd = list(((j.get('backup_policy') or {}).get('never_delete')) or [])
     in_nd = [x for x in lows for p in nd
              if fnmatch.fnmatch(x, p.rstrip('/').replace('*', '*') + ('' if p.endswith('*') else '/*'))]
-    hit(bool(in_nd), 'R2 backup_policy.never_delete', 'BLOCK', '命中禁删区：%s' % (in_nd[:3],))
+    # 点名放行：用户在 token 里点名了该文件 ⇒ 命中禁删区也可删（T-TRACE 唯一合法路径）
+    _named_nd = [x for x in in_nd if os.path.basename(x) in (token or '').lower() or x in (token or '').lower()]
+    if in_nd and not _named_nd:
+        hit(True, 'R2 backup_policy.never_delete', 'BLOCK', '命中禁删区：%s' % (in_nd[:3],))
+    elif in_nd:
+        hit(False, 'R2 backup_policy.never_delete', 'OK', '点名放行：%s' % (_named_nd[:2],))
+    else:
+        hit(False, 'R2 backup_policy.never_delete', 'OK', '-')
     # R3 活件判定
     now = time.time()
     live = []
@@ -99,7 +106,13 @@ def traverse_rules(paths, token):
                 ref.append(nm)
         except Exception:
             pass
-    hit(bool(ref), 'R4 引用扫描（跟踪件是否提到）', 'BLOCK', '被引用：%s' % (ref[:3],))
+    _named_ref = [x for x in ref if x.lower() in (token or '').lower()]
+    if ref and not _named_ref:
+        hit(True, 'R4 引用扫描（跟踪件是否提到）', 'BLOCK', '被引用：%s' % (ref[:3],))
+    elif ref:
+        hit(False, 'R4 引用扫描（跟踪件是否提到）', 'OK', '点名放行（引用已同步说明）：%s' % (ref[:2],))
+    else:
+        hit(False, 'R4 引用扫描（跟踪件是否提到）', 'OK', '-')
     # R5 canonical_dirs：删除是否破坏"一类一个家"
     can = j.get('canonical_dirs') or {}
     inc = [x for x in lows if any(x.startswith(k.lower() + '/') for k in can)]
@@ -160,7 +173,13 @@ def main():
         r['in_never_delete'] = in_nd
         if is_art or in_nd:
             named = (os.path.basename(low) in (a.token or '').lower()) or (low in (a.token or '').lower())
-            r['t_trace'] = 'ALLOWED(用户点名)' if named else 'BLOCKED(T-TRACE 成品禁删)'
+            if named:
+                r['t_trace'] = 'ALLOWED(用户点名)'
+            elif in_nd and not is_art:
+                # 2026-10-18 补：禁删区内的文件，若用户点名 ⇒ 可放行（与 T-TRACE 唯一合法路径一致）
+                r['t_trace'] = 'BLOCKED(never_delete 区，需用户点名)'
+            else:
+                r['t_trace'] = 'BLOCKED(T-TRACE 成品禁删)'
         else:
             r['t_trace'] = 'ok'
 

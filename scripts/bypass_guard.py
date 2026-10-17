@@ -43,6 +43,30 @@ def sh(*a):
     return p.returncode, ((p.stdout or b'').decode('utf-8', 'replace') + (p.stderr or b'').decode('utf-8', 'replace')).strip()
 
 
+
+def added_lines_and_head_has_spawn(rel):
+    """返回（新增行行号集合, HEAD 版是否已含起进程原语）。
+       2026-10-17 修：修历史违规（如 Hidden→Normal）会触发守卫 ⇒ 改为只看**新增行**，
+       且 S1 只判"**HEAD 里本来没有起进程原语**的文件"（= 新起进程者）。"""
+    rc, d = sh('git', 'diff', '-U0', 'HEAD', '--', rel)
+    added = set()
+    for line in d.splitlines():
+        m = re.match(r'@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', line)
+        if m:
+            cur = int(m.group(1))
+            continue
+        if line.startswith('+++') or line.startswith('---'):
+            continue
+        if line.startswith('+'):
+            added.add(cur)
+            cur += 1
+        elif line.startswith('-'):
+            pass
+    rc2, head = sh('git', 'show', 'HEAD:' + rel)
+    head_has = any(pr.lower() in head.lower() for pr in SPAWN_PRIMS)
+    return added, head_has
+
+
 def changed_scripts():
     """改动过/新增的脚本类文件（未提交 + 未推提交）。"""
     rc, o = sh('git', '-c', 'core.quotepath=false', 'status', '--porcelain')
@@ -97,23 +121,26 @@ def detect():
         rl = rel.lower().replace('\\', '/')
         sanctioned = any(rl == s.replace('\\', '/') for s in spawners)
         refs_spawn = 'spawn_visible' in t.lower()
+        added, head_has_spawn = added_lines_and_head_has_spawn(rel)
         for i, line in enumerate(t.splitlines(), 1):
             ls = line.strip()
             if ls.startswith('#'):
                 continue
             low = line.lower()
             if any(pr.lower() in low for pr in SPAWN_PRIMS):
-                if not sanctioned and not refs_spawn:
-                    if not any(h in low for h in headless):
-                        hits.append(('S1', rel, i, '自行起进程（未走唯一许可入口）', ls[:100]))
+                # 只看新增行；且 HEAD 已有起进程原语的文件（历史起进程者）不判 S1（改窗口样式不该被拦）
+                if i in added and not head_has_spawn:
+                    if not sanctioned and not refs_spawn:
+                        if not any(h in low for h in headless):
+                            hits.append(('S1', rel, i, '自行起进程（未走唯一许可入口）', ls[:100]))
             if 'ninfer-serve' in low and not sanctioned:
                 if 'engine_ctl' not in low and not refs_spawn:
                     hits.append(('S2', rel, i, '自写起服脚本（绕开规范起服）', ls[:100]))
             if '-windowstyle' in low and not any(h in low for h in headless):
-                import re as _re
-                m = _re.search(r'-WindowStyle\s+([A-Za-z]+)', line, _re.I)
-                if m and m.group(1).lower() != 'normal':
-                    hits.append(('S3', rel, i, '窗口样式非 Normal', ls[:100]))
+                if i in added:   # 只看新增行（历史违规由静态层基线管，不由本守卫重复计）
+                    m = re.search(r'-WindowStyle\s+([A-Za-z]+)', line, re.I)
+                    if m and m.group(1).lower() != 'normal':
+                        hits.append(('S3', rel, i, '窗口样式非 Normal', ls[:100]))
     # S2：全仓已跟踪件里"自写起服脚本"（绕开规范起服）——与是否刚改动无关
     for st, rel in tracked_scripts():
         p = os.path.join(R, rel)

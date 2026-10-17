@@ -24,7 +24,7 @@ CASEDIR = os.path.join(ROOT, '.temp', 'cases')
 LEDGER = os.path.join(CASEDIR, 'logwatch_ledger.txt')
 LOCK = os.path.join(CASEDIR, 'CASE_LOCKED.json')
 QUEUE = os.path.join(ROOT, 'docs', '协作状态-当前待办与交接-20261016.md')
-INTERVAL = 20        # v2：20s（只读日志，零负载）——深档事件约 4 分钟，60s 太粗
+INTERVAL = 20        # 日志读取节奏 20 s（GPU 环缓冲 5 s 一跳；见主循环）——深档事件约 4 分钟，60 s 太粗
 MAX_HOURS = float(os.environ.get('LOGWATCH_HOURS', '12'))
 
 RE_TP = re.compile(r'(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+.*?throughput \| [\d.]+s \| .*decode '
@@ -73,6 +73,33 @@ def freeze_lock(tag, excerpt):
         q = subprocess.run(['nvidia-smi', '-q'], capture_output=True, timeout=40).stdout.decode('utf-8', 'replace')
         with io.open(os.path.join(d, 'nvidia_smi_q.txt'), 'w', encoding='utf-8') as f:
             f.write(q)
+        # TELE 第十六轮：与猎人案卷对齐 —— 补引擎日志尾 / reqlog 尾 / 我方活动时间线
+        try:
+            tail = io.open(LOG, 'r', encoding='utf-8', errors='replace').read().splitlines()[-300:]
+            with io.open(os.path.join(d, 'engine_log_tail.txt'), 'w', encoding='utf-8') as f:
+                f.write('\n'.join(tail))
+        except Exception:
+            pass
+        try:
+            rl = os.path.join(ROOT, '.temp', 'reqlog_serve_8094.jsonl')
+            if os.path.exists(rl):
+                tail = io.open(rl, 'r', encoding='utf-8', errors='replace').read().splitlines()[-200:]
+                with io.open(os.path.join(d, 'reqlog_tail.txt'), 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(tail))
+        except Exception:
+            pass
+        try:
+            git = subprocess.run(['git', 'log', '-8', '--date=format:%H:%M', '--pretty=%h %ad %s'],
+                                 cwd=ROOT, capture_output=True, timeout=30).stdout.decode('utf-8', 'replace')
+            with io.open(os.path.join(d, 'self_activity_commits.txt'), 'w', encoding='utf-8') as f:
+                f.write(git)
+            procs = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                    "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*ninfer*' -or $_.CommandLine -like '*valley*' } | ForEach-Object { $_.ProcessId.ToString() + ' | ' + $_.Name + ' | ' + $_.CommandLine.Substring(0,[Math]::Min(110,$_.CommandLine.Length)) }"],
+                                   capture_output=True, timeout=40).stdout.decode('utf-8', 'replace')
+            with io.open(os.path.join(d, 'self_activity_procs.txt'), 'w', encoding='utf-8') as f:
+                f.write(procs)
+        except Exception:
+            pass
     except Exception as e:
         say('WARN: case dir write failed: %s' % e)
     try:
@@ -80,7 +107,8 @@ def freeze_lock(tag, excerpt):
         with io.open(LOCK, 'w', encoding='utf-8') as f:
             json.dump({'case': tag, 'time': time.strftime('%m-%d %H:%M:%S'),
                        'prohibit': ['NO restart', 'NO config change', 'NO pressure injection', 'NO cache clear'],
-                       'release_by': 'user only', 'dir': d, 'channel': 'logwatch'}, f, ensure_ascii=False, indent=2)
+                       'release_by': 'user only', 'dir': os.path.relpath(d, ROOT), 'channel': 'logwatch'},
+                      f, ensure_ascii=False, indent=2)
     except Exception as e:
         say('WARN: CASE_LOCKED.json write failed: %s' % e)
     try:

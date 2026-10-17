@@ -325,12 +325,14 @@
         "docs/TELE审核-*.md",
         "docs/审核-*.md",
         "docs/复核-*.md",
-        "docs/*.pptx"
+        "docs/*.pptx",
+        "docs/*TeleAgent*"
       ],
       "cli": [
         "docs/*CodeBuddyCLI*.md",
         "docs/实验-*-预登记-CodeBuddyCLI-*.md"
-      ]
+      ],
+      "_doc": "；2026-10-17 补：凡带 TeleAgent 署名的件（审核/复核/方案/预登记）均属他方在制品"
     },
     "shared": [
       "docs/协作状态-当前待办与交接-*.md",

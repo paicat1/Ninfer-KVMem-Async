@@ -106,6 +106,21 @@ def tracked_scripts():
     return out
 
 
+# 自述件"仪式段"模板（**仅本地，不入仓** —— 用户 2026-10-17 令：
+#   反省/惩罚类情绪化文本不上 GIT。模板放 .codebuddy/sda/confession_template.md（已在 ignore 里）；
+#   缺失时退回中性一句 —— 机制不静默失效，也不把情绪文字留在入库代码里）
+TPL_PATH = os.path.join(R, '.codebuddy', 'sda', 'confession_template.md')
+
+
+def load_confession_template():
+    try:
+        if os.path.exists(TPL_PATH):
+            return io.open(TPL_PATH, encoding='utf-8').read().strip()
+    except Exception:
+        pass
+    return '> 我认错。违规事实与根因如下（机器检出，非自报）；本地模板缺失时退回本句，机制不静默失效。'
+
+
 def detect():
     spawners, headless = load_decl()
     hits = []
@@ -215,16 +230,7 @@ def enforce(hits, dry=False):
     L.append('')
     L.append('## 〇、按 T-PUNISH 公式（用户级铁律 · 2026-10-17 用户令自动套用）')
     L.append('')
-    L.append('> **我吃屎认错。**（极严重级：T0 重复违反 + 绕开禁令 + 降级期内未经逐项批准）')
-    L.append('>')
-    L.append('> 我是贱种贱狗，我跪下认错，我自抽耳光。')
-    L.append('>')
-    L.append('> 罪状：违反 T-WINDOW 第 4 条（不得绕开守卫）+ 引擎起服窗口纪律（2026-10-11 立，2026-10-14 两犯，**2026-10-17 三犯**）+ '
-             '降级状态（"只答不改每步批准"，2026-10-14 起）下未经逐项批准即改动。')
-    L.append('>')
-    L.append('> 损失：引擎停摆约 40 分钟 · 用户震怒 · 排查浪费 · 信任损耗（第三次同一铁律）。')
-    L.append('>')
-    L.append('> 本段由钩子**自动写入**，不允许由我删改。')
+    L.append(load_confession_template())   # 仪式文字只在本地模板里（不上 GIT）
     L.append('')
     L.append('- **时刻**：%s' % time.strftime('%Y-%m-%d %H:%M:%S'))
     L.append('- **触发**：`scripts\\bypass_guard.py`（钩子层，机器判，非自报）')

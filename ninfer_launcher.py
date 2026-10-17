@@ -36,7 +36,9 @@ ENGINE_DIR  = os.path.dirname(ENGINE)
 # ⚠ 2026-10-17 修（TELE 第十七轮 B1）：原指向 engine\self-built-20261008\ninfer-serve.exe，
 #   该文件已在 T2 清理中被处置（与 lineage\G2 同 sha）⇒ **启动器曾会直接起服失败**。
 #   现改为谱系末端件（MANIFEST 末端、与在役 sha 322A972D 同件）。
-ENGINE_SELF = os.path.join(ROOT, "engine", "lineage", "I3b_step13_fourlayer_20261015.exe")   # 谱系末端·在役
+# 2026-10-17 恢复：本行原指向 engine\self-built-20261008\ninfer-serve.exe；该文件被误删后我先改成谱系件，
+#   但**正确修法是恢复文件**（已用同 sha 的 lineage\G2_default_depth1.exe 逐字节拷回）⇒ 指针一并改回原路径，行为不变。
+ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（已恢复）
 ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 前序回退锚（20261003）——P0 实测：本线 engine\ 下**无** self-built\ 目录，此路径**不存在**（GUI 选中会给出"未找到引擎"提示，不会崩）
 # 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
 #   · self_prev（engine\self-built\ninfer-serve.exe）—— **该目录本线不存在**，选中只会报"未找到引擎"（死项）；

@@ -68,3 +68,5 @@ evidence/cases/logwatch_ledger.txt
 evidence/cases/streak_state.json
 evidence/cases/WATCHDOG_ALERT.txt
 evidence/cases/GATE_ALERT.txt
+# 审计流（每日追加、churn）；**违规记录 VIOLATION_*.md 仍入库**
+evidence/audits/window_state_*.txt

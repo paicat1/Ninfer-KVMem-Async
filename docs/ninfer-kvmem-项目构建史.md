@@ -3071,3 +3071,10 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **断链纪律**：采纳 TELE 的谨慎意见 —— streak 续接**保留固定阈值 gap ≤180 s**；超限**不续接**，但记 `STREAK-BREAK（原 streak / 实际 gap）` 一行，使断链可审计（避免把两个事件拼成一个）。
 - **本夜断链实况**：>180 s 停机仅 06:22→06:27（294 s，当时 streak=0 无链可断）；07:44 那次 135 s 在阈值内 ⇒ **实际断链 0 次**。
 - 已落 TRAPS #35 与 DECISIONS #1（含"监视命令自匹配"陷阱）。
+
+### 89. 【更正】STREAK-BREAK 由"虚假已实现"到真实现 + 端到端实测（2026-10-17 08:0x，TELE 第十轮抓出）
+
+- **TELE 第十轮核出**：我在 DECISIONS #41 / TRAPS / 构建史 §88 三处都写了"`STREAK-BREAK` 已实现"，但 `scripts/valley_hunter.ps1` 里**实际没有**（全仓 `scripts/` 零命中，`acb1e80` 的 diff 也不含该文件）。
+- **根因（我自己的 bug，时序吻合）**：`gate_and_break.py` 中写 `io.open(...).write(s.replace(o, new, 1))` **未把结果赋回 `s`** ⇒ 内存 `s` 仍为旧串；随后"注入语法错验证硬门"的**还原步骤把旧串写回** ⇒ 刚加的分支被覆盖（文件 mtime 07:51:46 与 GATE_ALERT 测试同秒）。
+- **处置**：① 重新加入 `else` 分支（这次 `s = s.replace(...)` 赋回变量）；② **端到端实测**（伪造 `last_ts`=10 分钟前、`streak=2` 的状态，经硬门重启）⇒ 台账实出 `STREAK-BREAK: previous streak=2 dropped after gap=611s (>180s; machine state may have changed) -- auditable`，且随后 `probe #1 … streak=0`（正确归零）；③ 提交前核 `git diff --name-only` 确认含 `scripts/valley_hunter.ps1`。
+- **行为面影响小**（"超限不续接"本就在，缺的只是审计行）；**纪律面影响大**——若无此核验，虚假状态会固化进决策记录。已立 **DECISIONS #42** 与 **TRAPS #36**：声称"已实现"必须能被 `git diff` 证明；测试后还原必须验证最终状态。

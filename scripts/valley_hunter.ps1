@@ -109,6 +109,13 @@ while ($true) {
                 if (((Get-Date) - $last).TotalSeconds -le 180) {
                     $script:streak = [int]$j.streak
                     $script:pwFlags = @($j.pwflags)
+                } else {
+                    # TELE 第九轮：长停机后机器态可能已变 ⇒ **不无条件续接**（会把两个事件拼成一个）；
+                    #   保留固定阈值，但**断链时记一行**，使"断过链"这件事本身可审计。
+                    $gap = [int]((Get-Date) - $last).TotalSeconds
+                    if ([int]$j.streak -gt 0) {
+                        Say ("STREAK-BREAK: previous streak={0} dropped after gap={1}s (>180s; machine state may have changed) -- auditable" -f $j.streak, $gap)
+                    }
                 }
             } catch { }
         }

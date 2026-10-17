@@ -6,3 +6,46 @@
 16:51:44 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
 16:51:44 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
 16:52:48 | probe #2 decode=0 clk=675MHz power=22.61W util=2% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+16:53:52 | probe #3 decode=0 clk=765MHz power=23.85W util=8% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+16:54:57 | probe #4 decode=0 clk=652MHz power=21.48W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+16:54:57 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_165457 (decode=0, clk=652MHz power=21.48W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:54:57 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+16:54:57 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:56:02 | probe #5 decode=0 clk=667MHz power=22.23W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+16:57:06 | probe #6 decode=0 clk=645MHz power=21.8W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+16:58:10 | probe #7 decode=0 clk=667MHz power=22.02W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+16:58:11 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_165810 (decode=0, clk=667MHz power=22.02W util=1% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+16:58:11 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+16:58:11 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+16:59:15 | probe #8 decode=0 clk=2047MHz power=34.06W util=23% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+17:00:20 | probe #9 decode=0 clk=1860MHz power=24.79W util=16% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+17:01:24 | probe #10 decode=0 clk=1080MHz power=22.48W util=6% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+17:01:25 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_170124 (decode=0, clk=1080MHz power=22.48W util=6% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+17:01:25 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+17:01:25 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+17:01:25 | heartbeat: probes=10 cases=4 engine_uptime_h=-1
+17:02:29 | probe #11 decode=0 clk=1185MHz power=23.01W util=7% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+17:03:34 | probe #12 decode=0 clk=1117MHz power=22.55W util=10% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+17:04:38 | probe #13 decode=0 clk=1117MHz power=22.62W util=5% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+17:04:39 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_170438 (decode=0, clk=1117MHz power=22.62W util=5% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+17:04:39 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+17:04:39 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+17:05:43 | probe #14 decode=0 clk=1042MHz power=22.52W util=6% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+17:06:48 | probe #15 decode=0 clk=1057MHz power=22.58W util=4% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+17:07:52 | probe #16 decode=0 clk=1132MHz power=22W util=11% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+17:07:53 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_170752 (decode=0, clk=1132MHz power=22W util=11% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+17:07:53 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+17:07:53 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+17:08:57 | probe #17 decode=0 clk=2572MHz power=45.04W util=33% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+17:10:02 | probe #18 decode=0 clk=1192MHz power=22.32W util=5% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+17:11:06 | probe #19 decode=0 clk=1425MHz power=24.7W util=5% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+17:11:07 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_171106 (decode=0, clk=1425MHz power=24.7W util=5% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+17:11:07 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+17:11:07 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)
+17:12:11 | probe #20 decode=0 clk=2572MHz power=41.39W util=34% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=1
+17:12:11 | heartbeat: probes=20 cases=7 engine_uptime_h=-1
+17:13:16 | probe #21 decode=0 clk=2917MHz power=49.41W util=43% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=2
+17:14:20 | probe #22 decode=0 clk=1477MHz power=30.11W util=9% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False (newlines=0) streak=3
+17:14:21 | VALLEY CONFIRMED -> case dir evidence\cases\case_20261017_171420 (decode=0, clk=1477MHz power=30.11W util=9% | thr_rel=118.8W (idle=22.6 ref=215.0) | v1abs=False); scene frozen: NO restart / NO config change / NO pressure
+17:14:21 | FREEZE LOCK written: J:\ninfer-kvmem\evidence\cases\CASE_LOCKED.json (queue line appended)
+17:14:21 | post-hit: no extra probe (default off; the action after a hit is for the finalised design to define, not for this fallback)

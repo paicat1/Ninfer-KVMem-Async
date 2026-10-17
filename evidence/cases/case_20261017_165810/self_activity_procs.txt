@@ -1,0 +1,8 @@
+﻿cmd.exe pid=14796 C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --
+node.exe pid=10812 "node"   "C:\Users\PC\AppData\Roaming\npm\\node_modules\@tencent-ai\codebuddy-code\bin\cod
+powershell.exe pid=29972 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=28056 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=15236 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=23652 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+powershell.exe pid=22092 "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy By
+python.exe pid=23872 "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\window_wa

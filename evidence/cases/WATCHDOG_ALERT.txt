@@ -92,3 +92,49 @@
 10-17 16:50:24 | ALERT(logwatch): output silent 690s (>300s)
 10-17 16:50:24 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_162219.txt
 10-17 16:51:58 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 16:53:58 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 16:55:58 | ALERT(sampler): output silent 321s (>300s)
+10-17 16:55:58 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 16:57:58 | ALERT(logwatch): output silent 361s (>300s)
+10-17 16:57:58 | ALERT(sampler): output silent 441s (>300s)
+10-17 16:57:58 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 16:59:58 | ALERT(logwatch): output silent 481s (>300s)
+10-17 16:59:58 | ALERT(sampler): output silent 562s (>300s)
+10-17 16:59:59 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:01:59 | ALERT(logwatch): output silent 601s (>300s)
+10-17 17:01:59 | ALERT(sampler): output silent 682s (>300s)
+10-17 17:01:59 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:03:59 | ALERT(logwatch): output silent 722s (>300s)
+10-17 17:03:59 | ALERT(sampler): output silent 802s (>300s)
+10-17 17:03:59 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:05:59 | ALERT(logwatch): output silent 842s (>300s)
+10-17 17:05:59 | ALERT(sampler): output silent 922s (>300s)
+10-17 17:05:59 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:08:00 | ALERT(logwatch): output silent 962s (>300s)
+10-17 17:08:00 | ALERT(sampler): output silent 1043s (>300s)
+10-17 17:08:00 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:10:00 | ALERT(logwatch): output silent 1082s (>300s)
+10-17 17:10:00 | ALERT(sampler): output silent 1163s (>300s)
+10-17 17:10:00 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:12:00 | ALERT(logwatch): output silent 1203s (>300s)
+10-17 17:12:00 | ALERT(sampler): output silent 1283s (>300s)
+10-17 17:12:00 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:14:00 | ALERT(logwatch): output silent 1323s (>300s)
+10-17 17:14:00 | ALERT(sampler): output silent 1403s (>300s)
+10-17 17:14:00 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:16:00 | ALERT(logwatch): output silent 1443s (>300s)
+10-17 17:16:00 | ALERT(sampler): output silent 1524s (>300s)
+10-17 17:16:01 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:18:01 | ALERT(logwatch): output silent 1563s (>300s)
+10-17 17:18:01 | ALERT(sampler): output silent 1644s (>300s)
+10-17 17:18:01 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:20:01 | ALERT(logwatch): output silent 1684s (>300s)
+10-17 17:20:01 | ALERT(sampler): output silent 1764s (>300s)
+10-17 17:20:01 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:22:01 | ALERT(sampler): output silent 1884s (>300s)
+10-17 17:22:01 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:23:34 | ALERT(sampler): output silent 1977s (>300s)
+10-17 17:23:34 | ALERT: hunter ledger silent 553s (>420s) | proc=1 | ledger=hunter_ledger_20261017_165138.txt
+10-17 17:24:02 | ALERT(sampler): output silent 2005s (>300s)
+10-17 17:24:02 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_172335.txt
+10-17 17:26:02 | ALERT(ENGINE): ninfer-serve not running | ledger=hunter_ledger_20261017_172503.txt

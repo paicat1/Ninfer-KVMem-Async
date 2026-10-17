@@ -486,3 +486,16 @@
 16:38:54 | decode_min=3.8 tok/s (deep) | n=1 | clk=1950 MHz util=1 % pow=27.20 W mem=15668 MiB
 16:38:54 |    slow lines: 3.8@16:38:41
 16:51:57 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+17:20:35 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:20:56 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:21:16 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:21:36 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:21:56 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:22:16 | WARN: log read failed: [WinError 2] 系统找不到指定的文件。: 'J:\\ninfer-kvmem\\logs\\test_valleywatch.log'
+17:23:34 | logwatch start | criteria: decode<60 (running>=1) | tiers: <60 valley / <6 deep / <1.5 vdeep | 3 samples with >=2 hits | NO pressure, NO restart, NO config change
+17:23:54 | decode_min=39.7 tok/s (valley) | n=2 | clk=2910 MHz util=3 % pow=126.33 W mem=15428 MiB
+17:23:54 |    slow lines: 39.7@17:23:43
+17:23:57 | decode_min=39.7 tok/s (valley) | n=3 | clk=2902 MHz util=85 % pow=219.65 W mem=15428 MiB
+17:23:57 |    slow lines: 39.7@17:23:43
+17:26:19 | decode_min=10.0 tok/s (valley) | n=1 | clk=915 MHz util=6 % pow=27.58 W mem=15429 MiB
+17:26:19 |    slow lines: 10.0@17:26:03

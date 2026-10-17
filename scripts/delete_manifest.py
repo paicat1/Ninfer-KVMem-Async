@@ -195,7 +195,13 @@ def main():
     except Exception:
         pass
     for r in recs:
-        r['referenced_by'] = ref_hits.get(os.path.basename(r['path']), [])
+        _hits = ref_hits.get(os.path.basename(r['path']), [])
+        # 2026-10-18 补：用户在 token 里点名了该文件 ⇒ 引用已同步说明，不再据此拒删（与 traverse_rules.R4 一致）
+        if _hits and os.path.basename(r['path']).lower() in (a.token or '').lower():
+            r['referenced_by'] = []
+            r['ref_synced'] = _hits[:2]
+        else:
+            r['referenced_by'] = _hits
 
     # ③ 活件判定
     now = time.time()

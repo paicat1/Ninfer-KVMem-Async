@@ -52,57 +52,66 @@ if (Test-Path $st) {
     } else { Write-Host 'structure: 无新违规 -- OK' -ForegroundColor DarkGray }
 }
 
-# —— T-WINDOW 两层（2026-10-17 立：CB 绕开禁令自写 Minimized 启动脚本 ⇒ 用户看不到窗口）——
-$launcherOut = & $PyExe -X utf8 scripts\check_launchers.py 2>&1 | Out-String
-$m = [regex]::Match($launcherOut, '违规 (\d+) 处')
-$lv = if ($m.Success) { [int]$m.Groups[1].Value } else { 0 }
-$lb = $null   # 2026-10-17 修：不得硬编码默认（原 22 ⇒ 读失败时静默放宽）
-try { $lb = [int]((Get-Content structure.json -Raw -Encoding UTF8 | ConvertFrom-Json).window_discipline.launcher_baseline) } catch { $lb = $null }
-if ($null -eq $lb) {
-    Write-Host "BLOCKED[window]: 无法读取基线（structure.json 读失败/字段缺失）⇒ 按失败处理（**不静默退宽松默认**）" -ForegroundColor Red
-    $fail = 1
-    $lb = 0   # 保守：读不到基线就按最严处理
-}
-if ($lv -gt $lb) {
-    Write-Host ("BLOCKED[window]: 启动脚本窗口违规 " + $lv + " 处 > 基线 " + $lb + "（新增违规）") -ForegroundColor Red
-    $launcherOut -split "`n" | Select-Object -First 8 | ForEach-Object { Write-Host ("   " + $_) }
-    $script:fail = $true
-} else {
-    Write-Host ("window-launchers: " + $lv + " 处（基线 " + $lb + "）-- OK")
-}
-$auditOut = & $PyExe -X utf8 scripts\audit_windows.py --quiet 2>&1 | Out-String
-$arc = $LASTEXITCODE
-if ($arc -ne 0) {
-    Write-Host "BLOCKED[window]: 窗口审计发现违规（可见性/最小化）" -ForegroundColor Red
-    $auditOut -split "`n" | Select-Object -First 8 | ForEach-Object { Write-Host ("   " + $_) }
-    $script:fail = $true
-} else {
-    Write-Host "window-audit: 全部可见且非最小化 -- OK"
-}
+# —— 本地自律层（窗口纪律 / BOM / 绕过判据）—— **仅本机执行**
+#   2026-10-17：这些工具已撤出版本控制（只在本机跑，是我的纪律执行件，不是仓级规范）。
+#   ⇒ 工具不在（别人 clone / 换机器）⇒ **整段跳过并明示**，仓级层（引用/结构）不受影响。
+$LocalToolsOk = (Test-Path 'scripts\check_launchers.py') -and (Test-Path 'scripts\audit_windows.py') -and (Test-Path 'scripts\check_ps1_bom.py')
+if (-not $LocalToolsOk) {
+    Write-Host "window-layers: 本地自律工具不在本机（scripts\check_launchers.py 等）-- 本地层整段跳过（仓级层不受影响）" -ForegroundColor DarkGray
+} else {
+    # —— T-WINDOW 两层（2026-10-17 立：CB 绕开禁令自写 Minimized 启动脚本 ⇒ 用户看不到窗口）——
+    $launcherOut = & $PyExe -X utf8 scripts\check_launchers.py 2>&1 | Out-String
+    $m = [regex]::Match($launcherOut, '违规 (\d+) 处')
+    $lv = if ($m.Success) { [int]$m.Groups[1].Value } else { 0 }
+    $lb = $null   # 2026-10-17 修：不得硬编码默认（原 22 ⇒ 读失败时静默放宽）
+    try { $lb = [int]((Get-Content structure.json -Raw -Encoding UTF8 | ConvertFrom-Json).window_discipline.launcher_baseline) } catch { $lb = $null }
+    if ($null -eq $lb) {
+        Write-Host "BLOCKED[window]: 无法读取基线（structure.json 读失败/字段缺失）⇒ 按失败处理（**不静默退宽松默认**）" -ForegroundColor Red
+        $fail = 1
+        $lb = 0   # 保守：读不到基线就按最严处理
+    }
+    if ($lv -gt $lb) {
+        Write-Host ("BLOCKED[window]: 启动脚本窗口违规 " + $lv + " 处 > 基线 " + $lb + "（新增违规）") -ForegroundColor Red
+        $launcherOut -split "`n" | Select-Object -First 8 | ForEach-Object { Write-Host ("   " + $_) }
+        $script:fail = $true
+    } else {
+        Write-Host ("window-launchers: " + $lv + " 处（基线 " + $lb + "）-- OK")
+    }
+    $auditOut = & $PyExe -X utf8 scripts\audit_windows.py --quiet 2>&1 | Out-String
+    $arc = $LASTEXITCODE
+    if ($arc -ne 0) {
+        Write-Host "BLOCKED[window]: 窗口审计发现违规（可见性/最小化）" -ForegroundColor Red
+        $auditOut -split "`n" | Select-Object -First 8 | ForEach-Object { Write-Host ("   " + $_) }
+        $script:fail = $true
+    } else {
+        Write-Host "window-audit: 全部可见且非最小化 -- OK"
+    }
 
 
-# —— T-ANTIHACK：合规连击（门禁全绿 +1；由违规流程清零）——
-try {
-    $compFile = '.codebuddy\sda\COMPLIANCE.txt'
-    if (Test-Path $compFile) {
-        $c = Get-Content $compFile -Raw -Encoding UTF8
-        if ($c -match 'streak\s*=\s*(\d+)') { $st = [int]$Matches[1] }
-        if ($fail -eq 0) { $st = $st + 1 } else { $st = 0 }
-        $newC = ($c -replace 'streak\s*=\s*\d+', ('streak = ' + $st)) -replace 'last_pass\s*=\s*[^\r\n]*', ('last_pass = ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
-        Set-Content -LiteralPath $compFile -Value $newC -Encoding UTF8 -NoNewline
-        Write-Host ("compliance-streak: " + $st + "（门禁全绿计数）") -ForegroundColor DarkGray
+    # —— T-ANTIHACK：合规连击（门禁全绿 +1；由违规流程清零）——
+    try {
+        $compFile = '.codebuddy\sda\COMPLIANCE.txt'
+        if (Test-Path $compFile) {
+            $c = Get-Content $compFile -Raw -Encoding UTF8
+            if ($c -match 'streak\s*=\s*(\d+)') { $st = [int]$Matches[1] }
+            if ($fail -eq 0) { $st = $st + 1 } else { $st = 0 }
+            $newC = ($c -replace 'streak\s*=\s*\d+', ('streak = ' + $st)) -replace 'last_pass\s*=\s*[^\r\n]*', ('last_pass = ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+            Set-Content -LiteralPath $compFile -Value $newC -Encoding UTF8 -NoNewline
+            Write-Host ("compliance-streak: " + $st + "（门禁全绿计数）") -ForegroundColor DarkGray
+        }
+    } catch { Write-Host ("WARN: 连击计数失败：" + $_.Exception.Message) -ForegroundColor Yellow }
+
+
+    # —— T-WINDOW：含中文 .ps1 必须带 BOM（2026-10-17 立）——
+    $bomOut = & $PyExe -X utf8 scripts\check_ps1_bom.py 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "BLOCKED[window]: 新增/修改的含中文 .ps1 缺 BOM（PowerShell 按 ANSI 读 ⇒ 乱码 ⇒ 解析失败）" -ForegroundColor Red
+        $bomOut -split "`n" | Select-Object -First 6 | ForEach-Object { Write-Host ("   " + $_) }
+        $fail = 1
+    } else {
+        Write-Host "window-bom: 无违规 -- OK" -ForegroundColor DarkGray
     }
-} catch { Write-Host ("WARN: 连击计数失败：" + $_.Exception.Message) -ForegroundColor Yellow }
 
-
-# —— T-WINDOW：含中文 .ps1 必须带 BOM（2026-10-17 立）——
-$bomOut = & $PyExe -X utf8 scripts\check_ps1_bom.py 2>&1 | Out-String
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "BLOCKED[window]: 新增/修改的含中文 .ps1 缺 BOM（PowerShell 按 ANSI 读 ⇒ 乱码 ⇒ 解析失败）" -ForegroundColor Red
-    $bomOut -split "`n" | Select-Object -First 6 | ForEach-Object { Write-Host ("   " + $_) }
-    $fail = 1
-} else {
-    Write-Host "window-bom: 无违规 -- OK" -ForegroundColor DarkGray
 }
 
 exit $fail

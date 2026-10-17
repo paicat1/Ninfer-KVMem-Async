@@ -15,6 +15,7 @@ r"""check_refs.py -- 引用完整性检查器（2026-10-17 立）
 判定：路径指向**带扩展名的文件**时做存在性检查；指向目录时检查目录存在。
 """
 import io
+import json
 import os
 import re
 import sys
@@ -30,6 +31,15 @@ REL = re.compile(r'(?<![\w:\\])(engine|scripts|docs|patches|baselines|tools)\\([
 
 def norm(p):
     return p.replace('/', os.sep).rstrip('.,);')
+
+
+def _local_only():
+    """只在本机、不入库的工具（structure.json: local_only_tools）—— 引用它们不算断链。"""
+    try:
+        j = json.load(io.open(os.path.join(ROOT, 'structure.json'), encoding='utf-8'))
+        return set(x.replace('/', os.sep) for x in j.get('local_only_tools', {}).get('files', []))
+    except Exception:
+        return set()
 
 
 def main():
@@ -62,6 +72,10 @@ def main():
                         continue
                     checked += 1
                     if not os.path.exists(full):
+                        if os.path.normpath(full) in _local_only() or frag.replace('/', os.sep) in _local_only():
+                            if not quiet:
+                                print('NOTICE: 引用本地件（不入库，optional）：%s' % frag)
+                            continue
                         missing.append((os.path.relpath(p, ROOT), i, frag))
     if not quiet:
         print('扫描可执行/配置文件 · 检查引用 %d 条' % checked)

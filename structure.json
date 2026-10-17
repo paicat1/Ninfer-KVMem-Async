@@ -370,5 +370,26 @@
       "build/"
     ],
     "bypass_scan_skip_note": "build/ 为实验产物（a4-arm-* 等历史臂），非现役入口 ⇒ 不纳入绕过扫描"
+  },
+  "local_only_tools": {
+    "_doc": "只在本机执行、不入版本控制的工具（2026-10-17 用户令）。**引用它们不算断链**（optional reference）；仓级门禁的本地层在工具缺失时整段跳过并明示。",
+    "reason": "这些是纪律执行件与本机实验值守，不是仓级规范；避免把个人规则强加给协作者",
+    "files": [
+      "scripts/bypass_guard.py",
+      "scripts/tier_gate.py",
+      "scripts/spawn_visible.ps1",
+      "scripts/check_launchers.py",
+      "scripts/audit_windows.py",
+      "scripts/audit_windows_task.ps1",
+      "scripts/check_ps1_bom.py",
+      "scripts/install_window_audit_task.ps1",
+      "scripts/release_bypass_lock.ps1",
+      "scripts/start_hunter.ps1",
+      "scripts/watchdog_hunter.ps1",
+      "scripts/valley_hunter.ps1",
+      "scripts/valley_logwatch.py",
+      "scripts/window_watch.py",
+      "scripts/count_watch.py"
+    ]
   }
 }

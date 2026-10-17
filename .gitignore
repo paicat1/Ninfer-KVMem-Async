@@ -4,37 +4,28 @@
 #        NInfer + KVMem 架构跑起来，并尽量适配 MTP / DFlash2 / ngram。
 #  只收"本线产品本身"；输入物料（体积大 / 上游内容）不入库。
 # ============================================================
-
 # 引擎成品与模型制品（体积大，不入库）
 engine/
 models/
-
 # 上游引擎源码 clone（复现输入，自带 .git）
 official-repo/
-
 # 本仓自持引擎源码树（2026-10-12 解耦：本仓只在本仓内构建，自带 .git）
 # 说明见 engine-src/PROVENANCE.md；铁律 T-NO-FOREIGN-WRITE
 engine-src/
-
 # 参考资料区（第三方 / 前序输入物料，不入库）
 refs/
-
 # 姊妹仓评价文档（评的是他仓，非本线产品本身，仅本地留存）
 docs/仓库建议.txt
-
 # 运行日志 / 临时 / 缓存
 logs/
 .temp/
 __pycache__/
 *.log
 Testing/
-
 # Office 临时锁文件（~$ 前缀，打开文档时自动生成）
 ~$*
-
 # 备份快照
 _safety_backups/
-
 # 工作流工具链（类③，不入项目 git）
 smart_push.ps1
 # tools/ 整体不入库，但诊断仪器源码随仓发布（可复现性：它们是两条公开结论的证据链）
@@ -47,19 +38,15 @@ tools/*
 !tools/*.exe
 tools/engine_ctl.ps1
 .codebuddy/
-
 # 2026-10-13: test_ledger39_vision.py 每次运行重建的测试图（产物保留在盘上，不进仓）
 scripts/_ledger39_test_image.png
-
 # 本地抢救归档（防 .temp 误删；不入库）
 archive/
-
 # 本地处置区（待用户决定真删/恢复；不入库）
 _trash/
 work/
 # ↑ 临时工作区（按天；7 天自动清；不入库）
 *.pyc
-
 # 证据流（持续写入、体积大 ⇒ 不入库；**冻结案卷 evidence/cases/case_*/ 仍入库**）
 evidence/reqlogs/
 evidence/samples/
@@ -70,10 +57,28 @@ evidence/cases/WATCHDOG_ALERT.txt
 evidence/cases/GATE_ALERT.txt
 # 审计流（每日追加、churn）；**违规记录 VIOLATION_*.md 仍入库**
 evidence/audits/window_state_*.txt
-
 # 起进程记录（每次一文件、churn）；**违规记录 VIOLATION_*.md 仍入库**
 evidence/spawns/
-
 # 自述件（守卫检出绕过时自动生成；**留本地、不入公开仓** —— 用户 2026-10-17 令）
 #   钩子仍会在本地生成它们（机制不废），只是不进版本控制
 evidence/audits/BYPASS_CONFESSION_*.md
+
+# —— 本地自律/治理工具（**只在本机执行，不入公开仓** —— 用户 2026-10-17 令）——
+#   理由：① 这些是我这台机器的纪律执行件与实验值守，不是仓级规范
+#        ② 避免把我的个人规则强加给协作者（smart_push → gates 只跑仓级层；本地层缺件则明示跳过）
+#        ③ SDA 全部内容本就在 .codebuddy/（已忽略），这些工具与它同属"本地工作件"
+scripts/bypass_guard.py
+scripts/tier_gate.py
+scripts/spawn_visible.ps1
+scripts/check_launchers.py
+scripts/audit_windows.py
+scripts/audit_windows_task.ps1
+scripts/check_ps1_bom.py
+scripts/install_window_audit_task.ps1
+scripts/release_bypass_lock.ps1
+scripts/start_hunter.ps1
+scripts/watchdog_hunter.ps1
+scripts/valley_hunter.ps1
+scripts/valley_logwatch.py
+scripts/window_watch.py
+scripts/count_watch.py

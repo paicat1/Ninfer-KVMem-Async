@@ -5,7 +5,7 @@
 版本归属：用 engine\\self-built-20261008\\_deploy_log\\deploy_history.txt 的部署时间线，
 把日志行时间映射到当时在跑的 exe sha（测试日志 test_<tag>.log 直接按 tag 标注）。
 
-用法：python tools\\valley_history.py [--glob logs\\*.log] [--out .temp\\valley_history.md]
+用法：python scripts\\valley_history.py [--glob logs\\*.log] [--out .temp\\valley_history.md]
 """
 import argparse
 import glob

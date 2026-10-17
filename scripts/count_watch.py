@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 r"""count_watch.py -- 值守进程计数（**带正确过滤，避免"监视命令自匹配"陷阱**）
 
 由来：CB 多次用 `Get-CimInstance ... -like '*xxx*'` 统计进程数，**把执行该查询的 powershell 自身也数进去** ⇒ 误报"重复实例"。
@@ -59,8 +59,8 @@ def main():
         print('   %-26s %-8s pid=%s  最新产出 %s' % (
             label, state, ','.join(h[0] for h in hits) or '-',
             ('%.0fs 前' % age) if age >= 0 else '—'))
-    print('\n   引擎 =', len([r for r in rows if 'ninfer-serve' in r[2]]) or
-          subprocess.run(['powershell', '-NoProfile', '-Command', "@(Get-Process ninfer-serve -ErrorAction SilentlyContinue).Count"],
+    print('\n   引擎 =', len([r for r in rows if 'ninfer-serve*' in r[2]]) or
+          subprocess.run(['powershell', '-NoProfile', '-Command', "@(Get-Process 'ninfer-serve*' -ErrorAction SilentlyContinue).Count"],
                          capture_output=True).stdout.decode().strip())
     print('   ⇒ 判存活以"最新产出时间"为准，不以进程数为唯一依据（自匹配陷阱）')
     return 0 if ok else 1

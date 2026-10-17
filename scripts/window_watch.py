@@ -32,7 +32,7 @@ import time
 
 ROOT = r'J:\ninfer-kvmem'
 LOG = os.path.join(ROOT, 'logs', 'test_valleywatch.log')
-OUT = os.path.join(ROOT, '.temp', 'windowwatch_%s.txt' % time.strftime('%Y%m%d_%H%M'))
+OUT = os.path.join(ROOT, 'evidence', 'samples', 'windowwatch_%s.txt' % time.strftime('%Y%m%d_%H%M'))
 HOURS = float(os.environ.get('WATCH_HOURS', '12'))
 INTERVAL = float(os.environ.get('WATCH_INTERVAL', '60'))
 VER = 'w2'

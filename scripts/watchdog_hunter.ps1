@@ -15,6 +15,22 @@ $t0 = Get-Date
 while (((Get-Date) - $t0).TotalHours -lt $MaxHours) {
     $led = Get-ChildItem $cases -File -Filter 'hunter_ledger_*' -ErrorAction SilentlyContinue |
            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    # v2（2026-10-17 09:1x）：**扩展为看全部同伴**（原只看猎人 ⇒ 日志通道/采样器静默死无人知）
+    $logwatch = Get-Item '.temp\cases\logwatch_ledger.txt' -ErrorAction SilentlyContinue
+    $sampler  = Get-ChildItem '.temp' -File -Filter 'windowwatch_*' -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $logwatchAlive = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*valley_logwatch*' }).Count
+    $samplerAlive  = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*window_watch*' }).Count
+    foreach ($pair in @(@('logwatch', $logwatch, $logwatchAlive, 300), @('sampler', $sampler, $samplerAlive, 300))) {
+        $nm = $pair[0]; $it = $pair[1]; $al = [int]$pair[2]; $lim = [int]$pair[3]
+        if ($al -eq 0) {
+            $m = ('{0} | ALERT({1}): process not running' -f (Get-Date -Format 'MM-dd HH:mm:ss'), $nm)
+            Add-Content -LiteralPath $alert -Value $m -Encoding UTF8; Write-Output $m
+        } elseif ($it -and ((Get-Date) - $it.LastWriteTime).TotalSeconds -gt $lim) {
+            $m = ('{0} | ALERT({1}): output silent {2}s (>{3}s)' -f (Get-Date -Format 'MM-dd HH:mm:ss'), $nm, [int]((Get-Date) - $it.LastWriteTime).TotalSeconds, $lim)
+            Add-Content -LiteralPath $alert -Value $m -Encoding UTF8; Write-Output $m
+        } else { Write-Output ('{0} | ok: {1} alive={2}' -f (Get-Date -Format 'HH:mm:ss'), $nm, $al) }
+    }
     $alive = 0
     $alive = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*valley_hunter*' }).Count
     # 前置（TELE 第四轮建议）：引擎进程是否还在 —— 引擎没了是另一类告警，不能混为"猎人静默死亡"

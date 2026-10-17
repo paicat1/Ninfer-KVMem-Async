@@ -183,7 +183,12 @@ while ($true) {
             release_by = 'user only'
             dir        = $d
         }
-        try { $lock | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $lockPath -Encoding UTF8 } catch { Say ("WARN: CASE_LOCKED.json 写入失败：{0}" -f $_.Exception.Message) }
+        # ⚠ PS 5.1 的 `Set-Content -Encoding UTF8` **会写 BOM** ⇒ 机器可读的 JSON 必须用 .NET 无 BOM 写法
+        #   （否则外部工具用普通 utf-8 解析会报 'Unexpected UTF-8 BOM'——2026-10-17 实测踩到）
+        try {
+            $json = $lock | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($lockPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+        } catch { Say ("WARN: CASE_LOCKED.json 写入失败：{0}" -f $_.Exception.Message) }
         $qf = Join-Path $Repo 'docs\协作状态-当前待办与交接-20261016.md'
         try { Add-Content -LiteralPath $qf -Value ("`n> ⛔ CASE-LOCKED: {0} @ {1} —— 禁止重启 / 改配置 / 注入压力 / 清缓存；**解除权归用户**" -f $cid, (Get-Date -Format 'MM-dd HH:mm:ss')) -Encoding UTF8 } catch { }
         Say ("FREEZE LOCK written: {0} (queue line appended)" -f $lockPath)

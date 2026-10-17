@@ -24,10 +24,11 @@ CASEDIR = os.path.join(ROOT, '.temp', 'cases')
 LEDGER = os.path.join(CASEDIR, 'logwatch_ledger.txt')
 LOCK = os.path.join(CASEDIR, 'CASE_LOCKED.json')
 QUEUE = os.path.join(ROOT, 'docs', '协作状态-当前待办与交接-20261016.md')
-INTERVAL = 60
+INTERVAL = 20        # v2：20s（只读日志，零负载）——深档事件约 4 分钟，60s 太粗
 MAX_HOURS = float(os.environ.get('LOGWATCH_HOURS', '12'))
 
-RE_TP = re.compile(r'throughput \| [\d.]+s \| .*decode (?P<d>[\d.]+) tok/s \((?P<n>\d+) tok\).*running (?P<r>\d+)')
+RE_TP = re.compile(r'(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+.*?throughput \| [\d.]+s \| .*decode '
+                      r'(?P<d>[\d.]+) tok/s \((?P<n>\d+) tok\).*running (?P<r>\d+)')
 
 
 def say(msg):
@@ -41,13 +42,25 @@ def say(msg):
     sys.stdout.flush()
 
 
-def snap_gpu():
+GPUHIST = []          # v2：GPU 环形缓冲（每 10s 采一次），供"按慢读数时刻就近配对"
+
+
+def gpu_sample():
     try:
         out = subprocess.run(['nvidia-smi', '--query-gpu=clocks.sm,utilization.gpu,power.draw,memory.used',
                               '--format=csv,noheader'], capture_output=True, timeout=20).stdout.decode()
-        return out.strip().replace('\r\n', ' | ')
-    except Exception as e:
-        return 'gpu-query-failed: %s' % e
+        vals = [x.strip() for x in out.strip().replace('\r\n', '\n').split('\n')[0].split(',')]
+        return {'t': time.time(), 'clk': vals[0], 'util': vals[1], 'pow': vals[2], 'mem': vals[3]}
+    except Exception:
+        return None
+
+
+def gpu_nearest(ts, tol=25.0):
+    """按日志行时间戳就近取 GPU 采样（±25s），避免"采样落在间隙"造成的错配。"""
+    if not GPUHIST:
+        return None
+    best = min(GPUHIST, key=lambda g: abs(g['t'] - ts))
+    return best if abs(best['t'] - ts) <= tol else None
 
 
 def freeze_lock(tag, excerpt):
@@ -101,7 +114,16 @@ def main():
         except Exception as e:
             say('WARN: log read failed: %s' % e)
             continue
+        g = gpu_sample()
+        if g:
+            GPUHIST.append(g)
+        time.sleep(8)
+        g2 = gpu_sample()
+        if g2:
+            GPUHIST.append(g2)
+        del GPUHIST[:-40]          # 保留近 40 个（约 5-6 分钟）
         vals = []
+        slow_lines = []
         for m in RE_TP.finditer(new):
             try:
                 d = float(m.group('d'))
@@ -110,13 +132,24 @@ def main():
                 continue
             if r >= 1:
                 vals.append(d)
+                if d < 60:
+                    try:
+                        ts = time.mktime(time.strptime(m.group('ts'), '%Y-%m-%d %H:%M:%S')) - 2.5
+                    except Exception:
+                        ts = time.time()
+                    slow_lines.append((d, ts, m.group(0)[:120]))
         if not vals:
             hist.append(None)
             hist = hist[-3:]
             continue
         mn = min(vals)
         tier = 'vdeep' if mn < 1.5 else ('deep' if mn < 6 else ('valley' if mn < 60 else 'ok'))
-        say('decode_min=%.1f tok/s (%s) | n_samples=%d | gpu=%s' % (mn, tier, len(vals), snap_gpu()))
+        ref_ts = min(slow_lines, key=lambda x: x[0])[1] if slow_lines else time.time()
+        gg = gpu_nearest(ref_ts, tol=20.0)
+        gtxt = ('clk=%s util=%s pow=%s mem=%s' % (gg['clk'], gg['util'], gg['pow'], gg['mem'])) if gg else 'gpu=no-match'
+        say('decode_min=%.1f tok/s (%s) | n=%d | %s' % (mn, tier, len(vals), gtxt))
+        if slow_lines:
+            say('   slow lines: ' + ' ;; '.join('%.1f@%s' % (a, time.strftime('%H:%M:%S', time.localtime(b))) for a, b, _c in slow_lines[:3]))
         hist.append(mn)
         hist = hist[-3:]
         recent = [h for h in hist if h is not None]

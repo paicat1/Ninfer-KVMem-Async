@@ -172,6 +172,21 @@ while ($true) {
         $cid = "case_{0:yyyyMMdd_HHmmss}" -f (Get-Date)
         $d = Snap $cid
         Say "VALLEY CONFIRMED -> case dir $d (decode=$($p.decode), $how); scene frozen: NO restart / NO config change / NO pressure"
+        # —— 冻结锁机器化（2026-10-17 08:3x 补齐；CLI 草案 §3.1 与 TELE 意见④）——
+        #   纪律行只"写给人看"；锁文件 + 队列表行是**机器可读**的，TELE/CLI 心跳即见。
+        $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+        $lockPath = Join-Path (Join-Path $Repo '.temp') 'cases\CASE_LOCKED.json'
+        $lock = [pscustomobject]@{
+            case       = $cid
+            time       = (Get-Date -Format 'MM-dd HH:mm:ss')
+            prohibit   = @('NO restart', 'NO config change', 'NO pressure injection', 'NO cache clear')
+            release_by = 'user only'
+            dir        = $d
+        }
+        try { $lock | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $lockPath -Encoding UTF8 } catch { Say ("WARN: CASE_LOCKED.json 写入失败：{0}" -f $_.Exception.Message) }
+        $qf = Join-Path $Repo 'docs\协作状态-当前待办与交接-20261016.md'
+        try { Add-Content -LiteralPath $qf -Value ("`n> ⛔ CASE-LOCKED: {0} @ {1} —— 禁止重启 / 改配置 / 注入压力 / 清缓存；**解除权归用户**" -f $cid, (Get-Date -Format 'MM-dd HH:mm:ss')) -Encoding UTF8 } catch { }
+        Say ("FREEZE LOCK written: {0} (queue line appended)" -f $lockPath)
         $streak = 0
         if ($PostHitWaitSec -gt 0) {
             Start-Sleep -Seconds $PostHitWaitSec   # 仅当你显式开启：测'是否恢复'需先确认无我方压力注入

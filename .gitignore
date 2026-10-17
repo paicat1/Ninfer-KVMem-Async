@@ -82,3 +82,6 @@ scripts/valley_hunter.ps1
 scripts/valley_logwatch.py
 scripts/window_watch.py
 scripts/count_watch.py
+
+# nsys 导出的 sqlite 工作件（**案卷里的副本才是归档件**；根目录这份是分析中间产物）
+*.sqlite

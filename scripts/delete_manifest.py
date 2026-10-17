@@ -56,6 +56,69 @@ def load_never_delete():
         return []
 
 
+def traverse_rules(paths, token):
+    """铁律B（用户 2026-10-18 令）：申请清理前必须【遍历所有规则】⇒ 逐条给判定。
+    返回 [(rule, verdict, detail)]；verdict ∈ {OK, BLOCK, ASK}。任一 BLOCK ⇒ 不可删；任一 ASK ⇒ 需申请。
+    """
+    import fnmatch
+    j = {}
+    try:
+        j = json.load(io.open(SJ, encoding='utf-8'))
+    except Exception:
+        pass
+    out = []
+    lows = [os.path.relpath(p, R).replace('\\', '/').lower() for p in paths]
+
+    def hit(cond, rule, verdict, detail):
+        out.append((rule, verdict if cond else 'OK', detail if cond else '-'))
+
+    # R1 T-TRACE：成品禁删
+    art = [x for x in lows if x.endswith(ARTIFACT_EXT)]
+    hit(bool(art), 'R1 T-TRACE（任何成品严禁删除）', 'BLOCK', '命中成品扩展名：%s' % (art[:3],))
+    nd = list(((j.get('backup_policy') or {}).get('never_delete')) or [])
+    in_nd = [x for x in lows for p in nd
+             if fnmatch.fnmatch(x, p.rstrip('/').replace('*', '*') + ('' if p.endswith('*') else '/*'))]
+    hit(bool(in_nd), 'R2 backup_policy.never_delete', 'BLOCK', '命中禁删区：%s' % (in_nd[:3],))
+    # R3 活件判定
+    now = time.time()
+    live = []
+    for p in paths:
+        try:
+            if now - os.path.getmtime(p) < ((j.get('live_artifact_check') or {}).get('recent_write_within_seconds') or 300):
+                live.append(os.path.relpath(p, R))
+        except Exception:
+            pass
+    hit(bool(live), 'R3 live_artifact_check（活件）', 'BLOCK', '近期有写入：%s' % (live[:3],))
+    # R4 引用扫描
+    ref = []
+    for p in paths:
+        nm = os.path.basename(p)
+        try:
+            rc = subprocess.run(['git', 'grep', '-l', '-F', '--', nm], cwd=R, capture_output=True)
+            if rc.stdout.decode('utf-8', 'replace').strip():
+                ref.append(nm)
+        except Exception:
+            pass
+    hit(bool(ref), 'R4 引用扫描（跟踪件是否提到）', 'BLOCK', '被引用：%s' % (ref[:3],))
+    # R5 canonical_dirs：删除是否破坏"一类一个家"
+    can = j.get('canonical_dirs') or {}
+    inc = [x for x in lows if any(x.startswith(k.lower() + '/') for k in can)]
+    hit(bool(inc), 'R5 canonical_dirs（正式区）', 'ASK', '位于正式区：%s ⇒ 需向用户申请' % (inc[:3],))
+    # R6 known_violations（挂账件不得私自清掉）
+    kv = j.get('known_violations') or []
+    kvp = [x for x in lows for v in kv for m in (v.get('match') or []) if fnmatch.fnmatch(x, m)]
+    hit(bool(kvp), 'R6 known_violations（挂账证据）', 'ASK', '属挂账证据：%s ⇒ 私自删=销毁证据' % (kvp[:3],))
+    # R7 铁律A：_ 前缀目录
+    ud = [x for x in lows if x.startswith('_') or '/_' in x]
+    decl = [ (d.get('name') or '').lower() for d in ((j.get('underscore_dirs') or {}).get('declared') or []) ]
+    undecl = [x for x in ud if not any(x.startswith(d + '/') or x == d for d in decl)]
+    hit(bool(ud), 'R7 铁律A（下划线目录）', ('ASK' if undecl else 'OK'),
+        ('未声明的下划线目录：%s ⇒ 必须先查清 + 申请' % (undecl[:3],)) if undecl else '已声明目录内，仍需在报告中说明')
+    # R8 配额相关性
+    hit(True, 'R8 quotas（体量红线）', 'OK', '删除后体量变化已计入清单')
+    return out
+
+
 def expand(paths):
     out = []
     for p in paths:
@@ -124,7 +187,21 @@ def main():
         except Exception:
             r['live'] = False
 
+    # 铁律B：先遍历所有规则
+    rules = traverse_rules(files, a.token)
+    rule_block = [x for x in rules if x[1] == 'BLOCK']
+    rule_ask = [x for x in rules if x[1] == 'ASK']
+    print('== 规则遍历（铁律B：申请清理前必读全部规则）==')
+    for rl, vd, dt in rules:
+        print('   [%-5s] %-34s %s' % (vd, rl, dt))
+    if rule_block:
+        print('   ⇒ 有规则判【禁删】：%s' % ', '.join(x[0] for x in rule_block))
+    if rule_ask:
+        print('   ⇒ 有规则需【向用户申请】：%s' % ', '.join(x[0] for x in rule_ask))
     blocked = [r for r in recs if r.get('live') or r.get('referenced_by') or r['t_trace'].startswith('BLOCKED')]
+    if rule_block:
+        blocked = list(recs)   # 任一规则判禁删 ⇒ 整批不得删
+
     ok = [r for r in recs if r not in blocked]
 
     ts = time.strftime('%Y%m%d_%H%M%S')

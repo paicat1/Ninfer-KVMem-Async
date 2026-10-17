@@ -362,6 +362,23 @@ if (-not $LocalToolsOk) {
 }
 
 
+# ===================== UNDERSCORE-GATE（2026-10-18 铁律A）=====================
+# 用户令：严禁随意建 `_` 前缀目录、严禁随意往里放文件；新建/放入前必须查清 + 向用户申请。
+# 机械：凡 `_` 前缀且不在 structure.json.underscore_dirs.declared 里的目录 ⇒ 报违规。
+$sjU = Get-Content (Join-Path $PSScriptRoot "..\structure.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+$declaredU = @($sjU.underscore_dirs.declared | ForEach-Object { $_.name })
+$uDirs = Get-ChildItem -Path (Join-Path $PSScriptRoot "..\") -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "_*" }
+$uBad = @()
+foreach ($d in $uDirs) { if ($declaredU -notcontains $d.Name) { $uBad += $d.Name } }
+if ($uBad.Count -gt 0) {
+    Write-Output ("BLOCKED[underscore]: 未声明的下划线目录 " + ($uBad -join ", ") + " => 先查清用途 + 向用户申请，再登记进 structure.json")
+    exit 1
+} else {
+    Write-Output ("underscore: " + $uDirs.Count + " 个 `_` 目录，全部已声明 -- OK")
+}
+# ===================== UNDERSCORE-GATE END ======================
+
+
 # ===================== QUOTA-GATE / RULE-CHANGE-WARN / MODE-SHOW（2026-10-18 补）=====================
 # L3 配额原来只"入每周审计告警" ⇒ 超线多日无人拦。现改为：超红线即阻断。
 $quotaFail = 0
@@ -401,6 +418,7 @@ Write-Output ("mode: tier=" + $tierShow + "（MODE.json 改于 " + (Get-Item $mo
 }
 if ($quotaFail -eq 1) { exit 1 }
 # ===================== QUOTA-GATE END ======================
+
 
 exit $fail
 

@@ -267,6 +267,7 @@ if (Test-Path $log) {  # 2026-10-14: 归档（不删）；**必须容错**——
         Write-Output ('WARN: log archive skipped (locked) -- 按铁律**不删除**日志: ' + $log)
         Write-Output ('      ' + $_.Exception.Message)
     }
+}
 
 
 

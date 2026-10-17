@@ -99,10 +99,18 @@ def main():
         off = os.path.getsize(LOG)
     except Exception:
         off = 0
-    hist = []
+    hist = []          # 只存 (ts, value) 的**有效读数**；None 不入窗口（TELE 第十五轮：原写法把窗口占满 ⇒ 永不触发）
     t0 = time.time()
+    tick = 0
     while (time.time() - t0) / 3600.0 < MAX_HOURS:
-        time.sleep(INTERVAL)
+        time.sleep(5)      # 5 s 一跳：GPU 环缓冲加密 ⇒ 配对精度 ±5 s
+        tick += 1
+        g = gpu_sample()
+        if g:
+            GPUHIST.append(g)
+            del GPUHIST[:-80]          # 近 80 个（约 6-7 分钟）
+        if tick % 4:                   # 每 20 s 读一次日志
+            continue
         try:
             sz = os.path.getsize(LOG)
             if sz < off:
@@ -114,14 +122,6 @@ def main():
         except Exception as e:
             say('WARN: log read failed: %s' % e)
             continue
-        g = gpu_sample()
-        if g:
-            GPUHIST.append(g)
-        time.sleep(8)
-        g2 = gpu_sample()
-        if g2:
-            GPUHIST.append(g2)
-        del GPUHIST[:-40]          # 保留近 40 个（约 5-6 分钟）
         vals = []
         slow_lines = []
         for m in RE_TP.finditer(new):
@@ -139,8 +139,7 @@ def main():
                         ts = time.time()
                     slow_lines.append((d, ts, m.group(0)[:120]))
         if not vals:
-            hist.append(None)
-            hist = hist[-3:]
+            # 无在飞请求 ⇒ 既不算谷也不算健康；**不写入窗口**（原写法 append(None) 会把窗口占满 ⇒ 永不触发）
             continue
         mn = min(vals)
         tier = 'vdeep' if mn < 1.5 else ('deep' if mn < 6 else ('valley' if mn < 60 else 'ok'))
@@ -150,14 +149,15 @@ def main():
         say('decode_min=%.1f tok/s (%s) | n=%d | %s' % (mn, tier, len(vals), gtxt))
         if slow_lines:
             say('   slow lines: ' + ' ;; '.join('%.1f@%s' % (a, time.strftime('%H:%M:%S', time.localtime(b))) for a, b, _c in slow_lines[:3]))
-        hist.append(mn)
-        hist = hist[-3:]
-        recent = [h for h in hist if h is not None]
-        hits = sum(1 for h in recent if h < 60)
+        now_ts = time.time()
+        hist.append((now_ts, mn))
+        hist = [(t, v) for (t, v) in hist if now_ts - t <= 300.0]   # 只留近 5 分钟（时间连续性）
+        recent = [v for (_t, v) in hist]
+        hits = sum(1 for v in recent if v < 60)
         if len(recent) >= 3 and hits >= 2:
             tag = 'case_%s_logwatch' % time.strftime('%Y%m%d_%H%M%S')
             d = freeze_lock(tag, new.splitlines()[-200:])
-            say('VALLEY CONFIRMED (log channel) -> %s | tier=%s | recent=%s | scene frozen' % (tag, tier, recent))
+            say('VALLEY CONFIRMED (log channel) -> %s | tier=%s | recent=%s | scene frozen' % (tag, tier, ['%.1f' % v for v in recent]))
             hist = []
     say('logwatch stop (max hours reached)')
 

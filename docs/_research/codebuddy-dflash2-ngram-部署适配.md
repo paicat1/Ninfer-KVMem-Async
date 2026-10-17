@@ -1268,7 +1268,7 @@ Get-ChildItem -Path "J:\ninfer-kvmem" -Directory -Recurse -Filter "*DFlash*"
 
 # 2) 根与关键资产
 Get-ChildItem -Path "J:\ninfer-kvmem" -Force
-#   → engine/ models/ refs/ official-repo/ build/ docs/ tools/ _safety_backups/ .temp/ .git/
+#   → engine/ models/ refs/ official-repo/ build/ docs/ tools/ safety_backups/ .temp/ .git/
 Get-ChildItem -Path "J:\ninfer-kvmem\models"
 #   → Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer  (13,272,798,720 bytes)
 Get-ChildItem -Path "J:\ninfer-kvmem\engine"

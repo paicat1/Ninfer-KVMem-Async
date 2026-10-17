@@ -77,7 +77,7 @@
 - `git init -b main`（`core.autocrlf false`、`core.quotepath false`）。
 - **基线 commit `99c7233`**：message `chore(repo): 建立 ninfer-kvmem 工程基线`；37 文件；3336 insertions。
   - 定性（工具三分法）：①产品代码=启动器/日志工具；②项目工具=部署脚本/`build\` 复现材料；文档=教程/ngram 审计/交接与协作说明。
-  - `.gitignore` 排除输入物料：`engine/ models/ official-repo/ refs/ _safety_backups/ logs/ .temp/ tools/ smart_push.ps1 .codebuddy/`，另排除 `docs/仓库建议.txt`（评的是姊妹仓，非本线产品，经用户裁决排除）。
+  - `.gitignore` 排除输入物料：`engine/ models/ official-repo/ refs/ safety_backups/ logs/ .temp/ tools/ smart_push.ps1 .codebuddy/`，另排除 `docs/仓库建议.txt`（评的是姊妹仓，非本线产品，经用户裁决排除）。
 - **新建私有库并推送**：`paicat1/ninfer-kvmem`（`private=True`，`default_branch=main`）。
   - 建库方式：本机无 `gh` CLI，走 GitHub REST API（`POST /user/repos`），凭据取自 Windows 凭据管理器（`git credential fill`，scope 含 `repo`）；**token 未打印、未落盘、未进 remote URL**。
   - 推送走 `smart_push.ps1`（遵守 T-0001「禁裸 push」，pre-push 门戳）。
@@ -219,7 +219,7 @@
 6. **`ninfer_launcher_profiles.json`**：**新增 3 个 Coder390 档**（裸解码 256K / 裸解码 180K / MTP K4 待P1）；旧 7 档 `vision` 统一 `on→off`（消除硬阻塞），`spec` **保留原值**（诚实反映"该档需 dflash2，本线未实现"）。
 
 ### 证据
-- **备份（T-BACKUP）**：7 文件 → `_safety_backups\*_20261009_200734_pre-p0-coder390.*`
+- **备份（T-BACKUP）**：7 文件 → `safety_backups\*_20261009_200734_pre-p0-coder390.*`
   sha256 前 8 位：`ninfer_launcher.py 69842003` / `启动器.bat d8e2e3c8` / `profiles 8320ae4f` / `start-pq2 64be9706` / `start-ptq1-mtp e33c75e2` / `start-pq2-dflash ede2103a` / `start-pq2-dflash-designc 5f8e092a`
 - [EVIDENCE] `python -m py_compile ninfer_launcher.py` → `py_compile_exit=0`
 - [EVIDENCE] 行为验证（实跑 `build_command(DEFAULTS)`）：
@@ -1633,7 +1633,7 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 | 我方在源码树内建的 `build-1208a` | 已删（创建时间 10-11 22:31 = 我方） |
 | 仓二目录：21 个文件（40.7 MiB）+ `_backups\` | 先搬本仓归档（哈希逐件校验）→ 从仓二删除 |
 | 未动 | 它的 `engine\` 两个 exe、分支/历史、`ninfer_launcher.py` 在制品、`.temp\build-120a*`、`logs\` |
-| 归档 | `_safety_backups/qwenline_s6-20261008_20261012.bundle`（13,844,499 B，verify=complete history）+ `qwenline_uncommitted_20261012.patch`（29,922 B）+ 崩溃 map + 迁移件 21 件 |
+| 归档 | `safety_backups/qwenline_s6-20261008_20261012.bundle`（13,844,499 B，verify=complete history）+ `qwenline_uncommitted_20261012.patch`（29,922 B）+ 崩溃 map + 迁移件 21 件 |
 | 唯一非代码残留（如实记） | 仓二 `.temp\build-1208a`：**它的**构建缓存目录，内容 10-11 01:41 被我方编译覆盖过一部分；非源码、可由其已还原的树重编重建；未动它 |
 
 ### 3. 解耦（本仓自持树）
@@ -1986,7 +1986,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
 ### 1. 事故重建（留存机制焊死，两轮自动验证）
 
 - `build\s6_1208a.bat` 三处改造：`BUILD`/`LOG` 参数化；`BUILD-EXIT` 行加 `%DATE% %TIME%` 时间戳；构建完成自动调用
-  `tools\archive_build_output.ps1`（拷贝 exe → `_safety_backups\exe_lineage_<日期>\` + sha256 + 追加 `engine\lineage\MANIFEST.txt`）。
+  `tools\archive_build_output.ps1`（拷贝 exe → `safety_backups\exe_lineage_<日期>\` + sha256 + 追加 `engine\lineage\MANIFEST.txt`）。
 - 新建 `tools\retire_dir.ps1`（删除门：**只报告、永不删**）、`build\_rebuild_54_20261013.bat`（新目录/独立日志）。
 - **验证（自动，不靠记忆）**：全量重编 **28.4 分钟**（2:00:39→2:29:03，BUILD-EXIT=0 带时间戳）与增量重编 **~2 分钟**
   各自动归档 + 台账行各一条：`auto_20261013_022905_35173e0`（sha `F8267B60…`）、`auto_20261013_025429_c800106`（sha `A070A62D…`）。
@@ -3166,7 +3166,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **修改**：`evidence/` 只增不改（更正用追加件）· 构建史只追加 · **多写者文件分区+只追加+不覆盖他人节** · **编码/换行纪律**（中文 .ps1 带 BOM、JSON 无 BOM、保持原 CRLF/LF）· **定点替换优先**（整文件重写曾致 diff 膨胀与丢内容）· 改活件先查三源。
 - **备份**：**三律**（入库不另备/git 即备份 · 未入库删前必备并记 sha · **同 sha 只留一份**）——这是 6.36 GB 重复 exe 的根治。
 - **转移**：五步（清单→活件判定→移动非复制→门禁验证→登记）· **活体数据必须先改写入方路径 + 安全窗口** · 禁止跨家复制 · **历史文档文字记载不改**。
-- **清理**：`work/` 7 天自动 · `_safety_backups/` 30 天 · `logs/` 滚动 14 天 · **永不清理 evidence/retired/refs/lineage/git** · 删除四步 · **清空回收站 = 真删须显式批准**。
+- **清理**：`work/` 7 天自动 · `safety_backups/` 30 天 · `logs/` 滚动 14 天 · **永不清理 evidence/retired/refs/lineage/git** · 删除四步 · **清空回收站 = 真删须显式批准**。
 - **数据化**：`structure.json` 新增 `naming` `git_boundary` `quotas` `backup_policy` `audit_metrics` `recovery_sources`；`check_structure.py` 新增 **git 边界检查**与**命名规范检查**。
 - **检查器当场抓出两条真问题并已修**：① `.gitignore` 缺 `work/` 与 `*.pyc`（已补）② `scripts/patch_launcher_20261013.py` 是过程名脚本（引用仅历史记载 ⇒ **退役到 `retired/scripts-20261017/` + INDEX 登记**）。
 - 件：`docs\规范-文件五操作-新建修改备份转移清理-CB-20261017.md`。
@@ -3175,11 +3175,11 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 ### 100. 【治理】归位执行方案（P1–P7）· git 影响实测 · 安全协议 · 回滚（2026-10-17 11:4x）
 
 - **用户三问**：怎么做 / 安全吗 / 会不会破坏 git 结构。
-- **关键安全事实（实测 `git check-ignore`）**：`logs/` `_trash/` `_safety_backups/` `engine/` **是被忽略目录** ⇒ **把"跟踪文件"移进去 = 文件从仓里消失**（唯一真正危险的操作，方案已禁止）；`work/` 本轮补进忽略（临时区不入库）；`evidence/` `retired/` `scripts/` `docs/` **未忽略** ⇒ 跟踪件移入安全（rename，`git log --follow` 可追）。
+- **关键安全事实（实测 `git check-ignore`）**：`logs/` `_trash/` `safety_backups/` `engine/` **是被忽略目录** ⇒ **把"跟踪文件"移进去 = 文件从仓里消失**（唯一真正危险的操作，方案已禁止）；`work/` 本轮补进忽略（临时区不入库）；`evidence/` `retired/` `scripts/` `docs/` **未忽略** ⇒ 跟踪件移入安全（rename，`git log --follow` 可追）。
 - **git 影响分类（实测 358 跟踪件）**：**零影响** = `.temp/` 全部（未跟踪）· `engine/test-run/` · `logs/` · `_trash/`（P1a/P3/P5/P7 属此类）；**少量 rename** = 10 个过期 bat（P4）· 1 个空 json（P1b）；**中量** = `tools/` 32 件（P2）；**大量** = `docs/` 113–117 件（P6，引用最多，最后做）。
 - **风险不在 git 在"引用"**：跟踪件移动是 rename（历史保留），但**引用会断** ⇒ 每批必跑 `gates.ps1`（引用 + 结构）。
-- **安全协议九步**：① `git status` 干净且未推=0 ② 出清单（含 sha256/是否跟踪）③ 未跟踪件先备份到 `_safety_backups` ④ **活件三源判定**（命中即跳过）⑤ `git check-ignore` 复核目标 ⑥ 跟踪件用 `git mv` ⑦ `gates.ps1` rc=0 + `git diff --stat` 应只见 rename ⑧ **一批一提交** ⑨ 退役登记。
-- **回滚**：跟踪件 `git revert`/`reset --hard`（未推时）；未跟踪件按清单反向移动（sha 校验）；误删走**回收站** + `_safety_backups`；引擎件走 `hash_cache + lineage`。
+- **安全协议九步**：① `git status` 干净且未推=0 ② 出清单（含 sha256/是否跟踪）③ 未跟踪件先备份到 `safety_backups` ④ **活件三源判定**（命中即跳过）⑤ `git check-ignore` 复核目标 ⑥ 跟踪件用 `git mv` ⑦ `gates.ps1` rc=0 + `git diff --stat` 应只见 rename ⑧ **一批一提交** ⑨ 退役登记。
+- **回滚**：跟踪件 `git revert`/`reset --hard`（未推时）；未跟踪件按清单反向移动（sha 校验）；误删走**回收站** + `safety_backups`；引擎件走 `hash_cache + lineage`。
 - **建议顺序**：零影响三批（P1/P3/P5/P7）→ P4 → **P2 单独议**（`tools/` 有 5 个 `.exe` 被跟踪，构建产物不该入库 ⇒ 先加忽略 + 从索引移除）→ **P6 最后**（先加 `docs/INDEX.md` 分类映射表）。
 
 

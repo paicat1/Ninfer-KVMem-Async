@@ -15,7 +15,8 @@
     "serve_tee.py",
     "smart_push.ps1",
     "structure.json",
-    "启动器.bat"
+    "启动器.bat",
+    "safety_backups"
   ],
   "canonical_dirs": {
     "engine": "引擎二进制：active/(现役唯一真相源) · lineage/(谱系只读) · pdb_archive/",
@@ -308,7 +309,7 @@
       "*.pyc",
       ".temp/",
       "__pycache__/",
-      "_safety_backups/",
+      "safety_backups/",
       "_trash/",
       "engine-src/",
       "engine/",
@@ -481,17 +482,19 @@
     "_doc": "铁律A（用户 2026-10-18 令）：严禁随意新建 `_` 前缀目录、严禁随意往里放文件。新建或往里放 ⇒ 必须先查清该目录的用途/依赖/是否唯一副本，再向用户提出申请（跪着查清 + 申请）。",
     "declared": [
       {
-        "name": "_safety_backups",
-        "purpose": "（已存在，待逐项登记用途）",
-        "status": "tolerated_pending_application"
-      },
-      {
         "name": "_trash",
-        "purpose": "（已存在，待逐项登记用途）",
-        "status": "tolerated_pending_application"
+        "purpose": "回收站；内含 README-不要清理.md 与 1.27GB 唯一副本 exe ⇒ 禁清",
+        "status": "declared_pending_review"
       }
     ],
     "rule": "任何不在 declared 里的 `_*` 目录 = 门禁违规（structure 层报为\"未声明的下划线目录\"）",
-    "_since": "2026-10-18"
+    "_since": "2026-10-18",
+    "renamed_20261018": [
+      {
+        "from": "_safety_backups",
+        "to": "safety_backups",
+        "why": "用户令去下划线前缀；内容不变"
+      }
+    ]
   }
 }

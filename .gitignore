@@ -25,7 +25,7 @@ Testing/
 # Office 临时锁文件（~$ 前缀，打开文档时自动生成）
 ~$*
 # 备份快照
-_safety_backups/
+safety_backups/
 # 工作流工具链（类③，不入项目 git）
 smart_push.ps1
 # tools/ 整体不入库，但诊断仪器源码随仓发布（可复现性：它们是两条公开结论的证据链）

@@ -27,9 +27,25 @@ New-Item -ItemType Directory -Force -Path $CaseDir | Out-Null
 $ROOT = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $STREAK_FILE = Join-Path $CaseDir 'streak_state.json'
 $LOG = Join-Path $ROOT 'logs\test_valleywatch.log'   # 忙则让位判断用（只读日志尾）   # v4：streak 跨批持久化
+# —— 解释器解析（2026-10-17 修：本机 PATH 无 python/py，探针会全部失败产出 decode=-1）——
+$PyExe = $null
+foreach ($c in @('python', 'py')) { if (Get-Command $c -ErrorAction SilentlyContinue) { $PyExe = $c; break } }
+if (-not $PyExe) {
+    $found = @()
+    foreach ($pat in @("$env:LOCALAPPDATA\Programs\Python\*\python.exe",
+                       "$env:ProgramFiles\Python*\python.exe",
+                       "${env:ProgramFiles(x86)}\Python*\python.exe",
+                       'C:\Python*\python.exe')) {
+        $found += @(Get-ChildItem -Path $pat -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+    }
+    if ($found.Count -gt 0) { $PyExe = $found[0] }
+}
+if (-not $PyExe -or -not (Get-Command $PyExe -ErrorAction SilentlyContinue)) {
+    Write-Host 'FATAL: no python interpreter found (PATH/常见路径都没有)' -ForegroundColor Red; exit 1
+}
 function Say($m) { $t = (Get-Date -Format 'HH:mm:ss'); $line = "$t | $m"; Write-Output $line; Add-Content -LiteralPath $ledger -Value $line -Encoding UTF8 }
 function ProbeOnce() {
-    $o = (python -X utf8 scripts\a2gate.py --arm hunt --port $Port --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
+    $o = (& $PyExe -X utf8 scripts\a2gate.py --arm hunt --port $Port --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
     $dec = -1; $wall = -1
     if ($o -match '([\d.]+)s\s+decode=([\d.]+)') { $wall = [double]$Matches[1]; $dec = [double]$Matches[2] }
     elseif ($o -match 'decode=([\d.]+)') { $dec = [double]$Matches[1] }

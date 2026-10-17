@@ -80,4 +80,18 @@ if ($arc -ne 0) {
     Write-Host "window-audit: 全部可见且非最小化 -- OK"
 }
 
+
+# —— T-ANTIHACK：合规连击（门禁全绿 +1；由违规流程清零）——
+try {
+    $compFile = '.codebuddy\sda\COMPLIANCE.txt'
+    if (Test-Path $compFile) {
+        $c = Get-Content $compFile -Raw -Encoding UTF8
+        if ($c -match 'streak\s*=\s*(\d+)') { $st = [int]$Matches[1] }
+        if ($fail -eq 0) { $st = $st + 1 } else { $st = 0 }
+        $newC = ($c -replace 'streak\s*=\s*\d+', ('streak = ' + $st)) -replace 'last_pass\s*=\s*[^\r\n]*', ('last_pass = ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+        Set-Content -LiteralPath $compFile -Value $newC -Encoding UTF8 -NoNewline
+        Write-Host ("compliance-streak: " + $st + "（门禁全绿计数）") -ForegroundColor DarkGray
+    }
+} catch { Write-Host ("WARN: 连击计数失败：" + $_.Exception.Message) -ForegroundColor Yellow }
+
 exit $fail

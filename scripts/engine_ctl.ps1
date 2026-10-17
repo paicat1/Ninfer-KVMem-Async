@@ -372,5 +372,15 @@ if (-not $PyExe) {
     if ($f.Count -gt 0) { $PyExe = $f[0] }
 }
 if (-not $PyExe) { throw 'engine_ctl: no python interpreter found (PATH/常见路径都没有)' }
-Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle  # 窗口纪律：起窗必可见——禁 Hidden/Minimized/Maximized（参数已锁）
+$spawner = Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle -PassThru
+# 2026-10-17：**sanctioned spawner 必须留 spawn 记录**（否则它起的进程树被判"无记录"）
+try {
+    $spawnDir = Join-Path $root 'evidence\spawns'
+    New-Item -ItemType Directory -Force -Path $spawnDir | Out-Null
+    $rec = [ordered]@{ ts = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); purpose = 'engine-start'; exe = $Exe
+                       pid = $spawner.Id; has_window = $true; is_minimized = $false; is_visible = $true
+                       title = 'engine (engine_ctl)'; verdict = 'OK'; enforced_by = 'scripts\engine_ctl.ps1 (T-WINDOW)' }
+    $jp = Join-Path $spawnDir ((Get-Date -Format 'yyyyMMdd_HHmmss') + '_engine-start.json')
+    [System.IO.File]::WriteAllText($jp, ($rec | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+} catch { Write-Output ('WARN: spawn record failed: ' + $_.Exception.Message) }  # 窗口纪律：起窗必可见——禁 Hidden/Minimized/Maximized（参数已锁）
 

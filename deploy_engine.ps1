@@ -38,7 +38,7 @@ Add-Content "$logDir\deploy_history.txt" "$stamp  deploy=$NewExe  sha256=$nh  si
 
 # 4. 可选重启
 if ($Restart) {
-    Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/c','start "" /max "J:\ninfer-kvmem\start-v1c2-vision64k-graph64.bat"'
+    Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/c','start "" /max "J:\ninfer-kvmem\retired\launchers-20261017\start-v1c2-vision64k-graph64.bat"'
     Write-Host "[restart] launched (graph64)"
 }
 Write-Host "[done] 回退命令: Copy-Item `"$bak`" `"$target`" -Force"

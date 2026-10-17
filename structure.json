@@ -350,7 +350,8 @@
     "sanctioned_spawners": [
       "scripts/spawn_visible.ps1",
       "scripts/engine_ctl.ps1",
-      "ninfer_launcher.py"
+      "ninfer_launcher.py",
+      "scripts/start_watch.ps1"
     ],
     "headless_allowed": [
       "vram_hold.exe",
@@ -373,11 +374,12 @@
     ],
     "bypass_scan_skip_note": "build/ 为实验产物（a4-arm-* 等历史臂），非现役入口 ⇒ 不纳入绕过扫描",
     "minimize_allowed": [
-      "VALLEY-LOGWATCH",
-      "HUNTER-WATCHDOG",
-      "E1-PASSIVE-WATCH"
+      "WATCH-LOGWATCH",
+      "WATCH-WATCHDOG",
+      "WATCH-SAMPLER"
     ],
-    "minimize_allowed_note": "2026-10-17 用户答复：这三个窗口的最小化是**用户手动**所为 ⇒ 判据放开。**引擎窗（ENGINE-*）与猎人（VALLEY-HUNTER）仍必须可见且非最小化**（服务器窗口是本铁律的核心，不能藏）。"
+    "minimize_allowed_note": "2026-10-17 用户答复：这三个窗口的最小化是**用户手动**所为 ⇒ 判据放开。**引擎窗（ENGINE-*）与猎人（VALLEY-HUNTER）仍必须可见且非最小化**（服务器窗口是本铁律的核心，不能藏）。",
+    "_note": "；2026-10-18 起标题统一为 WATCH-XXX [running]（start_watch.ps1 唯一起服入口），此处同步更新；2026-10-18 新增 sanctioned 入口 scripts/start_watch.ps1（值守层唯一起服入口：四工具统一标题/自解析 python/幂等/验活）"
   },
   "local_only_tools": {
     "_doc": "只在本机执行、不入版本控制的工具（2026-10-17 用户令）。**引用它们不算断链**（optional reference）；仓级门禁的本地层在工具缺失时整段跳过并明示。",

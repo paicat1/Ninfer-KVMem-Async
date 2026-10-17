@@ -336,5 +336,28 @@
       "docs/CB致TELE-*.md",
       "docs/TELE致CB-*.md"
     ]
+  },
+  "window_discipline": {
+    "rule": "T-WINDOW：起进程/窗口一律可见（-WindowStyle Normal）；违反=T0",
+    "enforced_by": [
+      "scripts\\spawn_visible.ps1（唯一许可起进程入口）",
+      "scripts\\check_launchers.py（静态层，门禁内）",
+      "scripts\\audit_windows.py（审计层，可挂计划任务）"
+    ],
+    "sanctioned_spawners": [
+      "scripts\\spawn_visible.ps1",
+      "scripts\\engine_ctl.ps1"
+    ],
+    "headless_allowed": [
+      "vram_hold.exe",
+      "ninfer-calibrate.exe",
+      "ninfer-perplexity.exe",
+      "ninfer.exe",
+      "ninfer-serve-i3b322a.exe",
+      "ninfer-serve.exe"
+    ],
+    "note": "headless_allowed = **已声明**的无界面辅助件（压力/基准工具、引擎本体）；**裸 python/powershell/cmd 不在白名单** ⇒ 对它们用 Hidden/Minimized 一律违规。规则只抓\"非 Normal 窗口样式\"，不禁止正常的 Normal 起窗。",
+    "launcher_baseline": 22,
+    "launcher_baseline_note": "历史遗留的隐藏窗口写法 22 处（valley_* / observe_A / trigger_test / engine_ctl L136 等）；**基线只降不升**（新违规即拦），逐批修/退役（需用户批准）"
   }
 }

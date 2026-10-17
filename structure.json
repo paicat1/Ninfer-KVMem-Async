@@ -337,9 +337,11 @@
     "_doc": "体量红线（超线即入每周审计告警）",
     "logs": {
       "warn_mib": 500,
-      "action": "滚动保留 14 天（**停服时执行**）",
+      "action": "**受保护，不滚动**（原\"滚动保留 14 天\"在结项前一律不执行）",
       "current_mib": 690,
-      "_evidence_note": "2026-10-18：logs 是运行证据（含自然长谷原始记录，旧引擎日志已不可得 ⇒ 现有即唯一）。超线只告警、不阻断；**禁止为过闸而删**。仅按保留期滚动，且滚动走 delete_manifest。"
+      "_evidence_note": "2026-10-18：logs 是运行证据（含自然长谷原始记录，旧引擎日志已不可得 ⇒ 现有即唯一）。超线只告警、不阻断；**禁止为过闸而删**。仅按保留期滚动，且滚动走 delete_manifest。",
+      "protected": "PROJECT_COMPLETE",
+      "_ironclad_20261018": "**用户 2026-10-18 令：日志在项目未完成之前，一个都严禁删除。**⇒ 不因配额超线而滚动、不因清理而删；仅当 project_complete 被用户翻为 true 后才解除。"
     },
     "_safety_backups": {
       "warn_gib": 8,
@@ -371,7 +373,8 @@
       "refs/",
       "engine/lineage/",
       "git 管的东西",
-      "_safety_backups/exe_lineage_*"
+      "_safety_backups/exe_lineage_*",
+      "logs/"
     ],
     "_note_20261018": "2026-10-18：_safety_backups 里 4 个 1.27GB exe 经 sha 核对为【唯一副本】⇒ 依 T-TRACE 列入 never_delete，任何清理清单不得包含；删除唯一下手路径为 scripts/delete_manifest.py"
   },
@@ -508,5 +511,7 @@
         "why": "说明件随副本留痕"
       }
     ]
-  }
+  },
+  "project_complete": false,
+  "_project_complete_note": "用户翻 true 之前：logs 一个不得删（2026-10-18 令）"
 }

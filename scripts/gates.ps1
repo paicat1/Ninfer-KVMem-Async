@@ -393,7 +393,7 @@ foreach ($q in @(@("logs", $sjQ.quotas.logs.warn_mib, "MiB"), @("_safety_backups
         if ($null -eq $limit) {
             Write-Output ("WARN[quota]: " + $name + " 红线未配置（structure.json 里缺失）=> 跳过")
         } elseif ($val -gt $limit) {
-            Write-Output ("BLOCKED[quota]: " + $name + " = " + $val + " " + $unit + " > 红线 " + $limit + " => 先滚动清理")
+            Write-Output ("BLOCKED[quota]: " + $name + " = " + $val + " " + $unit + " > 红线 " + $limit + " => logs 受保护（项目未结项前严禁删除），不清理")
             $quotaFail = 1
         } else {
             Write-Output ("quota: " + $name + " = " + $val + " " + $unit + " <= " + $limit + " -- OK")

@@ -260,7 +260,13 @@ if (Test-Path $log) {  # 2026-10-14: 归档（不删）；**必须容错**——
 
     try { Move-Item $log ($log + '.' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.old') -Force }
 
-    catch { Write-Output ('log archive skipped (locked): ' + $_.Exception.Message); Remove-Item $log -Force -ErrorAction SilentlyContinue } }
+    catch {
+        # 2026-10-18 改（用户令：项目未结项前 logs 一个都严禁删除）：
+        #   原实现在归档失败（日志被上一进程占用）时 Remove-Item 直接删日志 ⇒ 违反铁律。
+        #   改为：**不删**，保留原文件并醒目告警（引擎仍会正常起，新日志追加到同名文件）。
+        Write-Output ('WARN: log archive skipped (locked) -- 按铁律**不删除**日志: ' + $log)
+        Write-Output ('      ' + $_.Exception.Message)
+    }Action SilentlyContinue } }
 
 
 

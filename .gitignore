@@ -59,3 +59,12 @@ _trash/
 work/
 # ↑ 临时工作区（按天；7 天自动清；不入库）
 *.pyc
+
+# 证据流（持续写入、体积大 ⇒ 不入库；**冻结案卷 evidence/cases/case_*/ 仍入库**）
+evidence/reqlogs/
+evidence/samples/
+evidence/cases/hunter_ledger_*.txt
+evidence/cases/logwatch_ledger.txt
+evidence/cases/streak_state.json
+evidence/cases/WATCHDOG_ALERT.txt
+evidence/cases/GATE_ALERT.txt

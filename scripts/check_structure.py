@@ -66,6 +66,29 @@ def main():
                 kv = is_known(rel, known)
                 (knownhit if kv else blocking).append((where, rel, kv))
 
+    # ③ git 边界：.gitignore 是否覆盖 must_ignore
+    gi = os.path.join(ROOT, '.gitignore')
+    if os.path.exists(gi):
+        gitxt = io.open(gi, encoding='utf-8', errors='replace').read().replace('\\', '/')
+        miss = [p for p in rules.get('git_boundary', {}).get('must_ignore', [])
+                if p.rstrip('/') not in gitxt]
+        if miss:
+            blocking.append(('gitignore', 'missing: ' + ', '.join(miss), None))
+    else:
+        blocking.append(('gitignore', '.gitignore 不存在', None))
+
+    # ④ 命名规范：scripts/ 下的"过程名"脚本（一次性脚本应在 work/）
+    sc = os.path.join(ROOT, 'scripts')
+    if os.path.isdir(sc):
+        pats = rules.get('naming', {}).get('scripts_forbidden', [])
+        for name in sorted(os.listdir(sc)):
+            for p in pats:
+                if fnmatch.fnmatch(name, p):
+                    rel = 'scripts/' + name
+                    kv = is_known(rel, known)
+                    (knownhit if kv else blocking).append(('naming', rel, kv))
+                    break
+
     print('check_structure: 根白名单 %d 项 · 禁则 %d 条 · 已知待清 %d 类' % (len(wl), len(rules.get('forbidden', [])), len(known)))
     if show_all and knownhit:
         print('\n[known] 已知待清（不拦推送）：')

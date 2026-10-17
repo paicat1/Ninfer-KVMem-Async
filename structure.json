@@ -210,5 +210,104 @@
         ".temp/unpack_zh/*"
       ]
     }
-  ]
+  ],
+  "naming": {
+    "_doc": "命名规范（此前缺失）。违反者由 check_structure.py 报为命名类",
+    "docs": "<类别>-<主题>-<作者>-<YYYYMMDD>.md；类别 ∈ 方案/审核/报告/设计/规范/FAQ/夜研/归因",
+    "scripts": "<动词>_<对象>.py|.ps1（如 check_refs.py、gates.ps1）",
+    "scripts_forbidden": [
+      "fix[0-9]*",
+      "fix_*",
+      "_selftest*",
+      "add_*",
+      "patch_*",
+      "append_*",
+      "tmp_*",
+      "*_tmp*"
+    ],
+    "evidence": "工具生成名（case_<时间戳> / hunter_ledger_<时间戳> / windowwatch_<时间戳>）**不得手改**",
+    "retired": "保留原名；登记在 retired/INDEX.md",
+    "work": "自由命名（反正 7 天清）"
+  },
+  "git_boundary": {
+    "_doc": "git 边界：哪些必须入库、哪些必须忽略（由 check_structure.py 校验 .gitignore 覆盖）",
+    "must_ignore": [
+      "work/",
+      "_trash/",
+      "_safety_backups/",
+      "logs/",
+      "models/",
+      "engine/",
+      "engine-src/",
+      "official-repo/",
+      "refs/",
+      ".temp/",
+      "__pycache__/",
+      "*.pyc"
+    ],
+    "must_track": [
+      "docs/",
+      "scripts/",
+      "patches/",
+      "build/",
+      "structure.json",
+      "engine_registry.json",
+      "README.md",
+      "ninfer_launcher.py",
+      "启动器.bat"
+    ]
+  },
+  "quotas": {
+    "_doc": "体量红线（超线即入每周审计告警）",
+    "logs": {
+      "warn_mib": 500,
+      "action": "滚动保留 14 天"
+    },
+    "_safety_backups": {
+      "warn_gib": 8,
+      "action": "30 天清"
+    },
+    "work": {
+      "warn_gib": 2,
+      "action": "7 天自动清"
+    },
+    "engine": {
+      "rule": "同 sha 只留一份（active + lineage 版本关系除外）"
+    }
+  },
+  "backup_policy": {
+    "_doc": "备份三律",
+    "rules": [
+      "入库文件不另存副本（git 即备份）",
+      "未入库文件删除前必备份到 _safety_backups/<date>/ 并记 sha",
+      "同 sha 只留一份（用 hash_cache.json 判重）"
+    ],
+    "retention_days": 30,
+    "never_delete": [
+      "evidence/",
+      "retired/",
+      "refs/",
+      "engine/lineage/",
+      "git 管的东西"
+    ]
+  },
+  "audit_metrics": {
+    "_doc": "每周审计指标（7 项，写入 evidence/audits/<date>.txt）",
+    "metrics": [
+      "根白名单外条目数（应 0）",
+      "work/ 最老条目年龄（≤7 天）",
+      "_safety_backups 体量与最老件年龄（≤30 天）",
+      "同 sha 重复件数（应 0）",
+      "未登记退役件数（应 0）",
+      "断链数（基线只降不升）",
+      "证据区是否含临时物（应 0）"
+    ]
+  },
+  "recovery_sources": {
+    "_doc": "灾难恢复四源",
+    "git": "代码/文档/配置（含历史）",
+    "hash_cache+lineage": "二进制（sha 查重 + 谱系副本）",
+    "recycle_bin": "近期删除（可恢复）",
+    "_safety_backups": "删前副本（30 天）"
+  }
 }

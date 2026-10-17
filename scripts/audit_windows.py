@@ -120,7 +120,21 @@ if enforce_since:
                 c_t = datetime.datetime.strptime(cts, '%Y-%m-%d %H:%M:%S').timestamp()
             except Exception:
                 continue
-            if c_t > since_ts and pid2 not in rec_pids:
+            # 2026-10-17 收精：只抓**存活 ≥30 s** 的无记录进程（判据本意是抓长期潜伏；
+            #   瞬时诊断进程（几秒即退）不应制造噪声 —— 否则审计会天天红、被无视）
+            age_s = time.time() - c_t
+            if c_t > since_ts and pid2 not in rec_pids and age_s >= 30:
+                # 2026-10-17 自豁免：**计划任务**调用的本审计器自身（每 5 分钟一次，
+                #   不经 spawn_visible 是设计如此 —— 它是"已声明的无界面后台审计"）。
+                #   判据：命令行含 audit_windows（本文件）或 audit_windows_task.ps1（包装）。
+                try:
+                    cl2 = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                          "(Get-CimInstance Win32_Process -Filter \"ProcessId=%s\").CommandLine" % pid2],
+                                         capture_output=True).stdout.decode('utf-8', 'replace')
+                except Exception:
+                    cl2 = ''
+                if ('audit_windows' in cl2) or ('audit_windows_task' in cl2):
+                    continue
                 unrecorded.append((pid2, nm, cts))
     if unrecorded:
         p2 = os.path.join(AUD, 'VIOLATION_unrecorded_spawn_%s.md' % time.strftime('%Y%m%d_%H%M%S'))

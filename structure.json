@@ -340,13 +340,13 @@
   "window_discipline": {
     "rule": "T-WINDOW：起进程/窗口一律可见（-WindowStyle Normal）；违反=T0",
     "enforced_by": [
-      "scripts\\spawn_visible.ps1（唯一许可起进程入口）",
-      "scripts\\check_launchers.py（静态层，门禁内）",
-      "scripts\\audit_windows.py（审计层，可挂计划任务）"
+      "scripts/spawn_visible.ps1（唯一许可起进程入口）",
+      "scripts/check_launchers.py（静态层，门禁内）",
+      "scripts/audit_windows.py（审计层，可挂计划任务）"
     ],
     "sanctioned_spawners": [
-      "scripts\\spawn_visible.ps1",
-      "scripts\\engine_ctl.ps1"
+      "scripts/spawn_visible.ps1",
+      "scripts/engine_ctl.ps1"
     ],
     "headless_allowed": [
       "vram_hold.exe",

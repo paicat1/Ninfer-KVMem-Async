@@ -26,7 +26,10 @@ OUTDIR = os.path.join(R, 'work', time.strftime('%Y%m%d'))
 MODEL = 'qwen3.8-27b-coder390'
 URL = 'http://127.0.0.1:8094/v1/chat/completions'
 VRAM_HOLD = os.path.join(R, 'tools', 'vram_hold.exe')
-REQLOG_DIRS = [os.path.join(R, 'evidence', 'reqlogs'), os.path.join(R, '.temp')]
+# 2026-10-18 修（陈旧副本复发）：**只读正式目录** evidence/reqlogs。
+# 原实现把 .temp 也列入 glob ⇒ 会读到 .temp/reqlog_watch.jsonl（13 小时前的旧副本，59.5 MiB）
+# ⇒ host/round 恒返回陈旧基线值（31304），本轮判据全废。
+REQLOG_DIRS = [os.path.join(R, 'evidence', 'reqlogs')]
 FILLER = ('KV 页迁移记账与延迟归因：引擎在解码期需要把命中页从 host 侧搬回 device 侧，'
           '并把冷页 demote 回 host；这一进一出由调度器按 ring 预算推进。' * 3)
 
@@ -90,7 +93,19 @@ def msgs_437():
     ]
 
 
-def run_level(mib, hold_sec, sample_every, max_min, emit, shot=None, exposure=None):
+def msgs_short():
+    """短 prompt（~200-500 tok）：**结尾指令与长版完全一致**，只去掉背景材料。
+    ⇒ 单变量 = prompt 长度；输出要求（40 节 ×800 字、32000 字）与 max_tokens 均不变。"""
+    return [
+        {'role': 'user', 'content': '我们要写一份超长技术手册。先确认你能持续输出长文，不需要总结。'},
+        {'role': 'assistant', 'content': '可以。请给主题与结构要求，我会逐节展开，不省略、不提前收尾。'},
+        {'role': 'user', 'content': '请写《KV 页迁移记账与延迟归因技术手册》，**分 40 节**，每节 **不少于 800 字**，'
+                                    '总计不少于 32000 字。逐节编号、每节含小标题与至少 3 条要点、'
+                                    '**不要省略、不要提前总结，直接从第 1 节开始**'},
+    ]
+
+
+def run_level(mib, hold_sec, sample_every, max_min, emit, shot=None, exposure=None, prompt='long'):
     """一级：基线 → 加压 → 请求+采样 → 释放 → 恢复。返回判据 dict。"""
     res = {'level_mib': mib}
     res['free_before'] = free_mib()
@@ -107,8 +122,10 @@ def run_level(mib, hold_sec, sample_every, max_min, emit, shot=None, exposure=No
         emit({'event': 'pressure_applied', 'mib': mib, 'proc_alive': ph.poll() is None,
               'free_after_pressure': free_mib(), 'gpu': gpu()})
 
+    _msgs = msgs_437() if prompt == 'long' else msgs_short()
+    res['prompt_kind'] = prompt
     payload = json.dumps({'model': MODEL, 'stream': True, 'max_tokens': 24000, 'temperature': 0.7,
-                          'messages': msgs_437()}).encode('utf-8')
+                          'messages': _msgs}).encode('utf-8')
     req = urllib.request.Request(URL, data=payload, headers={'Content-Type': 'application/json'})
     t0 = time.time()
     n = 0
@@ -198,6 +215,8 @@ def run_level(mib, hold_sec, sample_every, max_min, emit, shot=None, exposure=No
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--levels', default='200,300,400,500')
+    ap.add_argument('--prompt', default='long', choices=['long', 'short'],
+                    help='prompt 长度：long=8848tok 背景材料 / short=无背景材料（输出要求相同）')
     ap.add_argument('--hold-sec', type=int, default=200)
     ap.add_argument('--sample-every', type=int, default=15)
     ap.add_argument('--max-min', type=int, default=4)
@@ -225,7 +244,8 @@ def main():
     for lv in [int(x) for x in a.levels.split(',') if x.strip()]:
         r = run_level(lv, a.hold_sec, a.sample_every, a.max_min, emit,
                       shot=len(results) + 1,
-                      exposure=[x.get('verdict') for x in results])
+                      exposure=[x.get('verdict') for x in results],
+                      prompt=a.prompt)
         results.append(r)
         print('   ⇒ 级 %d MiB：%s（host/round 中位 %s µs · free %s→%s）' % (
             lv, r['verdict'], r['host_round_median'], r['free_before'], r['free_after_release']))

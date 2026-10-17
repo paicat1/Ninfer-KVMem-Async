@@ -32,22 +32,42 @@ def gpu():
     return sh(['nvidia-smi', '--query-gpu=utilization.gpu,power.draw,clocks.sm,memory.free', '--format=csv,noheader'])
 
 
-def host_round():
-    fs = sorted(glob.glob(os.path.join(R, '.temp', 'reqlog_*.jsonl')), key=lambda f: os.path.getmtime(f))
-    if not fs:
-        return None
+REQLOG_DIRS = [os.path.join(R, 'evidence', 'reqlogs'), os.path.join(R, '.temp')]
+STALE_AFTER_S = 45   # 样本年龄超过此值 ⇒ 判陈旧（不得当现值、不计峰值）
+
+
+def _newest_reqlog():
+    fs = []
+    for d in REQLOG_DIRS:
+        fs += glob.glob(os.path.join(d, 'reqlog_*.jsonl'))
+    return sorted(fs, key=lambda f: os.path.getmtime(f))[-1] if fs else None
+
+
+def host_round_ex():
+    """返回 (host/round µs, 样本年龄秒)。2026-10-17 修（TELE 复核 4 条）：
+       ① reqlog 已迁到 evidence/reqlogs（原写死 .temp ⇒ 读到陈旧文件、台账被误导 28,050 µs 恒定）
+       ② 两个目录都搜（防再次迁移漏改）③ 给年龄 ⇒ 调用方可判"陈旧"而非当现值。"""
+    f = _newest_reqlog()
+    if not f:
+        return None, None
+    age = time.time() - os.path.getmtime(f)
     try:
-        for l in reversed(io.open(fs[-1], encoding='utf-8', errors='replace').read().splitlines()[-60:]):
+        for l in reversed(io.open(f, encoding='utf-8', errors='replace').read().splitlines()[-60:]):
             try:
                 j = json.loads(l)
             except Exception:
                 continue
             h = (j.get('host_work') or {}).get('decode_host_microseconds_per_round')
             if h:
-                return float(h)
+                return float(h), age
     except Exception:
         pass
-    return None
+    return None, age
+
+
+def host_round():
+    v, _ = host_round_ex()
+    return v
 
 
 def msgs_437():
@@ -114,9 +134,10 @@ def main():
                 now = time.time()
                 # —— 触发条件：解码已开始（正文 token 达阈值）且尚未加压 ——
                 if ph is None and n >= a.trigger_tokens:
-                    hr = host_round()
+                    hr, hage = host_round_ex()
                     emit({'event': 'decode_started', 't': round(now - t0, 1), 'content': n,
-                          'host_round_us': hr, 'gpu': gpu()})
+                          'host_round_us': hr, 'host_round_age_s': (round(hage, 1) if hage is not None else None),
+                          'gpu': gpu()})
                     pre_pressure.append(hr)
                     emit({'event': 'pressure_start', 't': round(now - t0, 1), 'mib': a.mib, 'hold_sec': a.hold_sec})
                     ph = subprocess.Popen([VRAM_HOLD, str(a.mib), str(a.hold_sec)],
@@ -125,11 +146,14 @@ def main():
                     emit({'event': 'pressure_applied', 't': round(time.time() - t0, 1), 'gpu': gpu(),
                           'proc_alive': ph.poll() is None})
                 if now - last_s >= 30:
-                    hr = host_round()
-                    if hr:
+                    hr, hage = host_round_ex()
+                    stale = (hage is not None and hage > STALE_AFTER_S)
+                    if hr and not stale:          # ★ 陈旧值不得计峰值（2026-10-17 修）
                         peak = max(peak, hr)
-                    emit({'event': 'sample', 't': round(now - t0, 1), 'host_round_us': hr, 'content': n,
-                          'reason': nr, 'gpu': gpu(), 'pressured': ph is not None,
+                    emit({'event': 'sample', 't': round(now - t0, 1), 'host_round_us': hr,
+                          'host_round_age_s': (round(hage, 1) if hage is not None else None),
+                          'stale': stale,
+                          'content': n, 'reason': nr, 'gpu': gpu(), 'pressured': ph is not None,
                           'hold_alive': (ph.poll() is None) if ph else None})
                     last_s = now
                 if now - last_c > 240:

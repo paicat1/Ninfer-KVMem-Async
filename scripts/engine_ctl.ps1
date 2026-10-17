@@ -36,7 +36,11 @@ param(
 
     [int]$WaitSec = 240,
 
-    [string[]]$Env = @(),          # 额外环境变量 KEY=VALUE（2026-10-17 加：trace 开关用；改守卫而非绕开）
+    [string[]]$Env = @(),
+    [string]$Trace = '',          # nsys 可执行路径（2026-10-17 加：把起服包进 nsys profile，抓 CUDA 级 trace）
+    [string]$TraceOut = '',      # trace 输出前缀
+    [int]$TraceSec = 330,        # trace 时长（覆盖 预热+基线+谷+释放）
+
 
     [int]$Score = -1,
 
@@ -281,8 +285,8 @@ if ($StepProfile -ge 1) { $env:NINFER_STEP_PROFILE = [string]$StepProfile; $env:
 if ($Score -eq 0) { $env:NINFER_TERNARY_KVMEM_SCORE = '0'; Write-Output 'knob: content scoring OFF (NINFER_TERNARY_KVMEM_SCORE=0)' }
 
 $env:PATH = (Join-Path $root 'engine') + ';' + (Join-Path $root 'engine\self-built-20261008') + ';' + $env:PATH
-# 应用 -Env（2026-10-17：trace 开关等；单变量纪律用）
 foreach ($kv in $Env) { if ($kv -match '^([^=]+)=(.*)$') { Set-Item -Path ('Env:' + $matches[1]) -Value $matches[2] } }
+# 应用 -Env（2026-10-17：trace 开关等；单变量纪律用）
 
 
 
@@ -376,7 +380,12 @@ if (-not $PyExe) {
     if ($f.Count -gt 0) { $PyExe = $f[0] }
 }
 if (-not $PyExe) { throw 'engine_ctl: no python interpreter found (PATH/常见路径都没有)' }
-$spawner = Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle -PassThru
+$spawner = if ($Trace) {
+        Write-Output ('trace: nsys profile -o ' + $TraceOut + ' -t cuda,nvtx -d ' + $TraceSec)
+        & $Trace profile -o $TraceOut -t cuda,nvtx -d $TraceSec --force-overwrite=true -- $PyExe @cliArgs
+    } else {
+        Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle -PassThru
+    }
 # 2026-10-17：**sanctioned spawner 必须留 spawn 记录**（否则它起的进程树被判"无记录"）
 try {
     $spawnDir = Join-Path $root 'evidence\spawns'

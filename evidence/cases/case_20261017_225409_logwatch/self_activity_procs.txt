@@ -1,0 +1,13 @@
+14796 | cmd.exe | C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --port 8321 --add-dir 
+10812 | node.exe | "node"   "C:\Users\PC\AppData\Roaming\npm\\node_modules\@tencent-ai\codebuddy-code\bin\codebuddy" --serve --po
+22092 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+15060 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+22388 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+19884 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\valley_logwatch.py
+27072 | cmd.exe | "C:\Windows\system32\cmd.exe" /k C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe serve_tee.py J
+16432 | python.exe | C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe  serve_tee.py J:\ninfer-kvmem\logs\test_valleyw
+17432 | ninfer-serve.exe | J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe J:\ninfer-kvmem\models\Qwen3.8-27B-Coder390-Effici
+5144 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 J:\ninfer-kvmem\.temp\nsys_try3.py
+23648 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer
+8776 | vram_hold.exe | J:\ninfer-kvmem\tools\vram_hold.exe 400 200
+12084 | powershell.exe | powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*ninfer*'

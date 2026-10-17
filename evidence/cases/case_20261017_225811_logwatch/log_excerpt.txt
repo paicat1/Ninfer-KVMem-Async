@@ -1,0 +1,22 @@
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 22:57:52.881  INFO  throughput | 5.0s | decode 2.0 tok/s (10 tok) | running 1 (decode-ready 1) | batch 1.00 | host 83.6% (4.2s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ninfer] ring retrieve: which=text preferred=76 restored=76 first=80 last=155
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 22:57:57.868  INFO  throughput | 5.0s | decode 1.4 tok/s (7 tok) | running 1 (decode-ready 1) | batch 1.00 | host 106.6% (5.3s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 22:58:02.870  INFO  throughput | 5.0s | decode 2.0 tok/s (10 tok) | running 1 (decode-ready 1) | batch 1.00 | host 110.4% (5.5s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 22:58:07.868  INFO  throughput | 5.0s | decode 1.4 tok/s (7 tok) | running 1 (decode-ready 1) | batch 1.00 | host 76.9% (3.8s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]

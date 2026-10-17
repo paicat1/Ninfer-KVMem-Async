@@ -107,6 +107,17 @@ if enforce_since:
                 rec_pids.add(str(rj.get('pid')))
             except Exception:
                 pass
+    # 2026-10-17 修（消除假阳性类）：**父进程有记录 ⇒ 子进程继承合规来源**。
+    #   场景：spawn_visible.ps1 记录它直接起的 powershell，而该包装器再起 python 子进程 ——
+    #   子进程 pid 不同 ⇒ 原判据误报。合规来源应在**进程树根**记录。
+    rec_ppids = {}
+    if os.path.isdir(rec_dir):
+        for f in os.listdir(rec_dir):
+            try:
+                rj = json.load(io.open(os.path.join(rec_dir, f), encoding='utf-8'))
+                rec_ppids[str(rj.get('pid'))] = str(rj.get('ts', ''))
+            except Exception:
+                pass
     if since_ts:
         ps2 = ("Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'ninfer|python|powershell|cmd|vram_hold' "
                "} | ForEach-Object { $_.ProcessId.ToString() + '|' + $_.CreationDate.ToString('yyyy-MM-dd HH:mm:ss') + '|' + $_.Name }")
@@ -124,6 +135,15 @@ if enforce_since:
             #   瞬时诊断进程（几秒即退）不应制造噪声 —— 否则审计会天天红、被无视）
             age_s = time.time() - c_t
             if c_t > since_ts and pid2 not in rec_pids and age_s >= 30:
+                # 父进程有记录 ⇒ 继承（见上）
+                try:
+                    ppid2 = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                            "(Get-CimInstance Win32_Process -Filter \"ProcessId=%s\").ParentProcessId" % pid2],
+                                           capture_output=True).stdout.decode('utf-8', 'replace').strip()
+                except Exception:
+                    ppid2 = ''
+                if ppid2 and ppid2 in rec_pids:
+                    continue
                 # 2026-10-17 自豁免：**计划任务**调用的本审计器自身（每 5 分钟一次，
                 #   不经 spawn_visible 是设计如此 —— 它是"已声明的无界面后台审计"）。
                 #   判据：命令行含 audit_windows（本文件）或 audit_windows_task.ps1（包装）。

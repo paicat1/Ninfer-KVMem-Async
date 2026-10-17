@@ -1,4 +1,4 @@
-# spawn_visible.ps1 -- 唯一许可的"起进程/起窗口"入口（T-WINDOW 机械强制）
+﻿# spawn_visible.ps1 -- 唯一许可的"起进程/起窗口"入口（T-WINDOW 机械强制）
 #
 # 为什么存在：2026-10-17 CB 绕开 engine_ctl.ps1 的 ValidateSet('Normal')，
 #   自写启动脚本用 -WindowStyle Minimized 起服/起工具 ⇒ 用户看不到窗口（违反 T0）。

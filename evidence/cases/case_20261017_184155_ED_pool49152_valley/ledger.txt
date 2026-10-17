@@ -1,0 +1,23 @@
+{"event": "baseline", "host_round_us": 27415.075, "gpu": "1 %, 30.32 W, 1170 MHz, 664 MiB"}
+{"event": "decode_started", "t": 14.0, "content": 200, "host_round_us": 24801.902512562818, "host_round_age_s": 2.4, "gpu": "99 %, 288.28 W, 2857 MHz, 676 MiB"}
+{"event": "pressure_start", "t": 14.0, "mib": 400, "hold_sec": 300}
+{"event": "pressure_applied", "t": 24.0, "gpu": "100 %, 84.88 W, 2902 MHz, 243 MiB", "proc_alive": true}
+{"event": "sample", "t": 30.2, "host_round_us": 283433.0444444444, "host_round_age_s": 3.6, "stale": false, "content": 263, "reason": 181, "gpu": "100 %, 83.98 W, 2902 MHz, 280 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 60.5, "host_round_us": 304052.6529411765, "host_round_age_s": 3.9, "stale": false, "content": 364, "reason": 181, "gpu": "100 %, 82.47 W, 2910 MHz, 280 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 90.8, "host_round_us": 323053.625, "host_round_age_s": 4.2, "stale": false, "content": 457, "reason": 181, "gpu": "100 %, 81.12 W, 2910 MHz, 232 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 121.0, "host_round_us": 325714.69333333336, "host_round_age_s": 4.4, "stale": false, "content": 551, "reason": 181, "gpu": "100 %, 81.61 W, 2917 MHz, 221 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 151.2, "host_round_us": 313612.825, "host_round_age_s": 4.6, "stale": false, "content": 648, "reason": 181, "gpu": "100 %, 80.30 W, 2910 MHz, 259 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 181.3, "host_round_us": 309914.4875, "host_round_age_s": 4.7, "stale": false, "content": 743, "reason": 181, "gpu": "100 %, 80.19 W, 2910 MHz, 171 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 211.4, "host_round_us": 324606.63333333336, "host_round_age_s": 4.8, "stale": false, "content": 836, "reason": 181, "gpu": "100 %, 80.46 W, 2917 MHz, 318 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 241.8, "host_round_us": 361641.87857142853, "host_round_age_s": 0.2, "stale": false, "content": 923, "reason": 181, "gpu": "100 %, 78.52 W, 2910 MHz, 286 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 272.1, "host_round_us": 368614.42142857146, "host_round_age_s": 0.5, "stale": false, "content": 1006, "reason": 181, "gpu": "100 %, 78.66 W, 2910 MHz, 286 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 302.4, "host_round_us": 366419.6153846154, "host_round_age_s": 0.9, "stale": false, "content": 1088, "reason": 181, "gpu": "100 %, 79.72 W, 2910 MHz, 234 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 332.5, "host_round_us": 25266.85435897436, "host_round_age_s": 0.9, "stale": false, "content": 1666, "reason": 181, "gpu": "99 %, 284.77 W, 2857 MHz, 699 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 362.5, "host_round_us": 25108.75867346939, "host_round_age_s": 0.9, "stale": false, "content": 2830, "reason": 181, "gpu": "99 %, 290.91 W, 2857 MHz, 729 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 392.5, "host_round_us": 25245.242564102562, "host_round_age_s": 0.9, "stale": false, "content": 4002, "reason": 181, "gpu": "99 %, 294.73 W, 2850 MHz, 729 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 422.5, "host_round_us": 25474.13056994819, "host_round_age_s": 0.9, "stale": false, "content": 5167, "reason": 181, "gpu": "99 %, 296.35 W, 2850 MHz, 721 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 452.5, "host_round_us": 25665.958031088085, "host_round_age_s": 0.9, "stale": false, "content": 6320, "reason": 181, "gpu": "99 %, 292.16 W, 2850 MHz, 617 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 482.6, "host_round_us": 25835.286387434557, "host_round_age_s": 1.0, "stale": false, "content": 7470, "reason": 181, "gpu": "99 %, 298.98 W, 2850 MHz, 700 MiB", "pressured": true, "hold_alive": false}
+{"event": "sample", "t": 512.6, "host_round_us": 25890.281578947368, "host_round_age_s": 1.0, "stale": false, "content": 8614, "reason": 181, "gpu": "99 %, 298.91 W, 2850 MHz, 700 MiB", "pressured": true, "hold_alive": false}
+{"event": "request_done", "wall": 516.7, "ttft": 4.46, "content": 8772, "reason": 181, "peak_host_round_us": 368614.42142857146, "host_round_end": 25988.931052631582, "gpu": "99 %, 298.08 W, 2850 MHz, 700 MiB"}
+{"event": "recovery", "after_s": 10, "host_round_us": 26100.27674418605, "gpu": "1 %, 31.82 W, 877 MHz, 700 MiB"}

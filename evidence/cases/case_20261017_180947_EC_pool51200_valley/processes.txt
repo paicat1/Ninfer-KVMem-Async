@@ -1,0 +1,46 @@
+10668 | python.exe | "j:\miniconda3\python.exe"  "C:\Users\PC\Desktop\proxy think 自动升降级\thinking_proxy.py"
+14796 | cmd.exe | C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --port 8321 --add-dir J:\ninfer-kvmem"
+14592 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-github^""
+22464 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@tokenizin/mcp-npx-fetch^""
+312 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-sequential-thinking^""
+15420 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-puppeteer^""
+12892 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@upstash/context7-mcp^""
+7048 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-npx-fetch
+7236 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-github
+21460 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-sequential-thinking
+16004 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c context7-mcp
+23464 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-puppeteer
+4416 | cmd.exe | C:\Windows\system32\cmd.exe /c ""C:\Users\PC\AppData\Roaming\npm\codebuddy.cmd" --serve --port 8322"
+16672 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-github^""
+12380 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@tokenizin/mcp-npx-fetch^""
+6688 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-sequential-thinking^""
+4612 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-puppeteer^""
+19596 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@upstash/context7-mcp^""
+22652 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-puppeteer
+23064 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-github
+21104 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-sequential-thinking
+616 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-npx-fetch
+19868 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c context7-mcp
+6344 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@tokenizin/mcp-npx-fetch^""
+24604 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-github^""
+14936 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c "npx ^"-y^" ^"@modelcontextprotocol/server-sequential-thinking^""
+25420 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-github
+27612 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-npx-fetch
+15328 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c mcp-server-sequential-thinking
+15236 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\.temp\logwatch_run.ps1 
+22092 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\scripts\watchdog_hunter.ps1 
+13424 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\valley_logwatch.py
+30604 | cmd.exe | C:\Windows\system32\cmd.exe /c npx --yes @playwright/mcp@0.0.75 --console-level debug --output-mode file --output-dir C:\Users\PC\.local\share\TeleAgent\users\v1_public_2094718926908878848\playwright-mcp
+12436 | cmd.exe | C:\Windows\system32\cmd.exe /d /s /c playwright-mcp --console-level debug --output-mode file --output-dir C:\Users\PC\.local\share\TeleAgent\users\v1_public_2094718926908878848\playwright-mcp
+23788 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\scripts\start_engine_51200.ps1
+23816 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" serve_tee.py J:\ninfer-kvmem\logs\test_valleywatch.log J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve-I3b322a.exe J:\ninfer-kvmem\models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer --host 127.0.0.1 --port 8094 --model-id qwen3.8-27b-coder390 --max-context 262144 --kv-capacity 51200 --cuda-graph-allowance-mib 64 --kv-dtype rk2v4-e8 --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 --vision --vision-residency overlay --request-log-jsonl evidence\reqlogs\reqlog_watch.jsonl --request-log-max-mib 128 --request-log-keep 2 --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 --max-concurrency 1 --max-shared-prefixes 0 --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20 --recover-invariant-failures
+17716 | ninfer-serve-I3b322a.exe | J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve-I3b322a.exe J:\ninfer-kvmem\models\Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer --host 127.0.0.1 --port 8094 --model-id qwen3.8-27b-coder390 --max-context 262144 --kv-capacity 51200 --cuda-graph-allowance-mib 64 --kv-dtype rk2v4-e8 --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 --vision --vision-residency overlay --request-log-jsonl evidence\reqlogs\reqlog_watch.jsonl --request-log-max-mib 128 --request-log-keep 2 --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 --max-concurrency 1 --max-shared-prefixes 0 --presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20 --recover-invariant-failures
+15060 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\.temp\sampler_run.ps1 
+25796 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\window_watch.py
+24336 | powershell.exe | "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\.temp\ec_round_run.ps1
+19528 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 scripts\experiments\round4_decode_pressure.py --mib 400 --hold-sec 300 --max-min 12
+29092 | vram_hold.exe | J:\ninfer-kvmem\tools\vram_hold.exe 400 300
+14732 | python.exe | "C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe" -X utf8 J:\ninfer-kvmem\.temp\ec_snapshot.py
+13884 | cmd.exe | C:\Windows\system32\cmd.exe /c "powershell -NoProfile -Command "$o=Get-CimInstance Win32_OperatingSystem;$p=Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue;$up=[math]::Round(((Get-Date)-$o.LastBootUpTime).TotalHours,1);$free=[math]::Round($o.FreePhysicalMemory/1024,0);$pf=if($p){[math]::Round($p.CurrentUsage,0)}else{-1};$top=(Get-Process | Sort-Object CPU -Descending | Select-Object -First 3 | ForEach-Object { $_.Name }) -join '/';$cpu=(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average;Write-Output ($up.ToString()+'|'+$cpu.ToString()+'|'+$free.ToString()+'|'+$pf.ToString()+'|'+$top)""
+29424 | powershell.exe | powershell  -NoProfile -Command "$o=Get-CimInstance Win32_OperatingSystem;$p=Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue;$up=[math]::Round(((Get-Date)-$o.LastBootUpTime).TotalHours,1);$free=[math]::Round($o.FreePhysicalMemory/1024,0);$pf=if($p){[math]::Round($p.CurrentUsage,0)}else{-1};$top=(Get-Process | Sort-Object CPU -Descending | Select-Object -First 3 | ForEach-Object { $_.Name }) -join '/';$cpu=(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average;Write-Output ($up.ToString()+'|'+$cpu.ToString()+'|'+$free.ToString()+'|'+$pf.ToString()+'|'+$top)"
+9096 | powershell.exe | powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'ninfer|python|powershell|vram_hold|cmd' } | ForEach-Object { $_.ProcessId.ToString() + ' | ' + $_.Name + ' | ' + $_.CommandLine }"

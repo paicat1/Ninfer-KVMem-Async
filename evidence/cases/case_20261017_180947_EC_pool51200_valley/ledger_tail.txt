@@ -1,0 +1,7 @@
+{"event": "baseline", "host_round_us": 28049.539393939394, "gpu": "5 %, 27.11 W, 975 MHz, 565 MiB"}
+{"event": "decode_started", "t": 10.8, "content": 200, "host_round_us": 28049.539393939394, "gpu": "99 %, 279.73 W, 2857 MHz, 608 MiB"}
+{"event": "pressure_start", "t": 10.8, "mib": 400, "hold_sec": 300}
+{"event": "pressure_applied", "t": 21.0, "gpu": "100 %, 80.41 W, 2910 MHz, 239 MiB", "proc_alive": true}
+{"event": "sample", "t": 30.1, "host_round_us": 28049.539393939394, "content": 249, "reason": 209, "gpu": "100 %, 77.56 W, 2910 MHz, 268 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 60.3, "host_round_us": 28049.539393939394, "content": 306, "reason": 209, "gpu": "100 %, 77.12 W, 2917 MHz, 268 MiB", "pressured": true, "hold_alive": true}
+{"event": "sample", "t": 90.7, "host_round_us": 28049.539393939394, "content": 365, "reason": 209, "gpu": "100 %, 77.37 W, 2917 MHz, 234 MiB", "pressured": true, "hold_alive": true}

@@ -70,3 +70,6 @@ evidence/cases/WATCHDOG_ALERT.txt
 evidence/cases/GATE_ALERT.txt
 # 审计流（每日追加、churn）；**违规记录 VIOLATION_*.md 仍入库**
 evidence/audits/window_state_*.txt
+
+# 起进程记录（每次一文件、churn）；**违规记录 VIOLATION_*.md 仍入库**
+evidence/spawns/

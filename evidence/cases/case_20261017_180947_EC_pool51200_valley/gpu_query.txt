@@ -1,0 +1,119 @@
+==============NVSMI LOG==============
+
+Timestamp                                              : Sat Oct 17 18:09:48 2026
+Driver Version                                         : 616.92 [Deprecated; will be removed in CUDA 14.0. Use KMD Version instead]
+CUDA Version                                           : 13.4 [Deprecated; will be removed in CUDA 14.0. Use CUDA UMD Version instead]
+KMD Version                                            : 616.92
+CUDA UMD Version                                       : 13.4
+
+Attached GPUs                                          : 1
+GPU 00000000:01:00.0
+    Product Name                                       : NVIDIA GeForce RTX 5080
+    Product Brand                                      : GeForce
+    Product Architecture                               : Blackwell
+    Display Mode                                       : Requested functionality has been deprecated
+    Display Attached                                   : Yes
+    Display Active                                     : Enabled
+    Persistence Mode                                   : N/A
+    Addressing Mode                                    : N/A
+    MIG Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    Accounting Mode                                    : Disabled
+    Accounting Mode Buffer Size                        : 4000
+    Driver Model
+        Current                                        : WDDM
+        Pending                                        : WDDM
+    Serial Number                                      : 0
+    GPU UUID                                           : GPU-c6390fc6-045d-eb83-6b0c-3fbad5774ffe
+    GPU PDI                                            : 0xc522e95582f63722
+    Minor Number                                       : N/A
+    VBIOS Version                                      : 98.03.3b.00.28
+    MultiGPU Board                                     : No
+    Board ID                                           : 0x100
+    Board Part Number                                  : N/A
+    GPU Part Number                                    : 2C02-400-A1
+    FRU Part Number                                    : N/A
+    Platform Info
+        Chassis Serial Number                          : 
+        Slot Number                                    : 0
+        Tray Index                                     : 0
+        Host ID                                        : 1
+        Peer Type                                      : Direct Connected
+        Module Id                                      : 1
+        GPU Fabric GUID                                : 0x0000000000000000
+    Inforom Version
+        Image Version                                  : G005.0000.98.01
+        OEM Object                                     : 2.1
+        ECC Object                                     : N/A
+        Power Management Object                        : N/A
+    Inforom BBX Object Flush
+        Latest Timestamp                               : N/A
+        Latest Duration                                : N/A
+    Inforom Time Data
+        Time Run                                       : N/A
+    GPU Operation Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    GPU C2C Mode                                       : Disabled
+    GPU Virtualization Mode
+        Virtualization Mode                            : None
+        Host VGPU Mode                                 : N/A
+        vGPU Heterogeneous Mode                        : N/A
+    GPU Recovery Action                                : None
+    GSP Firmware Version                               : N/A
+    IBMNPU
+        Relaxed Ordering Mode                          : N/A
+    PCI
+        Bus                                            : 0x01
+        Device                                         : 0x00
+        Domain                                         : 0x0000
+        Device Id                                      : 0x2C0210DE
+        Bus Id                                         : 00000000:01:00.0
+        Sub System Id                                  : 0x15007377
+        GPU Link Info
+            PCIe Generation
+                Max                                    : 5
+                Current                                : 1
+                Device Current                         : 1
+                Device Max                             : 5
+                Host Max                               : 5
+            Link Width
+                Max                                    : 16x
+                Current                                : 16x
+        Bridge Chip
+            Type                                       : N/A
+            Firmware                                   : N/A
+        Replays Since Reset                            : 24219
+        Replay Number Rollovers                        : 3094
+        Tx Throughput                                  : 3222108 KB/s
+        Rx Throughput                                  : 1064668 KB/s
+        Atomic Caps Outbound                           : N/A
+        Atomic Caps Inbound                            : FETCHADD_32 FETCHADD_64 SWAP_32 SWAP_64 CAS_32 CAS_64 
+    Fan Speed                                          : 44 %
+    Performance State                                  : P1
+    Clocks Event Reasons
+        Idle                                           : Not Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+        Display Clock Setting                          : Not Active
+        Board Limit                                    : Not Active
+        Reliability                                    : Active
+    Clocks Event Reasons Counters
+        SW Power Capping                               : 219668 us
+        Sync Boost                                     : 0 us
+        SW Thermal Slowdown                            : 0 us
+        HW Thermal Slowdown                            : 0 us
+        HW Power Braking                               : 0 us
+    Sparse Operation Mode                              : N/A
+    FB Memory Usage
+        Total                                          : 16303 MiB
+        Reserved                                       : 324 MiB
+        Used                                           : 15687 MiB
+        Free                                           : 293 MiB
+    BAR1 Memory Usage

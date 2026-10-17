@@ -480,13 +480,7 @@
   },
   "underscore_dirs": {
     "_doc": "铁律A（用户 2026-10-18 令）：严禁随意新建 `_` 前缀目录、严禁随意往里放文件。新建或往里放 ⇒ 必须先查清该目录的用途/依赖/是否唯一副本，再向用户提出申请（跪着查清 + 申请）。",
-    "declared": [
-      {
-        "name": "_trash",
-        "purpose": "回收站；内含 README-不要清理.md 与 1.27GB 唯一副本 exe ⇒ 禁清",
-        "status": "declared_pending_review"
-      }
-    ],
+    "declared": [],
     "rule": "任何不在 declared 里的 `_*` 目录 = 门禁违规（structure 层报为\"未声明的下划线目录\"）",
     "_since": "2026-10-18",
     "renamed_20261018": [
@@ -494,6 +488,23 @@
         "from": "_safety_backups",
         "to": "safety_backups",
         "why": "用户令去下划线前缀；内容不变"
+      }
+    ],
+    "relocated_20261018": [
+      {
+        "from": "_trash/20261017/ninfer-serve.exe.step13_dup",
+        "to": "retired/20261017_exe_dup/",
+        "why": "成品归位退役区（同 sha 冗余，不删）"
+      },
+      {
+        "from": "_trash/bypass_revert_20261017_173509/start_engine_51200.ps",
+        "to": "retired/bypass_revert_20261017_173509/",
+        "why": "回退脚本唯一副本，留痕"
+      },
+      {
+        "from": "_trash/20261017/README-不要清理.md",
+        "to": "retired/20261017_exe_dup/",
+        "why": "说明件随副本留痕"
       }
     ]
   }

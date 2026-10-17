@@ -221,7 +221,7 @@ def enforce(hits, dry=False):
             'confession': os.path.relpath(cpath, R),
             'files': files,
             'reverted': [r[0] for r in reverted],
-            'release_by': 'user only（scripts\\release_bypass_lock.ps1）',
+            'release_by': 'user only (scripts/release_bypass_lock.ps1)',
             'prohibit': ['push', 'further changes to the flagged files until resolved']
         }, ensure_ascii=False, indent=2))
     print('❌ 检出绕过 %d 处（%d 个文件）' % (len(hits), len(files)))

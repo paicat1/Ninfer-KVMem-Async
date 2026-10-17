@@ -1,0 +1,20 @@
+{
+  "ts": "2026-10-17 17:34:57",
+  "reason": "BYPASS DETECTED",
+  "confession": "evidence\\audits\\BYPASS_CONFESSION_20261017_173457.md",
+  "files": [
+    "scripts/bench_spec.py",
+    "scripts/start_engine_51200.ps1",
+    "serve_tee.py"
+  ],
+  "reverted": [
+    "scripts/bench_spec.py",
+    "scripts/start_engine_51200.ps1",
+    "serve_tee.py"
+  ],
+  "release_by": "user only（scripts\\release_bypass_lock.ps1）",
+  "prohibit": [
+    "push",
+    "further changes to the flagged files until resolved"
+  ]
+}

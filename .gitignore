@@ -91,3 +91,6 @@ retired/**/*.exe
 retired/**/*.step*
 *.dll
 *.pdb
+
+# 运行态值守记录（同 logs 逻辑：留盘不入库）
+evidence/heartbeat/

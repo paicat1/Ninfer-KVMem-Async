@@ -3166,3 +3166,13 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **数据化**：`structure.json` 新增 `naming` `git_boundary` `quotas` `backup_policy` `audit_metrics` `recovery_sources`；`check_structure.py` 新增 **git 边界检查**与**命名规范检查**。
 - **检查器当场抓出两条真问题并已修**：① `.gitignore` 缺 `work/` 与 `*.pyc`（已补）② `scripts/patch_launcher_20261013.py` 是过程名脚本（引用仅历史记载 ⇒ **退役到 `retired/scripts-20261017/` + INDEX 登记**）。
 - 件：`docs\规范-文件五操作-新建修改备份转移清理-CB-20261017.md`。
+
+### 100. 【治理】归位执行方案（P1–P7）· git 影响实测 · 安全协议 · 回滚（2026-10-17 11:4x）
+
+- **用户三问**：怎么做 / 安全吗 / 会不会破坏 git 结构。
+- **关键安全事实（实测 `git check-ignore`）**：`logs/` `_trash/` `_safety_backups/` `engine/` **是被忽略目录** ⇒ **把"跟踪文件"移进去 = 文件从仓里消失**（唯一真正危险的操作，方案已禁止）；`work/` 本轮补进忽略（临时区不入库）；`evidence/` `retired/` `scripts/` `docs/` **未忽略** ⇒ 跟踪件移入安全（rename，`git log --follow` 可追）。
+- **git 影响分类（实测 358 跟踪件）**：**零影响** = `.temp/` 全部（未跟踪）· `engine/test-run/` · `logs/` · `_trash/`（P1a/P3/P5/P7 属此类）；**少量 rename** = 10 个过期 bat（P4）· 1 个空 json（P1b）；**中量** = `tools/` 32 件（P2）；**大量** = `docs/` 113–117 件（P6，引用最多，最后做）。
+- **风险不在 git 在"引用"**：跟踪件移动是 rename（历史保留），但**引用会断** ⇒ 每批必跑 `gates.ps1`（引用 + 结构）。
+- **安全协议九步**：① `git status` 干净且未推=0 ② 出清单（含 sha256/是否跟踪）③ 未跟踪件先备份到 `_safety_backups` ④ **活件三源判定**（命中即跳过）⑤ `git check-ignore` 复核目标 ⑥ 跟踪件用 `git mv` ⑦ `gates.ps1` rc=0 + `git diff --stat` 应只见 rename ⑧ **一批一提交** ⑨ 退役登记。
+- **回滚**：跟踪件 `git revert`/`reset --hard`（未推时）；未跟踪件按清单反向移动（sha 校验）；误删走**回收站** + `_safety_backups`；引擎件走 `hash_cache + lineage`。
+- **建议顺序**：零影响三批（P1/P3/P5/P7）→ P4 → **P2 单独议**（`tools/` 有 5 个 `.exe` 被跟踪，构建产物不该入库 ⇒ 先加忽略 + 从索引移除）→ **P6 最后**（先加 `docs/INDEX.md` 分类映射表）。

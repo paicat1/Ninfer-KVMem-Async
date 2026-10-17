@@ -107,7 +107,7 @@ def tracked_scripts():
 
 
 # 自述件"仪式段"模板（**仅本地，不入仓** —— 用户 2026-10-17 令：
-#   反省/惩罚类情绪化文本不上 GIT。模板放 .codebuddy/sda/confession_template.md（已在 ignore 里）；
+#   该类文本不上 GIT。模板放 .codebuddy/sda/confession_template.md（已在 ignore 里）；
 #   缺失时退回中性一句 —— 机制不静默失效，也不把情绪文字留在入库代码里）
 TPL_PATH = os.path.join(R, '.codebuddy', 'sda', 'confession_template.md')
 

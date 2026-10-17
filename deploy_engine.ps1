@@ -1,4 +1,4 @@
-# deploy_engine.ps1 <new-exe-path> [-Restart]
+﻿# deploy_engine.ps1 <new-exe-path> [-Restart]
 # 2026-10-11 纪律加固（用户裁决）：一切引擎部署必须走本脚本 —— 先备份、再部署、留记录。
 # 教训：15:40/18:11 两次 xcopy /Y 直接覆盖，检查点版/批量版 exe 永久丢失（回退链断裂）。
 param(

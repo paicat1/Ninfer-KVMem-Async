@@ -1,4 +1,4 @@
-# release_bypass_lock.ps1 -- 解除"绕过禁令"阻断锁（**解除权归用户**）
+﻿# release_bypass_lock.ps1 -- 解除"绕过禁令"阻断锁（**解除权归用户**）
 #
 # 依据：用户 2026-10-17 令「一产生绕开行为 ⇒ 自述犯罪事实 + 回退到绕开前状态」；
 #       锁由 scripts\bypass_guard.py 检出绕过时自动写，**解除权只归用户**（与 CASE_LOCKED 同精神）。

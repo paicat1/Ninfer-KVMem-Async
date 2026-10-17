@@ -1,4 +1,4 @@
-# gate_check.ps1 — SDA v2 门控脚本（全局版，双模式）
+﻿# gate_check.ps1 — SDA v2 门控脚本（全局版，双模式）
 # 用法: powershell -Command "& 'c:\Users\PC\.codebuddy\sda-infra\gate_check.ps1' <change-name> <gate-type>"
 # gate-type: dp0, dp1, dp2, backup, scope, safety
 # 返回: exit 0 = GATE_PASSED, exit 1 = GATE_BLOCKED

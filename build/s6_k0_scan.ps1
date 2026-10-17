@@ -1,4 +1,4 @@
-# S6 -k 0 全量扫错脚本（vcvars64 环境初始化后跑 ninja）
+﻿# S6 -k 0 全量扫错脚本（vcvars64 环境初始化后跑 ninja）
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $ninja  = "J:\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"

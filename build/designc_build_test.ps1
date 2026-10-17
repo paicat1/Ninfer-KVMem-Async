@@ -1,4 +1,4 @@
-# Design C fork 测试构建：独立 build 目录 BUILD_TESTING=ON，只编 ninfer_qwen3_5_frontend_test
+﻿# Design C fork 测试构建：独立 build 目录 BUILD_TESTING=ON，只编 ninfer_qwen3_5_frontend_test
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $cmake  = "C:\Program Files\CMake\bin\cmake.exe"

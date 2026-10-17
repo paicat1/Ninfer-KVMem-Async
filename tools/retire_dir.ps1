@@ -1,4 +1,4 @@
-# retire gate (T-TRACE / user order 2026-10-13: "任何成品严禁删除！")
+﻿# retire gate (T-TRACE / user order 2026-10-13: "任何成品严禁删除！")
 # This script NEVER deletes. It only reports and refuses.
 # Rule: all deletes (even garbage) are on hold; only the USER naming an item authorizes deletion.
 param(

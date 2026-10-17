@@ -133,9 +133,14 @@ def detect():
                     if not sanctioned and not refs_spawn:
                         if not any(h in low for h in headless):
                             hits.append(('S1', rel, i, '自行起进程（未走唯一许可入口）', ls[:100]))
+            # 2026-10-17 修（两处 S2 不统一 ⇒ 误判）：与全仓那处**同一精规则** ——
+            #   只判**起服动作**（serve_tee 调用 / Start-Process 起 ninfer-serve）；
+            #   **排除**查询进程（Get-Process ninfer-serve）、停止进程、路径变量等"只是提到"。
             if 'ninfer-serve' in low and not sanctioned:
-                if 'engine_ctl' not in low and not refs_spawn:
-                    hits.append(('S2', rel, i, '自写起服脚本（绕开规范起服）', ls[:100]))
+                if 'engine_ctl' not in low and not refs_spawn and not rl.endswith('serve_tee.py'):
+                    is_launch = bool(re.search(r'(?i)(&\s*\S*\s*serve_tee\.py)|(python\S*\s+serve_tee\.py)|(Start-Process[^\n]*ninfer-serve)', line))
+                    if is_launch:
+                        hits.append(('S2', rel, i, '自写起服脚本（绕开规范起服）', ls[:100]))
             if '-windowstyle' in low and not any(h in low for h in headless):
                 if i in added:   # 只看新增行（历史违规由静态层基线管，不由本守卫重复计）
                     m = re.search(r'-WindowStyle\s+([A-Za-z]+)', line, re.I)

@@ -1,4 +1,4 @@
-# Design C STANDALONE frontend_test 单编（重配 build-120a-test 后只编独立 exe）
+﻿# Design C STANDALONE frontend_test 单编（重配 build-120a-test 后只编独立 exe）
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $cmake  = "C:\Program Files\CMake\bin\cmake.exe"
 $ninja  = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"

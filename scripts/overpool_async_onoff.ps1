@@ -1,4 +1,4 @@
-# overpool_async_onoff.ps1 -- user-scheduled ablation: does the async page pipeline
+﻿# overpool_async_onoff.ps1 -- user-scheduled ablation: does the async page pipeline
 # (NINFER_ASYNC_DEMOTE) buy anything in the OVER-POOL regime?
 #
 #   ARM OFF: NINFER_ASYNC_DEMOTE=0 (sync batch fallback)

@@ -1,4 +1,4 @@
-# S6 全图 -k 0 全量扫错（不带 target，扫全部 build target 至收敛）
+﻿# S6 全图 -k 0 全量扫错（不带 target，扫全部 build target 至收敛）
 # 日志保留到 CODE 复核销账后方可清理（2026-10-07 铁律）
 $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"

@@ -71,6 +71,24 @@ with io.open(os.path.join(AUD, 'window_state_%s.txt' % day), 'a', encoding='utf-
     f.write('%s | 进程 %d | 合格 %d | 违规 %d\n' % (ts, len(rows), len(rows) - len(viol), len(viol)))
 
 if viol:
+    # VIOLATION_dup_guard（2026-10-17）：同批 pid 已报过 ⇒ 不重复生成文件（否则每分钟一份，噪声+堵推送）
+    _sig = sorted(str(v[0]) for v in viol)
+    _dup = False
+    for _ef in os.listdir(AUD):
+        if not _ef.startswith('VIOLATION_window_'):
+            continue
+        try:
+            _prev = io.open(os.path.join(AUD, _ef), encoding='utf-8', errors='replace').read()
+        except Exception:
+            continue
+        if all(re.search(r'\|\s*' + _p + r'\s*\|', _prev) for _p in _sig):
+            _dup = True
+            break
+    if _dup:
+        with io.open(os.path.join(AUD, 'window_state_%s.txt' % day), 'a', encoding='utf-8') as f:
+            f.write('%s | 窗口违规 %d 项（与已报批次相同，未重复生成文件）\n' % (ts, len(viol)))
+        print('WARN: 窗口违规 %d 项 —— 与已报批次相同，未重复生成 VIOLATION 文件' % len(viol))
+        sys.exit(3)
     p = os.path.join(AUD, 'VIOLATION_window_%s.md' % time.strftime('%Y%m%d_%H%M%S'))
     with io.open(p, 'w', encoding='utf-8', newline='\n') as f:
         f.write('# 违规记录：窗口不可见/被最小化/无窗口（T-WINDOW）\n\n')

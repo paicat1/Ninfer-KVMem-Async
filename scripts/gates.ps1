@@ -94,4 +94,15 @@ try {
     }
 } catch { Write-Host ("WARN: 连击计数失败：" + $_.Exception.Message) -ForegroundColor Yellow }
 
+
+# —— T-WINDOW：含中文 .ps1 必须带 BOM（2026-10-17 立）——
+$bomOut = & $PyExe -X utf8 scripts\check_ps1_bom.py 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "BLOCKED[window]: 新增/修改的含中文 .ps1 缺 BOM（PowerShell 按 ANSI 读 ⇒ 乱码 ⇒ 解析失败）" -ForegroundColor Red
+    $bomOut -split "`n" | Select-Object -First 6 | ForEach-Object { Write-Host ("   " + $_) }
+    $fail = 1
+} else {
+    Write-Host "window-bom: 无违规 -- OK" -ForegroundColor DarkGray
+}
+
 exit $fail

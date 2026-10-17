@@ -543,5 +543,11 @@
     "nsys_alt": "C:\\Program Files\\NVIDIA Corporation\\Nsight Systems 2024.5.1\\target-windows-x64\\nsys.exe",
     "python": "C:\\Users\\PC\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
     "_path_backup": "work/20261018/path_backup_20261018_065102.txt（改动前的完整 PATH）"
+  },
+  "work_discipline": {
+    "_since": "2026-10-18（用户令，两条铁律）",
+    "A_env_check_first": "**每次开始工作，第一步必须彻查环境是否干净**（跑 scripts/env_check.ps1）。不许无数进程同时开干；废的进程/废的数据必须关/清 —— **但关什么由用户决定，我只报告+建议**。",
+    "B_wait_rule": "**等待严禁超过「新启进程预计完成时间 + 5 秒」**；若届时未完成 ⇒ **每 5 秒轮询**。且**第一次轮询就判生死**（进程在不在/日志有没有/产物有没有长）——发现问题【立刻停+诊断】，禁止傻等（禁止 15 分钟、18 分钟式的干等）。",
+    "_why": "2026-10-18 事故：① 反复起实验进程不关（残留 3 个管理员窗 + tracerpt 写 5.8 GB 废 CSV）；② 等待设计成\"等 18 分钟\"，第一次检查就发现错了也不停 ⇒ 用户判为\"假装负责、实际逃避\"。"
   }
 }

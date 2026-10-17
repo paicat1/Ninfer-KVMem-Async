@@ -1,53 +1,93 @@
-﻿
-<#
-b_route_run.ps1 -- 死亡谷 B 路线【一键流程】（2026-10-18 建）
+﻿<#
+b_route_run.ps1 -- 死亡谷 B 路线：ETW 内核等待链【一键采集】（2026-10-18 v2）
 
-为什么存在：2026-10-18 首轮 B 路线失败 —— 我先起 ETW 捕获、再去准备造谷，
-            中间空转把 240 s 窗口浪费掉 ⇒ 窗口内没有谷 ⇒ 数据无用。
-            本脚本把"抓取 + 造谷"焊成一个流程，消灭人工对齐时序这一环。
+v2 依据实测修正（work\20261018\etw_probe.log）：
+  · xperf -on Latency -f  ⇒ 10 秒只 0.125 MiB（**采不到数据**，首轮 240 s 白抓）
+  · xperf -start ... -on  ⇒ 无效标志 0x3ec（此路径不存在）
+  · wpr -start ... -filemode / -stop ⇒ 10 秒 519 MiB（**能采到**，但需调窄防丢事件）
+  ⇒ 本版改用 wpr；先用 8 秒试探体积，选合适 profile 再正式抓。
 
-做什么（全自动）：
+做什么（全自动，一次提权跑完）：
   ① 自检管理员
-  ② 起 ETW（Latency 组 + 栈采样 Profile+CSwitch）
-  ③ 立即施加 400 MiB 外压 + 发长请求造谷（~180 s，与抓取并行）
-  ④ 释放压力 → 停 trace → 出报告
-  ⑤ 打印产物路径
+  ② 8 秒试探 wpr CPU profile 的体积 ⇒ 估算正式抓取体积
+  ③ 起正式抓取（wpr，与造谷并行）
+  ④ **立刻**施加 400 MiB 压力 + 长请求造谷（~150 s）
+  ⑤ 释放 → 停 trace → 用 tracerpt 出 CSV（不用已废弃的 -tle）
+  ⑥ 全程写日志（CB 看不到窗口文字，靠日志）
 
-用法（管理员 PowerShell，一条命令）：
+用法（管理员，可见窗口；**请不要点窗口**，点了会进"选择模式"暂停）：
   powershell -NoProfile -ExecutionPolicy Bypass -File J:\ninfer-kvmem\scripts\b_route_run.ps1
-
-参数：
-  -ValleySec 180   造谷时长（默认 180）
-  -Mib 400         外压剂量（默认 400 = 历史 100% 命中）
-  -Tag valley_etl  产物名
 #>
 param(
-    [int]$ValleySec = 180,
+    [int]$ValleySec = 150,
     [int]$Mib = 400,
+    [string]$Profile = 'CPU',
     [string]$Tag = 'valley_etl',
     [string]$Root = 'J:\ninfer-kvmem'
 )
-$ErrorActionPreference = 'Stop'
-$wpt   = 'C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit'
-$xperf = Join-Path $wpt 'xperf.exe'
-$py    = 'C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe'
+$ErrorActionPreference = 'Continue'
+$wpt = 'C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit'
+$wpr = Join-Path $wpt 'wpr.exe'
+$py  = 'C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe'
+$day = Get-Date -Format 'yyyyMMdd'
+$dir = Join-Path $Root ('work\' + $day)
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+$log = Join-Path $dir ($Tag + '_run.log')
+
+function L($m) { $s = ('[' + (Get-Date -Format 'HH:mm:ss') + '] ' + $m); Write-Host $s; Add-Content -Path $log -Value $s -Encoding UTF8 }
+
+Set-Content -Path $log -Value ('=== b_route_run v2 ' + (Get-Date) + ' ===') -Encoding UTF8
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) { Write-Host '❌ 需管理员权限。请以管理员身份重开 PowerShell 再跑。' -ForegroundColor Red; exit 2 }
+L ('管理员 = ' + $isAdmin)
+if (-not $isAdmin) { L '需管理员权限（NT Kernel Logger）。请以管理员重开。'; exit 2 }
 
-$day    = Get-Date -Format 'yyyyMMdd'
-$outDir = Join-Path $Root ('work\' + $day)
-New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$etl = Join-Path $outDir ($Tag + '.etl')
+# ---------- ② 8 秒试探 ----------
+$probe = Join-Path $dir ($Tag + '_probe.etl')
+Remove-Item $probe -ErrorAction SilentlyContinue
+& $wpr -cancel 2>&1 | Out-Null
+L ('试探 profile=' + $Profile + ' · 8 秒')
+$o = & $wpr -start $Profile -filemode 2>&1 | Out-String
+L ('  start rc=' + $LASTEXITCODE + ' ' + $o.Trim())
+Start-Sleep -Seconds 8
+$o = & $wpr -stop $probe 2>&1 | Out-String
+L ('  stop rc=' + $LASTEXITCODE + ' ' + (($o -split "`n")[0..1] -join ' | '))
+$probeMb = if (Test-Path $probe) { [math]::Round((Get-Item $probe).Length / 1MB, 1) } else { 0 }
+L ('  ⇒ 8 秒 = ' + $probeMb + ' MiB ⇒ 预计 ' + $ValleySec + ' 秒约 ' + [math]::Round($probeMb / 8 * $ValleySec / 1024, 2) + ' GiB')
+if ($probeMb -gt 200) {
+    L ('  ⚠ 体积偏大（' + $probeMb + ' MiB/8s）—— **不缩短窗口**（两阶段爬升需 >=150 s），' +
+       '改为提示：本次预计 ' + [math]::Round($probeMb / 8 * $ValleySec / 1024, 2) + ' GiB，磁盘需够')
+}
+Remove-Item $probe -ErrorAction SilentlyContinue
 
-# ② 起 trace（先清残留会话，防"NT Kernel Logger 已存在"）
-& $xperf -stop 2>&1 | Out-Null
-Write-Host '== 起 ETW（Latency + 栈采样）==' -ForegroundColor Cyan
-& $xperf -on Latency -stackwalk Profile+CSwitch -f $etl
-if ($LASTEXITCODE -ne 0) { throw "xperf -on 失败 rc=$LASTEXITCODE" }
+# ---------- ③ 正式抓取 ----------
+$etl = Join-Path $dir ($Tag + '.etl')
+Remove-Item $etl -ErrorAction SilentlyContinue
+& $wpr -cancel 2>&1 | Out-Null
+L ('正式抓取：profile=' + $Profile + ' ⇒ ' + $etl)
+$o = & $wpr -start $Profile -filemode 2>&1 | Out-String
+L ('  start rc=' + $LASTEXITCODE)
+if ($LASTEXITCODE -ne 0) { L ('  ❌ 起 trace 失败：' + $o.Trim()); exit 3 }
 
-# ③ 立刻造谷（并行：后台起驱动，本进程只等）
-Write-Host ('== 造谷：' + $Mib + ' MiB 外压 + 长请求，持续 ' + $ValleySec + ' s（与抓取并行）==') -ForegroundColor Yellow
+# ---------- ③.5 ★ 造谷前置：先验证引擎【真的能服务】 ----------
+L '前置检查：引擎可服务性（不通过就不造谷）'
+$probeUrl = 'http://127.0.0.1:8094/v1/chat/completions'
+$engineOk = $false
+try {
+    $body = @{ model = 'qwen3.8-27b-coder390';
+               stream = $false; max_tokens = 4; messages = @(@{ role = 'user'; content = 'ping' }) } | ConvertTo-Json -Depth 5
+    $r = Invoke-RestMethod -Uri $probeUrl -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 60
+    $engineOk = $true
+    L '  ✅ 引擎可服务'
+} catch {
+    L ('  ❌ 引擎不可服务：' + $_.Exception.Message)
+    L '  ⇒ 终止本轮（不造谷、不留废数据）'
+    & $wpr -cancel 2>&1 | Out-Null
+    exit 4
+}
+
+# ---------- ④ 立刻造谷（并行：后台任务） ----------
+L ('造谷：' + $Mib + ' MiB + 长请求，' + $ValleySec + ' 秒（与抓取并行）')
 $drv = Join-Path $Root 'scripts\experiments\ee_threshold.py'
 $job = Start-Job -ScriptBlock {
     param($py, $drv, $Mib, $sec, $wd)
@@ -55,31 +95,37 @@ $job = Start-Job -ScriptBlock {
     & $py -X utf8 $drv --levels $Mib --hold-sec $sec --sample-every 5 --max-min 4 --prompt long 2>&1
 } -ArgumentList $py, $drv, $Mib, $ValleySec, $Root
 
-# 抓取窗口 = 造谷时长 + 30 s 缓冲
-$total = $ValleySec + 30
+$total = $ValleySec + 25
 for ($i = $total; $i -gt 0; $i -= 15) {
-    Write-Host ('   抓取中，剩余 ' + $i + ' s' + '（谷进度见另一窗口）')
+    L ('  抓取中，剩余 ' + $i + ' s')
     Start-Sleep -Seconds ([Math]::Min(15, $i))
 }
-Receive-Job $job | Select-Object -Last 6
+L '造谷任务输出（尾 8 行）：'
+# ★ 等造谷任务【自然结束】—— 绝不在它还跑时 Remove-Job -Force（那会切断在飞请求 ⇒ HTTP 499）
+L '等造谷任务自然结束…'
+$waited = 0
+while ((Get-Job -Id $job.Id -ErrorAction SilentlyContinue).State -eq 'Running' -and $waited -lt 600) {
+    Start-Sleep -Seconds 5; $waited += 5
+}
+L ('  造谷任务已结束（等了 ' + $waited + ' s）')
+Receive-Job $job | Select-Object -Last 12 | ForEach-Object { L ('  ' + $_) }
 Remove-Job $job -Force
 
-# ④ 停 trace + 出报告
-Write-Host '== 停 trace ==' -ForegroundColor Cyan
-& $xperf -d $etl
-if ($LASTEXITCODE -ne 0) { Write-Host ('⚠ xperf -d rc=' + $LASTEXITCODE + '（可能无残留会话）') -ForegroundColor Yellow }
+# ---------- ⑤ 停 trace + 出报告 ----------
+L '停 trace'
+$o = & $wpr -stop $etl 2>&1 | Out-String
+L ('  stop rc=' + $LASTEXITCODE + ' ' + (($o -split "`n")[0..2] -join ' | '))
+$size = if (Test-Path $etl) { [math]::Round((Get-Item $etl).Length / 1MB, 1) } else { 0 }
+L ('✅ etl = ' + $etl + '  (' + $size + ' MiB)')
 
-$size = if (Test-Path $etl) { [math]::Round((Get-Item $etl).Length / 1MB, 2) } else { 0 }
-Write-Host ('✅ etl = ' + $etl + '  (' + $size + ' MiB)') -ForegroundColor Green
+$csv = Join-Path $dir ($Tag + '_dump.csv')
+L 'tracerpt 转 CSV（不用已废弃的 -tle）'
+& tracerpt $etl -o $csv -of CSV -y 2>&1 | Out-Null
+if (Test-Path $csv) {
+    $lines = (Get-Content $csv | Measure-Object -Line).Lines
+    L ('  ✅ CSV = ' + $csv + '（' + $lines + ' 行）')
+} else { L '  ❌ CSV 未生成' }
 
-$sum = Join-Path $outDir ($Tag + '_summary.txt')
-$csv = Join-Path $outDir ($Tag + '_cswitch.csv')
-& $xperf -i $etl -a dumper -tle -o $sum 2>&1 | Out-Null
-& $xperf -i $etl -a dumper -cswitch -o $csv 2>&1 | Out-Null
-
-Write-Host '== 产物 ==' -ForegroundColor Green
-Get-ChildItem $outDir -Filter ($Tag + '*') | ForEach-Object {
-    Write-Host ('   ' + $_.Name + '  ' + [math]::Round($_.Length / 1MB, 2) + ' MiB')
-}
+L '=== 完成 ==='
 Write-Host ''
-Write-Host '下一步（CB）：分析等待链 —— 主机线程在 cudaGraphLaunch 期间等哪个对象' -ForegroundColor Yellow
+Write-Host ('日志：' + $log) -ForegroundColor Green

@@ -74,6 +74,6 @@ evidence/audits/window_state_*.txt
 # 起进程记录（每次一文件、churn）；**违规记录 VIOLATION_*.md 仍入库**
 evidence/spawns/
 
-# 自述/忏悔件（**留本地、不入公开仓** —— 用户 2026-10-17 令）
+# 自述件（守卫检出绕过时自动生成；**留本地、不入公开仓** —— 用户 2026-10-17 令）
 #   钩子仍会在本地生成它们（机制不废），只是不进版本控制
 evidence/audits/BYPASS_CONFESSION_*.md

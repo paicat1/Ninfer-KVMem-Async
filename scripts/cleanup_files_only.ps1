@@ -26,7 +26,10 @@ if (-not $isAdmin) { L '需管理员权限（文件是提权进程创建的）';
 L '--- 删废数据（valley_etl*；不碰任何进程）---'
 $freed = 0
 $n = 0
-Get-ChildItem $dir -Filter 'valley_etl*' -ErrorAction SilentlyContinue | ForEach-Object {
+# 2026-10-18 扩：不只 valley_etl*，也含 probe*（诊断探针产物）
+$patterns = @('valley_etl*', 'probe*.etl', 'probe*.csv', 'probe*_dump.csv', '*.NGENPDB')
+foreach ($pat in $patterns) {
+Get-ChildItem $dir -Filter $pat -ErrorAction SilentlyContinue | ForEach-Object {
     try {
         $sz = $_.Length
         Remove-Item $_.FullName -Force -ErrorAction Stop
@@ -35,6 +38,7 @@ Get-ChildItem $dir -Filter 'valley_etl*' -ErrorAction SilentlyContinue | ForEach
     } catch {
         L ('  SKIP ' + $_.Name + ' : ' + $_.Exception.Message)
     }
+}
 }
 L ('  共删 ' + $n + ' 个 · 释放 ' + [math]::Round($freed / 1GB, 2) + ' GiB')
 

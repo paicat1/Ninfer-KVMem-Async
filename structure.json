@@ -3,18 +3,19 @@
   "_version": "1.0",
   "_updated": "2026-10-17",
   "root_whitelist": [
-    "README.md",
-    "README.en.md",
+    ".gitignore",
     "LICENSE",
     "NOTICE.md",
-    ".gitignore",
-    "启动器.bat",
-    "ninfer_launcher.py",
-    "serve_tee.py",
-    "engine_registry.json",
-    "structure.json",
+    "README.en.md",
+    "README.md",
     "deploy_engine.ps1",
-    "smart_push.ps1"
+    "engine_registry.json",
+    "ninfer_launcher.py",
+    "ninfer_launcher_profiles.json",
+    "serve_tee.py",
+    "smart_push.ps1",
+    "structure.json",
+    "启动器.bat"
   ],
   "canonical_dirs": {
     "engine": "引擎二进制：active/(现役唯一真相源) · lineage/(谱系只读) · pdb_archive/",
@@ -106,15 +107,15 @@
       ]
     },
     {
-      "item": "root: _bat_debug.log / _build_42.log / ninfer_launcher_profiles.json(4B空)",
+      "item": "root: _bat_debug.log / _build_42.log（垃圾）",
       "n": 3,
       "reason": "垃圾/空文件",
-      "plan": "P1 清理",
+      "plan": "P1b 清理（3 件：__pycache__ + 两个 76B log）",
       "match": [
         "_bat_debug.log",
-        "_build_42.log",
-        "ninfer_launcher_profiles.json"
-      ]
+        "_build_42.log"
+      ],
+      "note": "ninfer_launcher_profiles.json 已移出本项 —— 它是启动器活配置（ninfer_launcher.py:197 CONFIG_FILE），**保留**"
     },
     {
       "item": "root: __pycache__/",

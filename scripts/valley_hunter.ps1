@@ -24,7 +24,9 @@ $Host.UI.RawUI.WindowTitle = 'VALLEY-HUNTER [running] -- 1 probe/min, case on de
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $ledger = Join-Path $CaseDir ("hunter_ledger_$stamp.txt")
 New-Item -ItemType Directory -Force -Path $CaseDir | Out-Null
-$STREAK_FILE = Join-Path $CaseDir 'streak_state.json'   # v4：streak 跨批持久化
+$ROOT = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$STREAK_FILE = Join-Path $CaseDir 'streak_state.json'
+$LOG = Join-Path $ROOT 'logs\test_valleywatch.log'   # 忙则让位判断用（只读日志尾）   # v4：streak 跨批持久化
 function Say($m) { $t = (Get-Date -Format 'HH:mm:ss'); $line = "$t | $m"; Write-Output $line; Add-Content -LiteralPath $ledger -Value $line -Encoding UTF8 }
 function ProbeOnce() {
     $o = (python -X utf8 scripts\a2gate.py --arm hunt --port $Port --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
@@ -120,6 +122,27 @@ while ($true) {
             } catch { }
         }
         $script:stLoaded = $true
+    }
+    # —— 忙则让位（TELE 第十七轮）——
+    #   max-concurrency=1：用户请求占槽时我们的探针会被排队（既抓不到、又给用户加延迟）。
+    #   若近 30 s 日志里出现过 running >= 1，本拍**跳过探针**，交给零负载的日志通道。
+    $busy = $false
+    try {
+        $tail = Get-Content $LOG -Tail 40 -ErrorAction SilentlyContinue
+        $recent = $tail | Where-Object { $_ -match 'throughput' }
+        if ($recent) {
+            $lastRun = ($recent | Select-Object -Last 1)
+            if ($lastRun -match 'running ([1-9])') { $busy = $true }
+            $anyRun = $recent | Where-Object { $_ -match 'running ([1-9])' }
+            if ($anyRun.Count -ge 6) { $busy = $true }   # 近 40 行里 >=6 条在飞 ⇒ 判定忙
+        }
+    } catch { }
+    if ($busy) {
+        Say ("defer: engine busy (user request in flight) -- probe skipped to avoid queueing behind it; log channel covers this window")
+        $streak = $script:streak
+        if ($n % 10 -eq 0) { Say ("heartbeat(busy): probes={0} cases={1}" -f $n, $cases) }
+        Start-Sleep -Seconds 60
+        continue
     }
     $fp = PowerFingerprint
     # —— 判据 v2（2026-10-17 06:2x 预登记，**相对基线**，取代 v1 的绝对 100 W）——

@@ -81,7 +81,21 @@ def freeze_lock(tag, excerpt):
         except Exception:
             pass
         try:
-            rl = os.path.join(ROOT, '.temp', 'reqlog_serve_8094.jsonl')
+            # TELE 第十七轮：reqlog 文件名随起服参数变（实测引擎写 reqlog_watch.jsonl，而非 reqlog_serve_8094）
+            #   ⇒ **从引擎命令行解析** `--request-log-jsonl <path>`，解析不到再退回默认名
+            rl = None
+            try:
+                cmd = subprocess.run(['powershell', '-NoProfile', '-Command',
+                                      "(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ninfer-serve.exe' } | Select-Object -First 1).CommandLine"],
+                                     capture_output=True, timeout=40).stdout.decode('utf-8', 'replace')
+                mm = re.search(r'--request-log-jsonl\s+(\S+)', cmd)
+                if mm:
+                    cand2 = mm.group(1).strip('"')
+                    rl = cand2 if os.path.isabs(cand2) else os.path.join(ROOT, cand2)
+            except Exception:
+                pass
+            if not rl or not os.path.exists(rl):
+                rl = os.path.join(ROOT, '.temp', 'reqlog_serve_8094.jsonl')
             if os.path.exists(rl):
                 tail = io.open(rl, 'r', encoding='utf-8', errors='replace').read().splitlines()[-200:]
                 with io.open(os.path.join(d, 'reqlog_tail.txt'), 'w', encoding='utf-8') as f:

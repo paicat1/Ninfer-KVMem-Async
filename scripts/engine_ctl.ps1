@@ -266,7 +266,7 @@ if (Test-Path $log) {  # 2026-10-14: 归档（不删）；**必须容错**——
         #   改为：**不删**，保留原文件并醒目告警（引擎仍会正常起，新日志追加到同名文件）。
         Write-Output ('WARN: log archive skipped (locked) -- 按铁律**不删除**日志: ' + $log)
         Write-Output ('      ' + $_.Exception.Message)
-    }Action SilentlyContinue } }
+    }
 
 
 

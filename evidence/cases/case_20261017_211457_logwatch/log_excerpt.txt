@@ -1,0 +1,12 @@
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 21:14:38.738  INFO  throughput | 5.0s | decode 2.0 tok/s (10 tok) | running 1 (decode-ready 1) | batch 1.00 | host 82.5% (4.1s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 21:14:43.743  INFO  throughput | 5.0s | decode 2.4 tok/s (12 tok) | running 1 (decode-ready 1) | batch 1.00 | host 102.4% (5.1s)
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+[ring] budgets: skeleton=80, evidence=128, recent=0, free=560 (pool 768) [skeleton+evidence+recent+free == pool: yes]
+2026-10-17 21:14:45.363  INFO  req#85 cancelled during transport | openai-chat | HTTP 499 | client disconnected
+2026-10-17 21:14:48.740  INFO  throughput | 5.0s | decode 2.4 tok/s (12 tok) | running 0 | batch 1.00 | host 48.9% (2.4s)

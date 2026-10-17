@@ -30,7 +30,7 @@
 
 ## 四、新发现（CB 汇报未提）
 
-- **`evidence\audits\BYPASS_CONFESSION_20261017_191326.md`**（19:13:26）：`bypass_guard.py` 钩子产物——① 对 **17:2x bypass 事件的正式忏悔**（T-WINDOW 第 4 条三犯 / 停摆 ~40 分钟 / 降级期）② **宽判据误伤两文件**（`deploy_engine.ps1` / `overpool_async_onoff.ps1`）的 S2 记录（后经统一精规则，该两文件不再判违规）。**文件按规矩保留**（不得删除）；**建议 CB 在协作状态补一条说明**（透明度）。
+- **`evidence\audits\BYPASS_CONFESSION_20261017_191326.md`**（19:13:26）：`bypass_guard.py` 钩子产物——① 对 **17:2x bypass 事件的正式自述记录**（T-WINDOW 第 4 条三犯 / 停摆 ~40 分钟 / 降级期）② **宽判据误伤两文件**（`deploy_engine.ps1` / `overpool_async_onoff.ps1`）的 S2 记录（后经统一精规则，该两文件不再判违规）。**该文件现已按用户令退出版本控制、仅留本地**（`0028d1c`）；原"建议补说明"已闭环（提交信息即说明）。
 
 ## 五、窗口最小化事件（记录，归属待用户）
 

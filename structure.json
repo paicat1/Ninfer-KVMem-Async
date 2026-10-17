@@ -369,7 +369,13 @@
     "bypass_scan_skip": [
       "build/"
     ],
-    "bypass_scan_skip_note": "build/ 为实验产物（a4-arm-* 等历史臂），非现役入口 ⇒ 不纳入绕过扫描"
+    "bypass_scan_skip_note": "build/ 为实验产物（a4-arm-* 等历史臂），非现役入口 ⇒ 不纳入绕过扫描",
+    "minimize_allowed": [
+      "VALLEY-LOGWATCH",
+      "HUNTER-WATCHDOG",
+      "E1-PASSIVE-WATCH"
+    ],
+    "minimize_allowed_note": "2026-10-17 用户答复：这三个窗口的最小化是**用户手动**所为 ⇒ 判据放开。**引擎窗（ENGINE-*）与猎人（VALLEY-HUNTER）仍必须可见且非最小化**（服务器窗口是本铁律的核心，不能藏）。"
   },
   "local_only_tools": {
     "_doc": "只在本机执行、不入版本控制的工具（2026-10-17 用户令）。**引用它们不算断链**（optional reference）；仓级门禁的本地层在工具缺失时整段跳过并明示。",

@@ -44,7 +44,7 @@ def main():
     wl = set(rules.get('root_whitelist', [])) | set(rules.get('canonical_dirs', {}).keys()) | {'.git'}
     # 白名单 = 根文件白名单 ∪ 规范目录（规范目录在 structure.json 的 canonical_dirs 里声明）
     known = rules.get('known_violations', [])
-    blocking, knownhit = [], []
+    blocking, knownhit, warnings = [], [], []
 
     # ① 根目录白名单
     for name in sorted(os.listdir(ROOT)):
@@ -67,15 +67,21 @@ def main():
                 (knownhit if kv else blocking).append((where, rel, kv))
 
     # ③ git 边界：.gitignore 是否覆盖 must_ignore
-    gi = os.path.join(ROOT, '.gitignore')
-    if os.path.exists(gi):
-        gitxt = io.open(gi, encoding='utf-8', errors='replace').read().replace('\\', '/')
-        miss = [p for p in rules.get('git_boundary', {}).get('must_ignore', [])
-                if p.rstrip('/') not in gitxt]
-        if miss:
-            blocking.append(('gitignore', 'missing: ' + ', '.join(miss), None))
-    else:
-        blocking.append(('gitignore', '.gitignore 不存在', None))
+    # **行为级**校验（2026-10-17 修：原为文本子串匹配 ⇒ 行内注释导致规则失效却仍判"通过"）
+    #   逐项用 `git check-ignore` 实测：rc=0 才算真的被忽略。
+    import subprocess as _sp
+    miss = []
+    for pat in rules.get('git_boundary', {}).get('must_ignore', []):
+        probe = pat.rstrip('/')
+        if probe.startswith('*'):
+            probe = 'probe' + probe.lstrip('*')
+        if not probe:
+            continue
+        rc = _sp.run(['git', 'check-ignore', '-q', probe], cwd=ROOT).returncode
+        if rc != 0:
+            miss.append(pat)
+    if miss:
+        blocking.append(('gitignore', '行为级未生效: ' + ', '.join(miss), None))
 
     # ④ 命名规范：scripts/ 下的"过程名"脚本（一次性脚本应在 work/）
     sc = os.path.join(ROOT, 'scripts')
@@ -89,6 +95,25 @@ def main():
                     (knownhit if kv else blocking).append(('naming', rel, kv))
                     break
 
+    # ⑤ 配额告警（**非阻断**，只提示；超线动作见 structure.json 的 quotas.action）
+    for name, q in (rules.get('quotas', {}) or {}).items():
+        if name.startswith('_') or not isinstance(q, dict):
+            continue
+        base = os.path.join(ROOT, name)
+        if not os.path.isdir(base):
+            continue
+        tot = 0
+        for r2, _d, fs in os.walk(base):
+            for f2 in fs:
+                try:
+                    tot += os.path.getsize(os.path.join(r2, f2))
+                except Exception:
+                    pass
+        mib = tot / 1048576
+        lim = q.get('warn_mib') or (q.get('warn_gib', 0) * 1024)
+        if lim and mib > lim:
+            warnings.append('%s = %.0f MiB > 红线 %.0f MiB ⇒ %s' % (name, mib, lim, q.get('action', '')))
+
     print('check_structure: 根白名单 %d 项 · 禁则 %d 条 · 已知待清 %d 类' % (len(wl), len(rules.get('forbidden', [])), len(known)))
     if show_all and knownhit:
         print('\n[known] 已知待清（不拦推送）：')
@@ -99,6 +124,10 @@ def main():
                 continue
             seen.add(key)
             print('   %-58s → %s' % (key[:58], (kv or {}).get('plan', '')))
+    if warnings:
+        print('\n⚠ 配额告警（非阻断）：')
+        for w in warnings:
+            print('   ' + w)
     if blocking:
         print('\n❌ 新违规 %d 条（不在白名单、也不在已知待清）：' % len(blocking))
         for where, rel, _kv in blocking[:40]:

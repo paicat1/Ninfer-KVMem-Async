@@ -233,28 +233,30 @@
   "git_boundary": {
     "_doc": "git 边界：哪些必须入库、哪些必须忽略（由 check_structure.py 校验 .gitignore 覆盖）",
     "must_ignore": [
-      "work/",
-      "_trash/",
-      "_safety_backups/",
-      "logs/",
-      "models/",
-      "engine/",
-      "engine-src/",
-      "official-repo/",
-      "refs/",
+      "*.pyc",
       ".temp/",
       "__pycache__/",
-      "*.pyc"
+      "_safety_backups/",
+      "_trash/",
+      "engine-src/",
+      "engine/",
+      "logs/",
+      "models/",
+      "official-repo/",
+      "refs/",
+      "work/"
     ],
     "must_track": [
-      "docs/",
-      "scripts/",
-      "patches/",
-      "build/",
-      "structure.json",
-      "engine_registry.json",
       "README.md",
+      "build/",
+      "docs/",
+      "engine_registry.json",
+      "evidence/",
       "ninfer_launcher.py",
+      "patches/",
+      "retired/",
+      "scripts/",
+      "structure.json",
       "启动器.bat"
     ]
   },
@@ -262,7 +264,8 @@
     "_doc": "体量红线（超线即入每周审计告警）",
     "logs": {
       "warn_mib": 500,
-      "action": "滚动保留 14 天"
+      "action": "滚动保留 14 天（**停服时执行**）",
+      "current_mib": 690
     },
     "_safety_backups": {
       "warn_gib": 8,
@@ -310,5 +313,19 @@
     "hash_cache+lineage": "二进制（sha 查重 + 谱系副本）",
     "recycle_bin": "近期删除（可恢复）",
     "_safety_backups": "删前副本（30 天）"
+  },
+  "agent_owned": {
+    "_doc": "**他方所属文件**：提交时**必须跳过**（等其本人攒批 + 用户批准）；由 scripts/commit_scope.py 拦截",
+    "tele": [
+      "docs/TELE审核-*.md",
+      "docs/协作状态-当前待办与交接-*.md",
+      "docs/CB致TELE-*.md",
+      "docs/审核-*.md",
+      "docs/复核-*.md"
+    ],
+    "cli": [
+      "docs/*CodeBuddyCLI*.md",
+      "docs/实验-*-预登记-CodeBuddyCLI-*.md"
+    ]
   }
 }

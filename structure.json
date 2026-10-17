@@ -1,7 +1,7 @@
 {
   "_doc": "目录结构规则（机器可读）。check_structure.py 读本件做门禁；人读说明见 docs/规范-目录结构与文件归置-CB-20261017.md",
   "_version": "1.0",
-  "_updated": "2026-10-18（铁律A 下划线目录管制 + 铁律B 删除前规则遍历）",
+  "_updated": "2026-10-18（配额层改：超线只告警不阻断，禁止为过闸而删证据）",
   "root_whitelist": [
     ".gitignore",
     "LICENSE",
@@ -338,7 +338,8 @@
     "logs": {
       "warn_mib": 500,
       "action": "滚动保留 14 天（**停服时执行**）",
-      "current_mib": 690
+      "current_mib": 690,
+      "_evidence_note": "2026-10-18：logs 是运行证据（含自然长谷原始记录，旧引擎日志已不可得 ⇒ 现有即唯一）。超线只告警、不阻断；**禁止为过闸而删**。仅按保留期滚动，且滚动走 delete_manifest。"
     },
     "_safety_backups": {
       "warn_gib": 8,

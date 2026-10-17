@@ -416,7 +416,25 @@ if (Test-Path $modeP) {
 if (-not $tierShow) { $tierShow = "(未配置)" }
 Write-Output ("mode: tier=" + $tierShow + "（MODE.json 改于 " + (Get-Item $modeP).LastWriteTime.ToString("MM-dd HH:mm") + "）")
 }
-if ($quotaFail -eq 1) { exit 1 }
+# 2026-10-18 修（设计病）：配额超线【不再直接阻断】—— 那会把"体量观察值"变成逼人删证据的闸。
+# 规则：超线 ⇒ 醒目告警 + 记审计件；仅当"超线 且 已过该目录保留期仍未清理"才阻断。
+if ($quotaFail -eq 1) {
+    $nowD = Get-Date
+    $overdue = 0
+    foreach ($q2 in @(@("logs", 14), @("_safety_backups", 30))) {
+        $dn2 = $q2[0]; $keep = $q2[1]
+        $dir2 = Join-Path $PSScriptRoot ("..\" + $dn2)
+        if (-not (Test-Path $dir2)) { continue }
+        $oldest = Get-ChildItem $dir2 -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -First 1
+        if ($oldest -and (($nowD - $oldest.LastWriteTime).TotalDays -gt $keep)) { $overdue++ }
+    }
+    if ($overdue -gt 0) {
+        Write-Output ("BLOCKED[quota]: 超线且已过保留期仍未清理（" + $overdue + " 项）=> 按保留规则滚动") 
+        exit 1
+    } else {
+        Write-Output "WARN[quota]: 超线但未过保留期 => 只告警，不阻断（禁止为过闸而删证据）"
+    }
+}
 # ===================== QUOTA-GATE END ======================
 
 

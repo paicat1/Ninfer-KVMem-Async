@@ -118,7 +118,7 @@ def load_confession_template():
             return io.open(TPL_PATH, encoding='utf-8').read().strip()
     except Exception:
         pass
-    return '> 我认错。违规事实与根因如下（机器检出，非自报）；本地模板缺失时退回本句，机制不静默失效。'
+    return '> **违规确认**：以下事实由守卫机器检出（非自报）。本地模板缺失时退回本句，机制不静默失效。'
 
 
 def detect():

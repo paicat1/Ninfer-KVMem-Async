@@ -2582,6 +2582,8 @@ infer-serve.exe` **分时段**：08:03–08:09（onoff/liveclk）＝**step3b**�
 | 13 | **谷机制下一步实验设计**（基于 A-B-A 非图因判决 + host 停摆定性） | ⏸ 待用户/TELE 定向（候选：施压轮内 host 提交路径插桩 / 带符号件复跑 250 级抓函数名） |
 | 14 | 09:40:30 第三态定性（满频型假阳性 152.5W） | ⏸ 承 §121，性质待分析 |
 | 15 | logwatch 组合判据（clk 满频 + pow 60–100W + decode<60） | ⏸ 承 §121，待批 |
+| 16 | **aba_arm.ps1 两缺陷**（stalled 检测串恒 0 命中 ⇒ 台账字段失真；TELE 首轮建议项） | ⏸ work 区本地件不入库；修复待下轮实验需要时一并做（判 verdict 以 ee 台账为准） |
+| 17 | **带符号构建预登记**（TELE 定向①：Release+PDB /Zi 抓现场专用件，落五偏移函数名） | 🟡 预登记落纸中 → TELE 审 → 用户批 → 执行 |
 
 ---
 
@@ -3439,3 +3441,13 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **解决了什么**：C1/C2 提交前置全清（TELE 照批 + 2 附注收编：C1 message 补点名 Copy-Item 守卫组、C2 描述修正 §120-123 + 补 §11.3）；TELE 五-6 记录补全 6 项全部落地。
 - **新发现**：check_refs 实跑 rc=1 首次复现在 GBK 控制台崩于 `UnicodeEncodeError`（打印 ❌ 字符）——非断链本身，`-X utf8` 绕过；断链 15 条与 TELE 逐条一致。
 - **新挂账**：① logwatch 22 案卷目录入库（TELE 裁"按惯例入库"，~11MB，去冗可选）② CASE_LOCKED.json 释放待用户确认 ③ promote_from_temp 修复后未实测回归（下次 promote 时验证）④ logs 716 MiB / work 4.3 GiB 超线（受保护只告警，QUOTA-GATE 已知）。
+
+### 125. 【★★ 现役件源码链固化：step13 增量双保险 + 重建保证实证 + build 目录疑云闭环】（2026-10-18 14:0x）
+
+- **数字**：用户质问"build 目录被清/能保证完全重建？"——全程取证闭环：① build 目录两处删除均系**历史批准轮**（10-12 解耦轮〔bundle 归档 safety_backups〕+ 10-17 00:30 T1 清理轮〔用户批 + 安全 shim 进回收站 54.73 GiB，挂账"待用户决定"在案〕），非本轮、非偷删；回收站现存仅 3.4 GB 散件，54.73 GiB 已被清空——构建史无清空记录，疑 Windows 存储感知自动清（无法归因到具体方，如实记）。② **源码零损失实证**：本仓自持源码树 `engine-src`（分支 `line-coder390`）HEAD=`f0ecab0`（S12-internal v2）+ 4 文件未提交增量（+71/-40，与 MANIFEST step13"four fixed layers; slots 12->26"逐项吻合）= 现役件完整源码链；历代锚 `35173e0`/`ee8f0ce`/`e3d9c26`/`f0ecab0` 经 `git cat-file` 全部存在（首轮在 Bonsai-Official 侧 clone 查为 MISSING 系查错树，本仓自持树才是真锚）。③ **固化执行（用户批"先做完再等我指示"）**：engine-src commit **`be2c0f9`**（4 文件，工作区清零）+ patch 双保险 `patches\i3b_s12v3_fourlayer.patch`（16,062 B 归位 patches/）；预登记 §2/§3.1/§4 更新（R1 补丁复现风险**降级为已消除**）。
+- **阶段**：谷攻关 · 带符号构建前置（源码链固化 + 重建可行性钉死）。
+- **原因**：用户质疑重建保证 ⇒ 强制把"可重建"从口头变证据；顺带暴露 step13 增量仅存于未提交工作区的**单点丢失风险**（已消除）。
+- **Δ 对基线**：engine-src +1 commit（be2c0f9）；patches/ +1（s12v3 补丁归位，补丁链 19→20 件）；预登记 R1 消除——带符号构建的前置不确定性只剩 R2 编译器版本漂移（10-15 构建日志随 .temp 被删、无版本对照锚，落名结果 sanity check 兜底）。
+- **解决了什么**：build 目录疑云闭环（两次删除均有台账、批准链完整、判档 T1"可重建"成立）；现役件源码链从"工作区裸奔"到"双 commit + patch 三重固化"；带符号构建预登记达到可执行状态。
+- **新发现**：① auto-archive tag 内嵌源码 commit hash（`auto_YYYYMMDD_HHMMSS_<hash>`）是 lineage 台账的隐藏溯源机制——本次靠它把每版 exe 反查到源码 commit；② Bonsai-Official 侧 clone 与本仓自持树 `engine-src` 是两棵树，查源码锚必须查对树（首轮查错浪费一轮）。
+- **新挂账**：① engine-src `be2c0f9` 未推送（自持树独立仓无远程——patch 已入库本仓即有异地副本，若需 git 级异地再议）② 带符号构建待 TELE 审预登记 + 用户批点火 ③ CASE_LOCKED 释放待用户 ④ 回收站自动清空风险（Windows 存储感知）待查开关状态并向用户报告。

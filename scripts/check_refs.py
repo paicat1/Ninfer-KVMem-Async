@@ -24,6 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTS = ('.ps1', '.bat', '.cmd', '.py', '.json')
 SKIP_DIRS = {'.git', '.temp', '_trash', 'build', 'node_modules', '__pycache__', 'logs', 'models',
              'archive',   # archive/ = 历史归档，允许引用旧路径（不参与门禁）
+             'safety_backups',   # safety_backups/ = 改前快照（T-BACKUP），同 archive 豁免：快照引用历史路径是快照的本义
              'engine-src', 'official-repo', 'refs'}   # vendored 第三方源码树：其相对路径指它们自己的树
 ABS = re.compile(r'J:\\ninfer-kvmem\\([^\s"\'`<>|*?]+)')
 REL = re.compile(r'(?<![\w:\\])(engine|scripts|docs|patches|baselines|tools)\\([^\s"\'`<>|*?]+)')

@@ -1,0 +1,13 @@
+{
+  "case": "case_20261018_124615_logwatch",
+  "time": "10-18 12:46:18",
+  "prohibit": [
+    "NO restart",
+    "NO config change",
+    "NO pressure injection",
+    "NO cache clear"
+  ],
+  "release_by": "user only",
+  "dir": "evidence\\cases\\case_20261018_124615_logwatch",
+  "channel": "logwatch"
+}

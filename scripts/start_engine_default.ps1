@@ -56,8 +56,11 @@ Write-Host ('   池 = ' + $Pool + ' · Graph = ' + $Graph + ' · Spec = mtp · K
 Write-Host ('   日志 = ' + $log)
 
 # ★ 前台执行并捕获输出（禁止后台 —— 后台会丢错误）
+# ★ 2026-10-18 修：-Exe 必须传**相对路径**（engine_ctl L239 Join-Path $root $Exe 拼根；
+#   传绝对路径会拼出 J:\...\J:\... ⇒ GetFullPath "path's format is not supported" 起服失败）
+$srcRel = 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
 $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $ctl -Action start `
-        -Exe $src -Tag $Tag -Pool $Pool -Graph $Graph -Spec mtp -KvDtype rk2v4-e8 2>&1
+        -Exe $srcRel -Tag $Tag -Pool $Pool -Graph $Graph -Spec mtp -KvDtype rk2v4-e8 2>&1
 $rc = $LASTEXITCODE
 $out | ForEach-Object { Write-Host ('   | ' + $_) }
 if ($rc -ne 0) { Write-Host ('❌ engine_ctl start rc=' + $rc + ' ⇒ 停下（不轮询）') -ForegroundColor Red; exit $rc }

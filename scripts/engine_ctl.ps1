@@ -50,6 +50,8 @@ param(
 
     [int]$Graph = 64,
 
+    [switch]$NoGraph,            # 2026-10-18 加：真关图臂（--no-cuda-graph；allowance=0 只是"引擎自算预算"图照开，两者互斥拒启——源码 serve_options.cpp L1166）
+
     [string]$Spec = 'mtp',
 
     [string]$KvDtype = 'rk2v4-e8',
@@ -232,7 +234,10 @@ if (-not (Test-Path $dllDir)) { throw ('DLL 目录缺失（引擎无法启动）
 
 $runExe = Join-Path $dllDir 'ninfer-serve.exe'   # ★ 必须是**字面名**（进程名跟着 exe 名 ⇒ 存活检查才看得见）
 
-Copy-Item $Exe $runExe -Force
+# 2026-10-18: -Exe 与 runExe 同路径时跳过复制（T#0054 ③"自己复制自己"IOException 原坑修复；
+# 现役件本身就住在 self-built-20261008\，起服现役配置必须允许同路径）
+$exeFull = [System.IO.Path]::GetFullPath((Join-Path $root $Exe))
+if ($exeFull -ne $runExe) { Copy-Item $Exe $runExe -Force }
 
 Set-Content -Path (Join-Path $runDir 'VARIANT.txt') -Encoding ascii -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + '  from=' + $Exe + '  tag=' + $Tag + '  depth=' + [string]$Depth)   # 记录仍留 test-run
 
@@ -356,6 +361,17 @@ $cliArgs = @(
     '--recover-invariant-failures'
 
 )
+
+if ($NoGraph) {
+    # 2026-10-18: 真关图臂——去掉 allowance 旗（与 --no-cuda-graph 互斥拒启，serve_options.cpp L1166）并追加关图旗
+    $kept = @()
+    for ($i = 0; $i -lt $cliArgs.Count; ++$i) {
+        if ($cliArgs[$i] -eq '--cuda-graph-allowance-mib') { ++$i; continue }
+        $kept += $cliArgs[$i]
+    }
+    $cliArgs = @($kept) + @('--no-cuda-graph')
+    Write-Output 'knob: graph OFF (--no-cuda-graph; allowance flag removed)'
+}
 
 if ($Spec -eq 'none') {
 

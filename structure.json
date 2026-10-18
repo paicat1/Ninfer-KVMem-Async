@@ -14,6 +14,7 @@
     "ninfer_launcher_profiles.json",
     "serve_tee.py",
     "smart_push.ps1",
+    "log_verify.ps1",
     "structure.json",
     "启动器.bat",
     "safety_backups"

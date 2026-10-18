@@ -94,3 +94,6 @@ retired/**/*.step*
 
 # 运行态值守记录（同 logs 逻辑：留盘不入库）
 evidence/heartbeat/
+
+# local-only 工具（structure.json local_only_tools.files 登记，不入库）—— 2026-10-18 TELE 裁决
+scripts/analyze_b_etl.py

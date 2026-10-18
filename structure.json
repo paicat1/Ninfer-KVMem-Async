@@ -1,7 +1,7 @@
 {
   "_doc": "目录结构规则（机器可读）。check_structure.py 读本件做门禁；人读说明见 docs/规范-目录结构与文件归置-CB-20261017.md",
   "_version": "1.0",
-  "_updated": "2026-10-18（配额层改：超线只告警不阻断，禁止为过闸而删证据）",
+  "_updated": "2026-10-18（promote_from_temp: analyze_b_etl.py -> local）",
   "root_whitelist": [
     ".gitignore",
     "LICENSE",
@@ -433,7 +433,8 @@
       "scripts/engine_ctl.ps1",
       "ninfer_launcher.py",
       "scripts/start_watch.ps1",
-      "scripts/delete_manifest.py"
+      "scripts/delete_manifest.py",
+      "scripts/analyze_b_etl.py"
     ],
     "headless_allowed": [
       "vram_hold.exe",
@@ -464,7 +465,7 @@
     "_note": "；2026-10-18 起标题统一为 WATCH-XXX [running]（start_watch.ps1 唯一起服入口），此处同步更新；2026-10-18 新增 sanctioned 入口 scripts/start_watch.ps1（值守层唯一起服入口：四工具统一标题/自解析 python/幂等/验活）"
   },
   "local_only_tools": {
-    "_doc": "只在本机执行、不入版本控制的工具（2026-10-17 用户令）。**引用它们不算断链**（optional reference）；仓级门禁的本地层在工具缺失时整段跳过并明示。",
+    "_doc": "只在本机执行、不入版本控制的工具（2026-10-17 用户令）。**引用它们不算断链**（optional reference）；仓级门禁的本地层在工具缺失时整段跳过并明示。形态固定为 dict（2026-10-18 修：promote_from_temp 曾误写为 list 致 check_refs 豁免集静默清空，check_refs 现已兼容两种形态防再犯）。",
     "reason": "这些是纪律执行件与本机实验值守，不是仓级规范；避免把个人规则强加给协作者",
     "files": [
       "scripts/bypass_guard.py",
@@ -481,7 +482,8 @@
       "scripts/valley_hunter.ps1",
       "scripts/valley_logwatch.py",
       "scripts/window_watch.py",
-      "scripts/count_watch.py"
+      "scripts/count_watch.py",
+      "scripts/analyze_b_etl.py"
     ]
   },
   "underscore_dirs": {
@@ -551,7 +553,7 @@
     "_why": "2026-10-18 事故：① 反复起实验进程不关（残留 3 个管理员窗 + tracerpt 写 5.8 GB 废 CSV）；② 等待设计成\"等 18 分钟\"，第一次检查就发现错了也不停 ⇒ 用户判为\"假装负责、实际逃避\"。",
     "C_poll_cap_30s": "**轮询上限严禁超过 30 秒**（用户 2026-10-18 令）。超过 30 秒仍未完成 ⇒ **必须停下并给出\"要继续轮询的理由\"**，否则中止。⇒ 与 B 条配套：B 定\"等待≤预计+5秒\"，C 定\"绝对上限 30 秒\"。",
     "_why_C": "2026-10-18 事故：起引擎时我把轮询写成 150 秒上限（实测启动仅 10–15 秒）⇒ 白等；且失败路径没有早停判据 ⇒ 用户看到\"一直转\"。",
-    "D_valley_criteria": "**谷判据按通道写死、跨通道数值不可互换**（2026-10-18 统一 v5）：① 探针通道（valley_hunter.ps1 · a2gate 单请求口径；健康 160–170）：观测级 decode<100（只记录不冻结）/ 立案级 decode<60 + 辅证 power<thr_rel（近 3 拍≥2 拍）+ 连续 3 拍（物理时间，≤180s 续接；warmup=引擎启动<2min）⇒ 冻结现场+写锁；② 日志通道（valley_logwatch.py · 引擎 5s 窗口径，running≥1；健康 ~40）：立案级 decode<60 + 连续 3 行（≤6s，done 行重置）——**其 60 与探针 60 同名不同义，换算关系待标定（挂账）**；③ 轮级交叉（reqlog host/round；健康 26–35ms）：>500ms 只作观测/交叉验证。**GPU util 永不单独作判据（健康时也 99%）；功耗只作辅证**。",
+    "D_valley_criteria": "**谷判据按通道写死、跨通道数值不可互换**（2026-10-18 统一 v5 + 10:12 标定回写）：① 探针通道（valley_hunter.ps1 · a2gate 单请求口径；健康 160–170）：观测级 decode<100（只记录不冻结）/ 立案级 decode<60 + 辅证 power<thr_rel（近 3 拍≥2 拍）+ 连续 3 拍（物理时间，≤180s 续接；warmup=引擎启动<2min）⇒ 冻结现场+写锁；② 日志通道（valley_logwatch.py · 引擎 5s 窗口径，running≥1；健康 ~100，v5 原文 ~40 系旧观测已更正）：立案级 decode<60 + 连续 3 行（≤6s，done 行重置）——**与探针通道换算已标定（2026-10-18 10:12，n=2 窗）：≈0.53×（probe 187 ↔ 窗 100）**；③ 轮级交叉（reqlog host/round；健康 26–35ms）：>500ms 只作观测/交叉验证。**GPU util 永不单独作判据（健康时也 99%）；功耗只作辅证**。",
     "_why_D": "2026-10-18 统一：交接件曾写\"真谷=decode<100 或 host/round>500ms\"（观测级）与预登记 v4.1\"decode<60+功耗+3拍\"（立案级）两套并存；另有 5s 窗与单请求两个 decode 口径差约 4 倍（健康 ~40 vs 160–170）。统一为\"分级+分通道\"，运行逻辑零改动；全文留痕见 预登记件 §12。"
   }
 }

@@ -37,7 +37,19 @@ def _local_only():
     """只在本机、不入库的工具（structure.json: local_only_tools）—— 引用它们不算断链。"""
     try:
         j = json.load(io.open(os.path.join(ROOT, 'structure.json'), encoding='utf-8'))
-        return set(x.replace('/', os.sep) for x in j.get('local_only_tools', {}).get('files', []))
+        v = j.get('local_only_tools', {})
+        # 兼容两种形态（2026-10-18 修：promote 工具曾把它写成 list，按 dict 读会 AttributeError
+        # → except → 豁免集静默清空）：dict 带 files / list（元素为 dict 带 files 或纯字符串）
+        names = []
+        if isinstance(v, dict):
+            names = v.get('files', [])
+        elif isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict):
+                    names.extend(item.get('files', []))
+                elif isinstance(item, str):
+                    names.append(item)
+        return set(x.replace('/', os.sep) for x in names)
     except Exception:
         return set()
 

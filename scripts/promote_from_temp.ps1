@@ -42,11 +42,13 @@ $rel = 'scripts/' + $Name
 $txt = [System.IO.File]::ReadAllText($dst).ToLower()
 $hasSpawn = ($txt -match 'start-process|subprocess\.(popen|run)|os\.system')
 if ($As -eq 'repo') {
-    # 入库：从 local_only_tools 里移除（若在），并确保不被 ignore
-    if ($sj.local_only_tools -contains $rel) { $sj.local_only_tools = @($sj.local_only_tools | Where-Object { $_ -ne $rel }) }
+    # 入库：从 local_only_tools.files 里移除（若在），并确保不被 ignore
+    # ★ 2026-10-18 修：local_only_tools 是 dict（files 数组），此前对 dict 本体 -contains/+@()
+    #   会把它写成 list ⇒ check_refs 豁免集静默清空（TRAPS 级坑，已双端修复）
+    if ($sj.local_only_tools.files -contains $rel) { $sj.local_only_tools.files = @($sj.local_only_tools.files | Where-Object { $_ -ne $rel }) }
     Write-Output '  ② 登记为仓级件（入库）'
 } else {
-    if ($sj.local_only_tools -notcontains $rel) { $sj.local_only_tools = @($sj.local_only_tools) + @($rel) }
+    if ($sj.local_only_tools.files -notcontains $rel) { $sj.local_only_tools.files = @($sj.local_only_tools.files) + @($rel) }
     Write-Output '  ② 登记为本地件（local_only_tools）'
 }
 if ($hasSpawn) {

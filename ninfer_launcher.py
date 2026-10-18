@@ -14,7 +14,7 @@
 沿革：本文件最初为前序 Bonsai 线所写；2026-10-09（P0）迁移到 Coder390，2026-10-10 按用户裁决
       清除全部 Bonsai 口径（档位 / 脚本 / UI 文本），本线不再保留任何 Bonsai 引用。
 
-==== 2026-10-18 真实性整改（整改记录 #0064/#0065 · 用户令"全部整改/整理正确启动器"）====
+==== 2026-10-18 真实性整改（用户令"全部整改/整理正确启动器"）====
 背景：启动器展示层四类失信被用户逐层揭穿——① 引擎标签写死"现役(20261008)"与实际内容
       （10/15 S13 件，= lineage/I3b_step13 同 sha 322A972D）长期脱节；② registry 8 条中
       2 条（v2_27dc746 / V2+overlay64K）指向的 _safety_backups/exe_lineage_20261013/
@@ -22,9 +22,10 @@
       8 条）且选不到时静默 fallback；④ 进程探测只认进程名（生产件/sym 实验件同名，下午
       15:47-16:17 sym 废件冒充生产件绿灯，用户被界面欺骗近 1 小时）。
 整改（本版）：engine_display 每条附**文件实况**（mtime+大小；件不存在=显式⚠，不再静默）；
-      进程探测明示"进程名分辨不了件"+权威源指向；ENGINE_OPTIONS 勘误为死常量。
-未做（挂账待后续）：sha 级实时指纹（1.27GB 全文件哈希开销大，mtime+size 为当前真实层）；
-      GUI 下拉死项置灰（当前=⚠文案+起服护栏 _exe_guard 双提示，可选中但会被拦，不再欺骗）。
+      进程探测明示"进程名分辨不了件"+权威源指向。
+未做（挂账待后续）：sha 级实时指纹（1.27GB 全文件哈希开销大，mtime+size 为当前真实层）。
+2026-10-19：死项一律**删除**不做置灰——ENGINE_PREV（目录不存在）与 ENGINE_OPTIONS（全文无引用）
+      两个死项已删除；registry 现存 6 条经路径实测全部存活。
 """
 
 import json
@@ -51,20 +52,19 @@ ENGINE_DIR  = os.path.dirname(ENGINE)
 # 2026-10-17 恢复：本行原指向 engine\self-built-20261008\ninfer-serve.exe；该文件被误删后我先改成谱系件，
 #   但**正确修法是恢复文件**（已用同 sha 的 lineage\G2_default_depth1.exe 逐字节拷回）⇒ 指针一并改回原路径，行为不变。
 ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（已恢复）
-ENGINE_PREV = os.path.join(ROOT, "engine", "self-built", "ninfer-serve.exe")           # 前序回退锚（20261003）——P0 实测：本线 engine\ 下**无** self-built\ 目录，此路径**不存在**（GUI 选中会给出"未找到引擎"提示，不会崩）
+# ENGINE_PREV（engine\self-built\ninfer-serve.exe）已于 2026-10-19 删除：该目录本线不存在，属死项；
+# 按用户令死项一律删除、不做置灰。
 # 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
 #   · self_prev（engine\self-built\ninfer-serve.exe）—— **该目录本线不存在**，选中只会报"未找到引擎"（死项）；
 #   · official（engine\ninfer-serve-120a.exe）—— 文件在，但 P0b 已裁定本线统一用 self-built：
 #     它含 Design C（思考停止强制进 answer）而官方件没有 -> 行为路径不同，混用污染 A/B 对照；
 #     且官方件是否支持 rk2v4-e8 / --spec mtp 从未验证（选了可能是第二个坑）。
-#   ENGINE / ENGINE_PREV 两个常量保留（供将来临时改回或命令行引用），只是不再进下拉。
-# 2026-10-18 整改注记（整改记录 #0064/#0065）：本常量定义后**全文无人引用**
+#   ENGINE_PREV 与 ENGINE_OPTIONS 均为死项，2026-10-19 已删除；ENGINE 保留（供 ENGINE_DIR 取 engine\ 根）。
+# 2026-10-18 注记：本常量定义后**全文无人引用**
 # （实际下拉来源 = engine_registry，见 load_engine_registry/_registry_seed）——原注释
 # "下拉只留自编现役一项"与实际（registry 4 条）不符，属失信描述，已在此勘误。
 # 保留仅为历史锚，禁止再按它的注释做判断。
-ENGINE_OPTIONS = {
-    "self": ("自编·现役(20261008)", ENGINE_SELF),
-}
+# ENGINE_OPTIONS 已于 2026-10-19 删除：定义后全文无人引用（实际下拉来源 = engine_registry），属死常量。
 
 # ---------------------------------------------------------------
 # 引擎登记册（2026-10-13 用户令）：重要版本引擎的"标注 + 选择 + 基线对比"。
@@ -78,7 +78,7 @@ ENGINE_REGISTRY_PATH = os.path.join(ROOT, "engine_registry.json")
 
 
 def _registry_seed():
-    # 2026-10-18 修正（整改记录 #0064/#0065 · 用户令"命名/标识全搞正确"）：
+    # 2026-10-18 修正（用户令"命名/标识全搞正确"）：
     #  ① 删 2 条死项（v2_27dc746 / V2+overlay64K：_safety_backups\exe_lineage_20261013\ 目录已不存在，
     #     其中"V2+overlay64K"还是 status=基线=默认选中项——默认选一条死项是连环坑）；
     #  ② 现役 label 是假名："现役(20261008)"取自目录名，实际件是 10-15 部署的 S13
@@ -93,6 +93,7 @@ def _registry_seed():
          "tags": ["首轮极速好", "谷深", "超池500风险(~11%)"],
          "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）；回滚锚",
          "status": "候选", "added": "2026-10-13", "replaced_by": "", "preset": ""},
+    ]
 
 
 def load_engine_registry():
@@ -124,7 +125,7 @@ def engine_display(entry):
     elif status == "已归档":
         bits.insert(0, "已归档")
     suffix = ("｜" + "·".join(bits)) if bits else ""
-    # 2026-10-18 整改（整改记录 #0064/#0065 · 用户令"给我整理正确启动器"）：
+    # 2026-10-18 整改（用户令"给我整理正确启动器"）：
     # 展示必须说真话——旧标签是写死的静态字符串（"现役(20261008)"），
     # 与实际文件内容（10/15 部署的 S13 = lineage step13 同 sha）长期脱节。
     # 现在每条附文件实况：不存在=显式警告；存在=真实 mtime + 大小。
@@ -814,7 +815,7 @@ def env_check():
                            capture_output=True, text=True, timeout=20)
         out = r.stdout.strip()
         lines.append("ninfer-serve 进程: " + (out if out else "(无)"))
-        # 2026-10-18 整改（整改 #0064）：进程名同形冒充事故（下午 sym 废件绿灯冒充生产件）
+        # 2026-10-18 整改：进程名同形冒充事故（下午 sym 废件绿灯冒充生产件）
         # ⇒ 明示"进程名分辨不了件"，权威源=起服日志/CB 当轮报备，不替用户脑补成"生产件在跑"。
         lines.append("  ⚠ 进程名无法分辨具体装载件（生产件/sym 实验件同名）；"
                      "实际件以起服日志（logs\\test_*.log 首行 VARIANT/命令行）或 CodeBuddy 当轮报备为准")

@@ -7,11 +7,11 @@
 #   python tools/backup_file.py <file...> [--label LABEL] [--check] [--list [FILE...]] [--selftest]
 #
 # Behavior:
-#   - backup: byte-level copy into _safety_backups/<stem>_<YYYYMMDD_HHMMSS>[_<label>]<ext>
+#   - backup: byte-level copy into safety_backups/<stem>_<YYYYMMDD_HHMMSS>[_<label>]<ext>
 #   - idempotent: if source sha256 == latest manifest hash for that source -> SKIP
 #     (iron rule "verified-repeat modifications may overwrite old backup" == no
 #     redundant copies; rollback chain preserved, nothing is ever deleted)
-#   - manifest: _safety_backups/backup_manifest.jsonl, one JSON per line
+#   - manifest: safety_backups/backup_manifest.jsonl, one JSON per line
 #     {ts, source, backup_path, sha256, label}; source/backup_path are relative
 #     to repo root. Legacy pre-D2 backups (~622 files) are NOT in the manifest
 #     and NOT checked.
@@ -39,7 +39,7 @@ from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-BACKUP_DIR = REPO / "_safety_backups"
+BACKUP_DIR = REPO / "safety_backups"
 MANIFEST = BACKUP_DIR / "backup_manifest.jsonl"
 
 

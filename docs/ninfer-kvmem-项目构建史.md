@@ -3365,3 +3365,23 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
   ⑥ **b_route_run.ps1 前置检查盲区**（TELE 实锤）：L72–87 探针是 **4-token ping**——07:49:15 "✅ 通过"但随后长请求即 hang ⇒ **短探针测不出"长请求无输出"故障模式**；建议升级（长输出探针 / 查日志尾是否有新 done）。
   ⑦ **施压场景下曾两次伴随引擎故障**（05:02 全停 2h+ · 07:48 长请求 hang；**因果未证、样本小**——07:48 时引擎已在故障期：05:41–07:02 猎人轻探针已全 no decode，属"故障期内操作"非触发；05:02 为时序关联）⇒ 施压路线**保留风险警惕**（实验设计加"施压前长请求探针 + 运行中故障检测"）；"自然谷优先"作**保守选择**（硬理由 = logwatch 修复后具备监测能力 + 无扰动，**非**"施压已被证明危险"）。（2026-10-18 TELE 第二轮校准，采纳）
 - **新挂账**：B 前置裁决（并行 vs 先造谷 vs 等自然谷——倾向"先修捕获通道 + 长观察窗"）· **修 logwatch 日志源（随引擎 Tag 动态解析；非"一行改动"，需实测验证闭环）** · logwatch 5s 窗阈值与探针口径换算标定 · 锁期授权链核对（TELE 07:15 第 1 条）· b_route_run 前置检查升级 · `valley_etl.etl`（4.26 GiB）去向待定（暂保留）· `.temp\analyze_b_etl.py` 归位（脚本禁令：.py 不许住 .temp ⇒ 建议 `promote_from_temp.ps1`，待批）。
+
+### 118. 【日志通道修复：logwatch 动态解析引擎日志】（2026-10-18 09:2x–09:3x）
+
+- **数字**：修复前 logwatch 盯 `logs\test_valleywatch.log`（07:52 停写，失明 1.5 h+）；修复后台账恢复——`09:28:21 logwatch start | log=test_watch.log`；两发探针实测 ⇒ `09:30:02 decode_min=10.8 tok/s (valley)` / `09:30:43 decode_min=61.4 tok/s (ok)`（读到的均为新引擎日志的窗）。
+- **阶段**：谷攻关 · 捕获通道修复（用户令"开修"）。
+- **原因**：08:12 引擎重启换 Tag（valleywatch → watch）后，`valley_logwatch.py` L22 硬编码日志路径 ⇒ 谷捕获通道断（08:13–09:05 慢样本零立案）。
+- **Δ 对基线**：改 3 处（新增 `LOGDIR` + `resolve_log()`；main 启动即解析；循环每 20 s 重解析、切换时 off 重置到新文件尾）；**判据 v2 与运行逻辑零改动**。
+- **解决了什么**：日志源动态解析——取 `logs\test_*.log` 中 mtime 最新、10 分钟内仍在写、尾部含 `throughput |`/`req#` 特征者；解析不到则保持原行为（容错，不改旧行为）。重启后四工具 4/4，验证闭环通过（台账新行）。
+- **新发现**：① 短探针（1.1 s / 40 字符）在 5 s 窗内 running 采样可落 0 ⇒ 被 logwatch 正确忽略（**验证须用跨窗请求**，非缺陷）；② 推送被 `_safety_backups/`（未声明的下划线目录；TELE 清理时新建）拦住——smart_push 要求工作区干净（处置待批）。
+- **新挂账**：`_safety_backups/` 处置（移入 `safety_backups/`，需用户批）· `valley_logwatch.py` 改动待随下次推送入库。
+
+### 119. 【基建修复：_safety_backups 处置执行 + backup_file.py 路径同步】（2026-10-18 09:3x–09:4x）
+
+- **数字**：处置执行（do_move_and_merge.py 一次完成）——`pre-cleanup.md` 移入 `safety_backups/`；1 条 manifest 记录并入正牌台账并修正 backup_path 前缀（附 `_migrated_from`）；旧台账保留改名 `backup_manifest_underscore_20261018.jsonl`；空目录已删（`_safety_backups 存在 = False`）。`tools/backup_file.py` 改 3 处（L10/L14 docstring + L42 `BACKUP_DIR = REPO / "safety_backups"`）→ py_compile OK + SELFTEST PASS（7/7）+ lint 0；改前版留档 `safety_backups\backup_file_20261018_pre-path-fix.py`。git status 不再显示 `?? _safety_backups/`。
+- **阶段**：谷攻关 · 基建修复（用户批准"批准_safety_backups\ 两文件移入 safety_backups\ + 改 backup_file.py 路径？"）。
+- **原因**：2026-10-18 改名令（`_safety_backups` → `safety_backups`）后，`backup_file.py` L42 写死旧名未同步 ⇒ 每跑一次备份工具就复活 `_safety_backups/`（TELE 今晨清理产物恰好落入）⇒ 工作区不干净 ⇒ smart_push 被拦（SDA #0050）。
+- **Δ 对基线**：备份工具目标目录与改名令对齐（manifest / docstring 同步 3 处）；备份台账并轨为 `safety_backups\backup_manifest.jsonl`（13 行）；selftest fixture 内部目录名不动（临时目录内，与仓库路径无关）。
+- **解决了什么**：备份链路恢复一致——工具不再复活下划线目录，台账账实同处一地；推送路障（工作区不净）根因消除。
+- **新发现**：`safety_backups\backup_manifest.jsonl` 正牌台账 12 条旧记录的 backup_path 仍指向 `_safety_backups/...`（改名时只挪了目录、没改台账）⇒ `--check` 全量校验会 12 条 missing 断链。修正已获用户批准并执行（"全部批准"，09:5x）：12 条 backup_path 前缀改 `safety_backups/`（各附 `_migrated_from`），另加 1 条 pre-12-fix 台账备份记录（用修复后的工具跑通，端到端验证新路径）⇒ `CHECK PASS (14 record(s))`。
+- **新挂账**：口径修正——`valley_logwatch.py` 属值守四件（.gitignore L74-84 有意不入库），不随推送入库，回滚锚点 `safety_backups\valley_logwatch_20261018_pre-log-source-fix.py`；TELE C8 审核件与 manifest 断链修正均已获批准闭环（随本次 commit 入库）。

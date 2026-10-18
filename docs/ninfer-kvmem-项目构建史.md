@@ -3451,3 +3451,13 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **解决了什么**：build 目录疑云闭环（两次删除均有台账、批准链完整、判档 T1"可重建"成立）；现役件源码链从"工作区裸奔"到"双 commit + patch 三重固化"；带符号构建预登记达到可执行状态。
 - **新发现**：① auto-archive tag 内嵌源码 commit hash（`auto_YYYYMMDD_HHMMSS_<hash>`）是 lineage 台账的隐藏溯源机制——本次靠它把每版 exe 反查到源码 commit；② Bonsai-Official 侧 clone 与本仓自持树 `engine-src` 是两棵树，查源码锚必须查对树（首轮查错浪费一轮）。
 - **新挂账**：① engine-src `be2c0f9` 未推送（自持树独立仓无远程——patch 已入库本仓即有异地副本，若需 git 级异地再议）② 带符号构建待 TELE 审预登记 + 用户批点火 ③ CASE_LOCKED 释放待用户 ④ 回收站自动清空风险（Windows 存储感知）待查开关状态并向用户报告。
+
+### 126. 【★★ 带符号构建点火成功：sym 件+PDB 落地（BUILD-EXIT=0 / 65.8 min）+ 三坑配方实证】（2026-10-18 14:2x–15:3x）
+
+- **数字**：TELE 前置核验通过（`docs\审核-重建保证与带符号构建前置核验-TeleAgent-20261018.md`：四问直答全绿+§3.2 须修 1 处）→ 用户令"收敛一致且安全就动工"→ §3.2 修正（补丁已含树内改核验式）→ **点火冷编**：`work\20261018\build_sym.ps1`（树守卫 be2c0f9/0 脏 → VsDevShell → configure → /Zi 缓存 grep 门 → ninja build → 产物三处归位）——**前 3 次失败 3 个坑全部实证修复**：① nvcc 默认选 `HostX86` cudafe++ ⇒ 探测崩 0xC0000005（修=钉 `-DCMAKE_CUDA_HOST_COMPILER`=14.43 x64 + `CUDAHOSTCXX`）② `Launch-VsDevShell` **默认 x86 工具链**（PATH cl=HostX86/x86；修=`-Arch amd64 -HostArch amd64`）③ FFMPEG 缺失（修=`VCPKG_ROOT=J:\vcpkg`+`x64-windows` 预构建树〔Dependencies.cmake L16-19 配方〕）。**第 4 次全绿**：configure 8.2 s（FFMPEG/CURL 命中、**/Zi 入缓存 grep 确认**）→ ninja 1065/1065 **BUILD-EXIT=0 wall=65.8 min**（超 TELE 60 min 止损 5.8 min，cicc 满载活性全程确证〔CPU 618→2076→3000+s〕非挂死）→ **SYM-OK**：`engine\self-built-20261008\ninfer-serve-sym.exe`（1,575,537,152 B）+ `ninfer-serve-sym.pdb`（121,155,584 B）+ `pdb_archive\ninfer-serve-sym_20261018.pdb`（三处一致 MATCH=True）。生产件**未动**（1,333,820,928 B / mtime 10-15 23:48 原封）、生产引擎健康（pid 11528 图就绪 2.1s）。**cl 版本勘误**：TELE 探针 14.44.35207 系 Community 侧；BuildTools 实际 14.43.34808（与历史构建同版）⇒ R2 漂移=0。
+- **阶段**：谷攻关 · 抓现场专用件落地（预登记 §3.1-3.5 完成；§3.6 冒烟待锁）。
+- **原因**：5 偏移落函数名是"谷机制下一轮"的靶子前置（TELE 定向①）。
+- **Δ 对基线**：新增 sym 件+PDB 三处（唯一损失=65.8 min 机时）；预登记 §3.2/§3.3 修订+三坑配方入档（重建复现锚）；编译树唯一性+T-NO-FOREIGN-WRITE 显式化（f44b4f4）。
+- **解决了什么**：TELE §3.2 须修项闭环；符号件从"无 pdb"到"116 MB 全符号"；上游仓零写入（T-NO-FOREIGN-WRITE 全程守住）。
+- **新发现**：① `Launch-VsDevShell` 无参默认 x86 工具链（对 64 位项目是隐形坑）；② auto-archive tag 内嵌源码 hash 的 lineage 溯源机制（§125）；③ Tee-Object 管道缓冲——build 进度要看 Tee 落盘的 .temp\build_sym.log 而非外壳 out.txt。
+- **新挂账**：① **§3.6 冒烟+§3.7 抓现场待 CASE_LOCKED 释放**（release_by=user only，重启/施压前须用户一句话）② TELE 报告件入库随下批 ③ official-repo 克隆 9 处历史脏行处置待定（TELE 发现，非本轮）④ 回收站归因挂账维持（StorageSense 启用中但成分不符，归因未闭合）。

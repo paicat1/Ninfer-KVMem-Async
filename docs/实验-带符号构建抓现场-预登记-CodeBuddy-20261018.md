@@ -27,8 +27,13 @@
 ## §3 执行步骤（每步亮灯，异常即停）
 
 1. **源码一致性门（已确证通过，2026-10-18 14:0x）**：现役件源码 = 自持树 `engine-src` `f0ecab0`（v2 基线，git 提交）+ `be2c0f9`（v3 增量 4 文件，已固化）——即 step13 现役件的完整源码链。执行时编译 `be2c0f9` 状态即可；~~若无法确证补丁集合 ⇒ 本预登记作废上报~~（原风险已消除）。
-2. **补丁复现**：在 src-tree 工作区按确认的补丁序列应用（`git stash`/分支方式，工作区从 0 脏行起步，逐步核对每补丁应用成功）。
+2. **源码就位核验（2026-10-18 v1.1 修订：补丁已含树内，不再另行应用）**：确认 `engine-src` 工作区 = `be2c0f9`（S12-internal v3）且 0 脏行即视为就绪（`git log -1` + `git status` 双查）；~~按补丁序列应用~~（原写法会对已固化树双重应用而失败——TELE 审读指正）。
 3. **configure（冷）**：**编译树唯一 = `J:\ninfer-kvmem\engine-src` 自持树（`be2c0f9` 状态）**——build 目录建在自持树内（如 `engine-src\build-sym`）；**禁止**在 `J:\Bonsai-Official\` 任何路径下建 build/写文件/commit（T-NO-FOREIGN-WRITE 铁律，10-12 解耦成果不可倒退）。CMake preset + `-DCMAKE_CXX_FLAGS="/Zi"` + `-DCMAKE_EXE_LINKER_FLAGS="/DEBUG /OPT:REF,ICF /INCREMENTAL:NO"`（/Zi 不改代码生成；/DEBUG 生成 PDB）。**记录完整 configure 命令行**（复现锚）+ 编译器版本（cl.exe 版本号入账，R2 漂移对照锚）。
+   **实测配方（2026-10-18 14:3x-14:4x 三坑实证，执行脚本 `work\20261018\build_sym.ps1`）**：
+   - 坑① CUDA 探测崩：nvcc 默认选 `HostX86/x86` 的 14.43 cudafe++ ⇒ 探测编译 `0xC0000005`——修=显式 `-DCMAKE_CUDA_HOST_COMPILER=".../14.43.34808/bin/Hostx64/x64/cl.exe"` + `$env:CUDAHOSTCXX` 双保险；
+   - 坑② `Launch-VsDevShell.ps1` **默认上 x86 工具链**（PATH cl=HostX86/x86）——修=`-Arch amd64 -HostArch amd64`（实测 CLVER 变 `HostX64/x64` ✓）；
+   - 坑③ FFMPEG 找不到：Windows 构建靠**预构建 vcpkg 树**（`cmake/Dependencies.cmake` L16-19 配方）——修=`VCPKG_ROOT=J:\vcpkg` + `VCPKG_TARGET_TRIPLET=x64-windows`（该树 share/ffmpeg+curl+pkgconf 与 avcodec.lib 实测完备）；
+   - **cl 版本勘误**：TELE 探针报的 `14.44.35207` 系 **Community（C 盘）侧**取样；BuildTools（J 盘）实际 `14.43.34808`——与 10-13/10-15 历史构建同版本 ⇒ **R2 编译器漂移=0**（比 TELE 建议更忠实）。configure 后必须 grep CMakeCache 确认 `/Zi` 真入缓存（项目若覆盖 CXXFLAGS 会静默丢符号——脚本已带该检查）。
 4. **build**：全量编译（预估 20–40 min，冷编译+third_party 可能更长；等待纪律：预计+5s 未完成即 5s 轮询，30s 上限周期报状态）。
 5. **产物归位**：`ninfer-serve.exe` + `.pdb` 复制为 `engine\self-built-20261008\ninfer-serve-sym.exe` + `ninfer-serve-sym.pdb`（**不覆盖**现役 `ninfer-serve.exe` / `ninfer-serve-I3b322a.exe`，逐字节核对后才放行）；PDB 副本入 `engine\pdb_archive\`。登记 `deploy_history.txt`（补上纪律：sym 件部署走 deploy_engine.ps1 记录）。
 6. **冒烟+行为等价门**：`engine_ctl.ps1 -Action start -Exe engine\self-built-20261008\ninfer-serve-sym.exe`（相对路径，T#0055）→ waitready → 探针 decode_tps ≥100 → **与现役件同负载探针对比**（tps 落同域 160–190 即等价通过；偏差 >20% 即停上报）。

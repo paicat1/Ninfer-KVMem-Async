@@ -125,7 +125,7 @@ def engine_display(entry):
     elif status == "已归档":
         bits.insert(0, "已归档")
     suffix = ("｜" + "·".join(bits)) if bits else ""
-    # 2026-10-18 整改（用户令"给我整理正确启动器"）：
+    # 2026-10-18 整改（整改记录 #0064/#0065 · 用户令"给我整理正确启动器"）：
     # 展示必须说真话——旧标签是写死的静态字符串（"现役(20261008)"），
     # 与实际文件内容（10/15 部署的 S13 = lineage step13 同 sha）长期脱节。
     # 现在每条附文件实况：不存在=显式警告；存在=真实 mtime + 大小。
@@ -815,7 +815,7 @@ def env_check():
                            capture_output=True, text=True, timeout=20)
         out = r.stdout.strip()
         lines.append("ninfer-serve 进程: " + (out if out else "(无)"))
-        # 2026-10-18 整改：进程名同形冒充事故（下午 sym 废件绿灯冒充生产件）
+        # 2026-10-18 整改（整改 #0064）：进程名同形冒充事故（下午 sym 废件绿灯冒充生产件）
         # ⇒ 明示"进程名分辨不了件"，权威源=起服日志/CB 当轮报备，不替用户脑补成"生产件在跑"。
         lines.append("  ⚠ 进程名无法分辨具体装载件（生产件/sym 实验件同名）；"
                      "实际件以起服日志（logs\\test_*.log 首行 VARIANT/命令行）或 CodeBuddy 当轮报备为准")

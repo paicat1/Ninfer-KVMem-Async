@@ -118,13 +118,12 @@ L ('  stop rc=' + $LASTEXITCODE + ' ' + (($o -split "`n")[0..2] -join ' | '))
 $size = if (Test-Path $etl) { [math]::Round((Get-Item $etl).Length / 1MB, 1) } else { 0 }
 L ('✅ etl = ' + $etl + '  (' + $size + ' MiB)')
 
-$csv = Join-Path $dir ($Tag + '_dump.csv')
-L 'tracerpt 转 CSV（不用已废弃的 -tle）'
-& tracerpt $etl -o $csv -of CSV -y 2>&1 | Out-Null
-if (Test-Path $csv) {
-    $lines = (Get-Content $csv | Measure-Object -Line).Lines
-    L ('  ✅ CSV = ' + $csv + '（' + $lines + ' 行）')
-} else { L '  ❌ CSV 未生成' }
+# ★ 2026-10-18 改：**不做全量转换** —— 180 s CPU trace ≈ 7.7 GiB etl，
+#   全量 tracerpt 会膨胀到 ~27 GiB（曾把磁盘吃到 10.78 GiB 才停）。分析时按窗口转即可：
+#     xperf -i <etl> -a dumper -cswitch -range <T1> <T2> -o <small.csv>
+L '跳过全量 CSV（防膨胀）。分析时按窗口转：'
+L ('  xperf -i "' + $etl + '" -a dumper -cswitch -range T1 T2 -o small.csv')
+L ('  etl 保留：' + $etl + ' (' + $size + ' MiB)')
 
 L '=== 完成 ==='
 Write-Host ''

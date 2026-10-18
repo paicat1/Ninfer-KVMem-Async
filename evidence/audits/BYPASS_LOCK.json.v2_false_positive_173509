@@ -1,7 +1,7 @@
 {
   "ts": "2026-10-17 17:34:57",
-  "reason": "BYPASS DETECTED",
-  "confession": "evidence\\audits\\BYPASS_CONFESSION_20261017_173457.md",
+  "reason": "GUARD TRIGGERED (adjudicated false positive)",
+  "notice": "(local record, path not published)",
   "files": [
     "scripts/bench_spec.py",
     "scripts/start_engine_51200.ps1",

@@ -24,5 +24,7 @@ bool step_graph_harvest(double out_ms[4]);
 bool step_stamp_arm();
 void step_stamp_launch(int slot, cudaStream_t stream);
 void step_stamp_report(const char* tag);
+// v4.5：四个被采样层的真实层号走主机侧（内核只写 %globaltimer）；由 report 打印
+void step_stamp_note_sample_layers(int l0, int l1, int l2, int l3);
 
 } // namespace ninfer::models::qwen3_5::execution

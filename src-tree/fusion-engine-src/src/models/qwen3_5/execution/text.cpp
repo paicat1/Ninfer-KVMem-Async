@@ -1223,14 +1223,29 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
             if (layer < layer_ready_.size()) {
                 CUDA_CHECK(cudaStreamWaitEvent(ctx_.stream, layer_ready_[layer], 0));
             }
-            // v4.4 op-group sampling (plan section 4.2): the stage's FIRST and LAST layers are always
-            // stamped, so every capture has the same node count (a rotating sample changed the topology
-            // between captures and made cudaGraphExecUpdate fail). The start stamp sits after the
-            // readiness wait so the delta measures in-layer time only.
-            const bool sample_first = sample_groups && layer == parameters_.text.stage_begin[stage];
-            const bool sample_last  = sample_groups && layer + 1 == end;
-            if (sample_first) { step_graph_record(12, ctx_.stream); }
-            if (sample_last)  { step_graph_record(15, ctx_.stream); }
+            // v4.5 op-group sampling (plan section 4.2): FOUR fixed layers (first, 1/3, 2/3, last) are
+            // always stamped, so every capture carries the same node count (a rotating sample changed
+            // the topology between captures and made cudaGraphExecUpdate fail). The start stamps sit
+            // after the readiness wait so each delta measures in-layer time only.
+            int sample_group = -1;
+            if (sample_groups) {
+                const std::uint32_t begin = parameters_.text.stage_begin[stage];
+                const std::uint32_t span  = end > begin ? end - 1 - begin : 0;
+                const std::uint32_t l1    = begin + span / 3;
+                const std::uint32_t l2    = begin + (span * 2) / 3;
+                if (layer == begin) { sample_group = 0; }
+                else if (span >= 3 && layer == l1) { sample_group = 1; }
+                else if (span >= 3 && layer == l2) { sample_group = 2; }
+                else if (layer + 1 == end) { sample_group = 3; }
+                if (layer == begin) {
+                    step_stamp_note_sample_layers(static_cast<int>(begin), static_cast<int>(l1),
+                                                  static_cast<int>(l2), static_cast<int>(end - 1));
+                }
+            }
+            if (sample_group == 0) { step_graph_record(12, ctx_.stream); }
+            if (sample_group == 1) { step_graph_record(15, ctx_.stream); }
+            if (sample_group == 2) { step_graph_record(18, ctx_.stream); }
+            if (sample_group == 3) { step_graph_record(21, ctx_.stream); }
             {
                 nvtx::ScopedRange mixer_range(
                     full ? (prefill ? nvtx::Name::PrefillAttention : nvtx::Name::VerifyAttention)
@@ -1243,8 +1258,10 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
                     gdn_mix(block, x, compact, ph);
                 }
             }
-            if (sample_first) { step_graph_record(13, ctx_.stream); }
-            if (sample_last)  { step_graph_record(16, ctx_.stream); }
+            if (sample_group == 0) { step_graph_record(13, ctx_.stream); }
+            if (sample_group == 1) { step_graph_record(16, ctx_.stream); }
+            if (sample_group == 2) { step_graph_record(19, ctx_.stream); }
+            if (sample_group == 3) { step_graph_record(22, ctx_.stream); }
             {
                 nvtx::ScopedRange range(prefill ? nvtx::Name::PrefillPostMixer
                                                 : nvtx::Name::VerifyPostMixer,
@@ -1257,8 +1274,10 @@ void TextContext::run_stage_layers(std::size_t stage, Tensor& x, Phase ph, Tap& 
                          layer + 1 < end ? next_projection_hints(static_cast<int>(layer))
                                          : ops::SparseMoeHints{});
             }
-            if (sample_first) { step_graph_record(14, ctx_.stream); }
-            if (sample_last)  { step_graph_record(17, ctx_.stream); }
+            if (sample_group == 0) { step_graph_record(14, ctx_.stream); }
+            if (sample_group == 1) { step_graph_record(17, ctx_.stream); }
+            if (sample_group == 2) { step_graph_record(20, ctx_.stream); }
+            if (sample_group == 3) { step_graph_record(23, ctx_.stream); }
             if constexpr (Tap::enabled) {
                 tap.capture_layer(static_cast<int>(layer), x, ctx_.stream);
             }

@@ -100,3 +100,4 @@ scripts/analyze_b_etl.py
 
 build/build-d1208a/
 safety_backups/
+_safety_backups/

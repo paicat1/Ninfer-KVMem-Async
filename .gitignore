@@ -55,13 +55,15 @@ evidence/cases/logwatch_ledger.txt
 evidence/cases/streak_state.json
 evidence/cases/WATCHDOG_ALERT.txt
 evidence/cases/GATE_ALERT.txt
-# 审计流（每日追加、churn）；**违规记录 VIOLATION_*.md 仍入库**
+# 审计流（每日追加、churn）；**违规记录 VIOLATION_*.md 留本地不入库** —— 用户 2026-10-20 令
 evidence/audits/window_state_*.txt
-# 起进程记录（每次一文件、churn）；**违规记录 VIOLATION_*.md 仍入库**
+# 起进程记录（每次一文件、churn）；**违规记录 VIOLATION_*.md 留本地不入库**（同上令）
 evidence/spawns/
 # 自述件（守卫检出绕过时自动生成；**留本地、不入公开仓** —— 用户 2026-10-17 令）
 #   钩子仍会在本地生成它们（机制不废），只是不进版本控制
 evidence/audits/BYPASS_CONFESSION_*.md
+# 违规审计记录（未走许可入口/无台账 spawn 等；**留本地作证据、不入公开仓** —— 用户 2026-10-20 令）
+evidence/audits/VIOLATION_*.md
 
 # —— 本地自律/治理工具（**只在本机执行，不入公开仓** —— 用户 2026-10-17 令）——
 #   理由：① 这些是我这台机器的纪律执行件与实验值守，不是仓级规范

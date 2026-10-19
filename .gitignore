@@ -97,3 +97,6 @@ evidence/heartbeat/
 
 # local-only 工具（structure.json local_only_tools.files 登记，不入库）—— 2026-10-18 TELE 裁决
 scripts/analyze_b_etl.py
+
+build/build-d1208a/
+safety_backups/

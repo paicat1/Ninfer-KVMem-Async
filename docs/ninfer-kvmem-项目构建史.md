@@ -3608,3 +3608,11 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **Δ对基线**：ninfer_launcher.py——`_registry_seed()` 重写（现役三件置顶/归档沉底/短标签/精确 note）；`engine_display()` 精简（下拉只留 label+状态+tags，冗长实况时间/大小移至 `_on_engine_select` 状态行）；**新增 `asyncdepth` 维度**（ASYNC_DEPTH_OPTIONS 1/2/3/4 批在飞，DEFAULTS=2，DIMENSIONS/DIM_TIPS 注册，env_for_launch combo 段注入——combo 后于 PRESET_ENV ⇒ GUI 选择覆盖预设写死值；off 时深度不注入）；★star 区加深度行（文案含浅载三档实测 D2 187.1>D0 183.6>D1 182.6、深载 3/4 批未实测警示）；场景 section 提示重写（**场景=参数档 vs 引擎=二进制，两下拉正交**，举例 offi+压力组合）。
 - **解决/结论**：三问全闭环——①下拉=现役三件+归档五条，display 短化；②异步=A/B 开关 × 深度（1/2/3/4 批在飞）两个独立下拉，深度开关关=同步回退时无效；③场景与引擎关系在 UI 上写死为"正交"（引擎=跑哪个二进制、场景=用什么参数跑），消解"引擎带 preset 联动"的旧混淆点（preset 字段机制保留但不占现役项）。
 - **新挂账**：① 深度 3/4 批深载未实测（调度保守：保守再保守，默认 2 不升）；② user registry json 与 _registry_seed 双写一致（改一处要同步另一处——已知维护点）；③ GUI 需真机目检（用户 office 侧可见，本站只做了 py_compile+导入级烟测）。
+
+### 139. 【修复：--model-id 硬编码 coder390——选 SWIFT1.5 也报 390 的 BUG】（2026-10-19 20:5x）
+
+- **数字**：`build_command` L765 原硬编码 `--model-id qwen3.8-27b-coder390`（六档模型共用）；修复为 `MODEL_IDS` 按档映射 + 全 6 档烟测：swift→`swift-1.5-qwen3.8-27b-gsq-rco-iq3s`（日志实证名）、q2lynn/iq4nl/iq4nlvis/orig→`qwen3.8-27b-coder390`（Coder390 系共用，原值正确）、bonsai→`ternary-bonsai-2-27b-ninfer-v3`（件未下载•按文件名预登记，起服后以 engine ready 行校正）。
+- **阶段/原因**：用户 20:47 在启动器选 SWIFT1.5 起服，日志 CMD 行 `--model-id qwen3.8-27b-coder390` + `listening | model qwen3.8-27b-coder390`——**模型文件选对了**（swift15_iq3s_mtp.ninfer 加载、engine ready 行 `swift-1.5-…-iq3s`），仅标识参数没跟档走 ⇒ 误导性极强（会让人以为跑错了模型）。
+- **Δ对基线**：ninfer_launcher.py 新增 MODEL_IDS 映射表 + build_command 查表替换硬编码；映射注释含实证来源与 bonsai 预登记边界。
+- **解决/结论**：model-id 与模型文件按档一致（日志两行会一致）；BUG 类属"显示/标识链路与数据链路脱节"（文件对、标识错）——与 §128-131 registry label 假名同类，均属"标识未随实况走"，已两连修。
+- **新挂账**：用户侧需重起一次 SWIFT1.5 目验（CMD 行 model-id 应变 swift-1.5-…）。

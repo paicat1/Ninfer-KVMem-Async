@@ -228,6 +228,19 @@ MODEL_PATHS = {
     "orig":  os.path.join(ROOT, "models",
                           "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
 }
+# --model-id 按档映射（2026-10-19 用户撞见 BUG：选 SWIFT1.5 但 model-id 仍是 coder390——
+#   原 L765 硬编码 qwen3.8-27b-coder390，模型文件选对但标识没跟档走，误导性极强）：
+#   swift = 日志实证名（"engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s"，2026-10-19 20:47）；
+#   Coder390 系（q2lynn/iq4nl/iq4nlvis/orig）共用 coder390（同骨架同命名域，原值正确）；
+#   bonsai = 件未下载的按文件名合理默认——起服后以 engine ready 行校正（预登记，勿当实证）。
+MODEL_IDS = {
+    "swift":    "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
+    "q2lynn":   "qwen3.8-27b-coder390",
+    "iq4nl":    "qwen3.8-27b-coder390",
+    "iq4nlvis": "qwen3.8-27b-coder390",
+    "orig":     "qwen3.8-27b-coder390",
+    "bonsai":   "ternary-bonsai-2-27b-ninfer-v3",
+}
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
 VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）
@@ -762,7 +775,8 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     exe=None 时用自编现役（ENGINE_SELF，本线唯一现役引擎）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
-    argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", "qwen3.8-27b-coder390"]
+    model_id = MODEL_IDS.get(combo.get("model", "iq4nl"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
+    argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", model_id]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
     argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）

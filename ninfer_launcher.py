@@ -1551,7 +1551,7 @@ class LauncherApp:
 
     # ---- spawn 台账（T-WINDOW 纪律，2026-10-19 补） ----
     def _record_spawn_ledger(self, tee_pid, exe):
-        """tee 起 3 秒后登记：根（tee pid）+ 其下 ninfer-serve 子进程各一条。
+        r"""tee 起 3 秒后登记：根（tee pid）+ 其下 ninfer-serve 子进程各一条。
         字段对齐 evidence\spawns\ 既有 schema（audit_windows.py L131 只取 pid/ts，写全防其他读者缺字段）。"""
         import time as _time
         _time.sleep(3)

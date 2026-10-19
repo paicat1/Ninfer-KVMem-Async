@@ -1,81 +1,110 @@
 [
   {
-    "label": "自编·现役 · S12-internal v3 (20261015)",
+    "label": "S13 · 生产件（官方链 14.44 · 无符号）",
     "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
-    "tags": [],
-    "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3, slots 26）；label 曾写死(20261008)为目录名≠内容，2026-10-18 正名",
+    "tags": [
+      "生产",
+      "官方链",
+      "Gen5+外压卡死"
+    ],
+    "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。",
     "status": "现役",
     "added": "2026-10-15",
     "replaced_by": "",
     "preset": ""
   },
   {
-    "label": "H1_54fix_20261013",
+    "label": "offi · 官方链 14.44 + 符号（20261019）",
+    "path": "J:\\ninfer-kvmem\\engine\\variants\\ninfer-serve-sym-official.exe",
+    "tags": [
+      "判决件",
+      "官方链",
+      "符号",
+      "384×sm_120a"
+    ],
+    "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + env /Zi + LINK=/DEBUG（独立目录 build-d1208a）。sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
+    "status": "现役",
+    "added": "2026-10-19",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "sym3 · 新构建链 + 符号（20261018）",
+    "path": "J:\\ninfer-kvmem\\engine\\variants\\ninfer-serve-sym.exe",
+    "tags": [
+      "判决件",
+      "新链",
+      "符号",
+      "384×sm_120a"
+    ],
+    "note": "2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。带符号件的另一独立角。",
+    "status": "现役",
+    "added": "2026-10-18",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "H1_54fix（历史件 · 回滚锚）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\H1_54fix_20261013.exe",
     "tags": [
       "首轮极速好",
       "谷深",
       "超池500风险(~11%)"
     ],
-    "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）；回滚锚",
-    "status": "候选",
+    "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）。仅回滚锚，日常不用。",
+    "status": "已归档",
     "added": "2026-10-13",
     "replaced_by": "",
     "preset": ""
   },
   {
-    "label": "I3b_step1_step_profile",
+    "label": "I3b_step1_step_profile（档案）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step1_20261013.exe",
     "tags": [
       "步级仪表",
-      "默认关",
-      "P4门未验"
+      "档案"
     ],
-    "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode.cpp StepProfileWindow —— 每 decode 轮 wall 四分解（submit/wait/post/rest；rest=补差与未归属显式化）。开：NINFER_STEP_PROFILE=1（窗宽 NINFER_STEP_PROFILE_WINDOW，默认 256）；默认关、零行为。sha256 C5BE1360…；零行为门（a2gate 开/关两臂）P4 已过（sha 6/6 全同）",
-    "status": "候选",
+    "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode 轮 wall 四分解（submit/wait/post/rest）。开：NINFER_STEP_PROFILE=1。",
+    "status": "已归档",
     "added": "2026-10-13",
     "replaced_by": "I3b_step2_step_profile_s2",
     "preset": ""
   },
   {
-    "label": "I3b_step2_step_profile_s2",
+    "label": "I3b_step2_step_profile_s2（档案）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step2_20261013.exe",
     "tags": [
       "S2五分",
-      "launch点名",
-      "默认关",
-      "门过"
+      "档案"
     ],
-    "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest（仅 MTP）。实测稳态 wall≈launch（27-32ms/轮）、slow 493ms 亦全在 launch ⇒ 轮速限速器=execution::mtp_decode_batch 调用本体。开：NINFER_STEP_PROFILE=1（窗 64）；默认关、零行为（OFF 臂 sha 与 P4 参考逐字全同）。sha256 AE81E9FC…",
-    "status": "候选",
+    "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest；稳态 wall≈launch（27-32ms/轮）。",
+    "status": "已归档",
     "added": "2026-10-13",
     "replaced_by": "I3b_step3b_s3b_ingraph",
     "preset": ""
   },
   {
-    "label": "I3b_step3b_s3b_ingraph",
+    "label": "I3b_step3b_s3b_ingraph（档案）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step3b_20261014.exe",
     "tags": [
       "图内事件",
-      "节点计数1107",
-      "默认关"
+      "档案"
     ],
-    "note": "I3b S3b 修复版（2026-10-14 凌晨，现行基线之一）：MTP 图内事件（ingress/target/draft/egress 四区间）+ capture 节点计数（实测 1107 节点）。开：NINFER_STEP_PROFILE=1；默认关、零行为。注意：ingraph 四区间暂未出数（elapsed InvalidValue，待修）。sha256 E8FEE6B6…",
-    "status": "候选",
+    "note": "I3b S3b 修复版（2026-10-14 凌晨）：MTP 图内事件四区间 + capture 节点计数（1107）。ingraph 区间暂未出数（待修）。",
+    "status": "已归档",
     "added": "2026-10-14",
     "replaced_by": "",
     "preset": ""
   },
   {
-    "label": "I3b_step4_debug_diag",
+    "label": "I3b_step4_debug_diag（档案）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step4_debug_20261014.exe",
     "tags": [
       "诊断件",
-      "谷态实测",
-      "默认关"
+      "档案"
     ],
-    "note": "I3b S4 调试件（2026-10-14 05:2x）：arm/harvest 一次性诊断（定位 ingraph 空输出）。谷态实测（05:26 单轮 142.9s）即用它。仅调试用，勿作性能基线。sha256 DAC82A48…",
-    "status": "候选",
+    "note": "I3b S4 调试件（2026-10-14 05:2x）：谷态实测（05:26 单轮 142.9s）即用它。仅调试用。",
+    "status": "已归档",
     "added": "2026-10-14",
     "replaced_by": "",
     "preset": ""

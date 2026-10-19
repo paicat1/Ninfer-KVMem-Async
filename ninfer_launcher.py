@@ -78,21 +78,57 @@ ENGINE_REGISTRY_PATH = os.path.join(ROOT, "engine_registry.json")
 
 
 def _registry_seed():
-    # 2026-10-18 修正（用户令"命名/标识全搞正确"）：
-    #  ① 删 2 条死项（v2_27dc746 / V2+overlay64K：_safety_backups\exe_lineage_20261013\ 目录已不存在，
-    #     其中"V2+overlay64K"还是 status=基线=默认选中项——默认选一条死项是连环坑）；
-    #  ② 现役 label 是假名："现役(20261008)"取自目录名，实际件是 10-15 部署的 S13
-    #     （=lineage\I3b_step13_fourlayer_20261015 同 sha 322A972D，S12-internal v3）——正名。
+    # 2026-10-19 整理（用户令"整理启动器：引擎下拉/异步深度/场景与引擎关系"）：
+    #  ① 现役三件置顶（S13 生产 / sym3 判决件 / offi 官方链+符号判决件），label 短化（下拉一眼可读），
+    #     tags ≤4 个关键性质；note 精确但不再轰炸；
+    #  ② 4 条 I3b 中间调试件 + H1 回滚锚 status→"已归档"（历史价值保留，退出常用视野）；
+    #  ③ label/时间/大小等冗长实况不再拼进下拉（见 engine_display），选中件实况在状态行展示。
+    _VARIANTS = os.path.join(ROOT, "engine", "variants")
     return [
-        {"label": "自编·现役 · S12-internal v3 (20261015)", "path": ENGINE_SELF, "tags": [],
-         "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3, slots 26）；"
-                 "label 曾写死(20261008)为目录名≠内容，2026-10-18 正名",
+        {"label": "S13 · 生产件（官方链 14.44 · 无符号）", "path": ENGINE_SELF,
+         "tags": ["生产", "官方链", "Gen5+外压卡死"],
+         "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。"
+                 "出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。"
+                 "Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。",
          "status": "现役", "added": "2026-10-15", "replaced_by": "", "preset": ""},
-        {"label": "H1_54fix_20261013",
+        {"label": "offi · 官方链 14.44 + 符号（20261019）",
+         "path": os.path.join(_VARIANTS, "ninfer-serve-sym-official.exe"),
+         "tags": ["判决件", "官方链", "符号", "384×sm_120a"],
+         "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + env /Zi + LINK=/DEBUG（独立目录 build-d1208a）。"
+                 "sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——"
+                 "与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
+         "status": "现役", "added": "2026-10-19", "replaced_by": "", "preset": ""},
+        {"label": "sym3 · 新构建链 + 符号（20261018）",
+         "path": os.path.join(_VARIANTS, "ninfer-serve-sym.exe"),
+         "tags": ["判决件", "新链", "符号", "384×sm_120a"],
+         "note": "2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。"
+                 "Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。带符号件的另一独立角。",
+         "status": "现役", "added": "2026-10-18", "replaced_by": "", "preset": ""},
+        {"label": "H1_54fix（历史件 · 回滚锚）",
          "path": os.path.join(ROOT, "engine", "lineage", "H1_54fix_20261013.exe"),
          "tags": ["首轮极速好", "谷深", "超池500风险(~11%)"],
-         "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）；回滚锚",
-         "status": "候选", "added": "2026-10-13", "replaced_by": "", "preset": ""},
+         "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）。仅回滚锚，日常不用。",
+         "status": "已归档", "added": "2026-10-13", "replaced_by": "", "preset": ""},
+        {"label": "I3b_step1_step_profile（档案）",
+         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step1_20261013.exe"),
+         "tags": ["步级仪表", "档案"],
+         "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode 轮 wall 四分解（submit/wait/post/rest）。开：NINFER_STEP_PROFILE=1。",
+         "status": "已归档", "added": "2026-10-13", "replaced_by": "I3b_step2_step_profile_s2", "preset": ""},
+        {"label": "I3b_step2_step_profile_s2（档案）",
+         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step2_20261013.exe"),
+         "tags": ["S2五分", "档案"],
+         "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest；稳态 wall≈launch（27-32ms/轮）。",
+         "status": "已归档", "added": "2026-10-13", "replaced_by": "I3b_step3b_s3b_ingraph", "preset": ""},
+        {"label": "I3b_step3b_s3b_ingraph（档案）",
+         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step3b_20261014.exe"),
+         "tags": ["图内事件", "档案"],
+         "note": "I3b S3b 修复版（2026-10-14 凌晨）：MTP 图内事件四区间 + capture 节点计数（1107）。ingraph 区间暂未出数（待修）。",
+         "status": "已归档", "added": "2026-10-14", "replaced_by": "", "preset": ""},
+        {"label": "I3b_step4_debug_diag（档案）",
+         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step4_debug_20261014.exe"),
+         "tags": ["诊断件", "档案"],
+         "note": "I3b S4 调试件（2026-10-14 05:2x）：谷态实测（05:26 单轮 142.9s）即用它。仅调试用。",
+         "status": "已归档", "added": "2026-10-14", "replaced_by": "", "preset": ""},
     ]
 
 
@@ -118,30 +154,18 @@ def save_engine_registry(registry):
 
 
 def engine_display(entry):
+    # 2026-10-19 整理（用户令"引擎说明太复杂"）：下拉只留【短 label + 状态/性质标签】；
+    # 冗长的件实况（时间/大小/sha）不再拼进下拉文本，改由 _on_engine_select 在状态行展示。
     bits = list(entry.get("tags") or [])
     status = entry.get("status") or "候选"
-    if status == "基线":
-        bits.insert(0, "基线")
-    elif status == "已归档":
-        bits.insert(0, "已归档")
+    if status and status != "现役":
+        bits.insert(0, status)
     suffix = ("｜" + "·".join(bits)) if bits else ""
-    # 2026-10-18 整改（整改记录 #0064/#0065 · 用户令"给我整理正确启动器"）：
-    # 展示必须说真话——旧标签是写死的静态字符串（"现役(20261008)"），
-    # 与实际文件内容（10/15 部署的 S13 = lineage step13 同 sha）长期脱节。
-    # 现在每条附文件实况：不存在=显式警告；存在=真实 mtime + 大小。
     # 边界：mtime 在 GUI 生命周期内不变 ⇒ display 稳定、_engine_path 反查自洽；
     # 跨天换件后需重启 GUI 刷新（已知边界，留证）。
     path = entry.get("path") or ""
-    if path:
-        if not os.path.exists(path):
-            return entry.get("label", "?") + " ｜ ⚠件已不存在" + suffix
-        try:
-            st = os.stat(path)
-            mt = time.strftime("%m-%d %H:%M", time.localtime(st.st_mtime))
-            return "{0} ｜ 件实况 {1} {2:.2f}GB{3}".format(
-                entry.get("label", "?"), mt, st.st_size / (1024 ** 3), suffix)
-        except OSError:
-            return entry.get("label", "?") + " ｜ 件状态未知" + suffix
+    if path and not os.path.exists(path):
+        return entry.get("label", "?") + " ｜ ⚠件已不存在" + suffix
     return entry.get("label", "?") + suffix
 
 
@@ -267,6 +291,18 @@ KV_ENV = {
 ASYNC_OPTIONS = {
     "on":  ("异步页流水：开（默认 · 本线核心改进）", {"NINFER_ASYNC_DEMOTE": "1"}),
     "off": ("异步页流水：关（同步回退 · A/B 对照臂）", {"NINFER_ASYNC_DEMOTE": "0"}),
+}
+
+# 异步页流水深度（2026-10-19 用户令增加：A/B 开关之外，可选"几批在飞"）：
+#   NINFER_ASYNC_DEMOTE_DEPTH = 同时 in-flight 的 demote 批数（搬运与计算的重叠深度）。
+#   依据：docs\工程史挂账46 v2.1（深度=2 实测 10+ 轮零降速）；2026-10-19 浅载三档对照
+#   （D2 avg 187.1 > D0 183.6 > D1 182.6：2 批在飞最优、1 批反而最差、深载收益待测）。
+#   ⚠ 深载分档（1/3/4 批）尚未实测——调度要保守保守再保守，默认 2。
+ASYNC_DEPTH_OPTIONS = {
+    "1": ("1 批在飞（浅载实测最差档 · 谨慎选）", {"NINFER_ASYNC_DEMOTE_DEPTH": "1"}),
+    "2": ("2 批在飞 · 默认（净收益成立）", {"NINFER_ASYNC_DEMOTE_DEPTH": "2"}),
+    "3": ("3 批在飞（深载未实测 · 保守）", {"NINFER_ASYNC_DEMOTE_DEPTH": "3"}),
+    "4": ("4 批在飞（深载未实测 · 保守）", {"NINFER_ASYNC_DEMOTE_DEPTH": "4"}),
 }
 
 # ---------------------------------------------------------------
@@ -429,6 +465,7 @@ REQLOG_OPTIONS = {
 DIMENSIONS = [
     ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（iq4nlvis 含视觉组件，2026-10-11 实测）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
+    ("asyncdepth", "异步深度(批)", ASYNC_DEPTH_OPTIONS),   # 2026-10-19 用户令：A/B 之外可选在飞批数（默认 2）
     ("kv",     "KV 类型",         KV_OPTIONS),
     ("ctx",    "上下文",          CTX_OPTIONS),
     ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
@@ -469,7 +506,7 @@ DEFAULTS = {
     "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
-    "graph": "128", "reqlog": "off", "async": "on",
+    "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -481,6 +518,7 @@ LEGACY_VALUE_MAP = {
 
 DIM_TIPS = {
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
+    "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
@@ -553,6 +591,8 @@ PRESET_ENV = {
         "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
     "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": {
         "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
+    # 2026-10-19 注：DEPTH 已是 GUI 独立维度（"异步深度(批)"，默认 2）。经 env_for_launch 时 combo
+    # 后于本表注入 ⇒ GUI 选择覆盖上表；本表仅在"不经 GUI 的 preset 直载路径"上兜底为 2。
 }
 
 
@@ -755,6 +795,10 @@ def env_for_launch(exe=None, profile=None, combo=None):
         env.update(PRESET_ENV.get(profile, {}))
     if combo:
         env.update(ASYNC_OPTIONS.get(combo.get("async", "on"), ASYNC_OPTIONS["on"])[1])
+        # 2026-10-19：异步深度（几批在飞）独立注入；combo 后于 PRESET_ENV ⇒ 覆盖预设写死的 DEPTH，
+        # 以 GUI 用户显式选择为准。开关关（同步回退）时深度由引擎视为无效（不删，保留选择态）。
+        if combo.get("async", "on") != "off":
+            env.update(ASYNC_DEPTH_OPTIONS.get(combo.get("asyncdepth", "2"), ASYNC_DEPTH_OPTIONS["2"])[1])
     # P0b (2026-10-09): PATH 必须同时含 exe 所在目录 **与 engine\ 根目录**。
     #   理由：自编件在 engine\self-built-20261008\，但它**动态依赖 cublas64_13.dll**
     #   （实测：全文件搜索 1.27GB exe 命中 "cublas64_13"），而该 DLL **只在 engine\ 根**
@@ -994,7 +1038,7 @@ class LauncherApp:
         canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", lambda ev: canvas.yview_scroll(-1 * (ev.delta // 120), "units")))
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
-        # 维度表（async 不在 DIMENSIONS 里，但同样需要标签/选项/提示）
+        # 维度表（async/asyncdepth 不在 DIMENSIONS…实已在：asyncdepth 2026-10-19 已入 DIMENSIONS；async 仍特殊）
         DIM_LABEL = {k: l for k, l, _t in DIMENSIONS}
         DIM_LABEL["async"] = "异步页流水(A/B)"
         DIM_TABLE = {k: t for k, _l, t in DIMENSIONS}
@@ -1031,18 +1075,27 @@ class LauncherApp:
                 ToolTip(cb, DIM_TIPS[key])
             return cb
 
-        # ★ 全窗最醒目：异步页流水（本线拳头产品）A/B 开关
-        star = ttk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关）")
+        # ★ 全窗最醒目：异步页流水（本线拳头产品）A/B 开关 + 在飞深度
+        star = ttk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关 + 在飞深度）")
         star.pack(fill="x", pady=(0, 10), padx=2)
         row(star, "async")
+        row(star, "asyncdepth")
         tk.Label(star, text="开=异步（搬运与计算重叠，默认）；关=同步批回退（OFF 对照臂）。"
-                            "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段≈2×）。"
-                            "改档需重启 serve；A/B 只切这一项。",
+                            "深度=同时 in-flight 的 demote 批数（关时无效）。"
+                            "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段≈2×）；"
+                            "浅载三档 2批 187.1 > 同步 183.6 > 1批 182.6；深载分档（3/4 批）未实测，保守默认 2。"
+                            "改档需重启 serve；A/B 只切这两项。",
                  bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 8),
                  wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
 
         # 场景预设
-        pf = section("场景预设（只 4 个：2 模式 × 2 模型）", "【生产】= 本卡实测定稿档（精度×池×上下文 的最优组合，**不是**精度最高）；【压力】= 把池压到 20K（逻辑 256K ⇒ 12.8× 超池）强制大量 host 往返，并开 reqlog 仪器；代价是吞吐明显低于生产档。两种模式都不改异步臂（A/B 开关在顶部独立切）。其余参数请在下方维度区自行设置。")
+        pf = section("场景预设（只 4 个：2 模式 × 2 模型）",
+                     "**场景预设 = 参数档**（模型/池/KV精度/压力模式等运行参数），与顶部工具栏的**引擎下拉相互独立**——"
+                     "引擎决定\"跑哪个二进制\"，场景决定\"用什么参数跑\"；两个下拉任意组合（例：offi 引擎 + ④压力场景 = 新件跑压力参数）。\n"
+                     "【生产】= 本卡实测定稿档（精度×池×上下文 的最优组合，**不是**精度最高）；"
+                     "【压力】= 把池压到 20K（逻辑 256K ⇒ 12.8× 超池）强制大量 host 往返，并开 reqlog 仪器；"
+                     "代价是吞吐明显低于生产档。两种模式都不改异步臂（A/B 开关+深度在顶部独立切）。"
+                     "其余参数请在下方维度区自行设置。")
         self.preset_var = tk.StringVar()
         self.preset_cb = ttk.Combobox(pf, state="readonly", textvariable=self.preset_var,
                                       width=CBW, values=list(PRESET_PROFILES.keys()),
@@ -1264,13 +1317,27 @@ class LauncherApp:
         return self.preset_var.get() or self.profile_cb.get() or ""
 
     def _on_engine_select(self, _e=None):
-        """2026-10-13 夜（用户令）：引擎条目带 preset 字段 = 选中即自动套用（参数 + env 一键复现）。"""
+        """2026-10-13 夜（用户令）：引擎条目带 preset 字段 = 选中即自动套用（参数 + env 一键复现）。
+        2026-10-19 整理：状态行展示选中件的实况（时间/大小），下拉只留短标签。"""
         entry = self._current_engine_entry() or {}
         preset_name = entry.get("preset") or ""
         if preset_name and preset_name in PRESET_PROFILES:
             self.preset_var.set(preset_name)
             self._apply_preset()
             self.status.config(text=f"已随引擎条目套用预设「{preset_name}」（参数 + env 一键复现）", fg="#4a6b4a")
+        _fact = ""
+        _path = entry.get("path") or ""
+        if _path and os.path.exists(_path):
+            try:
+                _st = os.stat(_path)
+                _fact = " ｜ 件实况 {0} {1:.2f}GB".format(
+                    time.strftime("%m-%d %H:%M", time.localtime(_st.st_mtime)), _st.st_size / (1024 ** 3))
+            except OSError:
+                _fact = " ｜ 件状态未知"
+        elif _path:
+            _fact = " ｜ ⚠件已不存在"
+        self.status.config(text=("引擎：" + entry.get("label", "?") + "（" + (entry.get("status") or "候选") + "）"
+                                 + (_fact if _fact else " ｜ 路径未填")), fg="#2b3a6b")
         self._refresh()
 
     def _reload_engine_values(self, select_label=None):

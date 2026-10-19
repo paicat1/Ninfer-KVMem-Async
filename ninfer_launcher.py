@@ -1531,9 +1531,15 @@ class LauncherApp:
             env_profile = self._env_profile_name()   # 2026-10-13 夜修：预设优先（原传命名组合 -> PRESET_ENV 永不命中）
             env = env_for_launch(exe, env_profile, self.selection)
             env["SERVE_TEE_MODE"] = "full" if self.logmode_var.get() == "全部" else "slim"
-            subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
-                             env=env, cwd=ROOT,
-                             creationflags=CREATE_NEW_CONSOLE)
+            proc = subprocess.Popen([PYTHON_EXE, TEE_SCRIPT, logfile, exe] + argv,
+                                    env=env, cwd=ROOT,
+                                    creationflags=CREATE_NEW_CONSOLE)
+            # T-WINDOW 台账（2026-10-19 补）：audit_windows.py 要求所有 spawn 的 pid 链可查
+            #   （进程树根记 tee pid；其下出现的 ninfer-serve 子进程也各记一条）。
+            #   启动器在窗口纪律法（2026-10-17）之前独立存在、从不落台账 ⇒ 用户每次用它起服
+            #   都会撞 gate 的"无记录进程"——这里补登记，根治结构性缺口。
+            import threading
+            threading.Thread(target=self._record_spawn_ledger, args=(proc.pid, exe), daemon=True).start()
             applied_env = len(PRESET_ENV.get(env_profile, {}) or {})
             env_note = ("　[env 配对：%s（%d 项）]" % (env_profile, applied_env)) if applied_env else ""
             _arm = ASYNC_OPTIONS.get(self.selection.get("async", "on"), ASYNC_OPTIONS["on"])[0]
@@ -1542,6 +1548,46 @@ class LauncherApp:
                                     "   日志：" + logfile + env_note, fg="#4a6b4a")
         except Exception as e:
             messagebox.showerror("启动失败", str(e))
+
+    # ---- spawn 台账（T-WINDOW 纪律，2026-10-19 补） ----
+    def _record_spawn_ledger(self, tee_pid, exe):
+        """tee 起 3 秒后登记：根（tee pid）+ 其下 ninfer-serve 子进程各一条。
+        字段对齐 evidence\spawns\ 既有 schema（audit_windows.py L131 只取 pid/ts，写全防其他读者缺字段）。"""
+        import time as _time
+        _time.sleep(3)
+        _dir = os.path.join(ROOT, "evidence", "spawns")
+        try:
+            os.makedirs(_dir, exist_ok=True)
+        except OSError:
+            return
+        _port = str(self._port())
+
+        def _write(tag, pid, note):
+            _ts = _time.strftime("%Y-%m-%d %H:%M:%S")
+            _file = os.path.join(_dir, _time.strftime("%Y%m%d_%H%M%S") + "_launcher-%s.json" % tag)
+            _rec = {"ts": _ts, "purpose": "launcher-serve", "exe": exe, "pid": pid,
+                    "has_window": True, "is_minimized": False, "is_visible": True,
+                    "title": "launcher serve @%s" % _port, "verdict": "OK",
+                    "enforced_by": "ninfer_launcher.py（T-WINDOW 台账，2026-10-19）", "note": note}
+            try:
+                with open(_file, "w", encoding="utf-8", newline="\n") as _fh:
+                    json.dump(_rec, _fh, ensure_ascii=False, indent=2)
+            except OSError:
+                pass
+
+        _write("tee", tee_pid, "serve_tee 包装进程（进程树根）")
+        # serve 子进程：tee 下出现的 ninfer-serve*（audit 查祖先链≤5 层，子 pid 显式再记一条双保险）
+        try:
+            _ps_cmd = ("Get-CimInstance Win32_Process -Filter \"ParentProcessId=%d\" | "
+                       "Where-Object { $_.Name -like 'ninfer-serve*' } | "
+                       "Select-Object -ExpandProperty ProcessId" % tee_pid)
+            _out = subprocess.run(["powershell", "-NoProfile", "-Command", _ps_cmd],
+                                  capture_output=True, text=True, timeout=15).stdout
+            for _line in _out.split():
+                if _line.strip().isdigit():
+                    _write("serve", int(_line.strip()), "引擎 serve 子进程（tee 之下）")
+        except Exception:
+            pass
 
     # ---- 命名组合 ----
     def _load_profile(self):

@@ -352,7 +352,7 @@ KV_OPTIONS = {
 #   老用户组合（profiles json 旧键）加载时走 fallback "off" ⇒ 不静默改历史组合配置。
 FP16STATE_OPTIONS = {
     "off": ("关 · FP32 状态（历史配置 · 逐字可复现）", []),
-    "on":  ("开 · FP16 状态（★生产默认 · host state 减半）", ["--gdn-state-fp16"]),
+    "on":  ("开 · FP16 状态（host state 减半 · 按需开启）", ["--gdn-state-fp16"]),
 }
 CTX_OPTIONS = {
     "32k":  ("32K",   ["--max-context", "32768"]),
@@ -534,7 +534,7 @@ DEFAULTS = {
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
-    "fp16state": "on",   # 2026-10-20 #47 条件档接入：生产默认开（agent 域 5/5 逐字全过 + host state 减半）
+    "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -547,7 +547,7 @@ LEGACY_VALUE_MAP = {
 DIM_TIPS = {
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
-    "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **生产默认开**（用户按“agent 域全过”裁定）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三现役引擎（S13/sym3/offi）均实证支持该旗标。",
+    "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **默认 FP32（关）；fp16 按需 opt-in 开启**（用户 2026-10-20 后令：默认应 FP32，开关保留）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三现役引擎（S13/sym3/offi）均实证支持该旗标。",
     "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
@@ -799,7 +799,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
     argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
-    argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——生产默认 on（DEFAULTS），老组合 fallback off 保历史配置
+    argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）
     argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k4"),       "k4")     # P1b: 回退对齐 DEFAULTS（原 "k0"；要裸解码请显式选 k0）

@@ -238,7 +238,9 @@ $runExe = Join-Path $dllDir 'ninfer-serve.exe'   # ★ 必须是**字面名**（
 
 # 2026-10-18: -Exe 与 runExe 同路径时跳过复制（T#0054 ③"自己复制自己"IOException 原坑修复；
 # 现役件本身就住在 self-built-20261008\，起服现役配置必须允许同路径）
-$exeFull = [System.IO.Path]::GetFullPath((Join-Path $root $Exe))
+# 2026-10-20 T#0054: -Exe may be absolute; Join-Path would produce a malformed root\J:\... path.
+if ([System.IO.Path]::IsPathRooted($Exe)) { $exeFull = [System.IO.Path]::GetFullPath($Exe) }
+else { $exeFull = [System.IO.Path]::GetFullPath((Join-Path $root $Exe)) }
 if ($exeFull -ne $runExe) {
     # 2026-10-20 T#0059 guard: a non-runExe path used to overwrite the live engine silently
     # (2026-10-18: sym3 overwrote the production exe for ~30 min). Always back up the live exe

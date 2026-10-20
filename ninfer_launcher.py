@@ -854,6 +854,18 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
     argv += _argv_of(TB_OPTIONS,      combo.get("tb", "none"),       "none")
     argv += _argv_of(CONC_OPTIONS,    combo.get("conc", "1"),        "1")
+    # 挂账 #43 守护（2026-10-20）：host 状态镜像槽按 3× 并发给余量。
+    #   zxz v33 实测：n16 时 16 槽耗尽 ⇒ 逐路串行驱逐 ⇒ TTFT 47ms→3.9s；16→48（3×）认证 1125 轮 0 退化。
+    #   我方 C=1 ⇒ 3×1=3 < 引擎默认 8 ⇒ 不追加旗标（保证与定稿命令逐字一致）；
+    #   C≥4 才显式抬到 3×C（如 C=4→12）。注：KVMem 环架构下 C>1 本就会被引擎拒启，
+    #   此处为"关环/未来多路"预留守护，不改变当前生产行为。
+    try:
+        _conc = int(str(combo.get("conc", "1")))
+    except Exception:
+        _conc = 1
+    _state_slots = max(8, 3 * _conc)
+    if _state_slots > 8:
+        argv += ["--host-state-slots", str(_state_slots)]
     argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
     if combo.get("reqlog", "off") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
         argv += ["--request-log-jsonl", os.path.join(".temp", "reqlog_serve_%s.jsonl" % port),

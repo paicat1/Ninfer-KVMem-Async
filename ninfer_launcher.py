@@ -641,6 +641,10 @@ def validate(combo, exe=None):
     """返回告警列表（空 = 无告警）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     warns = []
+    # 2026-10-20 审核 H3：S13 是无符号生产件，Gen5+外压400 会卡死（§136）；显式告警，场景请选 offi/sym3。
+    if os.path.normcase(os.path.abspath(exe)) == os.path.normcase(os.path.abspath(ENGINE_SELF)):
+        warns.append("S13 是卡死缺陷件（无符号；Gen5+外压400 会 decode 0 卡死，§136）——"
+                     "该场景请选 offi/sym3（registry 现役三件；Gen4/零外压可继续用 S13）。")
     mx = str(combo.get("maxout", "default"))
     mx_val = 65535 if mx == "default" else (int(mx) if mx.isdigit() else 0)  # "default"=65535；非数字安全跳过（照老项目：不裸 int 转换）
     if mx_val > KV_POOL_TOKENS:

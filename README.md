@@ -319,7 +319,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 5. **起服验证**：上面的命令行（或 launcher）→ `curl 127.0.0.1:8094/v1/models` → `python scripts/test_ab_arm1.py`（健康探针）。
 
-**换机/换目录必改的绝对路径**（本库 34 个文件写死 `J:\`；主要集中处）：`build\s6_1208a.bat`（`SRC` / `VCPKG_ROOT` / CUDA 13.3 —— 本机在 `J:\Bonsai\landing\cuda-13.3`，**外部线目录·只读引用**）、`build\*.ps1` 与 `build\s6*.bat`、`deploy_engine.ps1`、`start-*.bat`、`ninfer_launcher.py`、`scripts\*.py`。
+**换机/换目录必改的绝对路径**（本库 34 个文件写死 `J:\`；主要集中处）：`build\s6_1208a.bat`（`SRC` / `VCPKG_ROOT` / CUDA 13.3 —— 本机在 `J:\Bonsai\landing\cuda-13.3`，**外部线目录·只读引用**）、`build\*.ps1` 与 `build\s6*.bat`、`deploy_engine.ps1`、`start-*.bat`、`ninfer_launcher.py`、`scripts\*.py`。**v2 补充实测（2026-10-20）**：`scripts\a2gate.py`、`scripts\a3probe.py`、`scripts\aba_multi_verdict.py`、`scripts\analyze_stall.py`、`scripts\start_watch.ps1`（均写死 `J:\ninfer-kvmem\.temp\...` 运行产物路径）——合计 **≥38 个文件**。
 
 **复现难度自评：中偏低（A 路全程实测）。** 引擎源码两路可得（本库 bundle 快照已实测可克隆 / 公开上游 + 补丁为未验证路径）、发放包有预编译 exe（免构建路径）、模型下载含 sha256 清单、构建脚本/参数/验收探针全在本库——途径全部明确，主要工作是 CUDA 环境 + 模型下载 + 按 `docs/教程-KVMem与短测-给agent与使用者.md` 起服。唯一非公开件是发放包本身（找作者沈三殊拿，或用源码自建绕开）。
 

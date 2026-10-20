@@ -3818,7 +3818,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 
 ### 155. 【清账批 4：#18 构建入口收口 + #22 engine_ctl 起实验件守护】（2026-10-20，用户令"连同前面同意的一起做"）
 
-- **数字/阶段**：挂账表 49 行；✅ 23→**25**、🟡 7→**5**、⏸ 19→**19**（#18/#22 转 ✅）。
+- **数字/阶段**：挂账表 49 行；✅ 23→**25**、🟡 7→**6**、⏸ 19→**18**（#18/#22 转 ✅）。
 - **原因**：用户批 #18（构建入口收口）与 #22（engine_ctl 守卫）。
 - **Δ 对基线**：
   - **#18**：本地 `engine-src/src-tree/fusion-engine-src/CMakePresets.json` 的 `release` 补 `CMAKE_CUDA_ARCHITECTURES=120a` + `NINFER_SM120_NATIVE=ON`（堵 §128 地雷）；`build/README.md` §8.1 补"preset 已带 arch；engine-src 为 gitignore 树，仓库侧权威入口=`s6_1208a.bat` L47"。

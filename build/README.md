@@ -105,6 +105,7 @@
 
 ### 8.1 `/Zi` + `/DEBUG` 配方（仅符号件）
 - configure 必须显式传：`-DCMAKE_CUDA_ARCHITECTURES=120a -DNINFER_SM120_NATIVE=ON`（与 `s6_1208a.bat` L47 对齐）；
+- `cmake --preset release`（`engine-src/src-tree/fusion-engine-src/CMakePresets.json`）已补同两项；该树为本机 clone（**gitignore，不入库**），**仓库侧权威入口 = `s6_1208a.bat`**（L47 已带全参）；
 - `/Zi` 用 **env 合并**方式注入（`-D CMAKE_CXX_FLAGS` 是替换语义，会丢 `/DWIN32 /D_WINDOWS /EHsc`）；
 - 链接加 `/DEBUG`（可经 `LINK` env，MSVC link.exe 原生机制；`CMAKE_EXE_LINKER_FLAGS` 的 env 名实为 `LDFLAGS`，不可用）；
 - 产物体积参考：exe ≈ 1.31 GB、pdb ≈ 228 MB（相对生产件 +20 MB 属正常）。

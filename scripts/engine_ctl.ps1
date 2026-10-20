@@ -52,6 +52,8 @@ param(
 
     [switch]$NoGraph,            # 2026-10-18 加：真关图臂（--no-cuda-graph；allowance=0 只是"引擎自算预算"图照开，两者互斥拒启——源码 serve_options.cpp L1166）
 
+    [switch]$Experimental,       # 2026-10-20: T#0059 guard -- allow -Exe outside runExe to overwrite the live engine (explicit opt-in; auto-backup before overwrite)
+
     [string]$Spec = 'mtp',
 
     [string]$KvDtype = 'rk2v4-e8',
@@ -237,7 +239,21 @@ $runExe = Join-Path $dllDir 'ninfer-serve.exe'   # ★ 必须是**字面名**（
 # 2026-10-18: -Exe 与 runExe 同路径时跳过复制（T#0054 ③"自己复制自己"IOException 原坑修复；
 # 现役件本身就住在 self-built-20261008\，起服现役配置必须允许同路径）
 $exeFull = [System.IO.Path]::GetFullPath((Join-Path $root $Exe))
-if ($exeFull -ne $runExe) { Copy-Item $Exe $runExe -Force }
+if ($exeFull -ne $runExe) {
+    # 2026-10-20 T#0059 guard: a non-runExe path used to overwrite the live engine silently
+    # (2026-10-18: sym3 overwrote the production exe for ~30 min). Always back up the live exe
+    # before overwriting; -Experimental only acknowledges the overwrite (no hard block, because
+    # 20+ legacy experiment scripts call -Exe with lineage/variants paths).
+    if (Test-Path $runExe) {
+        $bak = Join-Path $runDir ('ninfer-serve.exe.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+        Copy-Item $runExe $bak -Force
+        Write-Output ('T#0059: backup live exe -> ' + $bak)
+    }
+    if (-not $Experimental) {
+        Write-Output ('T#0059 warning: overwriting live engine with ' + $exeFull + ' (pass -Experimental to acknowledge; backup kept)')
+    }
+    Copy-Item $Exe $runExe -Force
+}
 
 Set-Content -Path (Join-Path $runDir 'VARIANT.txt') -Encoding ascii -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + '  from=' + $Exe + '  tag=' + $Tag + '  depth=' + [string]$Depth)   # 记录仍留 test-run
 

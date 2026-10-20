@@ -85,8 +85,8 @@ def _registry_seed():
     #  ③ label/时间/大小等冗长实况不再拼进下拉（见 engine_display），选中件实况在状态行展示。
     _VARIANTS = os.path.join(ROOT, "engine", "variants")
     return [
-        {"label": "S13 · 生产件（官方链 14.44 · 无符号）", "path": ENGINE_SELF,
-         "tags": ["生产", "官方链", "Gen5+外压卡死"],
+        {"label": "S13 · 生产（仅 Gen4/零外压；Gen5+外压卡死缺陷）", "path": ENGINE_SELF,
+         "tags": ["生产", "官方链", "Gen5+外压卡死缺陷", "仅Gen4/零外压"],
          "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。"
                  "出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。"
                  "Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。",

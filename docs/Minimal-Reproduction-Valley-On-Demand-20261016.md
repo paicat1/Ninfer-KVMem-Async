@@ -30,7 +30,7 @@ It performs: baseline probe -> hold 1200 MiB from a second process -> probe duri
 | during hold | `decode` **3.6-14** (one to many slow probes; a 4-5 minute hold makes **100 % of probes** slow, reaching **~1.5**) |
 | after release | **immediate** recovery to **163-168** |
 
-**Dose and saturation**: external added demand **200 MiB ⇒ no effect at all (0/9 slow)**; **400-600 MiB ⇒ exactly one valley-grade probe per application**; **≥400 MiB held 4-5 minutes ⇒ sustained valley (decode ~1.5)**. The threshold is **absolute, not relative to the engine's headroom** (600 MiB triggers even with 909 MiB headroom).
+**Dose and saturation**: external added demand **200 MiB ⇒ no effect at all (0/9 slow)**; **400-600 MiB ⇒ one valley-grade probe per application in all 3 observed trials (3/3, n=3)**, under the declared domain (free VRAM <400 MB / pool as recorded / probe criterion decode<60); **≥400 MiB held 4-5 minutes ⇒ sustained valley (decode ~1.5)**. The threshold is **absolute, not relative to the engine's headroom** (600 MiB triggers even with 909 MiB headroom) **within the declared domain** — it is an existence result, not a universal guarantee.
 
 ## Self-test of this protocol (in this repository)
 

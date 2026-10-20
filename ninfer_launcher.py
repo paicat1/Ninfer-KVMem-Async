@@ -704,15 +704,17 @@ def validate(combo, exe=None):
 #   ⇒ 起服前须有 ≈1.0 GiB 空闲（与“64K 池需净 GPU、桌面 ≤~1.0 GiB”实测一致）。
 # ---------------------------------------------------------------
 VRAM_PAGE_MIB = {
-    "rk2v4-e8": 0.83, "rk4v4-e8": 1.11, "nvfp4": 1.11,
+    "rk2v4-e8": 0.83, "rk4v4": 1.11, "rk4v4-e8": 1.11, "nvfp4": 1.11,  # rk4v4 未实测校准：暂借 rk4v4-e8=1.11 作保守上界（高估→不误判OK），待真机校准
     "k8v4": 1.59, "rk8v4": 1.59, "int8": 2.11, "fp8": 2.11, "bf16": 4.08,
 }
 VRAM_TOKENS_PER_PAGE = 64
 VRAM_WEIGHTS_GIB = {"iq4nl": 12.30, "iq4nlvis": 12.30, "orig": 12.40}
 VRAM_RUNTIME_GIB = 1.66          # 运行时/工作区（实测 runtime 行 1.44~1.66，取上界）
 VRAM_VISION_GPU_GIB = 1.40       # vision=on 视觉塔常驻设备；overlay/cpu 走主机/CPU = 0
+HOST_STATE_MIB = {"off": 1177.6, "on": 598.6}   # fp16 循环状态 host pinned（§145 实测：FP32 1.15 GiB / FP16 598.6 MiB）
 
 _VRAM_GPU_CACHE = {"t": 0.0, "val": (None, None, False)}
+_HOST_MEM_CACHE = {"t": 0.0, "val": (None, None)}   # 系统物理内存（总/可用 MiB）5 秒缓存
 
 
 def _gpu_used_mib(max_age=5.0):
@@ -741,8 +743,33 @@ def _gpu_used_mib(max_age=5.0):
     return used, total, running
 
 
+def _host_mem(max_age=5.0):
+    """系统物理内存（总 MiB, 可用 MiB）；5 秒缓存。失败返回 (None, None)。"""
+    now = time.time()
+    cached = _HOST_MEM_CACHE["val"]
+    if cached[0] is not None and now - _HOST_MEM_CACHE["t"] < max_age:
+        return cached
+    total = avail = None
+    try:
+        import ctypes
+        class _MEM(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        m = _MEM(); m.dwLength = ctypes.sizeof(m)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            total = m.ullTotalPhys / 1048576.0
+            avail = m.ullAvailPhys / 1048576.0
+    except Exception:
+        pass
+    _HOST_MEM_CACHE.update({"t": now, "val": (total, avail)})
+    return total, avail
+
+
 def vram_account(combo):
-    """按当前选择实时算显存账。返回 (文本, 判定色)；颜色：绿=OK，橙=紧张/不够/未知。"""
+    """按当前选择实时算显存账（设备 GPU + 主机内存两栏，分别返回）。返回 (设备文本, 主机文本, 判定色)；绿=OK，橙=紧张/不够/未知。"""
     model = str(combo.get("model", "iq4nl"))
     dtype = str(combo.get("kv", "rk2v4-e8"))
     page = VRAM_PAGE_MIB.get(dtype, 0.83)
@@ -767,16 +794,35 @@ def vram_account(combo):
     if vis_gib:
         parts += " + 视觉塔 %.2f" % vis_gib
     parts += " + %s + 运行时 %.2f + graph %.2f" % (pool_txt, VRAM_RUNTIME_GIB, graph_gib)
+    # ---- 主机内存账（host KV 预算 + fp16 循环状态；fp16 省的就是这块，不是 GPU 显存）----
+    _hk = _argv_of(HOSTKV_OPTIONS, str(combo.get("hostkv", "16384")), "16384")
+    hostkv_mib = int(_hk[1]) if len(_hk) >= 2 and _hk[1].isdigit() else 16384
+    state_mib = HOST_STATE_MIB.get(str(combo.get("fp16state", "off")), HOST_STATE_MIB["off"])
+    host_need_gib = (hostkv_mib + state_mib) / 1024.0
+    _htot, _hav = _host_mem()
+    _hmargin = None
+    if _hav is not None:
+        _hfree = _hav / 1024.0
+        _hmargin = _hfree - host_need_gib
+        host_txt = "主机：需求 ≈ %.2f GiB（hostkv %.2f + 状态 %.2f）｜ 可用 %.1f → 余量 %+.1f" % (
+            host_need_gib, hostkv_mib / 1024.0, state_mib / 1024.0, _hfree, _hmargin)
+    else:
+        host_txt = "主机：需求 ≈ %.2f GiB（hostkv %.2f + 状态 %.2f）｜（系统内存不可用，余量未知）" % (
+            host_need_gib, hostkv_mib / 1024.0, state_mib / 1024.0)
     used, total, running = _gpu_used_mib()
     if used is None:
-        return ("显存：需求 ≈ %.2f GiB ＝ %s ｜（nvidia-smi 不可用，余量未知）" % (need, parts), "#b07a20")
+        return ("显存：需求 ≈ %.2f GiB ＝ %s ｜（nvidia-smi 不可用，余量未知）" % (need, parts),
+                host_txt, "#b07a20")
     free = (total - used) / 1024.0
     margin = free - need
     verdict = "OK" if margin > 0.35 else ("紧张" if margin > 0.05 else "不够")
+    if _hmargin is not None and _hmargin < 0.5:   # 设备 OK 不代表主机够（hostkv 16G + 状态）
+        verdict = "紧张"
     color = "#4a6b4a" if verdict == "OK" else "#b07a20"
     tail = "｜⚠ 有引擎在跑，可用量含其占用（判余量请先停服）" if running else ""
-    return ("显存：需求 ≈ %.2f GiB ＝ %s ｜ 可用 %.2f（已用 %d/%d MiB）→ 余量 %+.2f 【%s】%s"
-            % (need, parts, free, used, total, margin, verdict, tail), color)
+    dev_txt = "显存：需求 ≈ %.2f GiB ＝ %s ｜ 可用 %.2f（已用 %d/%d MiB）→ 余量 %+.2f 【%s】%s" % (
+        need, parts, free, used, total, margin, verdict, tail)
+    return (dev_txt, host_txt, color)
 
 
 def _argv_of(table, value, fallback_key):
@@ -1161,7 +1207,7 @@ class LauncherApp:
 
         # 分区：KV 与显存
         f2 = section("KV 与显存")
-        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "vision"):
+        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "vision", "fp16state"):
             row(f2, k)
 
         # 分区：仪器与稳定性
@@ -1184,6 +1230,11 @@ class LauncherApp:
                              font=("Microsoft YaHei UI", 9, "bold"),
                              justify="left", anchor="w", wraplength=430)
         self.vram.pack(anchor="w", pady=(8, 0))
+
+        self.vram_host = tk.Label(right, text="", bg=self.bg, fg="#2b3a6b",
+                                  font=("Microsoft YaHei UI", 9, "bold"),
+                                  justify="left", anchor="w", wraplength=430)
+        self.vram_host.pack(anchor="w", pady=(2, 0))
 
         self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
                                font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=430)
@@ -1461,10 +1512,11 @@ class LauncherApp:
         self.cmd_box.configure(state="disabled")
         # 显存账：每次选择变更即重算（vram_account 自带 nvidia-smi 5 秒缓存，不会拖慢 GUI）
         try:
-            vtxt, vcolor = vram_account(self.selection)
+            dev_txt, host_txt, vcolor = vram_account(self.selection)
         except Exception as _e:          # 账算失败也绝不让 GUI 崩（老项目 D8 精神）
-            vtxt, vcolor = "显存：计算失败（%s）" % _e, "#b07a20"
-        self.vram.config(text=vtxt, fg=vcolor)
+            dev_txt, host_txt, vcolor = "显存：计算失败（%s）" % _e, "", "#b07a20"
+        self.vram.config(text=dev_txt, fg=vcolor)
+        self.vram_host.config(text=host_txt, fg=vcolor)
         warns = validate(self.selection, self._engine_path())
         if warns:
             self.status.config(text="⚠ " + "\n⚠ ".join(warns), fg="#b07a20")

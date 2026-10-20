@@ -23,7 +23,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 ROOT = r'J:\ninfer-kvmem'
 
 PAGE_MIB = {
-    'rk2v4-e8': 0.83, 'rk4v4-e8': 1.11, 'nvfp4': 1.11,
+    'rk2v4-e8': 0.83, 'rk4v4': 1.11, 'rk4v4-e8': 1.11, 'nvfp4': 1.11,  # rk4v4 未实测：借 rk4v4-e8 作保守上界
     'k8v4': 1.59, 'rk8v4': 1.59, 'int8': 2.11, 'fp8': 2.11, 'bf16': 4.08,
 }
 TOKENS_PER_PAGE = 64

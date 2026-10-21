@@ -388,6 +388,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 
 ## 文档索引
 
+- **`docs/快速上手-自助路径.md`** —— **写给想跑起来的你**：路径总览（官方 kvmem 包 / 自编引擎 / 沈三殊渠道现状核实）、三引擎兼容性警告、已验证模型渠道、判活与高频坑；
 - **`docs/异步页流水-技术说明.pptx`**（18 页演示，另有英文版 `Async-Page-Pipeline-Technical-Brief.pptx`）/ **`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`**（公开版科普说明）——对外介绍与原理；
 - **`docs/ninfer-kvmem-项目构建史.md`** —— §1–§140 完整历程（每个决策的证据链 + 挂账台账），**先读这个**；
 - **`docs/引擎启动参数与配置档-20261014.md`** —— 启动参数逐项解释 + 两档配置（SWIFT 现行 / Coder390 定稿）+ 环境变量六开关；
@@ -412,7 +413,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
 - **[tancau/ninfer-kvmem-ring](https://github.com/tancau/ninfer-kvmem-ring)** —— KVMem 环算法的原始实现（并入融合引擎）；**本线 W1-W4 修复的 diff 参照**（思考熔断三连缺陷的修法样板）；环复用深度/召回边界/decode 墙的作者级结论（brief，本线页漂移定位的重要参照）。
 - **[kvmem/kvmem-qw3](https://github.com/kvmem/kvmem-qw3)（Di Chai）** —— 检索策略层算法（并入融合引擎）。
 - **[kvmem/kvmem](https://github.com/kvmem/kvmem)（Leye Wang / wangleye 等）** —— KVMem **官方双后端仓**（llama.cpp + NInfer）：调优默认值对照（D-01..D-08 的来源）、[issue #114](https://github.com/kvmem/kvmem-llama.cpp/issues/114) 修法线索（issue 提于更名前的 `kvmem/kvmem-llama.cpp`；作者已声明该仓停用、统一到 `kvmem/kvmem`）。
-- **沈三殊（shensanshu）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）。
+- **沈三殊（shensanshu，GitHub: [1314521gjy](https://github.com/1314521gjy)）** —— 引擎发放包、三元量化工具链与模型转换链（ModelScope `shensanshu/ninfer-ada-ternary`）；**融合引擎仓 `1314521gjy/ninfer-fusion-kvmem` 即其 GitHub 仓库**（含 NInfer+KVMem 环预编译 Release）。
 - **Merkyor / nerkyor** —— 模型权重（Coder390-EfficientThink 系 NInfer 容器，含内置视觉塔）。
 
 **本线自有工作**（构建史 §一至§十七）：Qwen3.8-27B 上车路径（自转 MTP 头 + 视觉嫁接）、W1-W4 patch 施工与四重验收、growth 撞墙取证与定案、页漂移/sequence 重建风暴/stream 挂起三类形态的发现与实测、**异步页流水（v2 搬运层）施工与首战 333 tok/s**（上游全材料审计未发现同款实现，见 `docs/上游谱系与跟踪纪律-20261011.md` §6.5）、池标定（51,200/64K/graph64）、DSH 联调（压缩触发调参、maxTokens 封顶）、A/B 方法论与探针脚本。前两仓血缘见开篇三仓表。

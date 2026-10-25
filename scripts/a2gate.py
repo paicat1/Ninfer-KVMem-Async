@@ -70,7 +70,8 @@ def main():
             started = time.time()
             record = {'run': run, 'round': round_index}
             try:
-                with urllib.request.urlopen(request, timeout=900) as response:
+                # 2026-10-26: 900s cap truncated every r3 (229K) run; raised to 2700s (TELE/CB prereg).
+                with urllib.request.urlopen(request, timeout=2700) as response:
                     payload = json.loads(response.read().decode('utf-8'))
                 record['elapsed_s'] = round(time.time() - started, 1)
                 record['usage'] = payload.get('usage')
@@ -82,6 +83,15 @@ def main():
                 record['sha'] = hashlib.sha256(
                     (reasoning + '\n' + content).encode('utf-8')).hexdigest()[:16]
                 record['length'] = len(reasoning) + len(content)
+                # 2026-10-26 (#55): persist full output text so OFF/ON divergence can be diffed.
+                try:
+                    text_path = ('J:\\ninfer-kvmem\\.temp\\abab_text_%s_r%d.txt'
+                                 % (args.arm, round_index))
+                    with open(text_path, 'w', encoding='utf-8') as text_handle:
+                        text_handle.write(reasoning + '\n' + content)
+                    record['text_path'] = text_path
+                except Exception as text_exc:  # noqa: BLE001
+                    record['text_error'] = '%s: %s' % (type(text_exc).__name__, text_exc)
                 history.append({'role': 'user', 'content': prompt})
                 history.append({'role': 'assistant',
                                 'content': (reasoning + '\n' + content)[:20000]})

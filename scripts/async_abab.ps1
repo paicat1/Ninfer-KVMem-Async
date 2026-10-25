@@ -165,4 +165,13 @@ if (-not $ratioOk -or $errTotal -gt 0) {
 $whea = 0
 try { $whea = @(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-WHEA-Logger'; StartTime=(Get-Date).AddHours(-2)} -EA 0).Count } catch {}
 Say ("WHEA events last 2h = " + $whea)
-Say 'ASYNC-ABAB end (engine left stopped; platform restore is a separate user decision)'
+# prereg 2026-10-26: 跑完停引擎归还显存（无人值守夜班必做）
+powershell -NoProfile -File scripts\engine_ctl.ps1 -Action stop | Out-Null
+Start-Sleep -Seconds 3
+if (Get-Process ninfer-serve -ErrorAction SilentlyContinue) {
+    Say 'WARN: engine still alive after stop (manual teardown needed)'
+} else {
+    Say 'engine stopped; vram freed'
+}
+Say ('vram after teardown = ' + (nvidia-smi --query-gpu=memory.used --format=csv,noheader))
+Say 'ASYNC-ABAB end (unattended night run; no commit/push; data to TELE for reconciliation)'

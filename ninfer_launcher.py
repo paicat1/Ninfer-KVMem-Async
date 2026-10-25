@@ -5,7 +5,8 @@
 零外部依赖（仅 Python 自带 tkinter / urllib / json / subprocess）。
 
 对照施工方案：
-  · S1 起服：定稿档 = MTP（--spec mtp --draft-tokens 4）；构造出的参数与实测起服成功的命令逐字一致
+  · S1 起服：定稿档 = MTP（--spec mtp --draft-tokens **3**；2026-10-21 由 K=4 改定，A 组实测甜点 +41%）；
+    构造出的参数与实测起服成功的命令逐字一致
     （见 docs\\ninfer-kvmem-项目构建史.md §4.4 与三·九）
   · S2 就绪判据：判活必须真发请求（/v1/models 200 ≠ 能服务）
   · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
@@ -324,7 +325,7 @@ ASYNC_DEPTH_OPTIONS = {
 # 投机解码：键 -> (显示名, 参数)。k0=无, k1..k5=MTP, d1..d15=DFlash2
 # 对齐旧项目写法：MTP 与 DFlash2 都提供完整 K 值 1..N，不写死单一档。
 SPEC_OPTIONS = {"k0": ("无（裸档 · 慢 · A/B 对照用）", [])}
-SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}" + ("（★本线定稿）" if i == 4 else ""),
+SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}" + ("（★本线定稿）" if i == 3 else ""),
                                ["--spec", "mtp", "--draft-tokens", str(i)])
                      for i in range(1, 6)})
 SPEC_OPTIONS.update({f"d{i}": (f"DFlash2 K={i}（本线不可行·包内无该组件）",
@@ -517,8 +518,13 @@ DIMENSIONS_MAP = {key: table for key, _label, table in DIMENSIONS}  # 联动用�
 #            "missing component vision" 而启动失败（这是硬阻塞，不是"省显存"选项）
 # 沿革：前序 Bonsai 口径（spec="d12" + vision="on"）的档位已于 2026-10-10 按用户裁决整批删除。
 DEFAULTS = {
-    # ★P1b 定稿（2026-10-09 实测定型，详见 docs\ninfer-kvmem-项目构建史.md §4.4）：
-    #   spec    k4       = MTP K=4（本线已通；要裸解码对照请选 "k0"）
+    # ★P1b 定稿（2026-10-09 实测定型）→ ★**2026-10-21 改定稿 k3**（速度实验批 A 组实测，挂账 #51）：
+    #   spec    k3       = MTP K=3（a2gate 45K 提示：decode **282.4 tok/s**、接受率 **93.7%**；
+    #                      K=4 为 199.9 / 73.5% = 全档**最慢** ⇒ K=3 **快 +41%**；
+    #                      逐字门 5/8 **条件档通过**（2 处散文同义改写 + 1 处代码风格差异，均语义等价；reasoning 8/8 全等）
+    #                      （要裸解码对照请显式选 "k0"）
+    #   ⚠ 2026-10-26：上述 K 扫描数字 D 级降级（2026-10-21 环境失效判定：臂内方差 2.4×，
+    #                      挂账表 #51）——k3 定稿待干净环境复测确认后转正。
     #   kv      rk2v4-e8 = 最省 KV 格式（2bit key + 4bit value；5080 实测可用，输出与 k8v4 语义一致）
     #   ctx     256k     = 262144 = 模型原生上限（逻辑上下文；池外部分下沉 host）
     #   kvcap   40960    = 40K 全速池（显存内直接可读的范围）
@@ -530,7 +536,7 @@ DEFAULTS = {
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
     "model": "iq4nl",
-    "spec": "k4", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
+    "spec": "k3", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
@@ -541,14 +547,14 @@ DEFAULTS = {
 # 新档位内部值已改为 "d12"/"k4" 等；加载时自动迁移，避免旧命名组合失效。
 LEGACY_VALUE_MAP = {
     ("spec", "dflash2"): "d12",
-    ("spec", "mtp"):     "k4",
+    ("spec", "mtp"):     "k3",   # 2026-10-21：定稿由 k4 改 k3（A 组实测甜点）
 }
 
 DIM_TIPS = {
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
     "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **默认 FP32（关）；fp16 按需 opt-in 开启**（用户 2026-10-20 后令：默认应 FP32，开关保留）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三现役引擎（S13/sym3/offi）均实证支持该旗标。",
-    "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。",
+    "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。**★定稿 k3（2026-10-21 A 组实测）**：K=3 decode 282.4 tok/s、接受率 93.7%，比 K=4（199.9/73.5%）**快 +41%**；曲线非单调 3>2>5>1>4（**K=4 反而全档最慢**，反常原因见挂账 #52）。逐字门 **5/8 条件档**（2 处散文同义改写 + 1 处代码风格差异，语义等价；reasoning 8/8 全等）⇒ **改档会改输出**，以旧档为基准的逐字/golden 基线需重标。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
@@ -852,7 +858,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）
-    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k4"),       "k4")     # P1b: 回退对齐 DEFAULTS（原 "k0"；要裸解码请显式选 k0）
+    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k3"),       "k3")     # P1b: 回退对齐 DEFAULTS（原 "k0"；要裸解码请显式选 k0）；2026-10-21 定稿 k4→k3
     argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "off"),    "off")    # P0: 回退与 DEFAULTS 对齐（原为 "on"，Coder390 无 vision 组件会启动失败）
     argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
     argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")

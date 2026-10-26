@@ -79,11 +79,15 @@
 
 ## 四、实验设计终版（Y1'' / Y2 / 路线图）
 
-### 4.1 实机夜前置（6 件，不完成不排期）
+### 4.1 实机夜前置（7 件检查 + 1 件代码，不完成不排期）
 
 **代码 1 件**：C0 a2gate.py L88 文件名加 `_run%d`（将来 runs>1 的材料保护）。
 
-**检查 5 件**（零机时/秒级，全主机）：P-a max_shared_prefixes 语义 grep · P-b max8/dup8 实现 grep · P-c logprobs curl 实测 · P-d cached_tokens 读数（gate_*.json + reqlog_abab_*.jsonl，r1=0/r2>0 即坐实缓存命中）· P-e logstat 按 round 分段可行性确认。可复制命令：
+**检查 7 件**（零机时/秒级，全主机）：P-a max_shared_prefixes 语义 grep · P-b max8/dup8 实现 grep · P-c logprobs curl 实测 · P-d cached_tokens 读数（gate_*.json + reqlog_abab_*.jsonl，r1=0/r2>0 即坐实缓存命中）· P-e logstat 按 round 分段可行性确认 · **P-f** demote profile 行是否带 step 号 · **P-g** restore 侧是否已有耗时字段。
+
+**P-f 的分叉价值**（第一个"结果越好、路线图越提前"的前置）：行内**有 step 号** ⇒ 请求内页操作率可算 ⇒ 深度自适应 v0 提前（受日志管道时延约束：读日志只能近实时，引擎内计数器才到批级）→ 不必等新打点、不必等 residency 接口；**无 step 号** ⇒ 引擎加一行计数。**P-g**：已有耗时字段 ⇒ restore_profile 是"补字段"；无 ⇒ "建打点"（成本差一个量级）。
+
+可复制命令：
 
 ```bash
 # P-a / P-b（在家 J:\ninfer-kvmem）
@@ -166,7 +170,7 @@ python -c "import json,glob; [print(f, [(r['round'], (r.get('usage') or {}).get(
 | #53 更新 | 八轮结论（本件 §一）+ 降级记录 + 定性悬空声明（quote 四分类前不定稿） | 随本件入库 |
 | #59 合并 | 七项修订（§二）+ 判据追溯声明 + max8 三要素 | 随本件入库 |
 
-**移交清单（CB/TELE，按序）**：①前置 6 件 → ②classify_repeat（12 份全文，主机立即）→ ③Y1'' → ④Y2 → ⑤10-14 前数据回查 → ⑥residency 接口待办。
+**移交清单（CB/TELE，按序）**：①前置 7 件（P-a~P-g）+ C0 → ②classify_repeat（12 份全文，主机立即）→ ③Y1'' → ④Y2 → ⑤10-14 前数据回查 → ⑥residency 接口待办 → ⑦restore 传输段打点（8.3② 前置）。
 
 ---
 
@@ -202,11 +206,13 @@ python -c "import json,glob; [print(f, [(r['round'], (r.get('usage') or {}).get(
 ### 8.3 攻关顺序（修正版，按成本/收益排序）
 
 1. **深载 depth 分档最小版（1 vs 2）+ 慢态判据**——便宜，先验证方法与判据；数据会受 #33 影响，但流程可复用。慢态判据：**功耗 65-110W / submit≈wall / decode<60**，命中即作废重跑（§164 教训；预算按 2-3 晚等正常态窗口，不要按"一晚"排）。
-2. **demote profile 归因**（记账/收割 vs DMA 排队）——决定 #33 POC 优化什么；若 copy 仍主导，则 #33 对性能的直接贡献有限，价值转向 restore 侧与状态机简化。
+2. **搬运双侧归因**（demote + restore）——原表述只测 demote 侧。**深度修正**：深载 3.5× 超池下 demote 与 restore 都在高频（§164 ON 臂 demote **994 点火**，不是"只有召回"），但 restore 侧只有环内打点（S6 覆盖 demote/ring/restore **环内五段**：亚毫秒、STALL=0）+ `ring retrieve: restored=N` 计数，**缺 H2D 传输 + 发布的 ms 级分解**。前置新仪器：restore 侧补 `restore_profile: copy=X publish=Y tail=Z`（**字段名直接镜像 demote profile，不发明新名**，两侧并表归因）。**已有基础（成本比"建打点"低一档）**：`NINFER_MAT_DEBUG=1` 源码存在于 `runtime/engine/context_cache/materialization_planner.h:154`，打印 **admission/materialization gate**（准入/物化门）——正是 restore/召回实现模块；`valley_s13`/`valley_incidence`/`pdl_aba`/`night_ab`/`mitig_interleave` 等多条脚本已在用；且有判读先例（谷攻关报告"下次起服把 MAT_DEBUG 一并打开，谷窗直接看准入/物化门"）。故 restore 打点 = **在 MAT_DEBUG 现有行上补耗时字段**，不是新建仪器。
 3. **#33 POC（移动语义，只动 sync 路径）**——量三件事：OFF 臂 decode 提升、restore 延迟、逐字门是否仍过；再决定是否动 async 状态机。
-4. **页需求估计器最小版**（只服务深度自适应）——验证后再接预取/页选择；运行时观测依赖 **residency 接口**立项（一个接口三吃：residency 纯对照、depth 自适应、预取）。
+4. **页需求估计器 v0**（只服务深度自适应）——**时间分解免费**（StepProfile：步级 wall 四分解 submit/wait/post/rest + 提交段五分 rows/pre/launch/sync/harvest）；**页操作计数待 P-f**。两条硬约束：①**请求级 ≠ 请求内**——`reqlog.host_work.units` 请求结束才写，跨请求估计抓不到"轮首爆发"（单请求内现象）；②**日志管道时延**——靠读日志做"实时"只能到近实时（秒级），真正的批级自适应需引擎内计数器。验证后再接预取/页选择；运行时观测依赖 residency 接口立项（一个接口三吃）。
 5. **完整 depth 分档（1/2/3/4）+ 估计器版**——在 #33 落地后的新开销曲线上重测，才是"甜蜜点右移"的实证。
 6. **终点：控制回路**——义务率估计 → depth/批大小/预取 → 执行 → profile 反馈；前提是先定目标函数 + 加滞回，否则回路会振荡。
+
+**⚠ #56 范围标注（本轮连带修正）**：#56 的"不装节奏器（上限 2.49% < 5%）"用 ledger44 的 **demote 侧**慢峰（3.4-7.8 ms/批）算出——**restore 传输侧的优化空间从未评估**。故该结论只对 demote 侧成立，**不得外推**。这是八轮里第一个"结论因范围标注而降格"的既有挂账，记账方式应成为模板：**任何用单侧成本做的"不装/不修"结论，都必须标注覆盖范围**。
 
 ### 8.4 与既有挂账的接线
 
@@ -222,6 +228,52 @@ python -c "import json,glob; [print(f, [(r['round'], (r.get('usage') or {}).get(
 
 **用户直觉成立、CB 的边界成立、lummy 的路线成立**：后端一定还有加速空间，那个点在深载的"零暴露 + 低管理开销"；但终点不是某个更优的旋钮位，而是**让旋钮自己消失的控制回路**——到那天，"不需要被谈论的默认行为"就是字面意思。
 
+### 8.6 推送流程纪律（2026-10-26 事故后固化）
+
+**事故链**：API 直推 → `git fetch` 失败（`Empty reply from server`）→ `git reset --hard origin/main` 落到**旧引用** → 工作区文件被删（已从 API 恢复，内容无损）。
+
+| 场景 | 动作 |
+|---|---|
+| `git fetch` 成功 | 改文件 → `git add/commit` → `git push`（历史连续，**首选**） |
+| `git fetch` 失败 | 改文件 → **不在本地 commit**（避免孤儿）→ API 直推（parent = 远端 HEAD）→ 保留工作区改动，等 fetch 成功后 reset |
+| `reset --hard` 前置 | **必须确认** `origin/main == 远端最新 sha`，否则不 reset（旧引用会回退工作区） |
+
+**本地丢弃提交登记**（内容已由远端承载，reflog 保护期内可查，跨 clone 不保留 ⇒ 台账备查）：
+
+| 本地 commit | 内容 | 远端承载 |
+|---|---|---|
+| `62d0913` | 合并版首推 | `35958bb` |
+| `c2e818e` | 撤回史归错方修正 | `f1e4c2c` |
+| `cbb282a` | §八 首版 | `3cd748e` |
+
+> sha 以 `git log -1 --format='%H %P'` 完整输出为准（本轮曾就 `20d9c2e`/`20d0913` 产生转述分歧，短 sha 口头引用易错，一律写全）。
+
+**结构说明**：本地侧不是链式历史，是**三个兄弟提交**——三者 parent 全部是 `20d9c2e`（每次 API 直推后本地重写、再 commit，产生一个新兄弟）：
+
+```
+20d9c2e（RC1 命名，已推送的父）
+  ├─ 62d0913（合并版）      → 远端 35958bb
+  ├─ c2e818e（撤回史修正）  → 远端 f1e4c2c
+  └─ cbb282a（§八 版，HEAD）→ 远端 3cd748e
+```
+
+**场景 2 的安全前提**：fetch 失败时"改文件 → 不 commit → API 推 → 等 fetch 后 reset"这套流程，**前提是 API 推的内容与工作区完全一致**；否则 reset --hard 会把未推送的工作区改动一起刷掉。**部分推送时（只推部分文件）禁止走此流程**，必须先 fetch 成功再动 reset。
+
 ---
+
+### 8.7 收敛声明（2026-10-26 九轮交叉复核后）
+
+**判据**：连续两轮（第九、十轮）只产出"更精确"（MAT_DEBUG 源码锚点、兄弟提交结构、成本降档），**不产出"更不同"**（无新技术分支打开）⇒ 收敛为事实。
+
+**剩余四块，全在主机侧，本副本已无可做之事**：
+
+| 块 | 内容 | 主机成本 | 解锁什么 |
+|---|---|---|---|
+| 七件前置 | P-a~P-g 查表/grep | 30 分钟 | 判据合法性与缓存命中事实 |
+| classify_repeat | 12 份全文四分类 | 20 分钟 | **#53 定性解悬** |
+| Y1'' | 析因 + cache 对照 + nonce + P1 | 一个实机夜（含慢态窗口等待） | 机制终稿 |
+| Y2 | #51 数字赎回 | 一个实机夜 | 对外数字地基 |
+
+**文档状态**：本件为现行终版；后续修订只随主机数据发生（不再有纯推演轮次）。桌面风险台账 v4 与 Y1''/Y2 结果一并做，避免"立刻过时"。
 
 *终版 · 2026-10-26 · lummy · 八轮推演线收官；全部有效结论以本件为准；§八 为当日三方讨论沉淀（未实机验证）*

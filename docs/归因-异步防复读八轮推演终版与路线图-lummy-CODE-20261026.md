@@ -94,11 +94,8 @@ grep -rn "max8\|dup8\|repeat_8gram\|n8_max" engine-src/ .temp/ | head -30
 curl -s -X POST http://127.0.0.1:8094/v1/chat/completions -H "Content-Type: application/json" \
   -d '{"model":"qwen3.8-27b-coder390","messages":[{"role":"user","content":"hi"}],"max_tokens":5,"logprobs":true,"top_logprobs":3}'
 
-# P-d（四臂 × 3 round 的 cached_tokens）
-python -c "import json,glob;
-for f in sorted(glob.glob('.temp/gate_abab_*.json')):
- d=json.load(open(f,encoding='utf-8'))
- print(f,[(r['round'],(r.get('usage') or {}).get('prompt_tokens_details',{}).get('cached_tokens')) for r in d['runs']])"
+# P-d（四臂 × 3 round 的 cached_tokens）— 单行写法，避免 PowerShell 多行缩进坑
+python -c "import json,glob; [print(f, [(r['round'], (r.get('usage') or {}).get('prompt_tokens_details', {}).get('cached_tokens')) for r in json.load(open(f, encoding='utf-8'))['runs']]) for f in sorted(glob.glob('.temp/gate_abab_*.json'))]"
 ```
 
 ### 4.1b classify_repeat 判定算法（四分类操作定义，主机可立即执行）
@@ -154,7 +151,7 @@ for f in sorted(glob.glob('.temp/gate_abab_*.json')):
 | CB 八轮 | 4 致命伤 + 降级判定 + 公平话 | lummy 复核后：1/2/3 成立，4 结论维持论据更换 |
 | lummy 收尾 | 时间线修正（CB 采纳）+ 降级执行 + 遗产清点 + 移交清单 | 本件 §前 |
 
-**发现权账目**：CB 净发现 **~32 条**；lummy 存活原创 **2 条**（max8 定义歧义、自检清单结构形态）+ 实验设计增量 2 条（runs=2 残骸"cache 路径对照"、P-d 范围扩 reqlog）+ 时间线修正 1 条（CB 采纳）。撤回史：lummy 6 处（硬伤 1/3/4/6、自洽调和、runs=2 设计），CB 3 处（prefix cache 机制表述、"发现 2 灭失"说、10-13 论据误用 valley_induce——时间线错误，结论维持、论据更换为 68fed71）——双向撤回各有其主。
+**发现权账目**：CB 净发现 **~32 条**；lummy 存活原创 **2 条**（max8 定义歧义、自检清单结构形态）+ 实验设计增量 2 条（runs=2 残骸"cache 路径对照"、P-d 范围扩 reqlog）+ 时间线修正 1 条（CB 采纳）。撤回史：lummy 6 处（硬伤 1/3/4/6、自洽调和、runs=2 设计），CB 3 处（①"发现 2 灭失"说——--runs 1 实锤后自撤；②"argv 未记完整"说——async_abab.ps1 L91-94 实证已入台账；③10-13 论据误用 valley_induce——时间线错误，结论维持、论据更换为 68fed71）——双向撤回各有其主。**注**："cache 命中 vs 全量重算"之争的撤回属 lummy（复核4 提"全量重算"→复核5 自撤，已计入 lummy 6 处），CB 的"cache 命中"表述自始正确、无撤回。
 
 **降级执行记录**：试用期条款（复核6 §二）触发于 runs=2 致命伤；执行 = 机理推演/实验设计/机制假说产出终止，lummy 转纯台账维护；CB 公平话入账（"residency 零观测点精确化是对的；设计层的坑比文本层深，不是能力问题"——降级是合约执行，非能力判决）。
 

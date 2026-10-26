@@ -70,7 +70,7 @@ Say 'PREREG decision rule (2026-10-26 revised): metric=mean(r2,r3) tok/s; validi
 Say 'PREREG verdict: paired>+5% both cycles -> SIGNAL | paired<-5% both -> investigate | else record-as-is (NO keep/retire效力, agenda closed);'
 Say 'PREREG demote_fired==0 both arms -> record "never exercised" fact (no去留效力).'
 
-$gpuq = 'clocks.sm,temperature.gpu,memory.used,memory.total'
+$gpuq = 'clocks.sm,temperature.gpu,memory.used,memory.total,power.draw'
 function GpuSnap { return (nvidia-smi --query-gpu=$gpuq --format=csv,noheader,nounits 2>$null) -join ' | ' }
 
 function RunArm($mode, $c) {

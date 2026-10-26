@@ -1,5 +1,5 @@
 11:22:56 | OVERPOOL-ASYNC start (segmented CLI run; steps equivalent to scripts\overpool_async_onoff.ps1; sandbox blocks detached spawn so executed stepwise)
-11:22:56 | authorized: user (mobile CLI), 2026-10-16; note: docs\CLI致CB-用户安排说明-20261016.md
+11:22:56 | authorized: user (mobile CLI), 2026-10-16; note: docs\05-交接与值守\CLI致CB-用户安排说明-20261016.md
 11:22:56 | watch log backup copied .temp\valleywatch_before_poolab_20261016_112256.log
 11:23:21 | stop platform: killed engine pid=22952 ;; killed cmd pid=20892 ;; freed after ~3s; vram used=864 MiB
 11:23:21 | ==== ARM off (NINFER_ASYNC_DEMOTE=0, tag=pab_off) ====

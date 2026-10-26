@@ -13,7 +13,7 @@ Run a **27B model** on a **16 GB consumer GPU** for **long-context Agent session
 - **Where it came from**: three generations of engineering in relay — Bonsai-27B-NInfer (engine & quantization) → Bonsai-27B-NInfer-kvmem (KVMem ring) → this repo (async page pipeline); see the three-generation table below.
 - **Current status**: **production-usable in a declared domain (single-stream long context, exclusive VRAM, PCIe Gen4)**; two known open issues = ① the transient slow state (the "Death Valley": trigger pinned to three AND conditions = Gen5 + external pressure ≥400 MiB + pool-edge; line-level root cause pending) ② **C12 — the first request after a long idle may hang permanently** (never reproduced) — additionally: **the "hang" attribution is closed = missing symbol linkage** (symbol-linked builds are immune; see ★2026-10-18/19).
 - **How to read this repo**: below are the key milestones and the complete campaign list (curated); the round-by-round full record (with the evidence chain behind every decision) is in the [Build History](docs/ninfer-kvmem-项目构建史.md) (Chinese);
-- **Want it running**: three steps — build engine / download model / serve — in [Quick start](docs/快速上手-自助路径.md).
+- **Want it running**: three steps — build engine / download model / serve — in [Quick start](docs/00-入口与说明/快速上手-自助路径.md).
 
 Three generations:
 
@@ -70,7 +70,7 @@ Three generations:
 >
 > **③ Other progress in the interim (10-14~15)**: Swift-1.5 (IQ3_S) base swap and KV tier A/B (rk8v4 fast and stable); v2 promoted to the daily baseline (127-round run, 0×500, peak 403.7); S12 incidence comparison all-zero across 12 windows ⇒ discovered the "active window" structure; S11 GDN-resident fix (byte-identical output). See the [Build History](docs/ninfer-kvmem-项目构建史.md) §50-73 (Chinese).
 >
-> **📄 Presentation**: [`异步页流水-技术说明.pptx` (Chinese)](docs/异步页流水-技术说明.pptx) · [**English brief**](docs/Async-Page-Pipeline-Technical-Brief.pptx) · [Public note (MD, Chinese)](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
+> **📄 Presentation**: [`异步页流水-技术说明.pptx` (Chinese)](docs/99-附件/异步页流水-技术说明.pptx) · [**English brief**](docs/99-附件/Async-Page-Pipeline-Technical-Brief.pptx) · [Public note (MD, Chinese)](docs/00-入口与说明/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md)
 
 > ## ★ 2026-10-13 07:15 · New peak 463.9 (H1 baseline · agentic first battle)
 >
@@ -96,7 +96,7 @@ Three generations:
 > v2 = the **transport layer** (page movement decoupled from decoding, pipelined — "it moves"). OS analogy: KVMem = virtual memory + demand paging;
 > v2 = asynchronous I/O (background dirty-page writeback / readahead) — **pages flow freely, decoding never stalls**.
 >
-> **📄 Full technical analysis** → [`docs/技术解析-异步页流水-v2-20261011.md`](docs/技术解析-异步页流水-v2-20261011.md) (Chinese)
+> **📄 Full technical analysis** → [`docs/03-归因与结论/技术解析-异步页流水-v2-20261011.md`](docs/03-归因与结论/技术解析-异步页流水-v2-20261011.md) (Chinese)
 > (problem background / mechanism / v2 implementation & correctness contract / **itemized KVMem comparison + common misconceptions clarified** / live verification /
 > Death Valley analysis / construction archive & rollback anchors); engineering record in the [Build History](docs/ninfer-kvmem-项目构建史.md) §三·十九 (Chinese).
 
@@ -156,7 +156,7 @@ Three generations:
 
 ## Current production setup (updated 2026-10-19): **six model tiers × three active engines × 4 scene presets**
 
-The launcher's "model" dimension now has **six tiers** (switching a model brings its whole parameter set, `MODEL_BUNDLES`: KV / pool / CUDA-Graph budget / vision switch together); the "engine" dimension is an **independent orthogonal** dropdown (which binary runs, decoupled from scene parameters) = **three active binaries**; scene presets = **4** (2 modes × 2 models: production / stress). Per-parameter explanations: **[`docs/引擎启动参数与配置档-20261014.md`](docs/引擎启动参数与配置档-20261014.md)** (Chinese).
+The launcher's "model" dimension now has **six tiers** (switching a model brings its whole parameter set, `MODEL_BUNDLES`: KV / pool / CUDA-Graph budget / vision switch together); the "engine" dimension is an **independent orthogonal** dropdown (which binary runs, decoupled from scene parameters) = **three active binaries**; scene presets = **4** (2 modes × 2 models: production / stress). Per-parameter explanations: **[`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md)** (Chinese).
 
 | Active engine binary | Identity | One-line character |
 |---|---|---|
@@ -206,7 +206,7 @@ engine\lineage\I3b_step13_fourlayer_20261015.exe models\swift15_iq3s_mtp.ninfer 
 
 > `--model-id` is the **service display name** (the API `model` field) and may differ from the real weight name: `engine_ctl` now switches automatically by weight file (swift / Bonsai / default coder390), and tools read it from `/v1/models` (`scripts/_modelid.py`) — **no manual editing**. For the Q2LYNN tier, switch KV back to `rk2v4-e8`, pool 51,200, Graph 64 (or just use a launcher preset).
 
-Clients: any OpenAI-compatible tool; for DSH integration see `docs/教程-KVMem与短测-给agent与使用者.md` (Chinese) and the build history (provider config includes `streamIdleTimeoutMs: 3600000`).
+Clients: any OpenAI-compatible tool; for DSH integration see `docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md` (Chinese) and the build history (provider config includes `streamIdleTimeoutMs: 3600000`).
 
 ## Repository layout
 
@@ -272,7 +272,7 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
   Official upstream: **[kvmem/kvmem](https://github.com/kvmem/kvmem)** (dual backend llama.cpp + NInfer; the former `kvmem/kvmem-llama.cpp` **declared retired, migrated into this repo**; the RC2 line = iamwavecut/ninfer-all + the KVMem integration pack)
 ```
 
-- The upstream's 23 new commits were reviewed one by one (build history §12): no engine behavior-level changes; B34=page drift, B35=wall, B37=compaction-summary truncation each map to fixes or mitigations in this line; absorption via cherry-pick (see `docs/上游谱系与跟踪纪律-20261011.md`, Chinese).
+- The upstream's 23 new commits were reviewed one by one (build history §12): no engine behavior-level changes; B34=page drift, B35=wall, B37=compaction-summary truncation each map to fixes or mitigations in this line; absorption via cherry-pick (see `docs/03-归因与结论/上游谱系与跟踪纪律-20261011.md`, Chinese).
 
 ## From-zero reproduction guide
 
@@ -320,7 +320,7 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
 
 **Absolute paths to change when switching machines/directories** (34 files in this repo hardcode `J:\`; main concentrations): `build\s6_1208a.bat` (`SRC` / `VCPKG_ROOT` / CUDA 13.3 — on this machine `J:\Bonsai\landing\cuda-13.3`, **an external line directory · read-only reference**), `build\*.ps1` and `build\s6*.bat`, `deploy_engine.ps1`, `start-*.bat`, `ninfer_launcher.py`, `scripts\*.py`.
 
-**Reproduction difficulty self-assessment: medium-low (path A fully measured).** Engine source available two ways (this repo's bundle snapshot measured clonable / public upstream + patches is the unverified path), the distribution package has prebuilt exes (the build-free path), model downloads include a sha256 manifest, build scripts/parameters/acceptance probes all in this repo — every avenue is explicit; the main work is the CUDA environment + model download + serving per `docs/教程-KVMem与短测-给agent与使用者.md`. The only non-public item is the distribution package itself (ask the author Shen Sanshu, or bypass it by building from source).
+**Reproduction difficulty self-assessment: medium-low (path A fully measured).** Engine source available two ways (this repo's bundle snapshot measured clonable / public upstream + patches is the unverified path), the distribution package has prebuilt exes (the build-free path), model downloads include a sha256 manifest, build scripts/parameters/acceptance probes all in this repo — every avenue is explicit; the main work is the CUDA environment + model download + serving per `docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md`. The only non-public item is the distribution package itself (ask the author Shen Sanshu, or bypass it by building from source).
 
 ## Key engineering conclusions (all measured; lessons from real potholes)
 
@@ -335,7 +335,7 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
 
 - **SWIFT base swap measured (2026-10-14)**: `rk8v4` is fastest on Swift with the highest acceptance (deep 60K 37.3 s / decode 143.7 / 64%), and **verbatim-identical** output to `rk2v4-e8`; `nvfp4` = the "free tier" (speed ≈ status quo); **int8 ceiling 61,440** (65,536 refused, 35 MB short); the base swap first unlocked "pool 81,920 + high-precision KV".
 - **Pool ≥ context (not just speed — comparability)**: over-pool ⇒ retrieval/page-selection intervenes ⇒ the model sees "a selected subset" ⇒ **output changes** (measured same-format difference only in pool size: `78bcb798` vs `8b3a141f`); all content comparisons (verbatim gate / golden SHA) **must run with pool ≥ context**.
-- **Valley (slow state) manhunt progress (updated 2026-10-19)**: **the trigger's three conditions are pinned** (§135 six-batch matrix) — **AND** (Gen5 PCIe + external VRAM pressure ≥400 MiB + free VRAM at pool-edge <400 MB); missing any one, no trigger (8/8 healthy at zero pressure; on Gen4, 68 probes, 0 valleys); **mechanism still converges on host-side submit calls** (`submit ≈ wall`, `wait = sync ≈ 0`, driver-internal blocking), **PDL ruled out by on/off toggle counter-example**; host path / page tiers / pool size / throttling each excluded by measurement; **WHEA storms time-aligned shot-by-shot: no causal link to the valley** (co-occurrence); **"hang" vs "valley" split** — no-symbol builds hang under Gen5+pressure (culprit = missing symbol linkage, §136), symbol-linked builds "slow but complete" under the same conditions; an ≈2-minute minimal reproduction protocol is ready (for community/upstream review). See the ★ 2026-10-18/19 record and the [public note](docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md) §5.1 (Chinese).
+- **Valley (slow state) manhunt progress (updated 2026-10-19)**: **the trigger's three conditions are pinned** (§135 six-batch matrix) — **AND** (Gen5 PCIe + external VRAM pressure ≥400 MiB + free VRAM at pool-edge <400 MB); missing any one, no trigger (8/8 healthy at zero pressure; on Gen4, 68 probes, 0 valleys); **mechanism still converges on host-side submit calls** (`submit ≈ wall`, `wait = sync ≈ 0`, driver-internal blocking), **PDL ruled out by on/off toggle counter-example**; host path / page tiers / pool size / throttling each excluded by measurement; **WHEA storms time-aligned shot-by-shot: no causal link to the valley** (co-occurrence); **"hang" vs "valley" split** — no-symbol builds hang under Gen5+pressure (culprit = missing symbol linkage, §136), symbol-linked builds "slow but complete" under the same conditions; an ≈2-minute minimal reproduction protocol is ready (for community/upstream review). See the ★ 2026-10-18/19 record and the [public note](docs/00-入口与说明/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md) §5.1 (Chinese).
 - **Display name ≠ real name**: `--model-id` switches automatically by weight file and tools read it from `/v1/models`; `.ps1` files containing Chinese must be saved as **UTF-8 with BOM** (PS 5.1 decodes them as GBK and breaks parsing).
 
 ## Model support boundary & evolution direction
@@ -372,7 +372,7 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
 | 15 | Launcher "two models" confusion | command line shows both `swift15_iq3s_mtp.ninfer` and `--model-id qwen3.8-27b-coder390` | display name hardcoded to the old line's name, not synced on swap | `engine_ctl` switches automatically by file + `scripts/_modelid.py` reads from `/v1/models` | measured `/v1/models` reports only the real name; tool side auto-resolves (a2gate single turn normal) |
 | 16 | Chinese-containing `.ps1` instant exit | watcher scripts won't start: `Unexpected token '}'` | PS 5.1 decodes **BOM-less UTF-8** as GBK; Chinese strings mis-parsed | 5 scripts re-saved as UTF-8 with BOM | 5/5 `PS-SYNTAX-OK` |
 
-> **Open items** (authoritative ledger = [build history §四·挂账表](docs/ninfer-kvmem-项目构建史.md) rows 1–28; current heads below): **valley line-level root cause** (the exact blockage point on the host submit path; the dump route is closed in favor of live observation: in-valley nsys stack sampling / spin-stamp segmentation); **Gen5 switch-back retest** (pre-registration stands: `docs\实验-Gen5回切复测-预登记-CB-20261019.md`; stop if WHEA recurs); **deep-load long-run async ON/OFF comparison** (async's decisive test; shallow load already shown indifferent); **SWIFT1.5 visual re-verification** (user-side restart check after the model-id fix); **ledger table §60–§139 backfill** (table body lagging, to avoid old states contradicting new conclusions). Historical small-number ledger items (43/46/48/49/54/55/W5 etc.) are mostly merged into the above or closed; per-item status per the ledger.
+> **Open items** (authoritative ledger = [build history §四·挂账表](docs/ninfer-kvmem-项目构建史.md) rows 1–28; current heads below): **valley line-level root cause** (the exact blockage point on the host submit path; the dump route is closed in favor of live observation: in-valley nsys stack sampling / spin-stamp segmentation); **Gen5 switch-back retest** (pre-registration stands: `docs\02-实验与预登记\实验-Gen5回切复测-预登记-CB-20261019.md`; stop if WHEA recurs); **deep-load long-run async ON/OFF comparison** (async's decisive test; shallow load already shown indifferent); **SWIFT1.5 visual re-verification** (user-side restart check after the model-id fix); **ledger table §60–§139 backfill** (table body lagging, to avoid old states contradicting new conclusions). Historical small-number ledger items (43/46/48/49/54/55/W5 etc.) are mostly merged into the above or closed; per-item status per the ledger.
 
 ## Known limitations
 
@@ -386,16 +386,16 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
 
 ## Document index
 
-- **`docs/快速上手-自助路径.md`** — **for those who want to get it running**: path overview (official kvmem pack / self-built engine / status of the Shen Sanshu channels, verified 2026-10-21), three-engine compatibility warnings, verified model sources, liveness check & common pitfalls (Chinese);
-- **`docs/异步页流水-技术说明.pptx`** (Chinese slide deck; English version `Async-Page-Pipeline-Technical-Brief.pptx`) / **`docs/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`** (public plain-language note, Chinese) — the outward introduction & principles;
+- **`docs/00-入口与说明/快速上手-自助路径.md`** — **for those who want to get it running**: path overview (official kvmem pack / self-built engine / status of the Shen Sanshu channels, verified 2026-10-21), three-engine compatibility warnings, verified model sources, liveness check & common pitfalls (Chinese);
+- **`docs/99-附件/异步页流水-技术说明.pptx`** (Chinese slide deck; English version `Async-Page-Pipeline-Technical-Brief.pptx`) / **`docs/00-入口与说明/公开说明-异步页流水原理与改进-CodeBuddy-20261015.md`** (public plain-language note, Chinese) — the outward introduction & principles;
 - **`docs/ninfer-kvmem-项目构建史.md`** — §1–§140 complete record (evidence chain per decision + ledger), **read this first** (Chinese);
-- **`docs/引擎启动参数与配置档-20261014.md`** — per-parameter explanations + two-tier configs (SWIFT current / Coder390 finalized) + the six env-var switches (Chinese);
-- `docs/教程-KVMem与短测-给agent与使用者.md` — usage tutorial (Chinese);
-- `docs/KV档A-B-*` / `docs/深上下文池收益与A2适用域-20261014.md` / `docs/Swift换底座-三臂结果与int8预算-20261014.md` — the precision-pool-base three measurement sets (Chinese);
+- **`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`** — per-parameter explanations + two-tier configs (SWIFT current / Coder390 finalized) + the six env-var switches (Chinese);
+- `docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md` — usage tutorial (Chinese);
+- `docs/KV档A-B-*` / `docs/03-归因与结论/深上下文池收益与A2适用域-20261014.md` / `docs/03-归因与结论/Swift换底座-三臂结果与int8预算-20261014.md` — the precision-pool-base three measurement sets (Chinese);
 - `docs/审核-*.md` ×19 (plus `交叉审核-*` ×2) — TeleAgent & CodeBuddy bidirectional cross-review records (Chinese);
-- **`docs/FAQ-死亡谷-20261016.md`** — the **valley FAQ** (how to tell / will it answer wrong / how to recover / how to prevent / what's excluded) (Chinese);
-- **`docs/Minimal-Reproduction-Valley-On-Demand-20261016.md`** (EN) + `docs/研判-驱动提交阻塞-最小复现与可行动项-20261016.md` (Chinese) — the **≈2-minute minimal reproduction protocol** (one command: `scripts\valley_minrepro.ps1`), for community / upstream / driver-side review;
-- **`docs/工程史-死亡谷根因排查与确定-CB-20261017.md`** — the Death Valley root-cause engineering history (the complete 120h manhunt chain: trigger/mechanism/exclusion matrix; for the "hang vs valley" variable-separation verdict, build history §136 is authoritative) (Chinese);
+- **`docs/00-入口与说明/FAQ-死亡谷-20261016.md`** — the **valley FAQ** (how to tell / will it answer wrong / how to recover / how to prevent / what's excluded) (Chinese);
+- **`docs/03-归因与结论/Minimal-Reproduction-Valley-On-Demand-20261016.md`** (EN) + `docs/03-归因与结论/研判-驱动提交阻塞-最小复现与可行动项-20261016.md` (Chinese) — the **≈2-minute minimal reproduction protocol** (one command: `scripts\valley_minrepro.ps1`), for community / upstream / driver-side review;
+- **`docs/03-归因与结论/工程史-死亡谷根因排查与确定-CB-20261017.md`** — the Death Valley root-cause engineering history (the complete 120h manhunt chain: trigger/mechanism/exclusion matrix; for the "hang vs valley" variable-separation verdict, build history §136 is authoritative) (Chinese);
 - `docs/调研-*.md` ×3 — tancau same-source engine comparison, wall mechanism, target paths (Chinese);
 - `build/README.md`, `build/产物清单.md` — engine build details.
 
@@ -411,7 +411,7 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
 - **Shen Sanshu (shensanshu, GitHub: [1314521gjy](https://github.com/1314521gjy))** — the engine distribution package, the ternary-quantization toolchain and the model conversion chain (ModelScope `shensanshu/ninfer-ada-ternary`); **the fusion-engine repo `1314521gjy/ninfer-fusion-kvmem` is his GitHub repository** (with prebuilt NInfer+KVMem-ring Release binaries).
 - **Merkyor / nerkyor** — the model weights (Coder390-EfficientThink-family NInfer containers, with built-in vision tower).
 
-**This line's own work** (build history §一–§十七): the Qwen3.8-27B onboarding path (self-converted MTP head + vision graft), W1-W4 patch surgery & four-fold acceptance, growth-wall forensics & verdict, discovery & measurement of the three failure modes (page drift / sequence-rebuild storm / stream hang), **the async page pipeline (v2 transport layer) surgery & first battle at 333 tok/s** (a full upstream-materials audit found no same-kind implementation; see `docs/上游谱系与跟踪纪律-20261011.md` §6.5), pool calibration (51,200/64K/graph64), DSH integration (compaction-trigger tuning, maxTokens cap), the A/B methodology and probe scripts. Lineage of the two prior repos: see the three-repo table at the top.
+**This line's own work** (build history §一–§十七): the Qwen3.8-27B onboarding path (self-converted MTP head + vision graft), W1-W4 patch surgery & four-fold acceptance, growth-wall forensics & verdict, discovery & measurement of the three failure modes (page drift / sequence-rebuild storm / stream hang), **the async page pipeline (v2 transport layer) surgery & first battle at 333 tok/s** (a full upstream-materials audit found no same-kind implementation; see `docs/03-归因与结论/上游谱系与跟踪纪律-20261011.md` §6.5), pool calibration (51,200/64K/graph64), DSH integration (compaction-trigger tuning, maxTokens cap), the A/B methodology and probe scripts. Lineage of the two prior repos: see the three-repo table at the top.
 
 ## License & upstream
 

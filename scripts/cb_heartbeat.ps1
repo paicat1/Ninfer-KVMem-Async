@@ -24,7 +24,7 @@ $line = '[' + $now.ToString('MM-dd HH:mm') + '] CB=up | TELE=' + $tState + ' (ag
 Add-Content -Path (Join-Path $hb 'heartbeat_log.md') -Value $line -Encoding UTF8
 
 if ($tState -eq 'stale') {
-    $col = 'J:\ninfer-kvmem\docs\协作状态-当前待办与交接-20261016.md'
+    $col = 'J:\ninfer-kvmem\docs\05-交接与值守\协作状态-当前待办与交接-20261016.md'
     if (Test-Path $col) {
         Add-Content -Path $col -Value ('', '## 心跳督促（CB 自动）',
             ('- ' + $now.ToString('MM-dd HH:mm') + ' CB 检测 TELE 心跳超时（age=' + $tAge + ' 分钟）=> 请 TELE 恢复；CB 不重启对方进程，不越权。'))

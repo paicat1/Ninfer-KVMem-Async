@@ -7,11 +7,11 @@
 #
 # Load: a2gate deep over-pool probe -- filler 300 KB (~74.5K tokens > 65536 pool),
 #       runs 3 x rounds 1, max-tokens 600. Same driver both arms; only env differs.
-# Pre-registration: docs\实验-超池异步ONOFF对照-预登记-CodeBuddyCLI-20261016.md
+# Pre-registration: docs\02-实验与预登记\实验-超池异步ONOFF对照-预登记-CodeBuddyCLI-20261016.md
 # Ledger: .temp\poolab_<ts>.txt   Raw: .temp\gate_pab_off.json / .temp\gate_pab_on.json
 # Engine control: scripts\engine_ctl.ps1 (its window discipline applies; visible windows).
 # This script window: visible; closes automatically when the run finishes (ledger kept).
-# Authorized by the user via the mobile CLI (see docs\CLI致CB-用户安排说明-20261016.md).
+# Authorized by the user via the mobile CLI (see docs\05-交接与值守\CLI致CB-用户安排说明-20261016.md).
 param(
     [int]$FillerKb = 300,
     [int]$MaxTokens = 600,
@@ -30,7 +30,7 @@ Say ('OVERPOOL-ASYNC start: filler=' + $FillerKb + 'KB max=' + $MaxTokens + ' ru
 Say ('engine exe: ' + $Exe)
 Say ('VARIANT now: ' + ((Get-Content 'engine\test-run\VARIANT.txt' -EA 0) -join ' / '))
 Say ('git HEAD: ' + ((git rev-parse --short HEAD) 2>$null))
-Say 'authorized: user (mobile CLI), 2026-10-16; note: docs\CLI致CB-用户安排说明-20261016.md'
+Say 'authorized: user (mobile CLI), 2026-10-16; note: docs\05-交接与值守\CLI致CB-用户安排说明-20261016.md'
 
 # insurance copy of the current watch log before the platform is replaced
 try {

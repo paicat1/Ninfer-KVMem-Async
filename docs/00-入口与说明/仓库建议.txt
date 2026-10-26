@@ -1,0 +1,80 @@
+Bonsai-27B-NInfer-kvmem · 综合评价（main 分支）
+一、项目定位
+这是一个面向 RTX 5080（16GB / sm_120a）的本地大模型推理部署工程：在 NInfer v0.11.0 + KVMem 环的上游源码基础上自行编译整套引擎与工具链（含 8 处补丁），并配套 GUI 启动器、日志工具、验证结论与复现材料。核心卖点是 KVMem 长上下文机制（显存小池 + 主机内存卸载 + 内容打分检索），解决"题面比显存池大却 HTTP 200 静默答错"的硬伤。
+
+仓库采用两分支分离设计：main=项目层（启动器/脚本/文档/复现），engine-main=引擎层（上游源码 + 全部补丁，可复现构建）。这是干净的关注点分离。
+
+二、main 分支代码逐项评价
+1. ninfer_launcher.py（41KB，~900 行）—— 项目核心
+优点（确实做得好）：
+
+零外部依赖：仅用 tkinter/urllib/json/subprocess，便携。
+健壮性设计到位：
+save_profiles 用「临时文件 + fsync + os.replace」原子写，损坏时「留痕不静默」（load_profiles）；
+_argv_of() 对未知/缺失档位值回退默认项，避免 KeyError 崩 GUI；
+旧档位值迁移表 LEGACY_VALUE_MAP（dflash2→d12、mtp→k4）；
+KVMem 五环境变量在 KV_ENV 中固定注入，少一个就答错，这里把"防呆"做进了代码；
+--max-shared-prefixes 0 铁律写死；env_for_launch 把引擎目录前置到 PATH 解决 DLL 解析；
+用 CREATE_NEW_CONSOLE + 把 pythonw 替换回 python 确保有可见控制台，关窗即停服。
+就绪判据正确：readiness_test 不只看 /v1/models 200，而是真发一条请求判活（注释明确点名"200≠能服务"）——这正是 KVMem 教程里反复强调的反误判纪律。
+投机档两级联动（类型+K）、场景预设、悬停 ToolTip、命名组合加载/保存，交互完备。
+不足（值得改）：
+
+无自动化测试，GUI 逻辑正确性全靠手测；作为"工程化"卖点略虚。
+_on_change 里做了「显示名→内部值」的反查（self._label2key[key].get(var.get(), …)），与 _apply_spec_to_ui/预设里的「内部值→显示名」构成双向映射，逻辑绕，后续加维度易出错。
+print() 报错在 pythonw 下不可见（虽有替换逻辑，但 GUI 进程 stdout 仍可能被吞）。
+--model-id qwen3.8-27b 与模型名 Bonsai-2-27B 语义不一致（沿用官方，属历史包袱，建议注释说明）。
+validate() 对 maxout > 池 只告警不拦截（已注释"官方默认如此"），可接受但存在误用空间。
+2. serve_tee.py（6KB）—— 日志中转
+优点： 无缓冲（bufsize=0）实时转发；colorize 正则给 decode/接受率/prefill 上色；slim/full 双模式；日志文件始终原文全文落盘保 grep——取证纪律正确。KEPT 刷屏过滤还处理了"超长拆行纯数字续行"这种边界情况。 风险点： is_kept_noise 把"全是数字/空格且长度≥8"的行一律判为刷屏噪声。注释说业务行都含时间戳/字母，但这是一个启发式：万一引擎将来输出一条纯数字但重要的诊断行，在 slim 模式下会被静默隐藏（仅显示过滤，落盘仍全）。建议加更精确的锚（如行首固定前缀）而非"全数字"特征。
+
+3. start-*.bat（4 个）+ 启动器.bat
+质量高于一般 bat：start-pq2-dflash.bat 带完整的参数术语表注释、KVMem 六环境变量说明、REFUSE 前置校验（缺模型/缺引擎直接退出并提示）、ASCII-only 防 OEM 代码页问题。这才是可维护的部署脚本范本。 小问题： 路径拼写为 engine\ninfer-serve-120a.exe（README §四写的是 engine/ninfer-serve-120a.exe），Windows 下等价但风格不一。
+
+4. ninfer_launcher_profiles.json
+含 7 个档位预设（dflash/MTP/省显存/224K NVFP4 等），覆盖了 README 宣称的甜点组合。 不一致： 首条 起服-dflash档 仍是旧值 "spec": "dflash2"，与 DEFAULTS 的 d12 不一致；靠 LEGACY_VALUE_MAP 兜底迁移。建议：既然已迁移，把随仓库发布的 JSON 重新生成为新格式，避免"靠兼容层兜着旧数据"的异味。
+
+5. build/ 复现材料
+README.md 把依赖版本（CUDA 13.3 / vcpkg x64 / VS2022 / CMake+Ninja）、CMake 参数（-DCMAKE_CUDA_ARCHITECTURES=120a -DNINFER_SM120_NATIVE=ON 等）、脚本清单、产物清单.md（12 文件 SHA256）写得很清楚，可回溯性强（源码锚点精确到 commit 240fe23）。 最大短板 = 复现摩擦：s6_configure.bat/s6_build.bat 里写死了本机绝对路径（J:/Bonsai/landing/cuda-13.3/...、J:/vcpkg/...）。外人 clone 后必须手改路径才能编，不是"开箱即用"。README 自认了这点，但更优做法是参数化（环境变量/配置文件），把绝对路径抽出来。
+
+6. .gitignore
+非常克制且符合你自己的铁律：忽略 engine/、models/、official-repo/（体积/上游）、logs/、.temp/、safety_backups/，以及 .codebuddy/、tools/、smart_push.ps1 等工作流工具链（③类不入库）。这说明工程纪律是一以贯之的，不是嘴上说说。 缺口：main 分支没有 LICENSE（只有 engine-main 有）。若此仓有对外分发意图，建议补一份；当前只有 README 末尾"声明"，法律层面偏弱。
+
+三、文档质量（强项，也有负担）
+强项——KVMem 教程（docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md）是真写得好的：
+
+用"书桌/书架/助手"类比讲清机制；
+诚实列出 7 条缺点与边界（设备池非越小越好、跨页缝截断、dtype 覆盖不均、连接层掐断未定位等），不只讲好处；
+给接收方 agent 的硬指令 + 15 分钟清单 + 禁止项 + 纯指令备选方案，防"对方把脚本报错误判成部署失败"——这是实战踩坑后的真知；
+判活规矩（200≠能服务，必须真发请求）、三条常见误判，都是 anti-silent-failure 文化的体现。
+负担——工作日志类文档过于庞大： docs/ 里有 复核台账（109KB）、项目构建史（71KB）、方案v2（49KB）、多份交接文档。这些是宝贵的内部证据链，但对外部读者导航成本极高、价值密度低。如果此仓定位是"可复用产物"，建议把这类工作日志移到 Issue/Wiki，仓库只保留交付级文档（教程 / build README / 产物清单 / 关键结论）。README 声称"去内部黑话"，但台账里仍大量存在内部代号与编号，存在口径未完全统一的残留。
+
+四、工程亮点（值得肯定）
+反静默失败的设计哲学贯穿始终：五环境变量强制、B01 止血（--kv-lease-growth+--recover-invariant-failures）、思考预算、KVMem SELECT 判活——每一处都在堵"看起来正常其实错了"的坑。
+证据驱动：README 关键数字（预填充 3820 tok/s、解码 748.6 tok/s）均标注取自引擎日志；构建史逐条带 EVIDENCE 引用；产物 SHA256 清单。这与你的 T-EVIDENCE 铁律同频。
+零依赖 + 便携：ROOT 用 __file__ 推导，启动器不写死盘符；可切换官方/自编引擎。
+两分支 + 复现锚点：源码精确到 commit，二进制靠哈希清单回溯，架构上把"我们做的"和"上游给的"划得很清（README §一表格）。
+五、风险与改进建议（按优先级）
+#	问题	严重度	建议
+1	build 脚本写死绝对路径，复现非开箱即用	中	路径参数化（env/ini），build/README 注明必填变量
+2	启动器零测试	中	至少对 build_command/_argv_of/validate/profile 迁移加 pytest（纯函数易测）
+3	serve_tee 全数字行启发式可能隐藏真诊断	低	改用更精确锚点（如固定前缀）识别 KEPT 续行
+4	随仓库 JSON 用旧 spec 值	低	重新生成 profiles JSON 为新格式
+5	main 分支无 LICENSE	低	补 LICENSE/声明，或明确"非开源、仅供内部"
+6	工作日志文档 200KB+ 膨胀仓库	低	内部分流到 Issue/Wiki，仓内只留交付文档
+7	C++ 补丁源码未在本评价内逐行审阅	—	如需深度评价引擎补丁（Design C 思考区修复等），需另开 engine-main 精读
+另需诚实指出：README 的性能极值属自报数据，第三方若无二进制+模型无法独立复现，作为内部结论可信，作为对外宣传需加"口径/语料/条件"注脚（README §六末尾已注明"不同语料仅作量级对照"，这点处理得当）。
+
+六、与姊妹仓对比小结
+本仓（KVMem 线）相对姊妹仓（Bonsai-27B-NInfer）的核心差异在架构：原生 sm_120a + KVMem 主动检索环（显存小池可卸载到主机，满上下文仍 free 0.79–1.14 GiB）vs 姊妹仓的 Device/Host 双层被动 KV（256K 满血要吃 15.36GiB + pinned 9.2GiB）。预填充/解码极值对本仓大幅占优（3820 vs 2850、748.6 vs 396.9 tok/s）。但表格自己也警告"不同语料与投机组合，仅作量级对照"——这是诚实的，不像很多项目拿不可比数字当卖点。
+
+七、总体评分
+维度	评分	说明
+代码质量（启动器）	★★★★☆	健壮、零依赖、防呆到位；缺测试、双向映射略绕
+日志工具	★★★★☆	设计正确；数字行启发式有微小隐患
+部署脚本	★★★★☆	注释完备、有校验；路径未参数化
+复现材料	★★★☆☆	锚点精确、清单完整；绝对路径写死拖后腿
+文档	★★★★★	教程级优秀，证据链强；工作日志过重
+工程纪律	★★★★★	反静默失败、③类工具不入库、证据驱动，一以贯之
+架构	★★★★★	两分支分离、上游/自编清晰
+综合：4.5 / 5。 这是一份远超"玩具脚本"水准的、有真实工程方法论支撑的部署工程，最大的可改进项是"复现开箱化"与"启动器补测试"。若目标是自用/内部交接，已相当成熟；若想做成可对外分发的标杆仓，重点补 LICENSE、参数化构建、文档分流即可。

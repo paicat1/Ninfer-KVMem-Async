@@ -2,7 +2,7 @@
 """classify_repeat.py -- #53 定性：循环段四分类（quote_src / quote_prev / self / 结构）
 
 规格来源:
-  - docs/归因-异步防复读八轮推演终版与路线图-lummy-CODE-20261026.md §4.1b
+  - docs/03-归因与结论/归因-异步防复读八轮推演终版与路线图-lummy-CODE-20261026.md §4.1b
   - max8 口径严格复刻 engine-src/.../request_log.cpp repeat_stats():
       空白分词 -> 8-token 滑窗 -> max8 = 最频 8-gram 的出现次数（连环次数，非连续段）
   - filler 口径复刻 scripts/a2gate.py make_filler(seed=20261012)

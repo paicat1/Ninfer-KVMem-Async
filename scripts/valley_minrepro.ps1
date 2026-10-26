@@ -86,4 +86,4 @@ if ($slow -and $rec) {
 } else {
     Write-Output "  => NOT REPRODUCED: check engine health and free VRAM (threshold is absolute, >=400 MiB of added demand)."
 }
-Write-Output "  reference: docs/Minimal-Reproduction-Valley-On-Demand-20261016.md"
+Write-Output "  reference: docs/03-归因与结论/Minimal-Reproduction-Valley-On-Demand-20261016.md"

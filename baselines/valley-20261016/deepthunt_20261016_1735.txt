@@ -1,5 +1,5 @@
 17:32:40 | DEEP-HUNT start (deep-tier reproduction hunt; authorized: user mobile CLI "B")
-17:32:40 | pre-reg: docs\实验-深档搜索-预登记-CodeBuddyCLI-20261016.md
+17:32:40 | pre-reg: docs\02-实验与预登记\实验-深档搜索-预登记-CodeBuddyCLI-20261016.md
 17:32:40 | engine pid=13896 no-restart; deep hit = any probe decode <= 3.0; plan R1 1200x300 / R2 2400x300 / R3 3600x300 / R4 1200x600 / R5 6x(1200x30) / R6 2400x600
 17:38:26 | R1 ledger=longhold_173242.txt
   R1 | 17:33:01 |   pre: 167.7/168.9/168.9

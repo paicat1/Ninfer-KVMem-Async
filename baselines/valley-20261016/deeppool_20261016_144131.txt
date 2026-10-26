@@ -1,5 +1,5 @@
 14:41:31 | DEEPPOOL-ASYNC start (segmented CLI run; steps equivalent to scripts\deeppool_async_onoff.ps1; detached orchestrator not allowed in this toolchain, executed stepwise)
-14:41:31 | pre-reg: docs\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
+14:41:31 | pre-reg: docs\02-实验与预登记\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
 14:41:31 | authorized: user (mobile CLI), 2026-10-16 (heavy deep-turn follow-up of the over-pool ablation)
 14:41:31 | plan: per arm 3 runs x (rounds=3, filler-kb 300, max-tokens 2000); order off(tag=dp_off) -> on(tag=valleywatch, platform restore)
 14:41:31 | note: window_watch reads test_valleywatch.log; it will show stale during arm dp_off (expected, not a fault)

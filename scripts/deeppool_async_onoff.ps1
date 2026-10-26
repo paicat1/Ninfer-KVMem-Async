@@ -11,7 +11,7 @@
 #       between rounds = turn closure), max-tokens 2000. Same driver both arms;
 #       only env differs. a2gate is invoked once per run (--runs 1) and its json is
 #       copied per run, because one 3-round run is long.
-# Pre-registration: docs\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
+# Pre-registration: docs\02-实验与预登记\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
 # Ledger: .temp\deeppool_<ts>.txt  Raw: .temp\gate_dp_{off,on}_run{1..3}.json
 # Engine control: scripts\engine_ctl.ps1 (its window discipline applies; visible windows).
 # Authorized by the user via the mobile CLI, 2026-10-16.

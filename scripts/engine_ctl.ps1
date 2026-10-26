@@ -247,9 +247,20 @@ if ($exeFull -ne $runExe) {
     # before overwriting; -Experimental only acknowledges the overwrite (no hard block, because
     # 20+ legacy experiment scripts call -Exe with lineage/variants paths).
     if (Test-Path $runExe) {
-        $bak = Join-Path $runDir ('ninfer-serve.exe.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
-        Copy-Item $runExe $bak -Force
-        Write-Output ('T#0059: backup live exe -> ' + $bak)
+        # 2026-10-27: hash dedupe. The old code archived a 1.27 GB copy on EVERY start even when
+        # an identical binary was already archived -- 14 copies of the same S13 accumulated (32 GB).
+        $liveHash = (Get-FileHash $runExe -Algorithm SHA256).Hash
+        $same = Get-ChildItem $runDir -Filter 'ninfer-serve.exe.bak_*' -ErrorAction SilentlyContinue |
+            Where-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash -eq $liveHash } |
+            Select-Object -First 1
+        if ($same) {
+            Write-Output ('T#0059: backup skipped (identical hash already archived as ' + $same.Name + ')')
+        }
+        else {
+            $bak = Join-Path $runDir ('ninfer-serve.exe.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+            Copy-Item $runExe $bak -Force
+            Write-Output ('T#0059: backup live exe -> ' + $bak)
+        }
     }
     if (-not $Experimental) {
         Write-Host ('[GATE T#0059] refuse to overwrite live engine with ' + $exeFull + ' (pass -Experimental to acknowledge; backup kept)')

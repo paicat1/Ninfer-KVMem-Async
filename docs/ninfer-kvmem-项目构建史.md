@@ -4017,3 +4017,12 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **口径说明**：max8 378/399 vs 引擎 387/409 的差异来自通道（引擎仅 reasoning，全文文件为 `reasoning+content` 合并）；分类结论不受影响（循环占比近半，量级压倒性）。
 - **边界**：只做分类，不判收益、不改实验设计；"结构"类为启发式（本次 0 触发）；本工具未拆 reasoning/content 边界（C0 的 `_run%d` 仍是待办）。
 - **证据**：`scripts/classify_repeat.py`、`.temp/abab_text_abab_{off,on}_c{1,2}_r{1,2,3}.txt`（12 份，§167 落盘）。
+
+### 169. 【P-e/P-f/P-g 三项前置判定完成：demote 无 step 号、restore 无耗时字段、logstat 无法按 round 分段；口径交叉验证 1058 精确吻合】（2026-10-26，用户"同意"后执行）
+
+- **P-f**：demote profile 行三种形态（`retire wait=../publish+drop=..`、`batch=N submit (prepare=../launch=../since=..)`、`batch=N since=../prepare=../copy=../publish=../tail=../demoted=..`），字段只有 batch/since/prepare/copy/publish/tail/demoted，**无任何 step/request id** ⇒ 按归因终版分支"无 step 号 ⇒ 引擎加一行计数"。
+- **P-g**：restore 侧只有计数行 `[ninfer] ring retrieve: which=text preferred=N restored=N first=X last=Y`，**零 ms 字段** ⇒ 按分支"无 ⇒ 建打点"（`restore_profile: copy/publish/tail`，镜像 demote 字段名）。
+- **P-e**：logstat 按 round 分段**当前不可行**——① 日志无 round/request 标记（全文仅 `CMD:` 一行）；② `[ninfer]` 行无时间戳（时间戳只在 `INFO` 行），无法与 reqlog 请求时间对齐。⇒ P-e 被 P-f 卡住，加 step id 后自动解锁（一行改动同时解决两件）。
+- **交叉验证（重要）**：`logs/test_abab_on_c2.log` 的 demote profile 行总数 = 648(batch=8)+6+5+4+2+393(retire) = **1058**，与 §167 记录的 ON 臂点火 1058 **精确一致** ⇒ "logstat = 数全部 demote profile 行"口径正确，TELE 的 994/1058 计数可信。
+- **最优路径（用户批准）**：先做 P-f 一行改动（profile 行加 step 参数，同时解锁 P-e），再做 P-g 的 restore 打点；两处同在 `context.cpp`，一次编译验证。
+- **证据**：`engine-src/.../context.cpp:2170/2232/2249/2264/2281/2314/2338`（demote profile fprintf）；`logs/test_abab_on_c2.log`（形态统计与 1058 计数）。

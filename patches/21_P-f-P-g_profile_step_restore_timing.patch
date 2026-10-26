@@ -1,0 +1,105 @@
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+index d1d3dac..f476334 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp
+@@ -1607,6 +1607,17 @@ void ProgramImpl::unbind_sequence_kv(SequenceState& sequence) noexcept {
+     } catch (...) {}
+ }
+ 
++// 2026-10-26 (P-f/P-e, 归因终版 §4.1): sequence position for the demote/restore profile lines.
++// ensure_ring_room() sets it once per call (its total_tokens argument); the profile printfs read it.
++// One file-level value instead of threading a step parameter through five function signatures.
++namespace {
++std::uint32_t g_profile_step = 0;
++// Defined later in this file (anonymous namespace, ~L1990); forward-declared because the restore
++// profile below sits above their definitions.
++bool demote_profile_enabled();
++double demote_profile_now_ms();
++}  // namespace
++
+ // LOCAL PROTOTYPE (KVMem-style ring retrieval): bring the selected Host-resident pages back onto the
+ // Device (H2D) and re-publish their block-table slots. Returns the retrieved pages that are Device-
+ // resident once this returns, which is exactly the set the retrieval mask may select (a page that was
+@@ -1634,6 +1645,11 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
+     // capture.cpp / disk_tier.cpp precedent) and wait ONCE after the loop -- this step's attention
+     // must read the pages, so one batch wait is required; per-page serialisation is not.
+     std::uint32_t restore_submitted = 0;
++    // 2026-10-26 (P-g): the restore side had counts only (`ring retrieve: restored=N`). Time the
++    // submit loop (copy+publish issued on the transfer stream) and the single batch wait, so the
++    // restore cost is attributable next to the demote profile lines.
++    const bool restore_prof = demote_profile_enabled();
++    const double t_submit0  = restore_prof ? demote_profile_now_ms() : 0.0;
+     for (const std::uint32_t page : logical_pages) {
+         // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
+         // loop). A partial restore is semantically safe by design -- pages that never made it
+@@ -1663,6 +1679,7 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
+             ++restore_submitted;
+         }
+     }
++    const double t_submit1 = restore_prof ? demote_profile_now_ms() : 0.0;
+     if (restore_submitted != 0) {
+         // Single batch wait (挂账46 第四步): every copy issued above must land before this step's
+         // attention reads the block table -- the publish on the same stream is ordered behind its
+@@ -1671,6 +1688,13 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
+             CUDA_CHECK(cudaStreamSynchronize(transfer_streams[rank]));
+         }
+     }
++    if (restore_prof) {
++        // publish is issued inline per page on the transfer stream, so it is inside `copy`; the
++        // separable terms are the submit loop and the one batch wait.
++        std::fprintf(stderr, "[ninfer] restore profile: step=%u copy=%.2f tail=%.2f restored=%zu\n",
++                     g_profile_step, t_submit1 - t_submit0,
++                     demote_profile_now_ms() - t_submit1, resident.size());
++    }
+     return resident;
+ }
+ 
+@@ -2167,8 +2191,9 @@ void ProgramImpl::retire_pending_demote(PendingDemote& slot, LogicalKVPageStore&
+     slot.handles.clear();
+     slot.submitted = false;
+     if (demote_profile_enabled()) {
+-        std::fprintf(stderr, "[ninfer] demote profile: retire wait=%.2fms publish+drop=%.2fms\n",
+-                     t_wait1 - t_wait0,
++        std::fprintf(stderr,
++                     "[ninfer] demote profile: retire step=%u wait=%.2fms publish+drop=%.2fms\n",
++                     g_profile_step, t_wait1 - t_wait0,
+                      demote_profile_now_ms() - t_wait1);
+     }
+ }
+@@ -2311,9 +2336,10 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+             if (kDemoteProfile) {
+                 last_flush = now_ms();
+                 std::fprintf(stderr,
+-                             "[ninfer] demote profile: batch=%zu submit (prepare=%.2f launch=%.2f "
+-                             "since=%.2f)\n",
+-                             batch_n, t_prepare1 - t_prepare0, now_ms() - t_prepare1, since);
++                             "[ninfer] demote profile: batch=%zu submit step=%u (prepare=%.2f "
++                             "launch=%.2f since=%.2f)\n",
++                             batch_n, g_profile_step, t_prepare1 - t_prepare0,
++                             now_ms() - t_prepare1, since);
+             }
+             return true;
+         }
+@@ -2335,10 +2361,10 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
+         if (kDemoteProfile) {
+             last_flush = now_ms();
+             std::fprintf(stderr,
+-                         "[ninfer] demote profile: batch=%zu since=%.2f prepare=%.2f copy=%.2f "
+-                         "publish=%.2f tail=%.2f demoted=%llu\n",
+-                         batch_n, since, t_prepare1 - t_prepare0, t_copy1 - t_prepare1,
+-                         t_publish1 - t_copy1, t_tail1 - t_publish1,
++                         "[ninfer] demote profile: batch=%zu step=%u since=%.2f prepare=%.2f "
++                         "copy=%.2f publish=%.2f tail=%.2f demoted=%llu\n",
++                         batch_n, g_profile_step, since, t_prepare1 - t_prepare0,
++                         t_copy1 - t_prepare1, t_publish1 - t_copy1, t_tail1 - t_publish1,
+                          static_cast<unsigned long long>(demoted));
+         }
+         return true;
+@@ -2713,6 +2739,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
+                                    const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
+                                    std::span<const std::uint32_t> preferred,
+                                    PendingDemoteRing* async_ring) {
++    g_profile_step = total_tokens;  // 2026-10-26 (P-f/P-e): step proxy for the profile lines.
+     // LOCAL FIX (挂账42 第三步 v2 / 挂账46 v2.1): retire pending batches FIRST -- before the
+     // free-page verdict below, so their pages count as freed. Depth 1 keeps the v2 blocking wait
+     // (the copy flew during the decode step between calls; the wait is expected ~0). Depth >= 2

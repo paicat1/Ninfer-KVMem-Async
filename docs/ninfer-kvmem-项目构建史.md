@@ -3998,3 +3998,22 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **证据**：判定件 `docs\判定-异步OFF臂退化分叉源头与XTier天花板-TELE-20261026.md`（含全部 [EVIDENCE] 文件:行:摘 + #56 算术表 + 计数口径对账 584/625+369=994）；台账原文 `.temp\async_abab_20261025_202705.txt` L14-50（len/sha/logstat）。
 - **未闭合**：#53 归约序调度敏感性（attention gather/MTP verify/graph 拓扑，下一个零机时读码点）；分叉点 diff 无材料（#55 等批）；#57 门裁定。
 - **纪律**：本节+判定件+挂账行更新为工作区改动，**未 commit 未 push**；推送本地 4acb533 仍等用户 ≥6 字无空格原话（T#0061）。
+
+### 168. 【#53 定性：classify_repeat 四分类——OFF 臂 = 输入词表坍缩（self）+ 轮间传染（quote_prev），ON 臂零循环】（2026-10-26，用户"同意"后执行）
+
+- **工具**：新增 `scripts/classify_repeat.py`，严格复刻两条既有口径——① `engine-src/.../request_log.cpp` `repeat_stats()`：空白分词、8-token 滑窗、**max8 = 最频 8-gram 的出现次数（连环次数，非连续段）**；② `scripts/a2gate.py` `make_filler(seed=20261012)` 的 NATO 词表。四分类按归因终版 §4.1b：quote_src / quote_prev / self / 结构。
+- **结果（c1/c2 两个 cycle 完全一致）**：
+
+| 文件 | tokens | max8 | 循环段占比 | NATO 占比 | 分类 |
+|---|---|---|---|---|---|
+| off_c1_r1 / off_c2_r1 | 1591 | 378 | 47.9% | 100% | **self** |
+| off_c1_r2 / off_c2_r2 | 1590 | 399 | 50.6% | 100% | **quote_prev** |
+| off_c1_r3 / off_c2_r3 | 1319 | 1 | 0% | 0% | none |
+| on 全 6 份 | 1316–1351 | 1 | 0% | 0% | none |
+
+- **循环原文**：`kilo papa kilo papa …`——两词循环约 380 次，100% NATO 词。
+- **定性**：① `quote_src=0`，不是整段搬 prompt；② **r1 = self**：无历史、纯自造，但坍缩成输入词表的 `kilo papa` 两词死循环，吃掉 47.9% 输出；③ **r2 = quote_prev**：把 r1 的循环原样续上（50.6%），传染链实锤；④ r3 自愈、ON 臂六份零循环。⇒ "OFF 臂输出退化" = **输入词表坍缩 + 轮间传染**，既非"照抄输入/上轮"，也非结构模板。
+- **对 §167 表述的限定（重要）**：§167 称"两臂文本均连贯且完成任务、良性轨迹分叉定案"——该表述需限定到 **content/最终答案**；**reasoning 通道不成立**：引擎 max8（仅统计 reasoning）记录 387/409，与本工具在合并文本上算出的 378/399 同量级，可判定**循环发生在 reasoning 通道**。故"无损坏"成立（三道守卫），但"连贯"对 reasoning 不成立。
+- **口径说明**：max8 378/399 vs 引擎 387/409 的差异来自通道（引擎仅 reasoning，全文文件为 `reasoning+content` 合并）；分类结论不受影响（循环占比近半，量级压倒性）。
+- **边界**：只做分类，不判收益、不改实验设计；"结构"类为启发式（本次 0 触发）；本工具未拆 reasoning/content 边界（C0 的 `_run%d` 仍是待办）。
+- **证据**：`scripts/classify_repeat.py`、`.temp/abab_text_abab_{off,on}_c{1,2}_r{1,2,3}.txt`（12 份，§167 落盘）。

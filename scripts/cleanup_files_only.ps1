@@ -23,6 +23,15 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 L ('管理员 = ' + $isAdmin)
 if (-not $isAdmin) { L '需管理员权限（文件是提权进程创建的）'; exit 2 }
 
+# [GATE] 删除前置门（T#0003/0022/0038/0044/0050）
+$dgate = Join-Path $Root '.codebuddy\sda\gates\delete_gate.ps1'
+if (Test-Path $dgate) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $dgate -Path $dir
+    if ($LASTEXITCODE -ne 0) { L '[GATE] delete_gate BLOCKED'; exit $LASTEXITCODE }
+} else {
+    L '[GATE] delete_gate.ps1 缺失（降级放行）'
+}
+
 L '--- 删废数据（valley_etl*；不碰任何进程）---'
 $freed = 0
 $n = 0

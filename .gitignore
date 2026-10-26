@@ -107,3 +107,5 @@ _safety_backups/
 # 2026-10-21 本地分析/实验证据（防误上传；实体已移至 .temp）
 docs/_research/分析-优化与补丁全清单-CB-20261021.md
 evidence/speed-scan-20261020/
+
+docs/_internal/

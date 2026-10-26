@@ -252,7 +252,8 @@ if ($exeFull -ne $runExe) {
         Write-Output ('T#0059: backup live exe -> ' + $bak)
     }
     if (-not $Experimental) {
-        Write-Output ('T#0059 warning: overwriting live engine with ' + $exeFull + ' (pass -Experimental to acknowledge; backup kept)')
+        Write-Host ('[GATE T#0059] refuse to overwrite live engine with ' + $exeFull + ' (pass -Experimental to acknowledge; backup kept)')
+        exit 1
     }
     Copy-Item $Exe $runExe -Force
 }

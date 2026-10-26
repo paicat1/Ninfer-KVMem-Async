@@ -39,6 +39,15 @@ $ctl = Join-Path $Root 'scripts\engine_ctl.ps1'
 $src = Join-Path $Root 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
 $log = Join-Path $Root ('logs\test_' + $Tag + '.log')
 
+# [GATE] 起服唯一门（T#0010/0013/0023/0054/0055/0059）
+$gate = Join-Path $Root '.codebuddy\sda\gates\start_engine_gate.ps1'
+if (Test-Path $gate) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $gate -Exe 'engine\lineage\I3b_step13_fourlayer_20261015.exe' -Pool $Pool -AllowSourceCopy
+    if ($LASTEXITCODE -ne 0) { Write-Host '[GATE] start_engine_gate BLOCKED' -ForegroundColor Red; exit $LASTEXITCODE }
+} else {
+    Write-Host '[GATE] start_engine_gate.ps1 缺失（降级放行）' -ForegroundColor Yellow
+}
+
 if (-not (Test-Path $src)) { Write-Host ('❌ 源件不存在：' + $src) -ForegroundColor Red; exit 2 }
 
 # ★ 幂等前置检查（2026-10-18 补）：引擎已在跑 ⇒ 跳过（否则 engine_ctl 的 Copy-Item 会撞"文件被占用"）
@@ -60,7 +69,7 @@ Write-Host ('   日志 = ' + $log)
 #   传绝对路径会拼出 J:\...\J:\... ⇒ GetFullPath "path's format is not supported" 起服失败）
 $srcRel = 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
 $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $ctl -Action start `
-        -Exe $srcRel -Tag $Tag -Pool $Pool -Graph $Graph -Spec mtp -KvDtype rk2v4-e8 2>&1
+        -Exe $srcRel -Tag $Tag -Pool $Pool -Graph $Graph -Spec mtp -KvDtype rk2v4-e8 -Experimental 2>&1
 $rc = $LASTEXITCODE
 $out | ForEach-Object { Write-Host ('   | ' + $_) }
 if ($rc -ne 0) { Write-Host ('❌ engine_ctl start rc=' + $rc + ' ⇒ 停下（不轮询）') -ForegroundColor Red; exit $rc }

@@ -52,6 +52,15 @@ Get-Process powershell -ErrorAction SilentlyContinue | ForEach-Object {
 }
 L ('  杀 $killed 个')
 
+# [GATE] 删除前置门（T#0003/0022/0038/0044/0050）
+$dgate = Join-Path $Root '.codebuddy\sda\gates\delete_gate.ps1'
+if (Test-Path $dgate) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $dgate -Path $dir
+    if ($LASTEXITCODE -ne 0) { L '[GATE] delete_gate BLOCKED'; exit $LASTEXITCODE }
+} else {
+    L '[GATE] delete_gate.ps1 缺失（降级放行）'
+}
+
 L '--- ③ 删废数据（valley_etl* 无谷数据）---'
 $freed = 0
 Get-ChildItem $dir -Filter 'valley_etl*' -ErrorAction SilentlyContinue | ForEach-Object {

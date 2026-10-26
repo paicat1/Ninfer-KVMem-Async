@@ -228,6 +228,48 @@ python -c "import json,glob; [print(f, [(r['round'], (r.get('usage') or {}).get(
 
 **用户直觉成立、CB 的边界成立、lummy 的路线成立**：后端一定还有加速空间，那个点在深载的"零暴露 + 低管理开销"；但终点不是某个更优的旋钮位，而是**让旋钮自己消失的控制回路**——到那天，"不需要被谈论的默认行为"就是字面意思。
 
+### 8.5b 外部路线评估：Strata（KV 分层、布局解耦、顺序访问）
+
+> 来源：OSDI '26 论文摘要页（USENIX 官方）+ 二手精读（swiftscholar，AI 生成，可能有转述失真）+ Niko1221/Strata 的 `docs/DETAILS.md`（工程引擎，非同一项目）。**未取得论文全文，机制细节标注为"二手"**。
+
+**① 两个 Strata 必须分清**
+
+| | OSDI '26 Strata（学术） | Niko1221/Strata（工程引擎） |
+|---|---|---|
+| 身份 | Stanford+NVIDIA（Zhiqiang Xie 等），集成 **SGLang**，已生产部署 | MIT，C++，125B MoE 跑 12GB，Windows |
+| 机制 | HBM/DRAM/SSD 三级 + **GPU-assisted I/O + 布局解耦 + cache-aware 调度** | `--kv-streaming`：KV 常驻 pinned RAM（13.7 KB/token），VRAM 只留 attention 当前读的部分 |
+| 收益口径 | vs vLLM-LMCache 最高 **5×**、vs TRT-LLM 3.75× | Q2_0 262K：50.9 → 62.6 tok/s（省显存多放专家） |
+
+**② "无损"的真相——两家都不承诺输出逐字一致**
+
+- OSDI 摘要**无 "lossless" 一词**，只有 "without hurting short-context performance"（**性能**无损，非输出一致）；二手精读确认全文无端到端输出等价性实验。
+- Niko1221 文档明写：**"Exact token replay across restarts is not guaranteed"**、**"a switch that changes rounding can change a greedy answer at a near tie"**。其"无损"仅指 **"attention reads exactly the same values (only where the KV lives changes)"**。
+- ⇒ **与 #53 结论同构：值无损 ≠ 轨迹无损。** 网友说的"无损"是值层面，不是"跨路径逐字一致"——这一点可以正面回应。
+
+**③ 不可整体学：顺序访问是负载假设的产物**
+
+| | Strata 假设 | 我们的现实 |
+|---|---|---|
+| 缓存对象 | 整段 context 前缀（多请求复用） | 229K 上下文 / 65K 池——**只能装一部分** |
+| 加载时机 | **prefill 前**整段拉入（layer-by-layer） | **decode 每步**按需召回（打分 SELECT） |
+| 访问集合 | 连续区间 | 稀疏、动态、非连续 |
+
+**顺序加载 = 要求池装下全部 KV = 放弃超池**。换访问模式必须先换负载假设，不是反过来。
+
+**④ 真实访问分布是"头 sink + 尾密集 + 中段稀疏"** ⇒ 分区策略而非二选一：头部常驻（不搬）、尾部顺序追加（本来就是顺序）、中段随机召回（打分）。现在的 KVMem 环已是此形状，缺的是把"头常驻/尾顺序"显式成独立通道。
+
+**⑤ 三处可学（都不改超池语义）**
+
+1. **布局解耦（治 #53 根因）**：GPU 侧固定 **layer-first**（所有 token 第 0 层连续，attention kernel 友好）、host/SSD 侧 **page-first**（大块连续，吃满 PCIe），转换在 I/O kernel 内用**算术偏移**完成（二手：几乎零开销）。**让计算侧布局稳定、存储侧自由**——这正是"布局历史 → 归约序 → 分叉"的正解方向。
+2. **批量召回按逻辑序排序后再提交**：现在召回 N 页是打分集合，物理地址散乱；按 token 位置排序后提交 DMA，提高合并率，**语义不变、零风险**。
+3. **层流水（layer-by-layer）**：多页召回按层分阶段搬 + CUDA event 保证"层就绪才计算"，减少"整页搬完才可用"的暴露窗口。
+
+**⑥ 不可学**：整段顺序加载（放弃超池）；batch 编排/bubble filling（`max-concurrency 1`，无第二请求可插——但其 **loading-bound 判据**（加载 token/新输入 token 超阈值即 loading-bound，默认 100）可搬到 depth 自适应作触发条件）。
+
+**⑦ 一个零成本测量（决定后续优化排序）**：统计 **头/尾/中段的页命中比例**（attention 权重分布）。中段只占 5-10% ⇒ 随机召回总开销小，优化应投头尾（常驻 + 层流水）；中段占 30%+ ⇒ 才值得投入"召回顺序化/预取"。
+
+**⑧ 对外口径一句**：Strata 的"无损"是"KV 不做有损压缩、搬运不改值"，不是"输出逐字一致"；它是**层序流水**（顺序固定所以简单），我们是**随机页级召回**（所以要页状态机与记账）——不是同一问题的不同解法，是两个问题。可学的是布局解耦与 I/O 方式，不是访问顺序。
+
 ### 8.6 推送流程纪律（2026-10-26 事故后固化）
 
 **事故链**：API 直推 → `git fetch` 失败（`Empty reply from server`）→ `git reset --hard origin/main` 落到**旧引用** → 工作区文件被删（已从 API 恢复，内容无损）。

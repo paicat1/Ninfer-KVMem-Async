@@ -1618,9 +1618,9 @@ ninfer + kvmem 段 6 处（deepseek 官方段不动），备份 `.bak-20261011-p
 
 ### 1. 事件与判词（立此存照）
 
-- 判词：`J:\sda管理\批CB_别人仓越界事件_20261012.md`（六条问题：起手定错工作目录 / 盘踞 / 落屑 /
+- 判词：`J:\sda管理\history\incidents\批CB_别人仓越界事件_20261012.md`（六条问题：起手定错工作目录 / 盘踞 / 落屑 /
   越界建史 / 动刀改别人源码 / 事后讲条件）；病根一句：**只问"路径对不对"，从不问"目录是谁的"**。
-- CB 回信与主责认领：`J:\sda管理\CB回信_别人仓越界事件_20261012.md`（TELE 的审核连带权重压到 CB 一侧）。
+- CB 回信与主责认领：`J:\sda管理\history\incidents\CB回信_别人仓越界事件_20261012.md`（TELE 的审核连带权重压到 CB 一侧）。
 - 新铁律（入库版）：`docs/06-设计与规范/规则-跨仓边界-T-NO-FOREIGN-WRITE-CodeBuddy-20261012.md`；陷阱库 T#0003–T#0005。
 
 ### 2. 完全恢复（仓二 clone `J:\Bonsai-Official\official-repo\ninfer-fusion-kvmem`）
@@ -4026,3 +4026,38 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **交叉验证（重要）**：`logs/test_abab_on_c2.log` 的 demote profile 行总数 = 648(batch=8)+6+5+4+2+393(retire) = **1058**，与 §167 记录的 ON 臂点火 1058 **精确一致** ⇒ "logstat = 数全部 demote profile 行"口径正确，TELE 的 994/1058 计数可信。
 - **最优路径（用户批准）**：先做 P-f 一行改动（profile 行加 step 参数，同时解锁 P-e），再做 P-g 的 restore 打点；两处同在 `context.cpp`，一次编译验证。
 - **证据**：`engine-src/.../context.cpp:2170/2232/2249/2264/2281/2314/2338`（demote profile fprintf）；`logs/test_abab_on_c2.log`（形态统计与 1058 计数）。
+### 170. 【八轮推演终版入库：一链三层归因、判据七项、无损门分档、Y1''/Y2 与路线图；今日仪表构建状态】（2026-10-26）
+
+- **文档**：`docs/03-归因与结论/归因-异步防复读八轮推演终版与路线图-lummy-CODE-20261026.md` 为 9 份推演（方案 + 复核 1-7 + 降级执行）的**唯一现行合并版**；§八为三方讨论沉淀（未实机验证），不改变 §一归因。
+- **归因终版（一链三层）**：成因（输入唯一性 + async 开关）→ 中介（residency/布局的 KV 态）→ 结果（prefill 归约序分叉 → 逐位置 logits gap 处 argmax 翻转 → 文本确定性分流）。已实锤：三道守卫排除数据损坏；r2/r3 **第 0 字**分叉；收益 **+19%**（"2 倍"为慢态读数，作废）；单轮可复读（r1）；residency 依赖存在、该轴待重审（10-13 复发轮无 nonce）。
+- **已排除**：数据损坏、CUDA Graph 拓扑、dup8 判据、"超池单调放大"、"cache 命中不发生"。
+- **悬空待判（全主机侧）**：quote 四分类（已做，见 §168）、FP 求和序、max_shared_prefixes 语义、max8/dup8 定义、logprobs 能力、#58 慢态、**10-14 前缓存污染回查（新立案，优先级 ≥ #58）**、residency 纯对照（引擎能力缺口）。
+- **判据治理 #59（七项）**：max8 定义三要素先于阈值；dup8 作废并追溯；max8 → 四维（quote_src / quote_prev / self / 结构-语义）；过渡阈值标注 NATO 特化；主尺改句级完全重复 + 语义增量；长度用 `completion_tokens`；argv 完备性。
+- **无损门分档**：纯开关类仅承诺 **fresh 态**；调度类（async / graph）不承诺；"无损门失败"表述废止；发布面四条口径（收益 +19%、不引 dup8、慢态勿关异步、按分档表述）。README/公开说明三处已按 §三⑤ 加限定。
+- **实验设计**：Y1''（P6' 池内对照 + 3 格析因 + runs=2 cache 路径对照 + nonce 轴 + P1 gap）；Y2（#51/#52 数字赎回）。
+- **路线图**：免费层（G2/G3/G4）/ 低成本层 / 攻坚层（#33/#34/#58/H2）/ 外部层（四 PR、ActKV、#39）。§八 结论：decode ≈ max(计算, 搬运) + 管理开销；空间在深载；Strata 的"无损"= 值无损 ≠ 轨迹无损；可学三处（布局解耦 / 召回按逻辑序排序 / 层流水）；零成本测量（头/尾/中段命中比）。
+- **新挂账**：缓存污染回查（≥#58）、residency 接口缺口、#53 更新、#59 合并。
+- **移交清单**：①前置 7 件（P-a~P-g）+ C0 → ②classify_repeat（已做）→ ③Y1'' → ④Y2 → ⑤10-14 前回查 → ⑥residency 接口 → ⑦restore 传输段打点。
+- **今日实现（对齐 §八.3②）**：patch 21（P-f step 号 + P-g restore 计时，字段名镜像 demote）；新 exe 1272.2 MB、[1089/1089]、能起服能服务；**`step=` / `restore profile` 尚未实测到（0 行）**——超池单请求 429（`freed cold 0, own 0`），正确触发配方为 `async_abab.ps1` L29（a2gate deep multi-turn，filler 300KB ≈ 75.3K tok > 65536 池，rounds 3）。
+- **下一步**：按 L29 配方验证打点 → Y1''。### 171. 【P-f/P-g 打点实测通过：async_abab 配方下 demote 带 step=、restore 四字段全出；手工起服全部 429 的原因已定性】（2026-10-26）
+
+- **结果（可核验）**：`logs/test_abab_off_c1.log` —— `demote profile` **57 行**（含 `step=`），`restore profile` **465 行**（含 `step/copy/tail/restored`），其中 298 行 copy/tail 非零。
+- **样本**：
+  - `[ninfer] demote profile: batch=8 step=65280 since=0.00 prepare=0.00 copy=2.70 publish=0.00 tail=0.00 demoted=8`
+  - `[ninfer] restore profile: step=6912 copy=0.02 tail=0.00 restored=17`
+- **正确配方（唯一跑通的）**：`async_abab.ps1` 走 `engine_ctl` 起服 + `NINFER_DEMOTE_PROFILE=1` + `NINFER_ASYNC_DEMOTE=1` + `NINFER_ASYNC_DEMOTE_DEPTH=2` + pool 65536；负载 = a2gate deep multi-turn（filler 300KB ≈ 75.3K tok，rounds 3）。
+- **此前手工起服全部 429 的原因（已定性）**：手工起服的负载在**单会话内**只产生 "own" 页（`freed cold 0, own 0`），引擎不淘汰、直接 429；而 async_abab 的 cycle 结构 + engine_ctl 的起服方式才产生可淘汰的冷页。不是打点没编进去，是**负载形状不对**。
+- **§八.3② 结论落地**：restore 侧已有 `copy/publish/tail` 分解（字段名镜像 demote），可与 demote 侧并表归因；#56 的"不装节奏器"范围标注现在有了 restore 侧数据的验证路径。
+- **遗留观察**：restore 的 `copy/tail` 多为 0.00–0.02 ms（提交循环 + 单批等待），实际 H2D 传输耗时大概率发生在**异步流上、未被该窗口捕获**——并表归因时需注意，若要精确传输耗时需另加流同步打点。### 172. 【P-g2：restore 改用 CUDA 事件计时 + 打印真正拷贝页数；双侧归因首获可信对比——restore 尾部长于 demote 约 9 倍】（2026-10-26）
+
+- **改动**：`restore_kv_pages_from_host` 提交循环前后加 `cudaEventRecord`（`transfer_streams[0]`），打印新增 `dev=`（设备侧流时间）与 `submitted=`（真正发生 H2D 的页数，区别于 `restored=` 含"已在设备端"的页）。patch 22（`patches/22_P-g2_restore_event_timing.patch`，7.7 KB / 8 hunk）。
+- **构建**：增量（只重编 context.cpp），`BUILD-EXIT=0`（23:59:43，约 4 分钟），新 exe 23:59:23 / 1272.2 MB。
+- **实测（同一跑 `logs/test_abab_off_c1.log`）**：
+  - `restore profile: step=80839 copy=7.38 tail=0.02 dev=7.40 restored=128 submitted=20`
+  - `demote profile: batch=8 step=101575 … copy=2.27 publish=0.00 tail=0.00 demoted=28`
+  - **统计**：restore `dev` n=526，均值 **1.65 ms**、最大 **40.07 ms**；demote `copy` n=154，均值 **1.33 ms**、最大 **4.48 ms**。
+- **结论（对 §八.3② 的实证）**：
+  1. **restore 不是可忽略的一侧**：均值与 demote 相当（1.65 vs 1.33 ms），但**最大值 40.07 ms ≈ demote 4.48 ms 的 9 倍**——尾部长一个量级。
+  2. **#56"不装节奏器（上限 2.49% < 5%）"的范围标注被实证坐实**：它用 demote 侧慢峰（3.4–7.8 ms）算出，而 restore 侧慢峰达 40 ms ⇒ 该结论**只对 demote 侧成立，禁止外推**；节奏器决策应在拿到 restore 数据后重估。
+  3. `copy`（主机侧提交循环）≈ `dev`（设备侧传输）⇒ **主机侧逐页提交本身也是成本**（每页 reservation + submit），不是"发出去就免费"。
+- **遗留**：本统计取自 off 臂（async demote=0）单轮；极值 40 ms 是否与慢态重叠需按 §8.3 慢态判据复核（功耗 65-110W / submit≈wall / decode<60，命中即作废）。

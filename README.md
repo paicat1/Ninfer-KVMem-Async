@@ -303,7 +303,7 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
    ⚠️ *B 为**未逐步实测**路径，以 A 为准。*
 
    **免构建替代（本线预编译，2026-10-26 上架）**：不想编译的话直接下载本线构建物 **sym3（sm_120a / RTX 50 系，1313 MB）**——
-魔搭 [`pai8888888/ninfer-kvmem-async-RC1`](https://www.modelscope.cn/models/pai8888888/ninfer-kvmem-async-RC1)（含 LICENSE / NOTICE / 运行说明；DLL 需自备，见页内清单）。
+魔搭 [`pai8888888/ninfer-kvmem-async-RC1`](https://www.modelscope.cn/models/pai8888888/ninfer-kvmem-async-RC1)（含 LICENSE / NOTICE / 运行说明 / **16 个必需 DLL 已随包**，直接起服无需自备）。
 版本与配方（源码基 / 20 补丁集指纹 / 构建参数 / sha256）见 [`docs/引擎构建物版本台账-CB-20261026.md`](docs/引擎构建物版本台账-CB-20261026.md)。
 **发的是带符号件 sym3，不是 S13**——S13 在 Gen5+外压场景卡死不返回（§136），对外不可用。
 

@@ -443,7 +443,9 @@ $spawner = if ($Trace) {
 try {
     $spawnDir = Join-Path $root 'evidence\spawns'
     New-Item -ItemType Directory -Force -Path $spawnDir | Out-Null
+    $exeSha = if (Test-Path -LiteralPath $Exe -PathType Leaf) { (Get-FileHash -LiteralPath $Exe -Algorithm SHA256).Hash } else { $null }
     $rec = [ordered]@{ ts = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); purpose = 'engine-start'; exe = $Exe
+                       exe_sha = $exeSha
                        pid = $spawner.Id; has_window = $true; is_minimized = $false; is_visible = $true
                        title = 'engine (engine_ctl)'; verdict = 'OK'; enforced_by = 'scripts\engine_ctl.ps1 (T-WINDOW)' }
     $jp = Join-Path $spawnDir ((Get-Date -Format 'yyyyMMdd_HHmmss') + '_engine-start.json')

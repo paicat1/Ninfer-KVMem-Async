@@ -438,6 +438,24 @@ if ($quotaFail -eq 1) {
 # ===================== QUOTA-GATE END ======================
 
 
+# ===================== SUBREPO-CLEAN-GATE（附属仓库未归档改动） =====================
+# 规则：engine-src 等工作树若脏 => 阻断（改动未归档，源码树重克隆即丢）
+# 放行：NINFER_ALLOW_SRC_DIRTY=1
+if ($env:NINFER_ALLOW_SRC_DIRTY -ne '1') {
+    $srRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $srSub = Join-Path $srRoot 'engine-src'
+    if (Test-Path (Join-Path $srSub '.git')) {
+        $srDirty = @(git -C $srSub status --porcelain 2>$null)
+        if ($srDirty.Count -gt 0) {
+            Write-Output ('BLOCKED[subrepo]: engine-src 有未归档改动（' + $srDirty.Count + ' 项）')
+            foreach ($sd in ($srDirty | Select-Object -First 6)) { Write-Output ('   ' + $sd) }
+            Write-Output '   先本地 commit（禁推上游），或设 NINFER_ALLOW_SRC_DIRTY=1 放行'
+            exit 1
+        }
+    }
+}
+# ===================== SUBREPO-CLEAN-GATE END =====================
+
 # ===================== EOL-GATE（疑似行尾整体变更） =====================
 # 规则：非新增文件、且 diff 变更行数 >= 该文件当前行数 × 0.9 ⇒ 阻断
 # 放行：环境变量 NINFER_ALLOW_EOL=1（明知是整文件改写时）

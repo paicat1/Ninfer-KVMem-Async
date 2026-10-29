@@ -161,6 +161,16 @@ if ($SdaNoTok.Count -gt 0) {
 Write-GateLog 'run' 'gates started'
 # ===================== ALLOW-TOKEN-GATE END =====================
 
+# ===================== HOOK-GIT-ENV（2026-10-29 修）=====================
+# git 在钩子里运行时注入 GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE：
+# 此时 `git -C <另一个仓>` 仍会使用外层仓的 GIT_DIR 与索引，
+# 导致把"当前 worktree 相对主仓索引"的差异误算成另一个仓的脏改动。
+# 本仓所有检查都用 -C 显式指定路径，故先清除这些变量。
+foreach ($gv in @('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR', 'GIT_PREFIX')) {
+    Remove-Item ("Env:" + $gv) -ErrorAction SilentlyContinue
+}
+# ===================== HOOK-GIT-ENV END =====================
+
 $fail = 0
 
 

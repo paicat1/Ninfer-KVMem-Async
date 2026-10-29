@@ -545,6 +545,34 @@ if ($env:NINFER_ALLOW_REPRO_CLAIM -ne '1') {
 # ===================== REPRO-CLAIM-GATE END =====================
 
 
+# ===================== ASSET-CLASS-GATE（受保护路径不得消失） =====================
+# 规则：structure.json 的 protected_paths 中每条路径必须存在；消失即阻断
+# 放行：NINFER_ALLOW_ASSET_MISSING=1
+if ($env:NINFER_ALLOW_ASSET_MISSING -ne '1') {
+    $acRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $acSj = Join-Path $acRoot 'structure.json'
+    if (Test-Path $acSj) {
+        $acObj = Get-Content $acSj -Raw -Encoding UTF8 | ConvertFrom-Json
+        $acMiss = @()
+        if ($acObj.protected_paths) {
+            foreach ($acP in $acObj.protected_paths) {
+                $acFull = Join-Path $acRoot ($acP.path -replace '/', '\')
+                if (-not (Test-Path -LiteralPath $acFull)) {
+                    $acMiss += ($acP.path + ' [' + $acP.asset_class + ']')
+                }
+            }
+        }
+        if ($acMiss.Count -gt 0) {
+            Write-Output ('BLOCKED[asset-class]: 受保护路径消失（' + $acMiss.Count + ' 项）')
+            foreach ($ac in $acMiss) { Write-Output ('   ' + $ac) }
+            Write-Output '   补法：恢复该路径，或经用户书面同意后从 structure.json 的 protected_paths 移除'
+            exit 1
+        }
+    }
+}
+# ===================== ASSET-CLASS-GATE END =====================
+
+
 exit $fail
 
 

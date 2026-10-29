@@ -490,7 +490,11 @@
   "underscore_dirs": {
     "_doc": "铁律A（用户 2026-10-18 令）：严禁随意新建 `_` 前缀目录、严禁随意往里放文件。新建或往里放 ⇒ 必须先查清该目录的用途/依赖/是否唯一副本，再向用户提出申请（先查清 + 申请）。",
     "declared": [
-      { "name": "_safety_backups", "purpose": "backup_file.py 旧台账区（2026-10-18 改名 safety_backups 前的历史遗留），内容=历史备份快照；已入 .gitignore 永不入库；删除须经用户点名（反溯链保护）", "since": "2026-10-19" }
+      {
+        "name": "_safety_backups",
+        "purpose": "backup_file.py 旧台账区（2026-10-18 改名 safety_backups 前的历史遗留），内容=历史备份快照；已入 .gitignore 永不入库；删除须经用户点名（反溯链保护）",
+        "since": "2026-10-19"
+      }
     ],
     "rule": "任何不在 declared 里的 `_*` 目录 = 门禁违规（structure 层报为\"未声明的下划线目录\"）",
     "_since": "2026-10-18",
@@ -558,5 +562,73 @@
     "_why_C": "2026-10-18 事故：起引擎时我把轮询写成 150 秒上限（实测启动仅 10–15 秒）⇒ 白等；且失败路径没有早停判据 ⇒ 用户看到\"一直转\"。",
     "D_valley_criteria": "**谷判据按通道写死、跨通道数值不可互换**（2026-10-18 统一 v5 + 10:12 标定回写）：① 探针通道（valley_hunter.ps1 · a2gate 单请求口径；健康 160–170）：观测级 decode<100（只记录不冻结）/ 立案级 decode<60 + 辅证 power<thr_rel（近 3 拍≥2 拍）+ 连续 3 拍（物理时间，≤180s 续接；warmup=引擎启动<2min）⇒ 冻结现场+写锁；② 日志通道（valley_logwatch.py · 引擎 5s 窗口径，running≥1；健康 ~100，v5 原文 ~40 系旧观测已更正）：立案级 decode<60 + 连续 3 行（≤6s，done 行重置）——**与探针通道换算已标定（2026-10-18 10:12，n=2 窗）：≈0.53×（probe 187 ↔ 窗 100）**；③ 轮级交叉（reqlog host/round；健康 26–35ms）：>500ms 只作观测/交叉验证。**GPU util 永不单独作判据（健康时也 99%）；功耗只作辅证**。",
     "_why_D": "2026-10-18 统一：交接件曾写\"真谷=decode<100 或 host/round>500ms\"（观测级）与预登记 v4.1\"decode<60+功耗+3拍\"（立案级）两套并存；另有 5s 窗与单请求两个 decode 口径差约 4 倍（健康 ~40 vs 160–170）。统一为\"分级+分通道\"，运行逻辑零改动；全文留痕见 预登记件 §12。"
-  }
+  },
+  "asset_classes": {
+    "engine-src/": {
+      "class": "unique-source",
+      "may_clear": false,
+      "needs_remote": true,
+      "delete": "forbidden"
+    },
+    "baselines/": {
+      "class": "frozen-baseline",
+      "may_clear": false,
+      "needs_remote": true,
+      "delete": "forbidden"
+    },
+    "patches/": {
+      "class": "reproducible-proof",
+      "may_clear": false,
+      "needs_remote": true,
+      "delete": "forbidden"
+    },
+    "evidence/": {
+      "class": "irreplaceable",
+      "may_clear": false,
+      "needs_remote": true,
+      "delete": "forbidden"
+    },
+    "engine/": {
+      "class": "artifact",
+      "may_clear": false,
+      "needs_remote": false,
+      "delete": "proof-required"
+    },
+    "build-cache/": {
+      "class": "long-rebuild",
+      "may_clear": false,
+      "needs_remote": false,
+      "delete": "proof-required",
+      "min_rebuild_min": 30
+    },
+    ".temp/": {
+      "class": "zero-cost",
+      "may_clear": true,
+      "needs_remote": false,
+      "delete": "free"
+    }
+  },
+  "protected_paths": [
+    {
+      "path": "engine-src/src-tree/fusion-engine-src",
+      "asset_class": "unique-source",
+      "note": "引擎源码真身"
+    },
+    {
+      "path": ".temp/build-sym120a",
+      "asset_class": "long-rebuild",
+      "min_rebuild_min": 66,
+      "note": "sym3 构建缓存，删了要重花 55-66 min"
+    },
+    {
+      "path": "patches",
+      "asset_class": "reproducible-proof",
+      "note": "补丁链"
+    },
+    {
+      "path": "baselines",
+      "asset_class": "frozen-baseline",
+      "note": "冻结基线"
+    }
+  ]
 }

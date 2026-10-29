@@ -180,7 +180,9 @@ def registry_default_display(registry):
 #   .mtp-iq4nl.ninfer 把该头转成 gguf_iq4_nl（与原件等长，全量 L1 通过），**裸解码与 MTP 两种模式都用它**。
 #   实测定稿（同模型同 prompt，唯一变量 --spec mtp）：散文 decode 55.4→73.2 tok/s（接受率 22.6%）、
 #   代码 184.3 tok/s（接受率 93.8%）；输出语义一致无劣化。
-MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer")
+# 2026-10-30：无 vision 的 mtp-iq4nl 件已删除（实测「本件+--vision off」与「vision 件+--vision off」
+#   显存完全相同 15,515 MiB、池上限完全相同）。默认改指 vision 件，不需要视觉时传 --vision off 即可。
+MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer")
 
 # ---------------------------------------------------------------
 # 模型档（2026-10-10 用户裁决新增）
@@ -209,15 +211,17 @@ MODEL_OPTIONS = {
     "q2lynn":   ("★Q2LYNN（现役 · Q2Lynn 3.89bpw + 视觉）", []),
     "swift":    ("SWIFT 1.5（IQ3_S GSQ-RCO · 11.3 GiB 上卡 · 含视觉）", []),
     "bonsai":   ("BONSAI（前序线 · 件未下载 · 待测试）", []),
-    "iq4nl":    ("★iq4_nl 定稿（自转 MTP 头 · 无视觉）", []),
+    "iq4nl":    ("iq4_nl 头 · 无视觉档（= vision 件 + --vision off）", []),
     "iq4nlvis": ("★iq4_nl + 视觉塔（嫁接件 · 含 vision 组件）", []),
-    # q8mtp（官方含视觉）已移除（2026-10-11 用户裁决）：被 iq4nlvis 全面取代（MTP 头小 212 MB、
-    # 可配大池、视觉实测成功）；文件已删（13.78 GB），需要时重新下载。
-    "orig":     ("原件（纯基线 · MTP 不可用）", []),
+    "q8mtp":    ("Q8MTP（真 8-bit 头 430.4 MiB · 池上限 50,000 · 三项全负仅作对照）", []),
+    # q8mtp 于 2026-10-11 曾移除；2026-10-30 用户重新下载并实测（构建史 §184）：
+    #   decode 每格更慢、接受率无增益、池上限 50,000 < iq4_nl 的 58,368 ⇒ 仅作对照档，不作定稿。
+    # "orig" 已于 2026-10-30 删除：原件 MTP 头是引擎不支持的 gguf_q4_0，文件已从 models\ 移除。
 }
 MODEL_PATHS = {
-    "iq4nl": os.path.join(ROOT, "models",
-                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.ninfer"),
+    "iq4nl": os.path.join(
+        ROOT, "models",
+        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
     "iq4nlvis": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
@@ -226,8 +230,9 @@ MODEL_PATHS = {
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
     "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer"),
     "bonsai": os.path.join(ROOT, "models", "Ternary-Bonsai-2-27B-ninfer-v3.ninfer"),
-    "orig":  os.path.join(ROOT, "models",
-                          "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.ninfer"),
+    "q8mtp": os.path.join(
+        ROOT, "models",
+        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"),
 }
 # --model-id 按档映射（2026-10-19 用户撞见 BUG：选 SWIFT1.5 但 model-id 仍是 coder390——
 #   原 L765 硬编码 qwen3.8-27b-coder390，模型文件选对但标识没跟档走，误导性极强）：

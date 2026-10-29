@@ -246,15 +246,23 @@ MODEL_IDS = {
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
 VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
-MODEL_KVCAP_MAX = {}
+MODEL_KVCAP_MAX = {
+    # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
+    "q2lynn": 58368,   # iq4_nl 头 227.9 MiB：58,368 READY，60,000 差 36.7 MiB
+    "q8mtp":  50000,   # q8_0 头 430.4 MiB：50,000 READY，51,000 差 5.6 MiB
+    "swift":  80000,   # q6_k 头 332.3 MiB：80,000 仍 READY，上限未探到顶
+}
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
     "q2lynn": {"kv": "rk8v4",    "kvcap": "51200", "graph": "64",  "vision": "overlay",
-               "note": "现役定稿（冻结基准）；实测池上限 65,536（free ~490 MiB）/ rk8v4 ≤ 41,664"},
+               "note": "现役定稿（冻结基准）；2026-10-30 重测 rk8v4 池上限 58,368（60,000 差 36.7 MiB）；旧注 41,664 与 65,536 均为其它 dtype/件口径，已作废"},
     "swift":  {"kv": "rk8v4",    "kvcap": "64k",    "graph": "192", "vision": "overlay",
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
+    "q8mtp":  {"kv": "rk8v4",    "kvcap": "50000", "graph": "64",  "vision": "overlay",
+               "note": "Q8 草稿头（430.4 MiB，比 iq4_nl 多 202.5 MiB）；池上限 50,000。"
+                       "2026-10-30 八格实测：decode 每格更慢、接受率无增益 ⇒ 仅作对照档，不作定稿"},
     "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "前序线 · 件未下载（仅登记待测试）"},
 }
@@ -369,6 +377,9 @@ CTX_OPTIONS = {
 }
 KVCAP_OPTIONS = {
     "51200": ("51200 ★定稿·50K稳定", ["--kv-capacity", "51200"]),
+    "58368": ("58368 · iq4_nl@rk8v4 实测上限", ["--kv-capacity", "58368"]),
+    "50000": ("50000 · q8mtp@rk8v4 实测上限", ["--kv-capacity", "50000"]),
+    "5376":  ("5376 · 最小合法(84页·KV_SINK 锁)", ["--kv-capacity", "5376"]),
     "55296": ("55296 贴边·需净GPU", ["--kv-capacity", "55296"]),
     "49152": ("49152 · 48K", ["--kv-capacity", "49152"]),
     "40960": ("40960 · 40K旧档", ["--kv-capacity", "40960"]),

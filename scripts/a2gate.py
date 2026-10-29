@@ -15,6 +15,7 @@ except Exception:  # 极端情况下回退旧名
 
 import hashlib
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -23,6 +24,10 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 WORDS = ('alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike '
          'november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu').split()
+
+
+# 2026-10-29 (C0): 每次调用唯一标识——同名 arm 重跑不再覆盖历史全文/指标
+INVOCATION = time.strftime('%Y%m%d_%H%M%S')
 
 
 def make_filler(kb, seed=20261012):
@@ -68,7 +73,7 @@ def main():
             request = urllib.request.Request(url, data=body,
                                              headers={'Content-Type': 'application/json'})
             started = time.time()
-            record = {'run': run, 'round': round_index}
+            record = {'run': run, 'round': round_index, 'invocation': INVOCATION}
             try:
                 # 2026-10-26: 900s cap truncated every r3 (229K) run; raised to 2700s (TELE/CB prereg).
                 with urllib.request.urlopen(request, timeout=2700) as response:
@@ -85,8 +90,8 @@ def main():
                 record['length'] = len(reasoning) + len(content)
                 # 2026-10-26 (#55): persist full output text so OFF/ON divergence can be diffed.
                 try:
-                    text_path = ('J:\\ninfer-kvmem\\.temp\\abab_text_%s_r%d.txt'
-                                 % (args.arm, round_index))
+                    text_path = ('J:\\ninfer-kvmem\\.temp\\abab_text_%s_%s_r%d.txt'
+                                 % (args.arm, INVOCATION, round_index))
                     with open(text_path, 'w', encoding='utf-8') as text_handle:
                         text_handle.write(reasoning + '\n' + content)
                     record['text_path'] = text_path
@@ -105,9 +110,20 @@ def main():
                 timings.get('draft_n_accepted'), timings.get('draft_n'),
                 record.get('length'), record.get('sha'), record.get('error', '')))
     out = 'J:\\ninfer-kvmem\\.temp\\gate_%s.json' % args.arm
+    # 2026-10-29 (C0): 合并而非覆盖——同名 arm 重跑时保留历史 runs
+    merged = []
+    try:
+        with open(out, 'r', encoding='utf-8') as prev_handle:
+            merged = (json.load(prev_handle) or {}).get('runs') or []
+    except Exception:  # noqa: BLE001
+        merged = []
+    new_keys = {(r.get('invocation'), r.get('run'), r.get('round')) for r in results}
+    merged = [r for r in merged
+              if (r.get('invocation'), r.get('run'), r.get('round')) not in new_keys]
+    merged.extend(results)
     with open(out, 'w', encoding='utf-8') as handle:
-        json.dump({'arm': args.arm, 'runs': results}, handle, ensure_ascii=False, indent=2)
-    print('written: %s' % out)
+        json.dump({'arm': args.arm, 'runs': merged}, handle, ensure_ascii=False, indent=2)
+    print('written: %s (runs=%d)' % (out, len(merged)))
 
 
 if __name__ == '__main__':

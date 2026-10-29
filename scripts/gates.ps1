@@ -559,7 +559,7 @@ if ($env:NINFER_ALLOW_ASSET_SINGLE -ne '1') {
         $adOk = 0
         if ($adTreeLocal -and $adTreePub -and ($adTreeLocal -eq $adTreePub)) { $adOk = 1 }
         if ($adOk -eq 0) {
-            Write-Output ('BLOCKED[asset-dual]: engine-src HEAD ' + $adHead.Substring(0,8) + ' 不在任何远端分支可达 => 资产只有一份')
+            Write-Output ('BLOCKED[asset-dual]: engine-src 树未发布（local=' + $adTreeLocal + ' pub=' + $adTreePub + '）')
             Write-Output '   补法：给引擎树建我们自己的远端并推送；或设 NINFER_ALLOW_ASSET_SINGLE=1 临时放行'
             exit 1
         }

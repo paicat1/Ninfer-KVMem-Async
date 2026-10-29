@@ -18,7 +18,8 @@
     "structure.json",
     "启动器.bat",
     "safety_backups",
-    "build-cache"
+    "build-cache",
+    "CMakePresets.json"
   ],
   "canonical_dirs": {
     "engine": "引擎二进制：active/(现役唯一真相源) · lineage/(谱系只读) · pdb_archive/",

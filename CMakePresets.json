@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "sym-120a",
+      "displayName": "sym chain: BuildTools 14.43 + CUDA 13.3 + ninja, sm_120a, /Zi",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/.temp/build-sym120a",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "J:/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/cl.exe",
+        "CMAKE_C_COMPILER": "J:/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/cl.exe",
+        "CMAKE_LINKER": "J:/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/link.exe",
+        "CMAKE_CUDA_COMPILER": "J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe",
+        "CMAKE_MAKE_PROGRAM": "J:/vcpkg/downloads/tools/ninja-1.13.2-windows/ninja.exe",
+        "CMAKE_CUDA_ARCHITECTURES": "120a",
+        "NINFER_SM120_NATIVE": "ON",
+        "NINFER_BUILD_APPS": "ON",
+        "BUILD_TESTING": "OFF",
+        "NINFER_BUILD_BENCHMARKS": "OFF",
+        "CMAKE_CXX_FLAGS": "/Zi"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "sym-120a",
+      "configurePreset": "sym-120a",
+      "jobs": 16
+    }
+  ]
+}

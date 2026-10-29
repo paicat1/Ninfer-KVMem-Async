@@ -4285,3 +4285,11 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **⑥ 方法学纠错（防复发）**：用 `re.search()` 的 Match 对象时 `r[1]` 是 **group(1)=step**，不是 copy（`findall` 的元组才从 0 起）。首版据此把 step 当 copy 累加，得 **56,506,649 ms** 的荒谬值；自查后发现并改 `r.group(2)` 修正。**凡按分组取字段，先打 5 行原始样本核对量纲。**
 - **⑦ 环境更新（新基线）**：BIOS 改为**核显开机**后，5080 空闲占用 **49 MiB**（原 242 MiB；旧平台 949 MiB）⇒ 可用显存再 **+193 MiB**。**既有池上限（nvfp4 75,776 / rk8v4 58,368）均在此基线之前扫定，已过期**。
 - **⑧ 边界**：本节全部为零机时（只读日志/JSON），未起服、未编译、未改件；restore 分段仅 **OFF 臂**（ON 臂无 PG2 件日志可对）。
+
+### 180. 【不可撤销留痕 + engine-src 归属核实 + worktree 误删与恢复】（2026-10-29）
+
+- **不可撤销项**：`fd85112` / `2e0c00d` / `10a4af6` / `30d06c8` 四个已推 commit 的提交信息内含 `APPROVED: <用户原话>`。远端已公共化、**禁 force-push** ⇒ **无法消除**，只能留痕说明。推送闸门已改为读本地台账 `.temp/push_approval.log`，此后 commit 不再含用户原话。
+- **engine-src 归属核实**（`engine-src/PROVENANCE.md` 原文）：本仓**自持引擎树**，2026-10-12 解耦建立；基 = 上游 `1314521gjy/ninfer-fusion-kvmem`（`3b9dc83`）+ Bonsai cherry-pick；分支 `line-coder390`（**105 commits**）；`upstream` 只读、`pushurl = DISABLED_NEVER_PUSH_UPSTREAM`；`.gitignore` L14 排除 ⇒ **远端不可见**。还原手段 = `_safety_backups/qwenline_s6-20261008_20261012.bundle`（13.8 MB）+ 差分 patch。铁律 T-NO-FOREIGN-WRITE（2026-10-12 立）。
+- **worktree 误删与定性**：`engine-main` 分支的工作目录原在 `.temp\em-wt3`（10-15 建立，供 filter-branch 历史重写），按"临时物"归类；10-17 批 1（P1+P5）清入回收站（记录见 `docs/05-交接与值守/协作状态-归档-20261016至1017.md` L1789）。**归类错误 = 根因**：worktree 是**分支的工作副本（版本资产）**，`.temp` 是**可清空区**——违反本仓自订铁律「一类一个家」「证据不得留在临时区」，且「归置先出清单经批准再动」只做了前半句（把"列入清单"当成"已批准"）。
+- **恢复结果**：`git worktree prune` + `git worktree add J:\engine-main-wt engine-main` ⇒ **2,622 文件、`status` clean、`src-tree` 在位**（分支本体 `a4f32e2` 全程无损，回收站条目已被后续清空）。
+- **遗留（未处理）**：引擎树存在**两份副本**——主仓 `engine-main` 分支（2,621 件，`a4f32e2`）与独立仓 `engine-src`（105 commits，`7e14453`），**两者不同步**；收敛方案待用户裁决（推自己的远端 / 合并 / 保留双份并登记主副本）。

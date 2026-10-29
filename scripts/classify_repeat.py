@@ -20,6 +20,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 WORDS = ('alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike '
          'november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu').split()
 WORSET = set(WORDS)
+# 2026-10-29 (C0): 兼容旧 abab_text_abab_<arm>_r<N>.txt 与新 abab_text_<arm>_<inv>_r<N>.txt
+NAME_RE = re.compile(r'^abab_text_(?P<base>.+)_r(?P<rnd>\d+)\.txt$')
 
 
 def make_filler(kb, seed=20261012):
@@ -99,9 +101,9 @@ def main():
     ap.add_argument('--dir', default='.temp')
     args = ap.parse_args()
 
-    files = sorted(glob.glob(os.path.join(args.dir, 'abab_text_abab_*.txt')))
+    files = sorted(glob.glob(os.path.join(args.dir, 'abab_text_*.txt')))
     if not files:
-        print('未找到 abab_text_abab_*.txt')
+        print('未找到 abab_text_*.txt')
         return
 
     texts = {}
@@ -115,8 +117,9 @@ def main():
     for path in files:
         name = os.path.basename(path)
         text = texts[name]
-        match = re.match(r'abab_text_abab_(off|on)_(c\d)_(r\d)\.txt', name)
-        arm, cycle, rnd = (match.group(1), match.group(2), match.group(3)) if match else ('?', '?', '?')
+        match = NAME_RE.match(name)
+        base = match.group('base') if match else '?'
+        rnd = match.group('rnd') if match else '0'
         toks = text.split()
         max8, gram = max8_stats(toks)
         region = loop_region(toks, gram) if gram else None
@@ -125,8 +128,8 @@ def main():
             cls = classify(seg, None)
         else:
             seg, cls = [], 'none'
-        prev_key = f'abab_text_abab_{arm}_{cycle}_r{int(rnd[1]) - 1}.txt'
-        prev_text = texts.get(prev_key)
+        prev_key = (f'abab_text_{base}_r{int(rnd) - 1}.txt') if rnd.isdigit() else None
+        prev_text = texts.get(prev_key) if prev_key else None
         if seg and prev_text:
             cls = classify(seg, prev_text)
         ratio = 100.0 * len(seg) / max(1, len(toks))

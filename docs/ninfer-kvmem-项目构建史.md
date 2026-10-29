@@ -4293,3 +4293,15 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 - **worktree 误删与定性**：`engine-main` 分支的工作目录原在 `.temp\em-wt3`（10-15 建立，供 filter-branch 历史重写），按"临时物"归类；10-17 批 1（P1+P5）清入回收站（记录见 `docs/05-交接与值守/协作状态-归档-20261016至1017.md` L1789）。**归类错误 = 根因**：worktree 是**分支的工作副本（版本资产）**，`.temp` 是**可清空区**——违反本仓自订铁律「一类一个家」「证据不得留在临时区」，且「归置先出清单经批准再动」只做了前半句（把"列入清单"当成"已批准"）。
 - **恢复结果**：`git worktree prune` + `git worktree add J:\engine-main-wt engine-main` ⇒ **2,622 文件、`status` clean、`src-tree` 在位**（分支本体 `a4f32e2` 全程无损，回收站条目已被后续清空）。
 - **遗留（未处理）**：引擎树存在**两份副本**——主仓 `engine-main` 分支（2,621 件，`a4f32e2`）与独立仓 `engine-src`（105 commits，`7e14453`），**两者不同步**；收敛方案待用户裁决（推自己的远端 / 合并 / 保留双份并登记主副本）。
+
+### 181. 【patch 23 编译成功：构建环境锁定后一次通过，产物 384/384 sm_120a】（2026-10-30 00:46）
+
+- **环境**：`CMakePresets.json` preset `sym-120a`（`preset_sha256` `775d703a41cd7e8991585ca49e3f1d1e93667b9749666a7f9fe93b05aac7b4e0`）——BuildTools **14.43** 的 `cl.exe`/`link.exe` + `cuda-13.3` 的 `nvcc` + `ninja 1.13.2`，`CMAKE_CUDA_ARCHITECTURES=120a`、`NINFER_SM120_NATIVE=ON`、`/Zi`、`SOURCE_DATE_EPOCH=1761782400`。
+- **源码**：`engine-src` 分支 `p23` @ `641ea18`（patch 23：restore 逐页 publish 改批量，2 文件 +102/−11）。
+- **前置校验**：`tools/build_env_check.ps1` → `BUILD-VERIFY: PASS`（presets ↔ CMakeCache ↔ PATH 三方一致）。
+- **编译**：增量 **22 个目标**，`BUILD_EXIT=0`，约 30 秒（对比冷编 55–66 分钟）。
+- **产物**：`ninfer-serve.exe` 1,376,959,488 B（1313.17 MB），`sha256 dc54ae08be88ecbf52d38af5ec90165ad53c497ca22204c4521d2d9e58bd9db4`。
+- **架构门**：`cuobjdump --list-elf` **384 行全 sm_120a、0 个 sm_86** ⇒ PASS。
+- **首次失败与根因（同一夜）**：首轮按 "Community → Professional → Enterprise" 顺序找 `vcvars64`，命中 **Community 14.44**，而 `CMakeCache` 固定 **BuildTools 14.43** 的 `cl.exe` ⇒ 14.44 STL 头 + 14.43 编译器 ⇒ **C2801/C2333 连环错 + cl.exe Access violation**。修法 = 工具链必须与 cache 同产品线同版本（已立 T-BUILD-ENV/PIN/VERIFY/DETERMINISM/TWICE 五律）。
+- **窗口 SOP 偏差**：`schtasks` 报 `Access is denied`（需管理员），改用**可见独立窗 + bat 内 `title` + 启动后立即 AboveNormal**，缺 "schtasks 脱树" 一项。
+- **未完成（六关只过两关）**：③ 输出 sha 与 sym3 对比（需起服）④ C 档 TTFT 收益 ⑤ soak ⑥ 双次复验。

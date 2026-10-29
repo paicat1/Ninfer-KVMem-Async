@@ -223,6 +223,7 @@ unsigned long long* g_stamp_host = nullptr;  // mapped host view (zero-copy read
 unsigned long long* g_stamp_dev = nullptr;   // device view written by the stamp kernel
 int g_stamp_ref_prints = 0;
 int g_stamp_slow_prints = 0;
+int g_stamp_sample_layers[4] = {-1, -1, -1, -1};  // v4.5: 四个被采样层的真实层号（主机侧）
 
 __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
@@ -236,7 +237,7 @@ __global__ void step_stamp_kernel(unsigned long long* out, int slot) {
 bool step_stamp_arm() {
     if (g_stamp_host != nullptr) { return true; }
     void* host = nullptr;
-    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 12, cudaHostAllocMapped) != cudaSuccess) {
+    if (cudaHostAlloc(&host, sizeof(unsigned long long) * 26, cudaHostAllocMapped) != cudaSuccess) {
         (void)cudaGetLastError();
         return false;
     }
@@ -248,14 +249,20 @@ bool step_stamp_arm() {
     }
     g_stamp_host = static_cast<unsigned long long*>(host);
     g_stamp_dev = static_cast<unsigned long long*>(dev);
-    for (int i = 0; i < 12; ++i) { g_stamp_host[i] = 0ULL; }
-    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 12 slots)\n");
+    for (int i = 0; i < 26; ++i) { g_stamp_host[i] = 0ULL; }
+    std::fprintf(stderr, "[ninfer] spin-stamp DEBUG: armed (mapped host buffer, 26 slots)\n");
     return true;
 }
 
 void step_stamp_launch(int slot, cudaStream_t stream) {
-    if (g_stamp_dev == nullptr || slot < 0 || slot > 11) { return; }  // S9: 12 槽（5/6 target 子界；7/8/9 verify 内部）
+    if (g_stamp_dev == nullptr || slot < 0 || slot > 25) { return; }  // S9: 12 槽；v4.5: 26 槽（12-23 四层 op 组，24/25 draft 内部）
     step_stamp_kernel<<<1, 1, 0, stream>>>(g_stamp_dev, slot);
+}
+
+// v4.5：四个被采样层的真实层号——由 text.cpp 在算出采样集时回报（幂等；内核只写 %globaltimer）。
+void step_stamp_note_sample_layers(int l0, int l1, int l2, int l3) {
+    g_stamp_sample_layers[0] = l0; g_stamp_sample_layers[1] = l1;
+    g_stamp_sample_layers[2] = l2; g_stamp_sample_layers[3] = l3;
 }
 
 void step_stamp_report(const char* tag) {
@@ -264,6 +271,11 @@ void step_stamp_report(const char* tag) {
     const unsigned long long t3 = g_stamp_host[3], t4 = g_stamp_host[4];
     const unsigned long long t5 = g_stamp_host[5], t6 = g_stamp_host[6];  // S7/E2: target 子界
     const unsigned long long t7 = g_stamp_host[7], t8 = g_stamp_host[8], t9 = g_stamp_host[9];  // S9: verify 内部
+    const unsigned long long t12 = g_stamp_host[12], t13 = g_stamp_host[13], t14 = g_stamp_host[14];  // v4.5: L0
+    const unsigned long long t15 = g_stamp_host[15], t16 = g_stamp_host[16], t17 = g_stamp_host[17];  // v4.5: L1
+    const unsigned long long t18 = g_stamp_host[18], t19 = g_stamp_host[19], t20 = g_stamp_host[20];  // v4.5: L2
+    const unsigned long long t21 = g_stamp_host[21], t22 = g_stamp_host[22], t23 = g_stamp_host[23];  // v4.5: L3
+    const unsigned long long t24 = g_stamp_host[24], t25 = g_stamp_host[25];  // v4.5: draft 内部
     if (t0 == 0ULL || t4 == 0ULL || t4 <= t0) { return; }
     const double total_ms = static_cast<double>(t4 - t0) / 1e6;
     const bool verbose = std::getenv("NINFER_SPIN_STAMP_VERBOSE") != nullptr;
@@ -302,6 +314,29 @@ void step_stamp_report(const char* tag) {
                      "[ninfer] verify-split %s: forward=%.2f accept=%.2f select=%.2f scatter=%.2f ms | sum=%.2f (verify=%.1f)\n",
                      tag ? tag : "round", v_forward, v_accept, v_select, v_scatter,
                      v_forward + v_accept + v_select + v_scatter, d1);
+    }
+    // v4.5：四层 op 组（槽 12-14 / 15-17 / 18-20 / 21-23）。固定集合 ⇒ 每次 capture 节点数恒定
+    //（轮转版曾触发 cudaGraphExecUpdateFailure result 2 TopologyChanged，已撤）。层首戳取在 wait 之后。
+    {
+        const unsigned long long a[4][3] = {{t12, t13, t14}, {t15, t16, t17},
+                                            {t18, t19, t20}, {t21, t22, t23}};
+        for (int i = 0; i < 4; ++i) {
+            if (a[i][0] != 0ULL && a[i][1] >= a[i][0] && a[i][2] >= a[i][1]) {
+                const double m = static_cast<double>(a[i][1] - a[i][0]) / 1e6;
+                const double p = static_cast<double>(a[i][2] - a[i][1]) / 1e6;
+                std::fprintf(stderr,
+                             "[ninfer] layer-ops %s: L%d layer=%d mixer=%.2f mlp_tail=%.2f ms | sum=%.2f\n",
+                             tag ? tag : "round", i, g_stamp_sample_layers[i], m, p, m + p);
+            }
+        }
+    }
+    // v4.5：MTP draft 内部三段（槽 24/25 与 t2/t3 拼）——Σ 应等于 draft 段（t3-t2）
+    if (t24 != 0ULL && t25 >= t24 && t3 >= t25 && t3 >= t2) {
+        const double d_prepare = static_cast<double>(t24 - t2) / 1e6;
+        const double d_first   = static_cast<double>(t25 - t24) / 1e6;
+        const double d_loop    = static_cast<double>(t3 - t25) / 1e6;
+        std::fprintf(stderr, "[ninfer] draft-split %s: prepare=%.2f first=%.2f loop=%.2f ms | sum=%.2f (draft=%.1f)\n",
+                     tag ? tag : "round", d_prepare, d_first, d_loop, d_prepare + d_first + d_loop, d2);
     }
     std::fflush(stderr);
 }

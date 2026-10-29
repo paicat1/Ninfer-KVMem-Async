@@ -9,6 +9,8 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CUDA_ARCHITECTURES": "120a",
+        "NINFER_SM120_NATIVE": "ON",
         "NINFER_BUILD_APPS": "ON",
         "BUILD_TESTING": "OFF",
         "NINFER_BUILD_BENCHMARKS": "OFF"

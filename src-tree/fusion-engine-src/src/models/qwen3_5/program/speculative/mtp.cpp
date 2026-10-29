@@ -20,7 +20,7 @@ namespace ninfer::models::qwen3_5::execution {
 //   6 = "prepare 后/verify 前"；7 备用。arm 在建图前创建，record 在（被捕获的）
 // 图体内成为 event-record 节点（eager 期即真实记录），replay 后由 harvest 读回。
 namespace {
-constexpr int kStepSlots = 12;  // S9（7/8/9 = verify 内部）
+constexpr int kStepSlots = 26;  // S9（7/8/9 = verify 内部）；v4.5（12-23 = 四层 op 组，24/25 = MTP draft 内部）
 cudaEvent_t g_step_graph_events[kStepSlots] = {nullptr};
 } // namespace
 
@@ -277,6 +277,7 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
                                         static_cast<std::int32_t>(draft_window),
                                         static_cast<std::int32_t>(state.text_cache.max_context()),
                                         state.execution.device.stream);
+            step_graph_record(24, state.execution.device.stream);  // v4.5: draft 准备段结束
             card.mtp_forward_decode_batch(alignment_ids, target_hidden, target_positions,
                                           target_rope, licensed_counts, mtp_rows, envelopes.batch,
                                           alignment_hidden);
@@ -286,6 +287,7 @@ auto mtp_decode_batch_body(MtpBatchContext& state, std::int32_t batch_size,
             Tensor proposal_logits = frame.proposal_logits.slice(1, 0, batch_size);
             Tensor draft0          = next_drafts.slice(1, 0, 1).view({batch_size});
             card.mtp_propose_batch(ar_hidden, proposal_logits, draft0);
+            step_graph_record(25, state.execution.device.stream);  // v4.5: draft 首轮结束（循环起点）
             for (std::uint32_t step = 0; step + 1 < draft_window; ++step) {
                 Tensor previous =
                     next_drafts.slice(1, static_cast<std::int32_t>(step), 1).view({batch_size});

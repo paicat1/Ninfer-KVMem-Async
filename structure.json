@@ -17,7 +17,8 @@
     "log_verify.ps1",
     "structure.json",
     "启动器.bat",
-    "safety_backups"
+    "safety_backups",
+    "build-cache"
   ],
   "canonical_dirs": {
     "engine": "引擎二进制：active/(现役唯一真相源) · lineage/(谱系只读) · pdb_archive/",
@@ -36,7 +37,8 @@
     "engine-src": "源码树（只读）",
     "official-repo": "vendored 上游（只读）",
     ".codebuddy": "AI 工具链区：sda/(TRAPS·DECISIONS) · memory/(长期记忆)",
-    "repro": "复现包（.bundle 等对外复现材料）"
+    "repro": "复现包（.bundle 等对外复现材料）",
+    "build-cache/": "长重建成本构建树；may_clear=false；delete=proof-required"
   },
   "forbidden": [
     {

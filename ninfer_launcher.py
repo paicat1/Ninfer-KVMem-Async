@@ -292,7 +292,7 @@ KV_ENV = {
     "NINFER_KV_WINDOW":          "32768",
     "NINFER_KV_SINK":            "5120",
     "NINFER_KV_RETRIEVE":        "8192",
-    "NINFER_KV_RING":            "1",
+    "NINFER_KV_RING":            "1",   # 已空转（B30 后源码零 getenv）；保留仅作历史兼容
     "NINFER_HOST_PAGEABLE":      "1",
     "NINFER_KV_REUSE_HOSTBACKED": "1",
 }

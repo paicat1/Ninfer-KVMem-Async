@@ -1,0 +1,42 @@
+# PATCHSET 指纹（2026-10-30 由 A-3 生成）
+
+> 算法：对 `patches/*.patch` 按**文件名排序**，逐个取 sha256（十六进制小写），
+> 把这些 64 字符十六进制串按顺序拼接后再取 sha256，取大写。
+> **任何补丁增删改都会改变此指纹。**
+
+**补丁数 = 23**
+
+**PATCHSET_FINGERPRINT = `89117602534D312A4E463CDFDFF9F80B788E457BF174F3F00CDDD02542BEC284`**
+
+| 补丁 | sha256 |
+|---|---|
+| `21_P-f-P-g_profile_step_restore_timing.patch` | `c62ec7bd7091dae1255a297980284bbdd310814bb116e8b12f3a9ec8dcdc7203` |
+| `22_P-g2_restore_event_timing.patch` | `13c016abe886f01e138c668fe6a0211d7873b87a60ad8b849a770e9dd45cddba` |
+| `23_restore_batch_publish.patch` | `86456f1485cf3d13ce836818bcb0872ca897a91ec2176107276781c5d2f2f833` |
+| `W1-W4_engine_fix.patch` | `777788df35810085978315aeeb78fd39fefe0d684da351509cb8565cc2938d97` |
+| `i3b_p2_step_profile.patch` | `52ad6a3aaca8d5c1f0933220db1b72341107def4bc93b9a3afa3c970e5865ef0` |
+| `i3b_s10_runtime_pdl.patch` | `9cd08c9f37a69c29dab1625632b093ce7b49cdd0ff6ada555bd79c20dc42f5c4` |
+| `i3b_s11_gdn_residency_occupancy.patch` | `43086b37f61263ca69770de9d89e0335bf5c80ba159c6121092787ec44a68ce4` |
+| `i3b_s12v3_fourlayer.patch` | `9cd216c5dab08f875c717b6b4f0d430fb9f2ed2542ae7818b61e6423f2c58732` |
+| `i3b_s2_submit_split.patch` | `c7c33285de3795253acb71362949fda00ac8851c7c42b5c3b44b5f1757d202c7` |
+| `i3b_s3b_fix_sticky_error.patch` | `cb7cae04f383a32c6ba0bee222c616679b8e7a5b62e095458049fdad077a96e3` |
+| `i3b_s3b_ingraph_events.patch` | `acad4f15aacca020811da9f589ebe82c6608c6ed9ea0e918e63f37f58db48d2a` |
+| `i3b_s4_debug_diag.patch` | `8e61437b2a051cc76d83f9b75aa9f878973c99f74bb736b5500bac422694ef0f` |
+| `i3b_s6_spin_stamps.patch` | `0ea3fd6e2550838fdd1ec3338bd0ef750c2efdfbc210eeb370c55e893c95e73a` |
+| `i3b_s7_pdl_switch_stamps.patch` | `dd656613652b1751f60a676ae6de9a08741b3ea2234eb1506c7c2a9fd9ca2d37` |
+| `i3b_s8_pdl_selfreport.patch` | `e41cee730612f41a93ed9fd89560414de6b06e1fd02cbe913c94755b313b11a4` |
+| `i3b_s9_verify_split.patch` | `edcdcd82f63fc22f0d5a178bf3e3b689e5fcbad69ad88f72c8380582bb136058` |
+| `ledger42_batch_demote.patch` | `7186258887369326b5efe7632e06fd1cccfb797cf82f3996d36a5adbaa100f9e` |
+| `ledger42_cancel_checkpoint.patch` | `0b1684dba0a70102a355ad5f48e6b06395548ef2821692d1b977a5c061adb03b` |
+| `ledger42_v2_async_demote.patch` | `536a492e2b7636aa86b13cd6bbdd4f356408cd6a5d144cf7a4835896b0533777` |
+| `ledger44_demote_profile.patch` | `82414ac514d835872a0a469e764a6dac34e01db7ed4ac2d101f18f4d1869ada6` |
+| `ledger46_v2.1_inflight_demand_fix.patch` | `945ec2df032afec37ff4b3b9f9c91d9f5db1df97936768ed89801a985c48495e` |
+| `ledger46_v2.1_multibatch.patch` | `de4f2ed9aa92a99d2a1fb971509f59834cec7a1178b9d8dc29de8a6791bced25` |
+| `ledger47_overpool_abort_silent_death.patch` | `ebc06eab665b38efa50bf637f6087f95be9e253f148f83dc471efd8abf747121` |
+
+## 与既有记录的差异（如实）
+
+- `引擎构建物版本台账-CB-20261026` 记的是 **20 个补丁 / 指纹 `E7F05AC5…`**；
+- 现在 `patches/` 下是 **23 个**、指纹 `89117602`…
+- ⇒ **两者不一致**。可能是 10-26 之后新增了补丁，也可能当时只统计了参与 RC1 的子集。
+  **未查清即不声称哪个对**；本文件只提供"当前目录状态"的指纹。

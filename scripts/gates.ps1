@@ -438,6 +438,37 @@ if ($quotaFail -eq 1) {
 # ===================== QUOTA-GATE END ======================
 
 
+# ===================== EOL-GATE（疑似行尾整体变更） =====================
+# 规则：非新增文件、且 diff 变更行数 >= 该文件当前行数 × 0.9 ⇒ 阻断
+# 放行：环境变量 NINFER_ALLOW_EOL=1（明知是整文件改写时）
+if ($env:NINFER_ALLOW_EOL -ne '1') {
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $numstat = @(git -C $repoRoot -c core.quotepath=false diff --numstat origin/main..HEAD 2>$null)
+    $eolBad = @()
+    foreach ($ln in $numstat) {
+        $parts = $ln -split "`t"
+        if ($parts.Count -lt 3) { continue }
+        if ($parts[0] -eq '-' -or $parts[1] -eq '-') { continue }
+        $changed = [int]$parts[0] + [int]$parts[1]
+        $rel = $parts[2]
+        git -C $repoRoot cat-file -e ("origin/main:" + $rel) 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { continue }
+        $full = Join-Path $repoRoot $rel
+        if (-not (Test-Path -LiteralPath $full)) { continue }
+        $lines = 0
+        try { $lines = (Get-Content -LiteralPath $full -ErrorAction Stop | Measure-Object -Line).Lines } catch { $lines = 0 }
+        if ($lines -gt 50 -and $changed -ge ($lines * 0.9)) {
+            $eolBad += ($rel + " (changed=" + $changed + " / lines=" + $lines + ")")
+        }
+    }
+    if ($eolBad.Count -gt 0) {
+        Write-Output ("BLOCKED[eol]: 疑似行尾整体变更 -> " + ($eolBad -join "; "))
+        Write-Output "   先核 CRLF/bare_LF 是否与 origin/main 版本一致；确属整文件改写则设 NINFER_ALLOW_EOL=1 再推"
+        exit 1
+    }
+}
+# ===================== EOL-GATE END ======================
+
 exit $fail
 
 

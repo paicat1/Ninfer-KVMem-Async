@@ -109,3 +109,19 @@ docs/_research/分析-优化与补丁全清单-CB-20261021.md
 evidence/speed-scan-20261020/
 
 docs/_internal/
+
+# --- SDA 体系专用工具：本地保留，禁止上传（2026-10-30 用户令） ---
+tools/read_pipeline.py
+tools/build_env_check.ps1
+tools/build_ledger.ps1
+tools/build_twice.ps1
+tools/grant_allow.ps1
+tools/repo_state.ps1
+tools/sda_trap.py
+tools/commit_msg_denylist.txt
+scripts/commit_scope.py
+scripts/check_structure.py
+
+# --- 本地工具：不上传（2026-10-30） ---
+scripts/machine_state_sampler.ps1
+tools/machine_state_report.py

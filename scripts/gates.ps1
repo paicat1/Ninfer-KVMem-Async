@@ -125,6 +125,42 @@ if (-not (Get-Command $PyExe -ErrorAction SilentlyContinue)) {
 
 
 
+# ===================== ALLOW-TOKEN-GATE（2026-10-29：逃生门须用户置位）=====================
+# 规则：任何 NINFER_* 放行环境变量，必须同时存在用户侧令牌文件（30 分钟内有效）。
+# 令牌只能由 tools\grant_allow.ps1 生成；AI 自行 set 环境变量 = 无效。
+$SdaAllowVars = @(
+    'NINFER_ALLOW_ASSET_SINGLE', 'NINFER_ALLOW_REPRO_CLAIM', 'NINFER_ALLOW_EOL',
+    'NINFER_ALLOW_SRC_DIRTY', 'NINFER_ALLOW_ASSET_MISSING', 'NINFER_LAW_APPROVED',
+    'NINFER_APPROVED_COMMIT', 'NINFER_IMPACT_DECLARED',
+    'NINFER_ALLOW_NO_WAKE', 'NINFER_ALLOW_NO_BACKUP'
+)
+$SdaTokDir = Join-Path (Join-Path $PSScriptRoot '..') '_safety_backups\.allow'
+$SdaGateLog = Join-Path (Join-Path $PSScriptRoot '..') '.codebuddy\sda\GATE_LOG.jsonl'
+function Write-GateLog([string]$evt, [string]$detail) {
+    try {
+        $d = Split-Path $SdaGateLog -Parent
+        if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
+        $o = [ordered]@{ t = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); evt = $evt; detail = $detail }
+        Add-Content -LiteralPath $SdaGateLog -Value ($o | ConvertTo-Json -Compress) -Encoding UTF8
+    } catch { }
+}
+$SdaNoTok = @()
+foreach ($v in $SdaAllowVars) {
+    if ([Environment]::GetEnvironmentVariable($v) -eq '1') {
+        $tf = Join-Path $SdaTokDir $v
+        $ok = (Test-Path $tf) -and (((Get-Date) - (Get-Item $tf).LastWriteTime).TotalMinutes -le 30)
+        if (-not $ok) { $SdaNoTok += $v }
+    }
+}
+if ($SdaNoTok.Count -gt 0) {
+    Write-Output ('BLOCKED[allow-token]: 放行变量无用户令牌（' + $SdaNoTok.Count + ' 项）：' + ($SdaNoTok -join ', '))
+    Write-Output '   令牌只能由用户运行 tools\grant_allow.ps1 -Name <变量名> 生成（30 分钟有效）'
+    Write-GateLog 'block' ('allow-token: ' + ($SdaNoTok -join ','))
+    exit 1
+}
+Write-GateLog 'run' 'gates started'
+# ===================== ALLOW-TOKEN-GATE END =====================
+
 $fail = 0
 
 

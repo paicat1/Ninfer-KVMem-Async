@@ -251,7 +251,7 @@ MODEL_KVCAP_MAX = {}
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
-    "q2lynn": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
+    "q2lynn": {"kv": "rk8v4",    "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "现役定稿（冻结基准）；实测池上限 65,536（free ~490 MiB）/ rk8v4 ≤ 41,664"},
     "swift":  {"kv": "rk8v4",    "kvcap": "64k",    "graph": "192", "vision": "overlay",
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
@@ -536,7 +536,7 @@ DEFAULTS = {
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
     "model": "iq4nl",
-    "spec": "k3", "kv": "rk2v4-e8", "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
+    "spec": "k3", "kv": "rk8v4",    "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
@@ -588,7 +588,7 @@ PRESET_PROFILES = {
     #     ⚠ 压力模式不改异步臂（A/B 开关独立）：要对照就自己切"异步页流水(A/B)"那一档。
     # ============================================================
     "① 生产 · Q2LYNN（定稿 51200 池 · 最快）": dict(
-        DEFAULTS, model="q2lynn", kv="rk2v4-e8", kvcap="51200", graph="64",
+        DEFAULTS, model="q2lynn", kv="rk8v4",    kvcap="51200", graph="64",
         vision="overlay", spec="k4", think="high", tb="16000", hemostat="on",
         reqlog="off", **{"async": "on"}
     ),
@@ -854,7 +854,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
     argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）
-    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk2v4-e8"),   "rk2v4-e8")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
+    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk8v4"),      "rk8v4")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）

@@ -56,7 +56,7 @@ param(
 
     [string]$Spec = 'mtp',
 
-    [string]$KvDtype = 'rk2v4-e8',
+    [string]$KvDtype = 'rk8v4',
 
     # 窗口纪律：-WindowStyle 只允许可见窗口（起窗必可见）；
 

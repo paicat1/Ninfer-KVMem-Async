@@ -465,7 +465,14 @@ if ($env:NINFER_ALLOW_SRC_DIRTY -ne '1') {
 # 放行：环境变量 NINFER_ALLOW_EOL=1（明知是整文件改写时）
 if ($env:NINFER_ALLOW_EOL -ne '1') {
     $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-    $numstat = @(git -C $repoRoot -c core.quotepath=false diff --numstat origin/main..HEAD 2>$null)
+    # 2026-10-29 修：基准改为当前分支自己的 upstream（原写死 origin/main，
+    # 在 worktree 推 engine-main 时会把 main 与 engine-main 的全量差异误判为行尾变更）
+    $eolBase = (git -C $PWD rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null)
+    if ($eolBase) {
+        $numstat = @(git -c core.quotepath=false diff --numstat ($eolBase + '..HEAD') 2>$null)
+    } else {
+        $numstat = @()
+    }
     $eolBad = @()
     foreach ($ln in $numstat) {
         $parts = $ln -split "`t"
@@ -498,12 +505,13 @@ if ($env:NINFER_ALLOW_ASSET_SINGLE -ne '1') {
     $adRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
     $adSub = Join-Path $adRoot 'engine-src'
     if (Test-Path (Join-Path $adSub '.git')) {
-        $adHead = (git -C $adSub rev-parse HEAD 2>$null)
+        # 2026-10-29 修：判据改为“树的同一性”——engine-src 的 src-tree 必须与
+        # origin/engine-main 上的 src-tree 是同一个 tree 对象（= 真身已发布）。
+        # 原判据查 engine-src 自己的远端，而它按设计无远端，恒红。
+        $adTreeLocal = (git -C $adSub rev-parse 'HEAD:src-tree/fusion-engine-src' 2>$null)
+        $adTreePub = (git -C $adRoot rev-parse 'origin/engine-main:src-tree/fusion-engine-src' 2>$null)
         $adOk = 0
-        foreach ($adRef in @(git -C $adSub for-each-ref --format='%(refname)' refs/remotes 2>$null)) {
-            git -C $adSub merge-base --is-ancestor $adHead $adRef 2>$null
-            if ($LASTEXITCODE -eq 0) { $adOk = 1; break }
-        }
+        if ($adTreeLocal -and $adTreePub -and ($adTreeLocal -eq $adTreePub)) { $adOk = 1 }
         if ($adOk -eq 0) {
             Write-Output ('BLOCKED[asset-dual]: engine-src HEAD ' + $adHead.Substring(0,8) + ' 不在任何远端分支可达 => 资产只有一份')
             Write-Output '   补法：给引擎树建我们自己的远端并推送；或设 NINFER_ALLOW_ASSET_SINGLE=1 临时放行'

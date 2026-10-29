@@ -619,6 +619,51 @@ if ($env:NINFER_ALLOW_ASSET_MISSING -ne '1') {
 # ===================== ASSET-CLASS-GATE END =====================
 
 
+# ===================== BUILD-LEDGER-GATE（编译件须有台账） =====================
+# 规则：engine/lineage/*.exe 的 sha256 必须出现在 docs/01-构建与发布/BUILD_LEDGER.jsonl
+# 说明：本环境无 Get-FileHash，用 .NET SHA256；任何异常一律 fail-closed（exit 1），
+#       禁止"报错但放行"。
+# 放行：NINFER_ALLOW_NO_LEDGER=1
+if ($env:NINFER_ALLOW_NO_LEDGER -ne '1') {
+    try {
+        $blRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+        $blLed = Join-Path $blRoot 'docs\01-构建与发布\BUILD_LEDGER.jsonl'
+        $blDir = Join-Path $blRoot 'engine\lineage'
+        if (-not (Test-Path $blLed)) {
+            Write-Output ('BLOCKED[build-ledger]: 台账不存在 -> ' + $blLed)
+            exit 1
+        }
+        if (Test-Path $blDir) {
+            $blKnown = @{}
+            foreach ($blLn in (Get-Content $blLed -Encoding UTF8)) {
+                if ($blLn.Trim()) {
+                    try { $o = $blLn | ConvertFrom-Json; if ($o.artifact_sha256) { $blKnown[([string]$o.artifact_sha256).ToLower()] = 1 } } catch {}
+                }
+            }
+            $blSha = [System.Security.Cryptography.SHA256]::Create()
+            $blMiss = @()
+            foreach ($blF in (Get-ChildItem $blDir -Filter '*.exe' -File)) {
+                $blFs = [System.IO.File]::OpenRead($blF.FullName)
+                try { $blH = ([System.BitConverter]::ToString($blSha.ComputeHash($blFs)) -replace '-', '').ToLower() }
+                finally { $blFs.Dispose() }
+                if (-not $blKnown.ContainsKey($blH)) { $blMiss += $blF.Name }
+            }
+            $blSha.Dispose()
+            if ($blMiss.Count -gt 0) {
+                Write-Output ('BLOCKED[build-ledger]: 有编译件未登记台账（' + $blMiss.Count + ' 件）')
+                foreach ($bl in ($blMiss | Select-Object -First 6)) { Write-Output ('   ' + $bl) }
+                Write-Output '   补法：tools\build_ledger.ps1 -Exe <路径> -Recipe ... -Purpose ... -Result ...'
+                exit 1
+            }
+        }
+    } catch {
+        Write-Output ('BLOCKED[build-ledger]: 闸门自身异常，按 fail-closed 处理 -> ' + $_.Exception.Message)
+        exit 1
+    }
+}
+# ===================== BUILD-LEDGER-GATE END =====================
+
+
 exit $fail
 
 

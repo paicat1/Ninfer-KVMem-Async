@@ -442,7 +442,11 @@ if ($quotaFail -eq 1) {
 # 规则：engine-src 等工作树若脏 => 阻断（改动未归档，源码树重克隆即丢）
 # 放行：NINFER_ALLOW_SRC_DIRTY=1
 if ($env:NINFER_ALLOW_SRC_DIRTY -ne '1') {
-    $srRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $srRoot = $null
+    foreach ($srCand in @((Join-Path $PSScriptRoot '..'), 'J:\ninfer-kvmem')) {
+        if (Test-Path (Join-Path $srCand 'engine-src\.git')) { $srRoot = (Resolve-Path $srCand).Path; break }
+    }
+    if (-not $srRoot) { $srRoot = 'J:\ninfer-kvmem' }
     $srSub = Join-Path $srRoot 'engine-src'
     if (Test-Path (Join-Path $srSub '.git')) {
         $srDirty = @(git -C $srSub status --porcelain 2>$null)
@@ -486,6 +490,52 @@ if ($env:NINFER_ALLOW_EOL -ne '1') {
     }
 }
 # ===================== EOL-GATE END ======================
+
+# ===================== ASSET-DUAL-GATE（资产双份） =====================
+# 规则：engine-src 的 HEAD 必须能从某个远端分支可达；只有本地一份 = 资产不存在
+# 放行：NINFER_ALLOW_ASSET_SINGLE=1
+if ($env:NINFER_ALLOW_ASSET_SINGLE -ne '1') {
+    $adRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $adSub = Join-Path $adRoot 'engine-src'
+    if (Test-Path (Join-Path $adSub '.git')) {
+        $adHead = (git -C $adSub rev-parse HEAD 2>$null)
+        $adOk = 0
+        foreach ($adRef in @(git -C $adSub for-each-ref --format='%(refname)' refs/remotes 2>$null)) {
+            git -C $adSub merge-base --is-ancestor $adHead $adRef 2>$null
+            if ($LASTEXITCODE -eq 0) { $adOk = 1; break }
+        }
+        if ($adOk -eq 0) {
+            Write-Output ('BLOCKED[asset-dual]: engine-src HEAD ' + $adHead.Substring(0,8) + ' 不在任何远端分支可达 => 资产只有一份')
+            Write-Output '   补法：给引擎树建我们自己的远端并推送；或设 NINFER_ALLOW_ASSET_SINGLE=1 临时放行'
+            exit 1
+        }
+    }
+}
+# ===================== ASSET-DUAL-GATE END =====================
+
+# ===================== REPRO-CLAIM-GATE（对外复现指引自证） =====================
+# 规则：README 里 `clone -b <分支>` 指向的分支，其 CMakePresets 必须含 CMAKE_CUDA_ARCHITECTURES
+# 放行：NINFER_ALLOW_REPRO_CLAIM=1
+if ($env:NINFER_ALLOW_REPRO_CLAIM -ne '1') {
+    $rcRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $rcReadme = Join-Path $rcRoot 'README.md'
+    if (Test-Path $rcReadme) {
+        $rcTxt = Get-Content $rcReadme -Raw
+        foreach ($rcM in [regex]::Matches($rcTxt, 'clone\s+-b\s+([A-Za-z0-9_\-]+)')) {
+            $rcBr = $rcM.Groups[1].Value
+            $rcPath = 'src-tree/fusion-engine-src/CMakePresets.json'
+            $rcBody = git -C $rcRoot show ($rcBr + ':' + $rcPath) 2>$null
+            if (-not $rcBody) { continue }
+            if (($rcBody -join "`n") -notmatch 'CMAKE_CUDA_ARCHITECTURES') {
+                Write-Output ('BLOCKED[repro-claim]: README 指引 clone -b ' + $rcBr + '，但该分支缺 CMAKE_CUDA_ARCHITECTURES => 复现链断')
+                Write-Output '   补法：把 arch 参数同步进该分支并推送；或设 NINFER_ALLOW_REPRO_CLAIM=1 临时放行'
+                exit 1
+            }
+        }
+    }
+}
+# ===================== REPRO-CLAIM-GATE END =====================
+
 
 exit $fail
 

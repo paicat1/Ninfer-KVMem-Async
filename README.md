@@ -325,7 +325,14 @@ MTP.ninfer（orig 原件，13.27 GB，即上方 ModelScope 下载件的 NInfer �
    git clone -b engine-main https://github.com/paicat1/Ninfer-KVMem-Async.git engine-src
    ```
 
-   **A. 本库快照 bundle（离线备选 · 含完整 git 历史）**：`repro/` 带一份自持源码树 bundle：
+   > **⚠ 复现必检（2026-10-29 补）**：`engine-main` 是**快照式分支**，历史上曾长期落后于真实源码树（缺 `CMAKE_CUDA_ARCHITECTURES`，按它编会默认 sm_86 → 在 sm_120a 卡上 JIT 假死）。**clone 后必须先校验**：
+  > ```bat
+  > findstr CMAKE_CUDA_ARCHITECTURES src-tree\fusion-engine-src\CMakePresets.json
+  > ```
+  > **有输出 = 拿到正确版本；无输出 = 拿错了，别编。** 可用锚点：`git checkout engine-7e14453`（tag，已推远端）。
+  > 校验通过后，`origin/engine-main` 的 `src-tree` 与本地真身**是同一个 tree 对象**（由 `ASSET-DUAL-GATE` 机械保证）。
+
+  **A. 本库快照 bundle（离线备选 · 含完整 git 历史）**：`repro/` 带一份自持源码树 bundle：
    ```bat
    git clone repro\qwenline_line-coder390_20261013_r2.bundle engine-src
    cd engine-src && git checkout line-coder390 && cd ..

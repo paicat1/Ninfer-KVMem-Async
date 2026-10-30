@@ -81,9 +81,6 @@ scripts/release_bypass_lock.ps1
 scripts/start_hunter.ps1
 scripts/watchdog_hunter.ps1
 scripts/valley_hunter.ps1
-scripts/valley_logwatch.py
-scripts/window_watch.py
-scripts/count_watch.py
 
 # nsys 导出的 sqlite 工作件（**案卷里的副本才是归档件**；根目录这份是分析中间产物）
 *.sqlite
@@ -98,7 +95,6 @@ retired/**/*.step*
 evidence/heartbeat/
 
 # local-only 工具（structure.json local_only_tools.files 登记，不入库）—— 2026-10-18 TELE 裁决
-scripts/analyze_b_etl.py
 
 build/build-d1208a/
 safety_backups/
@@ -111,7 +107,6 @@ evidence/speed-scan-20261020/
 docs/_internal/
 
 # --- SDA 体系专用工具：本地保留，禁止上传（2026-10-30 用户令） ---
-tools/read_pipeline.py
 tools/build_env_check.ps1
 tools/build_ledger.ps1
 tools/build_twice.ps1
@@ -123,8 +118,6 @@ scripts/commit_scope.py
 scripts/check_structure.py
 
 # --- 本地工具：不上传（2026-10-30） ---
-scripts/machine_state_sampler.ps1
-tools/machine_state_report.py
 
 # --- SDA 公开面收敛（2026-10-30 用户批·终版执行单）：体系本体退出公开面，本地保留 ---
 tools/gate_check.ps1
@@ -137,7 +130,6 @@ scripts/delete_manifest.py
 scripts/promote_from_temp.ps1
 scripts/check_refs.py
 scripts/cb_heartbeat.ps1
-scripts/start_engine_default.ps1
 scripts/cleanup_elevated.ps1
 scripts/cleanup_files_only.ps1
 scripts/retire_dir.ps1

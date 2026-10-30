@@ -50,7 +50,7 @@ try { $Host.UI.RawUI.WindowTitle = "ASYNC ABAB RUN $ts - visible - ledger .temp\
 
 # ---------- preflight ----------
 $need = @(
-    'engine\lineage\I3b_step13_fourlayer_20261015.exe',
+    'engine\lineage\ninfer-serve-RC1.exe',
     'scripts\engine_ctl.ps1',
     'scripts\a2gate.py'
 )
@@ -84,7 +84,7 @@ function RunArm($mode, $c) {
     Start-Sleep -Seconds 2
 
     $extra = '--request-log-jsonl,work\data\reqlog_' + $tag + '.jsonl,--request-log-max-mib,128,--request-log-keep,2'
-    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step13_fourlayer_20261015.exe' -Tag $tag -Depth 2 -Port 8094 -Pool 65536 -Graph 64 -KvDtype rk2v4-e8 -Vision overlay -Spec mtp -Draft 4 -Extra $extra -Experimental | Out-Null
+    powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\ninfer-serve-RC1.exe' -Tag $tag -Depth 2 -Port 8094 -Pool 65536 -Graph 64 -KvDtype rk2v4-e8 -Vision overlay -Spec mtp -Draft 4 -Extra $extra -Experimental | Out-Null
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag $tag -WaitSec 300) -join ' '
     if ($r -notmatch 'READY') { Say ("arm " + $mode + " cycle" + $c + " READY-FAILED: " + $r); return $null }
     $lg = 'logs\test_' + $tag + '.log'

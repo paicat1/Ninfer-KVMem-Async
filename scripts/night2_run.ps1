@@ -1,7 +1,7 @@
 ﻿# night2_run.ps1 v3 -- 可续跑夜班：checkpoint + heartbeat + 收敛判据
 param(
     [string]$NewExe = '.temp\build-1208a\apps\ninfer-serve.exe',
-    [string]$S13Exe = 'engine\lineage\I3b_step13_fourlayer_20261015.exe',
+    [string]$S13Exe = 'engine\lineage\ninfer-serve-RC1.exe',
     [int]$MaxHours = 4
 )
 $root = 'J:\ninfer-kvmem'

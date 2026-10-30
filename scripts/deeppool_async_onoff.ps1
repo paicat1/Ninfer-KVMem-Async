@@ -20,7 +20,7 @@ param(
     [int]$MaxTokens = 2000,
     [int]$Rounds = 3,
     [int]$Runs = 3,
-    [string]$Exe = 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
+    [string]$Exe = 'engine\lineage\ninfer-serve-RC1.exe'
 )
 $ErrorActionPreference = 'Continue'
 Set-Location J:\ninfer-kvmem

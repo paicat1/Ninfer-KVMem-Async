@@ -9,7 +9,7 @@ start_engine_default.ps1 -- 引擎启动【唯一正确入口】（2026-10-18 �
   而**正确参数一直写在成功启动的日志 CMD: 行里**，我却每次重新琢磨。
 
 本脚本把正确参数焊死成一条命令（照 2026-10-17 23:43 与 2026-10-18 08:12 两次成功案例）：
-  -Exe    engine\lineage\I3b_step13_fourlayer_20261015.exe   ← **源件**（engine_ctl 会复制到运行位置）
+  -Exe    engine\lineage\ninfer-serve-RC1.exe   ← **源件**（engine_ctl 会复制到运行位置）
   -Pool   49152        （现役池）
   -Graph  64           （CUDA graph 允许量）
   -Spec   mtp          （MTP 投机）
@@ -36,13 +36,13 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 $ctl = Join-Path $Root 'scripts\engine_ctl.ps1'
-$src = Join-Path $Root 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
+$src = Join-Path $Root 'engine\lineage\ninfer-serve-RC1.exe'
 $log = Join-Path $Root ('logs\test_' + $Tag + '.log')
 
 # [GATE] 起服唯一门（T#0010/0013/0023/0054/0055/0059）
 $gate = Join-Path $Root '.codebuddy\sda\gates\start_engine_gate.ps1'
 if (Test-Path $gate) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $gate -Exe 'engine\lineage\I3b_step13_fourlayer_20261015.exe' -Pool $Pool -AllowSourceCopy
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $gate -Exe 'engine\lineage\ninfer-serve-RC1.exe' -Pool $Pool -AllowSourceCopy
     if ($LASTEXITCODE -ne 0) { Write-Host '[GATE] start_engine_gate BLOCKED' -ForegroundColor Red; exit $LASTEXITCODE }
 } else {
     Write-Host '[GATE] start_engine_gate.ps1 缺失（降级放行）' -ForegroundColor Yellow
@@ -67,7 +67,7 @@ Write-Host ('   日志 = ' + $log)
 # ★ 前台执行并捕获输出（禁止后台 —— 后台会丢错误）
 # ★ 2026-10-18 修：-Exe 必须传**相对路径**（engine_ctl L239 Join-Path $root $Exe 拼根；
 #   传绝对路径会拼出 J:\...\J:\... ⇒ GetFullPath "path's format is not supported" 起服失败）
-$srcRel = 'engine\lineage\I3b_step13_fourlayer_20261015.exe'
+$srcRel = 'engine\lineage\ninfer-serve-RC1.exe'
 $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $ctl -Action start `
         -Exe $srcRel -Tag $Tag -Pool $Pool -Graph $Graph -Spec mtp -KvDtype rk2v4-e8 -Experimental 2>&1
 $rc = $LASTEXITCODE

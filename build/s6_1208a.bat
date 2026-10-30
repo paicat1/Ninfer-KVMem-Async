@@ -51,4 +51,12 @@ echo [build] full graph, 16 jobs ... >> "%LOG%"
 cmake --build "%BUILD%" --parallel 16 >> "%LOG%" 2>&1
 echo BUILD-EXIT=%ERRORLEVEL% %DATE% %TIME% >> "%LOG%"
 echo BUILD-EXIT=%ERRORLEVEL%
-if exist "%BUILD%\apps\ninfer-serve.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\scripts\archive_build_output.ps1" -Source "%BUILD%\apps\ninfer-serve.exe" -Log "%LOG%"
+set "BUILD_RC=%ERRORLEVEL%"
+REM ---- 2026-10-30 machine gate 1: product arch must be all sm_120a (recipe step 4) ----
+if exist "%BUILD%\apps\ninfer-serve.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\build\gates_arch_product.ps1" -Exe "%BUILD%\apps\ninfer-serve.exe" -Log "%LOG%"
+if errorlevel 1 exit /b 2
+REM ---- 2026-10-30 machine gate 2: deploy runtime DLLs next to exe (sha verified) ----
+if exist "%BUILD%\apps\ninfer-serve.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\build\deploy_dlls.ps1" -To "%BUILD%\apps"
+if errorlevel 1 exit /b 3
+if exist "%BUILD%\apps\ninfer-serve.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\tools\archive_build_output.ps1" -Source "%BUILD%\apps\ninfer-serve.exe" -Log "%LOG%"
+exit /b %BUILD_RC%

@@ -16,7 +16,7 @@ function MemUsed() {
 }
 function Episode($tag, $n) {
     $pre = Probe
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
     Start-Sleep -Seconds 5
     $during = @()
     foreach ($i in 1..$n) { $during += (Probe) }

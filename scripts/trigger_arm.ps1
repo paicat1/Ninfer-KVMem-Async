@@ -26,7 +26,7 @@ Say ("ARM " + $Arm + " cycles=" + $Cycles + " hold=" + $HoldSec + "s vram=" + $V
 $during = @(); $after = @(); $base = @()
 for ($c = 1; $c -le $Cycles; $c++) {
     $b = Probe; $base += $b; Say ("  cycle" + $c + " baseline=" + $b)
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec)
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec)
     Start-Sleep -Seconds 5
     for ($i = 1; $i -le $Probes; $i++) { $d = Probe; $during += $d; Say ("    during" + $i + "=" + $d) }
     for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

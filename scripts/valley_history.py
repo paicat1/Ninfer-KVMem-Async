@@ -86,7 +86,7 @@ def scan(path, events):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--glob', default='logs\\*.log')
-    parser.add_argument('--out', default='.temp\\valley_history.md')
+    parser.add_argument('--out', default='work\\data\\valley_history.md')
     args = parser.parse_args()
     events = deploy_timeline()
     print('部署时间线 %d 条；最新: %s' % (len(events), events[-1] if events else '-'))
@@ -118,6 +118,7 @@ def main():
         lines.append('| %s | %s | %d | %d | %.1f | %.0f | %s | %s |' % (
             name, build, count, total, worst, host, first, ' ; '.join(caps) if caps else '-'))
     out = os.path.join(ROOT, args.out)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, 'w', encoding='utf-8') as handle:
         handle.write('\n'.join(lines) + '\n')
     print('logs with valleys: %d' % len(rows))

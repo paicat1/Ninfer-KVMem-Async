@@ -20,7 +20,7 @@ function Snap($tag) {
 $o = (python -X utf8 scripts\a2gate.py --arm thr_base --port 8094 --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
 if ($o -match 'decode=([\d.]+)') { Say ("  baseline decode=" + $Matches[1]) }
 Snap 'healthy'
-Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList '1200','60' | Out-Null
+Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList '1200','60' | Out-Null
 Start-Sleep -Seconds 6
 $o2 = (python -X utf8 scripts\a2gate.py --arm thr_press --port 8094 --runs 1 --rounds 1 --filler-kb 45 --max-tokens 200 2>&1) -join "`n"
 if ($o2 -match 'decode=([\d.]+)') { Say ("  during-pressure decode=" + $Matches[1]) }

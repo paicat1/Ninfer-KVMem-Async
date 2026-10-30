@@ -25,8 +25,8 @@ function ProbeN($tag, $n) {
     return [double]$s[[int]($s.Count / 2)]
 }
 function Apply() {
-    if ($Kind -eq 'vram') { Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec) }
-    else { Start-Process -WindowStyle Hidden -FilePath 'tools\submit_load.exe' -ArgumentList $Kind, ([string]$HoldSec) }
+    if ($Kind -eq 'vram') { Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec) }
+    else { Start-Process -FilePath 'tools\submit_load.exe' -ArgumentList $Kind, ([string]$HoldSec) }
     Say ("  applied kind=" + $Kind + " hold=" + $HoldSec + "s")
 }
 function WaitRelease() {

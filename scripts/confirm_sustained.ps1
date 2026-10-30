@@ -19,7 +19,7 @@ for ($round = 1; $round -le 2; $round++) {
     $pre = @(); foreach ($i in 1..2) { $pre += (Probe) }
     Say ("round" + $round + " pre: " + ($pre -join '/'))
     $mark = (Get-Content 'logs\test_valleywatch.log').Count
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
     Start-Sleep -Seconds 5
     $during = @(); $t0 = Get-Date
     while (((Get-Date) - $t0).TotalSeconds -lt $HoldSec) { $during += (Probe); Start-Sleep -Seconds $EverySec }

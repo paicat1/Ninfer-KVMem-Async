@@ -3,7 +3,7 @@
 
 两个模式：
   1) drive  : 对引擎打固定工作负载（多轮累积 + 确定性填充），每轮记录 time/usage/timings；
-              结果写 .temp\\bench_<tag>.json，并打印紧凑表格。
+              结果写 work\\data\\bench_<tag>.json，并打印紧凑表格。
   2) parse  : 解析引擎日志里自报的 `throughput |` 序列（含 host%），给出死亡谷判据：
               判据 = decode < 20 tok/s 且持续 >= 2 个 5s 窗口（本仓 §3.1 口径的简化版）；
               输出：入谷时刻、谷内最低 decode、host 峰值、谷时长。
@@ -31,6 +31,8 @@ import urllib.request
 sys.stdout.reconfigure(encoding='utf-8')
 
 ROOT = r'J:\ninfer-kvmem'
+DATA_DIR = os.path.join(ROOT, 'work', 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
 WORDS = ('alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike '
          'november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu').split()
 
@@ -97,7 +99,7 @@ def drive(args):
             timings.get('draft_n_accepted'), timings.get('draft_n')))
         if record.get('error'):
             print('    error: %s' % record['error'])
-    out = os.path.join(ROOT, '.temp', 'bench_%s.json' % args.tag)
+    out = os.path.join(DATA_DIR, 'bench_%s.json' % args.tag)
     with open(out, 'w', encoding='utf-8') as handle:
         json.dump({'tag': args.tag, 'port': args.port, 'filler_kb': args.filler_kb,
                    'max_tokens': args.max_tokens, 'rounds': results}, handle,
@@ -113,7 +115,7 @@ def parse(args):
     if not os.path.exists(path):
         print('log not found: %s' % path)
         return
-    snap = os.path.join(ROOT, '.temp', 'bench_parse_%s.txt' % (args.tag or 'x'))
+    snap = os.path.join(DATA_DIR, 'bench_parse_%s.txt' % (args.tag or 'x'))
     try:
         import shutil
         shutil.copyfile(path, snap)
@@ -214,7 +216,7 @@ def scan(args):
         print('log not found: %s' % path)
         return
     tag = args.tag or os.path.splitext(os.path.basename(path))[0]
-    snap = os.path.join(ROOT, '.temp', 'scan_%s.txt' % tag)
+    snap = os.path.join(DATA_DIR, 'scan_%s.txt' % tag)
     import shutil
     shutil.copyfile(path, snap)
     counts = {key: 0 for key in ('req_done', 'req_started', 'http500', 'recovery', 'reconcile',
@@ -367,7 +369,7 @@ def scan(args):
             print('  req#%s %s prompt=%s output=%s cache=%s ttft=%s' % (
                 record['n'], record['t'], record.get('prompt'), record.get('output'),
                 record.get('cache_pct'), record.get('ttft')))
-    out = os.path.join(ROOT, '.temp', 'scan_%s.json' % tag)
+    out = os.path.join(DATA_DIR, 'scan_%s.json' % tag)
     with open(out, 'w', encoding='utf-8') as handle:
         json.dump(summary, handle, ensure_ascii=False, indent=2)
     print('written: %s' % out)

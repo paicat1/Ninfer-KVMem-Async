@@ -21,7 +21,7 @@ function RunPool($pool) {
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag valleywatch -WaitSec 180) -join ' '
     if ($r -notmatch 'READY') { Say ("  pool=" + $pool + " FAILED to start"); return @(-1, -1) }
     $pre = Probe
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
     Start-Sleep -Seconds 5
     $during = @(); foreach ($i in 1..5) { $during += (Probe) }
     for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

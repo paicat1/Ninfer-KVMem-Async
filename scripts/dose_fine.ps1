@@ -16,7 +16,7 @@ Say ("DOSE-FINE start; headroom = " + $headroom + " MiB")
 foreach ($d in @(200, 400, 600)) {
     for ($c = 1; $c -le 2; $c++) {
         $base = Probe
-        Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), '25' | Out-Null
+        Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), '25' | Out-Null
         Start-Sleep -Seconds 4
         $during = @()
         foreach ($i in 1..4) { $during += (Probe) }

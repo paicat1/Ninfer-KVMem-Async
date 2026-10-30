@@ -3,7 +3,7 @@
 - 每 (size, run) 用唯一 seed => 每次都是全量冷 prefill（无前缀缓存复用）
 - 同 seed 公式跨臂一致 => 同一文本两种配置（可直比）
 - 引擎侧 prefill tok/s / TTFT 从 logs\test_<tag>.log 的 req# done 行读取
-Usage: python .temp\\a3probe.py --arm a3off --port 8094 --sizes 180,260 --runs 2
+Usage: python scripts\\a3probe.py --arm a3off --port 8094 --sizes 180,260 --runs 2
 """
 import argparse
 # 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
@@ -14,6 +14,7 @@ except Exception:  # 极端情况下回退旧名
         return "qwen3.8-27b-coder390"
 
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -73,7 +74,9 @@ def main():
             print('arm=%s size=%dKB run=%d  %.1fs  usage=%s%s' % (
                 args.arm, kb, run, record.get('elapsed_s', 0),
                 record.get('usage'), record.get('error', '')))
-    path = 'J:\\ninfer-kvmem\\.temp\\a3probe_%s.json' % args.arm
+    _outdir = r'J:\ninfer-kvmem\work\data'
+    os.makedirs(_outdir, exist_ok=True)
+    path = os.path.join(_outdir, 'a3probe_%s.json' % args.arm)
     with open(path, 'w', encoding='utf-8') as handle:
         json.dump(out, handle, ensure_ascii=False, indent=2)
     print('written: %s' % path)

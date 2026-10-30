@@ -32,7 +32,7 @@ Say ("C12 2x2 cell: " + $cond + ", idle " + $IdleSec + "s, first-request timeout
 $pre = ProbeTimed 'pre' 30
 Say ("  pre decode = " + $pre)
 if ($HoldMiB -gt 0) {
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]($IdleSec + 60)) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]($IdleSec + 60)) | Out-Null
     Say ("  pressure applied for the whole idle window")
 }
 Start-Sleep -Seconds $IdleSec

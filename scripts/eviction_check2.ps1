@@ -7,7 +7,7 @@ function Used() { return [int]((nvidia-smi --query-gpu=memory.used --format=csv,
 Say ("EVICTION CHECK 2: " + $Runs + " runs of " + $HoldMiB + " MiB x " + $HoldSec + "s")
 for ($i = 1; $i -le $Runs; $i++) {
     $b1 = Used; Start-Sleep -Seconds 3; $b2 = Used
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
     Start-Sleep -Seconds 7
     $d1 = Used; Start-Sleep -Seconds 7; $d2 = Used
     for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

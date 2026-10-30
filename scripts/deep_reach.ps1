@@ -20,7 +20,7 @@ function MaxVerify() {
 Say ("DEEP REACH start: " + $HoldMiB + " MiB x " + $HoldSec + "s, probe every ~" + $EverySec + "s")
 $pre = @(); foreach ($i in 1..2) { $pre += (Probe) }
 Say ("  pre: " + ($pre -join '/') + " | maxVerify(recent)=" + (MaxVerify))
-Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
 Start-Sleep -Seconds 6
 $during = @(); $t0 = Get-Date
 while (((Get-Date) - $t0).TotalSeconds -lt $HoldSec) { $during += (Probe); Start-Sleep -Seconds $EverySec }

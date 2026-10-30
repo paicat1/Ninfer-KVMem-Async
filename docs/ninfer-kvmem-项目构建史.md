@@ -1747,7 +1747,7 @@ req#71 started | openai-chat stream | 145 messages | max output 24,000 | thinkin
    旁证：**B 用 graph=64 未报警** ✓。
 5. **模型侧（确证）**：`tool markup recovered | undeclared tool` **59 次** ✗ + 用户侧观察的
    **几十轮 `malformed_tool_call` 死循环** ✗ = 上下文残缺后 tool-call 生成退化并卡死 ✓
-   （用户原话：连续 60+ 轮"我的 tool call 又变成 malformed_tool_call"）。
+   （连续 60+ 轮出现 malformed_tool_call）。
 6. **对照（确证）**：B 会话 prompt ≤ 24,729 ✓（**池内**）→ 同池同精度**零故障** ✓
    ⇒ **"prompt ≥ 池"才是复现条件** ✓（与引擎自报口径逐字一致 ✓）。
 
@@ -3379,7 +3379,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 | **脚本禁令** | `structure.json.forbidden` 加 `*.py/*.ps1` 不许住 `.temp`（原先只禁数据文件） | 门禁生效 ✓ |
 | **删除唯一下手路径** | `scripts/delete_manifest.py`：sha + 引用扫描 + 活件判定 + **R1–R8 八条规则遍历**；任一 BLOCK ⇒ 整批禁删 | **三次拦下我**（R2/R4/主流程引用扫描）✓ |
 | **成品硬保护** | `_safety_backups/exe_lineage_*` 写入 `never_delete`；点名放行 = T-TRACE 唯一合法路径 | 4 个唯一 exe 拒删 ✓ |
-| **推送门** | `smart_push.ps1` 加 PUSH-GATE：最后提交须含 `APPROVED: <用户原话>` · 当日 ≤2 次 · **推送成功后才计数** | 生效 ✓（并修了我自己的"失败也计数"bug） |
+| **推送门** | `smart_push.ps1` 加 PUSH-GATE：最后提交须含 `APPROVED: <用户原话>`（**该形态已于 2026-10-30 废除，改认令牌，见 §187**）· 当日 ≤2 次 · **推送成功后才计数** | 生效 ✓（并修了我自己的"失败也计数"bug） |
 | **配额层去毒** | 超线只告警不阻断（原设计把"体量观察值"做成闸 ⇒ **反过来逼人删证据**） | `WARN[quota]` ✓ |
 | **logs 铁律** | 用户令"项目未结项前一个都严禁删除" ⇒ `never_delete` 加 `logs/` + `protected=PROJECT_COMPLETE`；**并挖出 `engine_ctl` 归档失败时 `Remove-Item` 删日志的隐患（已改不删）** | 真日志喂 delete_manifest ⇒ 拒删 ✓ |
 | **下划线目录管制** | 用户令"严禁随意建 `_` 目录" ⇒ `underscore_dirs` 登记 + 门禁 UNDERSCORE-GATE 阻断未声明者 | `_` 目录 2 → **0** ✓ |
@@ -3726,7 +3726,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 
 - **数字/阶段**：`smart_push.ps1` PUSH-GATE 重写（净 +19 行含注释）；三个 PUSH OK 成功位点补计数器写入；删 `exit 1`（失败路径）后的死代码；PS 解析器检查 0 错误（3499 tokens，PS7 实测）。
 - **原因**：实证旧计数器写入位于 L1951 `exit 1` 之后 = 死代码 ⇒ “当日推送 ≤2” 从未生效（纸老虎；%TEMP% 无任何 `ninfer_pushcount_*` 文件佐证）；我“配额已满 2/2”的说法被反证，已公开撤回（sda #0073）。
-- **新规则（用户 2026-10-20 裁决）**：① `APPROVED: <用户原话>` trailer = 唯一常驻门（不变）；② **废除固定次数上限**——合规推送不限次（规则遵守得越好、推送类错误越少）；③ 仅在工作事故后按用户要求启用上限：`.codebuddy\sda\MODE.json` 设 `push_daily_cap=N`（>0 生效；AI 禁自设/自解，同 tier 纪律），整改后经用户授权删键即自动解除；④ 计数器写入成功路径（本次修复，实测下轮验证）。
+- **新规则（用户 2026-10-20 裁决）**：① `APPROVED: <用户原话>` trailer = 唯一常驻门（**2026-10-30 已废除，改认令牌**）；② **废除固定次数上限**——合规推送不限次（规则遵守得越好、推送类错误越少）；③ 仅在工作事故后按用户要求启用上限：`.codebuddy\sda\MODE.json` 设 `push_daily_cap=N`（>0 生效；AI 禁自设/自解，同 tier 纪律），整改后经用户授权删键即自动解除；④ 计数器写入成功路径（本次修复，实测下轮验证）。
 - **Δ对基线**：推送门 = “1 条常驻规则 + 按需可逆上限”（原 = 固定上限纸老虎 + 同一条常驻规则）；今日 2 次推送均逐次获用户授权后执行，印证不限次方向。
 - **验证**：PS-SYNTAX-OK（解析器级）；MODE.json 无 `push_daily_cap` 键 ⇒ 当前不限制；门禁输出改为“不设次数上限；当日累计 N 次，计数仅存档”。
 
@@ -3881,7 +3881,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 
 - **数字/阶段**：挂账表 49→**50 行**；新增 表#50（一条带 11 个子项）；✅/🟡/⏸ 计数不变（表#50=⏸）。
 - **原因**：用户指出报告是在单位拉全库审的，`H:\` 只是单位副本；要求把"还没做、真实、准确"的项记入挂账。
-- **Δ 对基线**：新增 表#50，列 H2/H4/M1-1/M1-2/M1-3/M3/M8-2/M8-4/M2/M7/H5 共 11 子项；**M4/M6 ppt-build 按用户说明撤回**（单位改 PPT 失败工作区，非项目资产）；H1→表#1、H3→已加告警、M8-1/M8-3→已改、M3 清单→已补、#20③→已澄清，均不重复列。
+- **Δ 对基线**：新增 表#50，列 H2/H4/M1-1/M1-2/M1-3/M3/M8-2/M8-4/M2/M7/H5 共 11 子项；**M4/M6 ppt-build 按裁决撤回**（单位改 PPT 失败工作区，非项目资产）；H1→表#1、H3→已加告警、M8-1/M8-3→已改、M3 清单→已补、#20③→已澄清，均不重复列。
 - **解决了什么**：报告"真实但未做"的项进入权威台账，不再只活在 Downloads 报告里。
 - **新发现**：无（均为报告既有项）。
 - **新挂账**：表#50。
@@ -4288,7 +4288,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 
 ### 180. 【不可撤销留痕 + engine-src 归属核实 + worktree 误删与恢复】（2026-10-29）
 
-- **不可撤销项**：`fd85112` / `2e0c00d` / `10a4af6` / `30d06c8` 四个已推 commit 的提交信息内含 `APPROVED: <用户原话>`。远端已公共化、**禁 force-push** ⇒ **无法消除**，只能留痕说明。推送闸门已改为读本地台账 `.temp/push_approval.log`，此后 commit 不再含用户原话。
+- **不可撤销项**：`fd85112` / `2e0c00d` / `10a4af6` / `30d06c8` 四个已推 commit 的提交信息内含 `APPROVED: <用户原话>`（**该门已于 2026-10-30 废除**）。远端已公共化、**禁 force-push** ⇒ **无法消除**，只能留痕说明。推送闸门已改为读本地台账 `.temp/push_approval.log`，此后 commit 不再含用户原话。
 - **engine-src 归属核实**（`engine-src/PROVENANCE.md` 原文）：本仓**自持引擎树**，2026-10-12 解耦建立；基 = 上游 `1314521gjy/ninfer-fusion-kvmem`（`3b9dc83`）+ Bonsai cherry-pick；分支 `line-coder390`（**105 commits**）；`upstream` 只读、`pushurl = DISABLED_NEVER_PUSH_UPSTREAM`；`.gitignore` L14 排除 ⇒ **远端不可见**。还原手段 = `_safety_backups/qwenline_s6-20261008_20261012.bundle`（13.8 MB）+ 差分 patch。铁律 T-NO-FOREIGN-WRITE（2026-10-12 立）。
 - **worktree 误删与定性**：`engine-main` 分支的工作目录原在 `.temp\em-wt3`（10-15 建立，供 filter-branch 历史重写），按"临时物"归类；10-17 批 1（P1+P5）清入回收站（记录见 `docs/05-交接与值守/协作状态-归档-20261016至1017.md` L1789）。**归类错误 = 根因**：worktree 是**分支的工作副本（版本资产）**，`.temp` 是**可清空区**——违反本仓自订铁律「一类一个家」「证据不得留在临时区」，且「归置先出清单经批准再动」只做了前半句（把"列入清单"当成"已批准"）。
 - **恢复结果**：`git worktree prune` + `git worktree add J:\engine-main-wt engine-main` ⇒ **2,622 文件、`status` clean、`src-tree` 在位**（分支本体 `a4f32e2` 全程无损，回收站条目已被后续清空）。
@@ -4490,10 +4490,26 @@ it holds 79 -- short by 5 page(s)
 
 **原因**：验证 build-out 改道链路（vcpkg bootstrap + 20 处 BUILD 变量）端到端可用，并为批 A（旧编译树处置）解锁前置条件。
 
-**Δ 对基线**：构建速度从旧平台 55–66 分钟 → **20.5 分钟（~3 倍）**——14700K + 亲和 0xFFFF（16 P 线程）双因素；gates 耗时编译期 57-60s → 空闲 4.5s（13 倍差，co-run 抢资源所致，非门禁退化，插桩实测后已拆）。
+**Δ 对基线**：构建速度从旧平台 55–66 分钟 → **20.5 分钟（~3 倍）**——14700K + 亲和 0xFFFF（16 P 线程）双因素；gates 耗时编译期 57-60s → 空闲 4.5s（~~13 倍差，co-run 抢资源所致~~ **§187 更正**：4.5s 读数不成立；空闲态 gates 实测 31.8s，真因 = build-ledger 段对 lineage 23 件 28.65GB 全量 SHA256，与 co-run 无关）。
 
 **解决**：①新 exe sha 与 lineage 全不同 = 预期内（挂账 #10 编译非确定性 + 源码比旧 .temp 树新了 I3b S12 系补丁）；②代理探测 Get-NetTCPConnection（CIM 每端口 2-4s ×4）→ TcpClient 150ms（-11s）；③refs 基线 16→20（+4 假阳性：改道前向引用 1 + build-out 纳入扫描 3）；④备份滚动按保留规则执行（用户点名删 6 件）。
 
 **新发现**：①E 核闲置问题挂 N8（A/B 判决实验，0xFFFF+j16 vs 全掩码+j28）；②门禁自锁第四例：push 台账原在 .temp 已随只读锁失效→迁 `work\push_approval.log`；③插桩诊断时 Write-Host 输出捕获不完整（ANSI/流问题），改"段外独立复测"法更可靠。
 
 **新挂账**：新 exe（35D9E6B1）**尚未入 lineage、未验证推理**——是否顶替现役待用户裁决；N8 待有空。
+
+### 187. 【推送慢 31.4s 真因钉死：build-ledger 全量哈希 28.65GB → size+mtime 缓存】（2026-10-30 21:2x–21:5x）
+
+**数字**：gates.ps1 独立运行 **31.75s → 5.09s**（-84%）；smart_push 门禁段 `push-qian` **33437ms → 5605ms**（省约 28s）；lineage `engine\lineage\*.exe` **23 件 / 28.65 GB**；段级实测 refs 324ms + structure 517ms + window 2674ms + 其余各段 <0.2s = 合计 3.9s，差额 ~27.9s 全在 BUILD-LEDGER-GATE。
+
+**阶段**：承接 §186 遗留的"推送仍慢 31.4s"。
+
+**原因**：BUILD-LEDGER-GATE 对 `engine\lineage\*.exe` 逐个全量 SHA256，用来确认"每件编译产物都有台账登记"。lineage 件数由 10-13~10-15 的 I3b 步进 + B2/PG1/PG2/S13/OFFI/SYM3 累积到 23 件，于是每次 commit/push 都白哈希 28.65GB（.NET 单线程 ~1GB/s ≈ 28s）。
+
+**Δ 对基线**：gates 31.75s → 5.09s；推送前置门禁 33.4s → 5.6s。**§186 的"空闲 4.5s、co-run 抢资源"结论作废**（4.5s 系件数尚少时的读数，被误当作稳态基线）。
+
+**解决**：按用户批准的方案 A 加 size+mtime 缓存——缓存表落 `work` 目录（已 gitignore，不入库），键=文件名，值=`size|mtime_utc_ticks sha256`；签名一致直接复用已算 sha，签名不符/新件/缓存缺失或 JSON 损坏一律全量重算。拦截语义不变（仍对每件 exe 求 sha 并查台账，未登记的照样 BLOCK，异常仍 fail-closed）。实测：冷启 31750ms（建缓存）→ 热态 **4734/5087ms**（命中 23 / 重算 0）；手动删掉缓存中 1 条 → 命中 22 / 重算 1、门禁仍绿（重算路径可用）。
+
+**新发现**：①`scripts\gates.ps1` 与 `smart_push.ps1` 同在 .gitignore（本地件），行为变更因此没有 git 历史，只靠本史 + `_safety_backups\gates_20261030_212917.ps1`（sha256 0af1f7e5）可回滚；②commit-msg hook T#0036 要求信息里点名的路径必须真在本提交/HEAD 中——本地件路径写进信息即被拦（首发信息因此被拒）；③`--amend` 已推送提交会造成 non-fast-forward，用 `reset --soft origin/main` + 重提交收拢，不改远端历史。
+
+**新挂账**：无（方案 A 已落地并推送 20453c7..633b3aa）。

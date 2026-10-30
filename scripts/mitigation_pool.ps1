@@ -25,7 +25,7 @@ foreach ($pool in @(65536, 49152, 32768)) {
     Say ("pool=" + $pool + " ready=" + $r + " headroom=" + $headroom + " MiB")
     if ($r -notmatch 'READY') { continue }
     $pre = @(); foreach ($i in 1..2) { $pre += (Probe) }
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
     Start-Sleep -Seconds 5
     $during = @(); foreach ($i in 1..6) { $during += (Probe) }
     for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

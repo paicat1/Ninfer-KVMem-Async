@@ -32,7 +32,7 @@ function Probe() {
 function ArmRun($name) {
     $vals = @()
     foreach ($i in 1..2) { $vals += (Probe) }           # pre
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec)
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$VramMiB), ([string]$HoldSec)
     Start-Sleep -Seconds 5
     foreach ($i in 1..$Probes) { $vals += (Probe) }     # during
     for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

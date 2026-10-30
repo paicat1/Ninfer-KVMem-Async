@@ -18,7 +18,7 @@ $headroom = [int]$free[0] - [int]$free[1]
 Say ("HEADROOM TEST start; measured headroom = " + $headroom + " MiB (total " + $free[0] + " used " + $free[1] + ")")
 foreach ($d in @(600, 1200)) {
     $during = @(); $after = @()
-    Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), '30' | Out-Null
+    Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), '30' | Out-Null
     Start-Sleep -Seconds 5
     foreach ($i in 1..4) { $during += (Probe) }
     for ($w = 1; $w -le 45; $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

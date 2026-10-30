@@ -21,7 +21,7 @@ foreach ($d in $doses) {
     $during = @(); $after = @(); $base = @()
     for ($c = 1; $c -le $Cycles; $c++) {
         $base += (Probe)
-        Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), ([string]$HoldSec) | Out-Null
+        Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$d), ([string]$HoldSec) | Out-Null
         Start-Sleep -Seconds 5
         foreach ($i in 1..3) { $during += (Probe) }
         for ($w = 1; $w -le ($HoldSec + 15); $w++) { if (-not (Get-Process vram_hold -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 1 }

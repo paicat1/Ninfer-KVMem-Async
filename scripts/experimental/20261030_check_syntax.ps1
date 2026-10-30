@@ -1,4 +1,4 @@
-param([string[]]$Paths = @('j:\ninfer-kvmem\smart_push.ps1', 'j:\ninfer-kvmem\scripts\gates.ps1'))
+﻿param([string[]]$Paths = @('j:\ninfer-kvmem\smart_push.ps1', 'j:\ninfer-kvmem\scripts\gates.ps1'))
 foreach ($p in $Paths) {
     $errs = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($p, [ref]$null, [ref]$errs)

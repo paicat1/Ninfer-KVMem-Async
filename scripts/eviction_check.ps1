@@ -13,7 +13,7 @@ function Snap($tag) {
 $eng = (Get-Process ninfer-serve -ErrorAction SilentlyContinue | Select-Object -First 1).Id
 Say ("EVICTION CHECK: engine pid=" + $eng + ", pressure=" + $HoldMiB + " MiB x " + $HoldSec + "s")
 Snap 'before'
-Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
 Start-Sleep -Seconds 6
 Snap 'during'
 Start-Sleep -Seconds 8

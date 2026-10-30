@@ -12,7 +12,7 @@
   python -X utf8 scripts\\verbatim_gate.py --compare cur_a cur_b
 判据（借第三方）：>=7/8 过 · 5-6/8 条件 · <=4/8 拒。
 
-产物：.temp\\verbatim\\<arm>_p<i>.json（原始响应）+ <arm>.json（汇总）+ compare_<a>_<b>.md
+产物：work\\data\\verbatim\\<arm>_p<i>.json（原始响应）+ <arm>.json（汇总）+ compare_<a>_<b>.md
 """
 import argparse
 # 招牌名解析（2026-10-14）：--model-id 随底座变，禁止写死
@@ -29,7 +29,7 @@ import os
 import time
 import urllib.request
 
-OUT = r'J:\ninfer-kvmem\.temp\verbatim'
+OUT = r'J:\ninfer-kvmem\work\data\verbatim'
 
 PROMPTS = [
     ('p1_code', '写一个 Python 函数 merge_intervals(pairs)，合并重叠区间并返回排序后的列表。只给代码和一行示例。', 320),

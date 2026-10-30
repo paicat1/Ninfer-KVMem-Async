@@ -18,7 +18,7 @@ function Probe() {
 Say ("LONG-HOLD start: " + $HoldMiB + " MiB for " + $HoldSec + "s, probe every ~" + $EverySec + "s")
 $pre = @(); foreach ($i in 1..3) { $pre += (Probe) }
 Say ("  pre: " + ($pre -join '/'))
-Start-Process -WindowStyle Hidden -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
+Start-Process -FilePath 'tools\vram_hold.exe' -ArgumentList ([string]$HoldMiB), ([string]$HoldSec) | Out-Null
 Start-Sleep -Seconds 5
 $during = @()
 $t0 = Get-Date

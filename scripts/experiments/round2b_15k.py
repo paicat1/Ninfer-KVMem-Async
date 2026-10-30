@@ -19,7 +19,7 @@ FILLER = ('The memory subsystem moves key value blocks between the device and th
 
 
 def reqlog_host_round():
-    fs = sorted(glob.glob(os.path.join(R, '.temp', 'reqlog_*.jsonl')), key=lambda f: os.path.getmtime(f))
+    fs = sorted(glob.glob(os.path.join(R, 'work', 'data', 'reqlog_*.jsonl')), key=lambda f: os.path.getmtime(f))
     if not fs:
         return None
     try:

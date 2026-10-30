@@ -8,8 +8,8 @@ REM   . SRC   : J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src
 REM             repo-owned source tree, branch line-coder390
 REM             base = upstream 1314521gjy/ninfer-fusion-kvmem + Bonsai-line cherry-picks
 REM                    + this line's patches (see patches/ and build history 3.19 / 3.20)
-REM   . BUILD : J:\ninfer-kvmem\.temp\build-1208a   (repo-owned build dir, gitignored)
-REM   . LOG   : J:\ninfer-kvmem\.temp\build_engine.log
+REM   . BUILD : J:\ninfer-kvmem\build-out\build-1208a   (repo-owned build dir, gitignored)
+REM   . LOG   : J:\ninfer-kvmem\build-out\build_engine.log
 REM   . VSLANG=1033 : kept for legibility only. MEASURED 2026-10-12 03:5x:
 REM             (a) it does NOT switch cl to English here (build log = 29857 Chinese
 REM                 include lines / 0 English ones), so it fixes nothing;
@@ -32,8 +32,8 @@ set "PATH=J:\vcpkg\downloads\tools\ninja-1.13.2-windows;J:\Bonsai\landing\cuda-1
 set "VCPKG_ROOT=J:\vcpkg"
 set "VCPKG_TARGET_TRIPLET=x64-windows"
 set "SRC=J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src"
-if not defined BUILD set "BUILD=J:\ninfer-kvmem\.temp\build-1208a"
-if not defined LOG set "LOG=J:\ninfer-kvmem\.temp\build_engine.log"
+if not defined BUILD set "BUILD=J:\ninfer-kvmem\build-out\build-1208a"
+if not defined LOG set "LOG=J:\ninfer-kvmem\build-out\build_engine.log"
 if not exist "%BUILD%" mkdir "%BUILD%"
 
 REM append (not overwrite): every resumed run leaves a trace

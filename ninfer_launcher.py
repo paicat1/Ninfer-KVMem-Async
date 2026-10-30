@@ -499,10 +499,10 @@ PRESERVE_OPTIONS = {
 
 REQLOG_OPTIONS = {
     # 2026-10-13 夜（TELE 复核缺口 #3 闭环）：Stage 0 请求/区间日志仪器。
-    #   on = 写 .temp\reqlog_serve_<端口>.jsonl（逐窗 host_work / rounds / tok 分解；配套 scripts\stage0_read.py 读数）；
+    #   on = 写 work\data\reqlog_serve_<端口>.jsonl（逐窗 host_work / rounds / tok 分解；配套 scripts\stage0_read.py 读数）；
     #   文件名由 build_command 按端口动态生成（区分多实例）；纯观测，无性能影响。
     "off": ("关（默认）", []),
-    "on":  ("开·写 .temp\\reqlog_serve_<端口>.jsonl（Stage 0 仪器）", []),
+    "on":  ("开·写 work\\data\\reqlog_serve_<端口>.jsonl（Stage 0 仪器）", []),
 }
 
 DIMENSIONS = [
@@ -585,7 +585,7 @@ DIM_TIPS = {
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
     "preserve":"保留已关闭回合的 assistant 推理（--preserve-thinking）。作用：多轮对话里，引擎默认把历史回合的思考段剥掉只留正文；开此开关后，历史 reasoning 全文也进后续轮的上下文——模型能看到自己前几轮怎么想的（长程追问链可能提质）。代价：思考段文本全部计入 KV 池 token 额度（每轮思考预算上限见『思考预算』，最高 16000×轮数），长对话下更快挤满池 ⇒ 更多 host 往返（贴边/谷风险↑）。显存澄清：不直接吃权重显存（模型 11.3 GiB 固定），吃的是池的 token 额度（间接压力）。**默认关的理由**：本线主力形态=单发/短多轮，无收益只有池压力；只有多轮长程推理链才值得开，且开了要盯池余量。",
     "hemostat":"KV 止血档（20261010 定案改三档）：on=★定稿，仅 --recover-invariant-failures（出问题只废当前请求、不弄死引擎）；legacy=旧 E5（--kv-lease-growth——深超池下把输出砍在 ~4,096 租约窗口 ⇒ DSH 撞墙直接根因，仅留作 A/B 对照臂）；off=全关（官方 bat 原样）。",
-    "reqlog": "请求日志仪器（--request-log-jsonl 三旗，Stage 0）：开 = 逐窗落 .temp\\reqlog_serve_<端口>.jsonl"
+    "reqlog": "请求日志仪器（--request-log-jsonl 三旗，Stage 0）：开 = 逐窗落 work\\data\\reqlog_serve_<端口>.jsonl"
               "（host_work / rounds / tok 分解，配套 scripts\\stage0_read.py 读数）。默认关；纯观测。",
 }
 
@@ -894,7 +894,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
         argv += ["--host-state-slots", str(_state_slots)]
     argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
     if combo.get("reqlog", "off") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
-        argv += ["--request-log-jsonl", os.path.join(".temp", "reqlog_serve_%s.jsonl" % port),
+        argv += ["--request-log-jsonl", os.path.join("work", "data", "reqlog_serve_%s.jsonl" % port),
                  "--request-log-max-mib", "256", "--request-log-keep", "2"]
     argv += ["--max-shared-prefixes", "0"]   # 铁律：防打砖
     argv += _argv_of(SAMPLE_OPTIONS,  combo.get("sample", "shipped"), "shipped")

@@ -1,14 +1,14 @@
 ﻿# valley_induce.ps1 -- 主动诱发谷 + A-B-A（2026-10-14 夜，用户令"主动诱发"）
 #   周期：连续 DeepRepeats 发 60K 单轮（--filler-kb 240，in-pool）→ 短探针测 decode
 #         → decode<80 ⇒ 谷 ⇒ 跑**全量协议** A-B-A（pdl_aba 默认 = 浅+深、3 臂；~4.5 min）
-#   纪律：窗口可见 + 标题含任务与关闭条件；每周期台账（.temp\induce_<日期>.txt）；收工复岗守望者。
+#   纪律：窗口可见 + 标题含任务与关闭条件；每周期台账（work\data\induce_<日期>.txt）；收工复岗守望者。
 #   说明：本脚本不降任何测量标准——判据 = decode + spin-stamp/target-split + 引擎自报 + sha 逐字。
 param([string]$KvDtype = 'nvfp4', [int]$Pool = 81920, [int]$DeepKb = 240, [int]$DeepRepeats = 3, [int]$LongTokens = 2500,
       [int]$Cycles = 6, [int]$MaxCaptures = 3, [double]$Hours = 3)
 $host.UI.RawUI.WindowTitle = ('KVMem 谷诱发器 [运行中] - 连续深上下文逼谷，见谷即跑全量A-B-A（最多 ' + $MaxCaptures + ' 次，关窗=停）')
 Set-Location J:\ninfer-kvmem
-$journal = '.temp\state_journal.txt'
-$ledger = '.temp\induce_' + (Get-Date -Format 'yyyyMMdd') + '.txt'
+$journal = 'work\data\state_journal.txt'
+$ledger = 'work\data\induce_' + (Get-Date -Format 'yyyyMMdd') + '.txt'
 $deadline = (Get-Date).AddHours($Hours)
 $captures = 0
 function J([string]$m) { Add-Content -LiteralPath $journal -Encoding UTF8 -Value ((Get-Date -Format 'MM-dd HH:mm:ss') + ' | ' + $m) }

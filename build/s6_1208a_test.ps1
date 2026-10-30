@@ -1,5 +1,5 @@
 # S6 new-baseline STANDALONE frontend test  (20261008 + our patch sets)
-# Strategy: REUSE the existing full-build dir (.temp/build-1208a) instead of a fresh
+# Strategy: REUSE the existing full-build dir (build-out/build-1208a) instead of a fresh
 #           configure+full rebuild (~40 min). Enabling BUILD_TESTING on this dir does
 #           NOT recompile the engine: BUILD_TESTING only flips NINFER_BUILD_PRODUCT_SUPPORT
 #           (CMakeLists.txt L202-205) which is already ON because NINFER_BUILD_APPS=ON.
@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 $vcvars = "J:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 $cmake  = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 $src    = "J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src"
-$build  = "J:\ninfer-kvmem\.temp\build-1208a"
+$build  = "J:\ninfer-kvmem\build-out\build-1208a"
 $target = "ninfer_qwen3_5_frontend_test"
 
 Write-Output "=== RECONFIGURE IN PLACE (BUILD_TESTING=ON) ==="

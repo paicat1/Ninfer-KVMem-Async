@@ -30,7 +30,7 @@
 #       (ctx ~75K -> ~152K -> ~229K), max-tokens 2000. Engine: I3b_step13_fourlayer
 #       (same platform as all prior async arms). NOTE: runs at NINFER_ASYNC_DEMOTE_DEPTH=2
 #       (historical-comparability choice); code default is depth=1 (2026-10-12 regression tier).
-# Ledger: .temp\async_abab_<ts>.txt   Raw: .temp\gate_abab_{off,on}_c{1,2}.json
+# Ledger: .temp\async_abab_<ts>.txt   Raw: work\data\gate_abab_{off,on}_c{1,2}.json
 # Window discipline: runner window visible, titled; engine windows via engine_ctl (visible).
 # First run: 2026-10-25 20:27-22:31 (ledger .temp\async_abab_20261025_202705.txt) --
 #   all four arms r3 timeout (a2gate 900s cap) -> prereg caliber broken -> verdict line of that
@@ -83,7 +83,7 @@ function RunArm($mode, $c) {
     for ($w = 1; $w -le 20; $w++) { if (-not (Get-Process ninfer-serve -ErrorAction SilentlyContinue)) { break }; Start-Sleep -Seconds 2 }
     Start-Sleep -Seconds 2
 
-    $extra = '--request-log-jsonl,.temp\reqlog_' + $tag + '.jsonl,--request-log-max-mib,128,--request-log-keep,2'
+    $extra = '--request-log-jsonl,work\data\reqlog_' + $tag + '.jsonl,--request-log-max-mib,128,--request-log-keep,2'
     powershell -NoProfile -File scripts\engine_ctl.ps1 -Action start -Exe 'engine\lineage\I3b_step13_fourlayer_20261015.exe' -Tag $tag -Depth 2 -Port 8094 -Pool 65536 -Graph 64 -KvDtype rk2v4-e8 -Vision overlay -Spec mtp -Draft 4 -Extra $extra -Experimental | Out-Null
     $r = (powershell -NoProfile -File scripts\engine_ctl.ps1 -Action waitready -Tag $tag -WaitSec 300) -join ' '
     if ($r -notmatch 'READY') { Say ("arm " + $mode + " cycle" + $c + " READY-FAILED: " + $r); return $null }
@@ -126,7 +126,7 @@ $deep = @{}
 $errsByArm = @{}
 foreach ($m in 'off','on') {
     foreach ($c in 1,2) {
-        $jp = '.temp\gate_abab_' + $m + '_c' + $c + '.json'
+        $jp = 'work\data\gate_abab_' + $m + '_c' + $c + '.json'
         if (-not (Test-Path $jp)) { Say ("json missing: " + $jp); $deep[$m + $c] = -1; $errsByArm[$m] = [int]$errsByArm[$m] + 1; continue }
         try {
             $j = Get-Content $jp -Encoding UTF8 -Raw | ConvertFrom-Json

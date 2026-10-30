@@ -12,7 +12,7 @@
 #       only env differs. a2gate is invoked once per run (--runs 1) and its json is
 #       copied per run, because one 3-round run is long.
 # Pre-registration: docs\02-实验与预登记\实验-深轮重载ONOFF对照-预登记-CodeBuddyCLI-20261016.md
-# Ledger: .temp\deeppool_<ts>.txt  Raw: .temp\gate_dp_{off,on}_run{1..3}.json
+# Ledger: .temp\deeppool_<ts>.txt  Raw: work\data\gate_dp_{off,on}_run{1..3}.json
 # Engine control: scripts\engine_ctl.ps1 (its window discipline applies; visible windows).
 # Authorized by the user via the mobile CLI, 2026-10-16.
 param(
@@ -43,8 +43,8 @@ try {
 } catch { Say ('watch log backup skipped: ' + $_.Exception.Message) }
 
 $arms = @(
-    @{ mode = 'off'; tag = 'dp_off';      env = '0'; extra = '--request-log-jsonl,.temp\reqlog_dp_off.jsonl,--request-log-max-mib,128,--request-log-keep,2' },
-    @{ mode = 'on';  tag = 'valleywatch'; env = '1'; extra = '--request-log-jsonl,.temp\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' }
+    @{ mode = 'off'; tag = 'dp_off';      env = '0'; extra = '--request-log-jsonl,work\data\reqlog_dp_off.jsonl,--request-log-max-mib,128,--request-log-keep,2' },
+    @{ mode = 'on';  tag = 'valleywatch'; env = '1'; extra = '--request-log-jsonl,work\data\reqlog_watch.jsonl,--request-log-max-mib,128,--request-log-keep,2' }
 )
 
 foreach ($a in $arms) {
@@ -77,7 +77,7 @@ foreach ($a in $arms) {
         $out = python -X utf8 scripts\a2gate.py --arm ('dp_' + $a.mode) --port 8094 --runs 1 --rounds $Rounds --filler-kb $FillerKb --max-tokens $MaxTokens 2>&1
         $el = [math]::Round(((Get-Date) - $t0).TotalSeconds, 0)
         $out | ForEach-Object { Say ('  ' + $_) }
-        Copy-Item ('.temp\gate_dp_' + $a.mode + '.json') ('.temp\gate_dp_' + $a.mode + '_run' + $k + '.json') -Force -EA 0
+        Copy-Item ('work\data\gate_dp_' + $a.mode + '.json') ('work\data\gate_dp_' + $a.mode + '_run' + $k + '.json') -Force -EA 0
         Say ('  run ' + $k + ' wall=' + $el + 's')
     }
 
@@ -99,7 +99,7 @@ Say '==== a2gate json: deep decode = mean(r2, r3) per run ===='
 foreach ($m in 'off','on') {
     $deep = @(); $r1 = @(); $errs = 0
     foreach ($k in 1..$Runs) {
-        $p = '.temp\gate_dp_' + $m + '_run' + $k + '.json'
+        $p = 'work\data\gate_dp_' + $m + '_run' + $k + '.json'
         if (-not (Test-Path $p)) { Say ('run json missing: ' + $p); continue }
         try {
             $j = Get-Content $p -Encoding UTF8 -Raw | ConvertFrom-Json

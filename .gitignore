@@ -149,3 +149,6 @@ evidence/audits/DELETE_MANIFEST_*.md
 docs/07-归档/删除台账.jsonl
 # 绕门回退留痕（retired 登记保留，实体本地）
 retired/bypass_revert_20261017_173509/
+
+# --- 物理层（2026-10-30）：编译输出目录，不进 git ---
+build-out/

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""谷期 GPU 采样器（I3b S3b）：每 N 秒记 GPU util / mem util / vram / SM 时钟 -> .temp\\gpu_samples.csv。
+"""谷期 GPU 采样器（I3b S3b）：每 N 秒记 GPU util / mem util / vram / SM 时钟 -> work\\data\\gpu_samples.csv。
 
 用法：python scripts\\gpu_sampler.py [--seconds 900] [--interval 1]
 判读（与 step profile slow / ingraph 行按时间对齐）——TELE 校准（2026-10-14）：
@@ -17,7 +17,7 @@ import subprocess
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, '.temp', 'gpu_samples.csv')
+OUT = os.path.join(ROOT, 'work', 'data', 'gpu_samples.csv')
 
 
 def sample():

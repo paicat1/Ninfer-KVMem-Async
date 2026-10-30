@@ -43,13 +43,13 @@
 | 1 | `s6_1208a.bat` | 10 | vcvars64（MSVC 环境） | `j:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat` |
 | 2 | `s6_1208a.bat` | 11 / 12 | `CMAKE` / `NINJA` | `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe` / `…\CMake\Ninja\ninja.exe` |
 | 3 | `s6_1208a.bat` | 13 | `SRC`（引擎源码树） | `J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src` |
-| 4 | `s6_1208a.bat` | 14 | `BUILD`（中间目录，可任意） | `J:\ninfer-kvmem\.temp\build-1208a` |
+| 4 | `s6_1208a.bat` | 14 | `BUILD`（中间目录，可任意） | `J:\ninfer-kvmem\build-out\build-1208a` |
 | 5 | `s6_1208a.bat` | 15 | `PATH` 里的 CUDA bin | `J:\Bonsai\landing\cuda-13.3\bin` |
-| 6 | `s6_1208a.bat` | 18 | `nvcc` / vcpkg toolchain / `vcpkg_installed` | `J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe` · `J:/vcpkg/scripts/buildsystems/vcpkg.cmake` · `J:/ninfer-kvmem/.temp/build-120a/vcpkg_installed` |
-| 7 | `s6_configure.bat` | 3 / 4 / 5 / 6 / 7 / 9 | vcvars · `CMAKE`/`NINJA` · `SRC` · `BUILD` · nvcc/vcpkg | 同 1–6；`BUILD` 默认 `J:\ninfer-kvmem\.temp\build-120a` |
-| 8 | `s6_build.bat` | 3 / 4 / 5 / 6 | vcvars · `CMAKE` · `BUILD` · `PATH` | 同 1–5；`BUILD` 默认 `…\.temp\build-120a` |
+| 6 | `s6_1208a.bat` | 18 | `nvcc` / vcpkg toolchain / `vcpkg_installed` | `J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe` · `J:/vcpkg/scripts/buildsystems/vcpkg.cmake` · `J:/ninfer-kvmem/build-out/build-120a/vcpkg_installed` |
+| 7 | `s6_configure.bat` | 3 / 4 / 5 / 6 / 7 / 9 | vcvars · `CMAKE`/`NINJA` · `SRC` · `BUILD` · nvcc/vcpkg | 同 1–6；`BUILD` 默认 `J:\ninfer-kvmem\build-out\build-120a` |
+| 8 | `s6_build.bat` | 3 / 4 / 5 / 6 | vcvars · `CMAKE` · `BUILD` · `PATH` | 同 1–5；`BUILD` 默认 `…\build-out\build-120a` |
 | 9 | `s6_build_runtime.bat` | 3 / 4 / 5 | vcvars · `CMAKE` · `BUILD`（写在内联命令行里） | 同上 |
-| 10 | `s6_1208a_test.ps1` | 11 / 12 / 13 / 14 | `vcvars` · `cmake` · `src` · `build` | `…\BuildTools\…\vcvars64.bat` · `…\cmake.exe` · `…\fusion-engine-src` · `…\.temp\build-1208a` |
+| 10 | `s6_1208a_test.ps1` | 11 / 12 / 13 / 14 | `vcvars` · `cmake` · `src` · `build` | `…\BuildTools\…\vcvars64.bat` · `…\cmake.exe` · `…\fusion-engine-src` · `…\build-out\build-1208a` |
 | 11 | `a4-arm-A.bat` | 12 | `PY`（Python 解释器） | `J:\miniconda3\python.exe` |
 | 12 | `a4-arm-C.bat` | 10 | `PY` | 同上 |
 | 13 | `a4-arm-D.bat` | 10 | `PY` | 同上 |

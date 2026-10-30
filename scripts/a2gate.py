@@ -90,7 +90,7 @@ def main():
                 record['length'] = len(reasoning) + len(content)
                 # 2026-10-26 (#55): persist full output text so OFF/ON divergence can be diffed.
                 try:
-                    text_path = ('J:\\ninfer-kvmem\\.temp\\abab_text_%s_%s_r%d.txt'
+                    text_path = ('J:\\ninfer-kvmem\\work\\data\\abab_text_%s_%s_r%d.txt'
                                  % (args.arm, INVOCATION, round_index))
                     with open(text_path, 'w', encoding='utf-8') as text_handle:
                         text_handle.write(reasoning + '\n' + content)
@@ -109,7 +109,7 @@ def main():
                 round(timings.get('predicted_per_second', 0) or 0, 1),
                 timings.get('draft_n_accepted'), timings.get('draft_n'),
                 record.get('length'), record.get('sha'), record.get('error', '')))
-    out = 'J:\\ninfer-kvmem\\.temp\\gate_%s.json' % args.arm
+    out = 'J:\\ninfer-kvmem\\work\\data\\gate_%s.json' % args.arm
     # 2026-10-29 (C0): 合并而非覆盖——同名 arm 重跑时保留历史 runs
     merged = []
     try:

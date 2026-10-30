@@ -1,7 +1,7 @@
 [
   {
     "label": "S13 · 生产（仅 Gen4/零外压；Gen5+外压卡死缺陷）",
-    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC1.exe",
     "tags": [
       "生产",
       "官方链",
@@ -9,14 +9,14 @@
       "仅Gen4/零外压"
     ],
     "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。",
-    "status": "现役",
+    "status": "封存",
     "added": "2026-10-15",
     "replaced_by": "",
     "preset": ""
   },
   {
     "label": "offi · 官方链 14.44 + 符号（20261019）",
-    "path": "J:\\ninfer-kvmem\\engine\\variants\\ninfer-serve-sym-official.exe",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC3.exe",
     "tags": [
       "判决件",
       "官方链",
@@ -24,14 +24,14 @@
       "384×sm_120a"
     ],
     "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + env /Zi + LINK=/DEBUG（独立目录 build-d1208a）。sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
-    "status": "现役",
+    "status": "封存",
     "added": "2026-10-19",
     "replaced_by": "",
     "preset": ""
   },
   {
     "label": "sym3 · 新构建链 + 符号（20261018）",
-    "path": "J:\\ninfer-kvmem\\engine\\variants\\ninfer-serve-sym.exe",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC2.exe",
     "tags": [
       "判决件",
       "新链",
@@ -39,7 +39,7 @@
       "384×sm_120a"
     ],
     "note": "2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。带符号件的另一独立角。",
-    "status": "现役",
+    "status": "封存",
     "added": "2026-10-18",
     "replaced_by": "",
     "preset": ""
@@ -109,5 +109,122 @@
     "added": "2026-10-14",
     "replaced_by": "",
     "preset": ""
+  },
+  {
+    "label": "RC4 · PG1 打点件①（demote step / restore 四字段）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC4.exe",
+    "tags": [
+      "打点",
+      "封存"
+    ],
+    "note": "10-26 21:01 构建；P-f/P-g 打点；sha 1000EAAA",
+    "status": "封存",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "RC5 · PG2 打点件②（再加 P-g2 事件计时）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC5.exe",
+    "tags": [
+      "打点",
+      "封存"
+    ],
+    "note": "10-26 23:59 构建；dev=/submitted= 计时；sha 5B34F211",
+    "status": "封存",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step7_split（谷监视起服）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step7_split_20261014.exe",
+    "tags": [
+      "仪表",
+      "已归档"
+    ],
+    "note": "被 valley_watch.ps1 写死引用；sha 8EA8F08B",
+    "status": "已归档",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step9_verifysplit（PDL A-B-A 校验拆分）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step9_verifysplit_20261014.exe",
+    "tags": [
+      "仪表",
+      "已归档"
+    ],
+    "note": "被 pdl_aba.ps1 三处引用；sha CFE36B75",
+    "status": "已归档",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step10_rtpdl（夜班 / 谷发生率）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step10_rtpdl_20261015.exe",
+    "tags": [
+      "仪表",
+      "已归档"
+    ],
+    "note": "night_shift / valley_incidence / valley_load_incidence 默认件；sha 88831600",
+    "status": "已归档",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "I3b_step11_gdn_residency（S13 谷实验）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\I3b_step11_gdn_residency_20261015.exe",
+    "tags": [
+      "仪表",
+      "已归档"
+    ],
+    "note": "valley_s13 / valley_s13_v2 默认件；sha 4CC93470",
+    "status": "已归档",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "G2_default_depth1（depth=1 默认件）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\G2_default_depth1.exe",
+    "tags": [
+      "仪表",
+      "已归档"
+    ],
+    "note": "曾被同 sha 逐字节恢复；DECISIONS 记录 12 处引用全通；sha 0BCF7646",
+    "status": "已归档",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "p23-candidate · patch23 验收候选（sym-120a）",
+    "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-p23-candidate.exe",
+    "tags": [
+      "候选",
+      "patch23"
+    ],
+    "note": "BUILD_LEDGER candidate→parked；source engine-src p23 @ 641ea18；原件在 .temp/build-sym120a（冻结中）；sha DC54AE08",
+    "status": "候选",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": "sym-120a"
+  },
+  {
+    "label": "live · 35D9E6B1（主线 RC6 候选，当前现役）",
+    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "tags": [
+      "现役",
+      "主线"
+    ],
+    "note": "source engine-src 7e14453（p23 未包含，merge-base exit=1）；arch 384/384 sm_120a；listen@57344 warmup 410ms；infer 838ms；ninja -n 7",
+    "status": "现役",
+    "added": "2026-10-31",
+    "replaced_by": "",
+    "preset": "s6-1208a-release"
   }
 ]

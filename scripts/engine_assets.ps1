@@ -129,7 +129,11 @@ switch ($Action) {
     'gate' {
         $nDisk = @(Get-ChildItem $lin -Filter '*.exe' -File -EA 0).Count
         # 只算真实文件名：排除说明用条目（含反斜杠或尖括号）
-        $nMan = @((ManNames) | Where-Object { $_ -notmatch '[\\<>]' }).Count
+        # 正文截断到「附录 A」之前再数：附录是 sha 底账，会重复列出同一批文件名
+        $mtxt = [IO.File]::ReadAllText($man, [Text.Encoding]::UTF8)
+        $aidx = $mtxt.IndexOf('## 附录 A')
+        if ($aidx -gt 0) { $mtxt = $mtxt.Substring(0, $aidx) }
+        $nMan = @([regex]::Matches($mtxt, '`[^`]+\.exe`') | ForEach-Object { $_.Value } | Where-Object { $_ -notmatch '[\\<>]' } | Sort-Object -Unique).Count
         if ($nDisk -ne $nMan) {
             Write-Output ('BLOCKED[assets]: lineage exe {0} 件 ≠ MANIFEST {1} 行（台账不完整）' -f $nDisk, $nMan)
             exit 1

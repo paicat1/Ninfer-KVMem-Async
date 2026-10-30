@@ -28,7 +28,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $wpt = 'C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit'
 $wpr = Join-Path $wpt 'wpr.exe'
-$py  = 'C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe'
+$py  = $env:NINFER_PYTHON; if (-not $py) { $py = (Get-Command python -ErrorAction SilentlyContinue).Source }; if (-not $py) { $py = 'python' }
 $day = Get-Date -Format 'yyyyMMdd'
 $dir = Join-Path $Root ('work\' + $day)
 New-Item -ItemType Directory -Force -Path $dir | Out-Null

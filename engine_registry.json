@@ -208,8 +208,8 @@
       "候选",
       "patch23"
     ],
-    "note": "BUILD_LEDGER candidate→parked；source engine-src p23 @ 641ea18；原件在 .temp/build-sym120a（冻结中）；sha DC54AE08",
-    "status": "候选",
+    "note": "BUILD_LEDGER candidate→parked；source engine-src p23 @ 641ea18；原件在 .temp/build-sym120a（已解冻）；sha DC54AE08；2026-10-31 判废弃：串行四工况零收益 + 多路并发 TTFT 极差<2%，A3 编译树解冻",
+    "status": "已废弃",
     "added": "2026-10-31",
     "replaced_by": "",
     "preset": "sym-120a"

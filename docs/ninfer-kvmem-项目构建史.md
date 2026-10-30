@@ -4513,3 +4513,21 @@ it holds 79 -- short by 5 page(s)
 **新发现**：①`scripts\gates.ps1` 与 `smart_push.ps1` 同在 .gitignore（本地件），行为变更因此没有 git 历史，只靠本史 + `_safety_backups\gates_20261030_212917.ps1`（sha256 0af1f7e5）可回滚；②commit-msg hook T#0036 要求信息里点名的路径必须真在本提交/HEAD 中——本地件路径写进信息即被拦（首发信息因此被拒）；③`--amend` 已推送提交会造成 non-fast-forward，用 `reset --soft origin/main` + 重提交收拢，不改远端历史。
 
 **新挂账**：无（方案 A 已落地并推送 20453c7..633b3aa）。
+
+### 188. 【patch 23 多路并发验收：零收益，判废弃；附带测出「运行 6 小时并发 TTFT 劣化 36–44%」】（2026-10-31）
+
+- **触发**：§182 判定 `parked` 时留下唯一未验场景——「多路并发时 host CPU 成为瓶颈」。
+- **件与对照**：p23 `dc54ae08`（preset sym-120a）／sym3 `9453ffc6`（发布件 RC2）／主线 `35d9e6b1`（preset s6-1208a-release）。
+- **口径**：同池档 `57,344`、同 prompt（15,613 字符 ≈ 1,800 tok）、`max_tokens=32`、`temperature=0`、流式；TTFT 取「首个含 `content` 或 `reasoning_content` 的 delta」；并发 4 / 8 各 2 轮。
+
+| 件 | 状态 | conc4 TTFT med | conc8 TTFT med | host CPU（24 请求） |
+|---|---|---|---|---|
+| 35D9E6B1 | 冷启 | 748 / 760 ms | 1,432 / 1,440 ms | 10 s |
+| p23 DC54AE08 | 冷启 | 755 / 745 ms | 1,418 / 1,427 ms | 10 s |
+| sym3 9453FFC6 | 冷启 | 757 / 753 ms | 1,438 / 1,424 ms | 9 s |
+
+- **结论一**：三件冷启 TTFT 极差 **<2%**，host CPU 无差异 ⇒ **§182 唯一未验场景也无收益**，p23 在并发下同样中性。
+- **结论二（判决）**：p23 `parked` → **`abandoned`**；编译现场 `.temp\build-sym120a`（10.1 GiB）随之解冻，可进隔离流程。
+- **结论三（附带新发现，重要）**：同一件 35D9E6B1 **热跑 6 小时**后，并发 TTFT 由 748 / 1,432 劣化到 **1,078 / 1,945 ms（+44% / +36%）**；停服冷启即恢复 748/1,432 ⇒ **引擎性能随时间衰减**，跨时间点的读数**不可直接比较**；长期运行服务需定期重启或排查显存/内存碎片。
+- **方法学纠错**：首版流式取数只认 `delta.content`，因模型走 thinking（`reasoning_content`）而把全部成功请求判为失败（outlen=0）。凡流式采集必须同时认 `reasoning_content`。
+- **边界**：单机单卡、无并发写盘、prefix cache 三件同构；未测 A/B 档池（§182 结论五已证「池才是真杠杆」，两件一样差，不再重复）。

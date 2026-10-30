@@ -77,7 +77,7 @@
 
 ## B2 件（2026-10-31 从 .temp\build-1208a 提取封存）
 
-> 10-27 07:33 构建；patch23 回退前状态。唯一副本原在 `.temp\build-1208a\apps\ninfer-serve.exe`（该树待隔离）。
+> 10-27 07:33 构建；patch23 回退前状态。唯一副本原在 `.temp\build-1208a\apps\ninfer-serve.exe`（该树已于 2026-10-31 07:0x 移入 `_quarantine\20261031\A2\`，7 天观察期）。
 
 | 代号 | 文件 | 大小 (MB) | SHA256 | 说明 |
 |---|---|---|---|---|

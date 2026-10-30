@@ -1,4 +1,4 @@
-# async_abab.ps1 -- FINAL VERDICT RUN for the async demote pipeline (NINFER_ASYNC_DEMOTE).
+﻿# async_abab.ps1 -- FINAL VERDICT RUN for the async demote pipeline (NINFER_ASYNC_DEMOTE).
 #
 # Question: does async demote buy decode speed in the DEEP over-pool multi-turn regime
 #           (the only regime where it ever claimed value, r=0.801 @ 74K deep over-pool)?

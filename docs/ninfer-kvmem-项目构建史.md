@@ -4593,3 +4593,10 @@ it holds 79 -- short by 5 page(s)
 - **p23 判废弃**（`parked` → `abandoned`）：串行四工况零收益（§182）+ **多路并发零收益**（§188 三件冷启 TTFT 极差 <2%）⇒ 唯一未验场景也关闭；编译现场随之解冻。
 - **11 件步级仪表件保留**：谷未闭合（§136），是复跑必需的测量基础设施且**重建不出来**。`MANIFEST` 已立保留裁决：**禁止把脚本 `-Exe` 改指 RC 系件代替**（RC 件无打点，会产出假复现数据）；重提须待谷结案。
 - **本节未做的事**（如实）：`variants` 3.65 GB（C1，差 DELETE 令牌）、`pdb_archive` 定角色（D3）、`PM-RULES` 补章节（D4）、`valley_etl` 4.16 GB 与 legacy 源件 6.2 GB（等用户裁决）。
+
+#### 189.7 收口三件（B3 删源 / C3 归档 / 封存库保护补登记）
+
+- **B3（5 件 legacy 源件，删）**：源件在 `safety_backups\exe_lineage_20261013/14/15`，与 `lineage\ninfer-serve-legacy-*` 副本**逐件 sha 一致（5/5）**，引用扫描 0 命中（`git grep exe_lineage` 于 py/ps1/json/bat 零命中）。按 B 轨执 DELETE 令牌后删除 **8 件 / 6.21 GB**（5 个 exe + 3 个 MANIFEST.txt），空目录一并清理；`exe_lineage_20261012` / `20261017` / `from-bonsai-dir_20261012` **不在范围，未动**。删后 `engine_assets -Action gate` 仍 **23 件 == 23 行**。
+- **真释放以 Free 差值计**：删除走回收站，清空后 **Free 125.41 → 131.62 GB，释放 6.21 GB**（清空前已核对回收站仅含本次 5 个 exe）。
+- **C3（valley_etl.etl，归档保留）**：4.16 GB 由 `work\20261018\` 移入 **`evidence\20261018\`**。定性：ETL **取证原始数据，不可再生**（非构建产物）；谷未闭合（#8 页漂移族、P2 慢态），留作对比基线 ⇒ **不删**。`work\20261018\` 余 208 件 / 93 MB 同属取证现场，**另立条目**，本次不动。
+- **封存库保护补登记**：`structure.json` 的 `protected_paths` 增 **`engine/lineage`**（`unique-source`）。粒度如实——本条**防整树消失 / 改名逃逸对账**，**不防单件被删**（单件仍靠 `engine_assets` gate 的件数对账）；原 `engine/lineage/apps-archive` 条目保留（现冗余但无害）。

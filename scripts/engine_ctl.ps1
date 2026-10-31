@@ -78,6 +78,25 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-Sha256Hex {
+    # 2026-10-31: Get-FileHash can be unavailable in a 5.1 host that inherited a pwsh7
+    # PSModulePath (Microsoft.PowerShell.Utility resolves to 7.0.0.0 = Core edition, which
+    # 5.1 refuses to import). Falling back to .NET keeps the T#0059 hash dedupe working
+    # instead of aborting the engine start.
+    $p = $args[0]
+    try {
+        if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+            return (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
+        }
+    } catch { }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $fs = [System.IO.File]::Open($p, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+        try { return (([BitConverter]::ToString($sha.ComputeHash($fs))) -replace '-', '') }
+        finally { $fs.Dispose() }
+    } finally { $sha.Dispose() }
+}
+
 $root = 'J:\ninfer-kvmem'
 
 Set-Location $root
@@ -182,7 +201,12 @@ if ($Action -eq 'waitready') {
 
         # the tee holds the log open: read a snapshot copy, never the file itself
 
-        $snap = Join-Path $root '.temp\waitready_snap.txt'
+        # 2026-10-31: .temp is READ-ONLY for this account -> Copy-Item failed and
+        # `catch { continue }` made waitready spin to TIMEOUT even with the engine up.
+        # Use a writable scratch dir; fall back to the OS temp dir if blocked too.
+        $snapDir = Join-Path $root 'work\data'
+        if (-not (Test-Path $snapDir)) { $snapDir = $env:TEMP }
+        $snap = Join-Path $snapDir 'waitready_snap.txt'
 
         try { Copy-Item $log $snap -Force -ErrorAction Stop } catch { continue }
 
@@ -249,9 +273,9 @@ if ($exeFull -ne $runExe) {
     if (Test-Path $runExe) {
         # 2026-10-27: hash dedupe. The old code archived a 1.27 GB copy on EVERY start even when
         # an identical binary was already archived -- 14 copies of the same S13 accumulated (32 GB).
-        $liveHash = (Get-FileHash $runExe -Algorithm SHA256).Hash
+        $liveHash = Get-Sha256Hex $runExe
         $same = Get-ChildItem $runDir -Filter 'ninfer-serve.exe.bak_*' -ErrorAction SilentlyContinue |
-            Where-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash -eq $liveHash } |
+            Where-Object { (Get-Sha256Hex $_.FullName) -eq $liveHash } |
             Select-Object -First 1
         if ($same) {
             Write-Output ('T#0059: backup skipped (identical hash already archived as ' + $same.Name + ')')

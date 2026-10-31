@@ -4639,3 +4639,21 @@ it holds 79 -- short by 5 page(s)
 **工具问题留痕（同一段落被重复插入）**：本节标题曾因自建重建脚本**非幂等**（把「标题之后全部内容」当新增段叠加）在同一文件内出现 **4 份**（上一提交内已含 2 份）——已用去重脚本修正为 **1 份**，并把该脚本**降级为只读校验器**（`scripts\experimental\check_doc_eol.py`：查重复标题 + 查行尾漂移 + 报非纯追加差异，**不再写文件**）。新增判据：**共享长文档每轮提交前必须核「标题唯一 + 行尾构成与 HEAD 一致」**，numstat 出现成对增删即视为重复插入信号。
 
 **本批挂账**：#57 `log_verify` FAIL_ANOMALY 裁定、N5 分支保护（网页操作）。
+
+### 190. 【C-ctrl PG2 插桩归因：restore 侧被排除（仅占差 4.2%），崩塌锁定在 ensure_ring_room 硬 verdict 的阻塞 settle】（2026-10-31 09:45–10:05）
+
+- **件与配置**：RC5（PG2 插桩件，sha `5B34F211`）/ 池 **58,368** / kv **rk2v4-e8** / depth 2 / graph 64 / mtp draft 4 / filler 300KB / max-tokens 2000 / rounds 2（与历史 sym3 C-ctrl 同口径，A′ 可比性已闭合：OFF 臂 sha 与历史 `sym3_CC_off_c2` **逐字相同**）。
+- **结果（配对，同件同配置）**：OFF r1 **309.3** / r2 308.9 tok/s（sha `5c349942b76b4982` / `ae44b7ed4f69c8ea`）；ON r1 **142.5** / r2 270.0（sha `d8b253edfffed0f9` / `d4dea648157a6988`）⇒ C-ctrl ON 崩塌**逐字同源复现**（历史 §178/§181：144.2 / `d8b253ed`）。
+- **单位实证**：源码 `demote_profile_now_ms()` + 打点串 `"retire wait=%.2fms"` ⇒ PG2 全部分段单位为**毫秒**（此前一次解读把 ms 当 s，**已撤回**）。
+- **排除一：restore 侧不是瓶颈**。restore 分段 ON−OFF：copy **+156.8 ms**、dev **+159.4 ms**、tail **+4.2 ms** ⇒ 合计 **0.32 s**；而 decode 段差 = 14029−6463 = **7566 ms** ⇒ restore 仅占 **4.2%**。OFF restore 事件 704 / ON 1073（ON 回捞更碎），但单事件成本同量级（p50 1.7–2.3 ms）。
+- **排除二：搬运量不是瓶颈**。ON `demoted` **5390** 页 < OFF **9653** 页（copy 350 ms vs 813 ms）⇒ ON 走"已 host 副本快速路径"，搬运更少。
+- **排除三**：STALL 2 vs 2 相同；WHEA 0→0；prompt exceeds 2 vs 2 相同；VRAM 归还 284 MiB。
+- **已量化的新增成本**：ON 独有 async submit **230** 次，launch 合计 **426.8 ms**（p50 0.365 / p90 4.463 / max 15.84 ms）⇒ 已插桩可见的新增成本合计 ≈ **0.75 s**（占 7.57 s 的 **9.9%**）。
+- **⇒ 剩余 ≈ 6.8 s（≈90%）确定在 restore/demote 之外**。源码唯一候选：`ensure_ring_room` 的**硬 verdict**（`free_final < need && async_ring->live > 0` ⇒ **阻塞式 settle** 等异步 copy 落地，`context.cpp` L2813-2821）。机制：depth≥2 的 non-blocking retire 只在 fence ready 时落地 ⇒ 池紧时（58,368 档）每 step 触发同步等待。
+- **件内无该等待打点**：两日志 `retire wait` 行数均 **0** ⇒ 该等待目前**无观测点**，必须新增 P-g3 插桩（ensure_ring_room 入口/出口 + settle 段计时）才能定数。
+- **同轮工程修复（两处，共享脚本 engine_ctl.ps1，备份 `_safety_backups\engine_ctl_20261031_pre_hashfallback.ps1`）**：
+  1. `Get-Sha256Hex` fallback——5.1 子进程继承 pwsh7 `PSModulePath` 时 `Microsoft.PowerShell.Utility` 解析到 7.0.0.0（Core 版，5.1 拒载）⇒ `Get-FileHash` CommandNotFound ⇒ T#0059 hash 去重段抛错 ⇒ **引擎静默不起**（实测 `Get-FileHash visible: False` 下 fallback 仍算出正确 sha）。
+  2. waitready 快照从**禁写**的 `.temp` 迁到 `work\data`——旧路径 Copy-Item 抛错被 `catch { continue }` 吞掉 ⇒ waitready **永远 TIMEOUT**（实测修复后 6.3 s 返回 READY）。
+- **纪律层修复（同轮，见 T#0071）**：`scripts/tick.ps1` 落地为唯一等待入口（硬上限 5 s，每 tick 回读台账打心跳）+ `scripts/gates.ps1` 新增 **WAIT-BUDGET-GATE**（只拦**改动新增**的 >5 s sleep；无人值守脚本需文件头声明 `## WAIT-BUDGET: unattended`）。
+- **Δ 对上个基线**：§181 只知"ring +31~53% / demoted 5390≪9653 / STALL=0"三个现象，归因停在"restore vs ensure 两个候选"；本轮首次给出**同配置同件 ON/OFF 配对的 PG2 分段**，把两候选收敛为**唯一候选**（ensure_ring_room 硬 verdict 阻塞 settle）。
+- **新挂账**：P3-5 由"未做"改为"**restore 侧已排除，待 P-g3**"；新增 **P3-8 = P-g3 插桩**（`ensure_ring_room` 分段计时，需冷编 ≥30 min，**待批**）。

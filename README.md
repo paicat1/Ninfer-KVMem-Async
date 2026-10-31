@@ -190,8 +190,8 @@
 | 现役引擎件 | 身份 | 一句话性质 |
 |---|---|---|
 | **S13 · 历史受控件**（原标「生产件」）（`engine\self-built-20261008\ninfer-serve.exe`，sha `322A972D`） | 官方链 14.44、**无符号** | ~~日常生产件~~（**原标已废止**）；**Gen5+外压 400 = 卡死不返回**（已知短板，避开该组合） |
-| **offi · 官方链 14.44 + 符号**（`engine\variants\ninfer-serve-sym-official.exe`，sha `3543AD18`） | D 项判决件 | Gen5+外压 400 = **44.5 谷但完成**——卡死未复现 |
-| **sym3 · 新构建链 + 符号**（`engine\variants\ninfer-serve-sym.exe`，sha `9453FFC6`） | 同参重编判决件 | Gen5+外压 400 = **41 谷但完成** |
+| **offi · 官方链 14.44 + 符号**（`engine\lineage\ninfer-serve-RC3.exe`，sha `3543AD18`） | D 项判决件 | Gen5+外压 400 = **44.5 谷但完成**——卡死未复现 |
+| **sym3 · 新构建链 + 符号**（`engine\lineage\ninfer-serve-RC2.exe`，sha `9453FFC6`） | 同参重编判决件 | Gen5+外压 400 = **41 谷但完成** |
 
 > **卡死元凶判决（§136；该矩阵在旧平台取得，新平台未复测 Gen5 + 外压 400 组合——WHEA 已验 0，但卡死形态待复验）**：三件唯一变量差 = 符号链接——**生产/外压场景建议直接选用带符号件**（offi/sym3），卡死形态不再复现；谷（慢但走得完）仍存在于全部三件，属负载×环境现象，见"已知限制"。
 
@@ -213,7 +213,7 @@
 | BONSAI | 前序线件（**未下载**） | — | — | — | 仅登记待测试（启动器选它会提示） |
 | iq4nl / iq4nlvis / orig | 自转 MTP 头（无视觉）+ 视觉嫁接件 / 纯基线原件 | — | — | — | 内部加工链三态，见下方 models 三件套说明 |
 
-- 引擎件：**三现役**（见上方现役引擎表）——**S13 = 有卡死缺陷的历史受控件（原标「生产件」）（仅适用 Gen4/零外压；Gen5+外压400 会 decode 0 卡死）** = `engine\lineage\I3b_step13_fourlayer_20261015.exe`（sha256 `322A972D…`；= 上游融合引擎 + I3b 全链补丁（p2/s2–s11）+ ledger42×3/44/46×2/47 + W1-W4；仪器门 `NINFER_STEP_PROFILE` 默认关，零行为）；符号判决件在 `engine\variants\`。**2026-10-19 新增结论：Gen5+外压场景生产件卡死、带符号件"谷但完成" ⇒ 该场景选 offi/sym3**（§136 三件矩阵）。
+- 引擎件：**三现役**（见上方现役引擎表）——**S13 = 有卡死缺陷的历史受控件（原标「生产件」）（仅适用 Gen4/零外压；Gen5+外压400 会 decode 0 卡死）** = `engine\lineage\I3b_step13_fourlayer_20261015.exe`（sha256 `322A972D…`；= 上游融合引擎 + I3b 全链补丁（p2/s2–s11）+ ledger42×3/44/46×2/47 + W1-W4；仪器门 `NINFER_STEP_PROFILE` 默认关，零行为）；符号判决件 = `engine\lineage\ninfer-serve-RC2.exe`（sym3）/ `engine\lineage\ninfer-serve-RC3.exe`（offi），配套符号文件在 `engine\pdb_archive\`。**2026-10-19 新增结论：Gen5+外压场景生产件卡死、带符号件"谷但完成" ⇒ 该场景选 offi/sym3**（§136 三件矩阵）。
 - 上下文 256K 逻辑（262,144）；池外 KV 自动下沉 16 GiB host 环；投机 **MTP K4**；思考 high + 预算 16000；止血 `--recover-invariant-failures`（**无 growth**）；视觉 overlay/off；并发 **1**（环硬约束）
 - **池 ≥ 工作集是"甜点区"的下沿（不是硬纪律）**：项目既有学说 = **工作集 ≤ 池 < 请求线 = 甜点区**；池 ≥ 请求线**边际收益骤降**（实测 64K vs 51K 仅多撑 ~8 轮）。超池 ⇒ 检索子集介入 ⇒ 内容可能变化（见"关键工程结论"）。
 - 每档基准与实测数据存 `baselines/<档>/`（冻结集只增不改；golden SHA 只在同档内可比）

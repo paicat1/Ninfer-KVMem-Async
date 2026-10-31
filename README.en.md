@@ -161,8 +161,8 @@ The launcher's "model" dimension now has **six tiers** (switching a model brings
 | Active engine binary | Identity | One-line character |
 |---|---|---|
 | **S13 · production build** (`engine\self-built-20261008\ninfer-serve.exe`, sha `322A972D`) | official chain 14.44, **no symbols** | daily production build; **Gen5 + external pressure 400 = hangs, never returns** (known weakness; avoid that combination) |
-| **offi · official chain 14.44 + symbols** (`engine\variants\ninfer-serve-sym-official.exe`, sha `3543AD18`) | item-D verdict binary | Gen5 + external pressure 400 = **44.5, valley but completes** — hang did not reproduce |
-| **sym3 · new build chain + symbols** (`engine\variants\ninfer-serve-sym.exe`, sha `9453FFC6`) | same-recipe rebuild verdict binary | Gen5 + external pressure 400 = **41, valley but completes** |
+| **offi · official chain 14.44 + symbols** (`engine\lineage\ninfer-serve-RC3.exe`, sha `3543AD18`) | item-D verdict binary | Gen5 + external pressure 400 = **44.5, valley but completes** — hang did not reproduce |
+| **sym3 · new build chain + symbols** (`engine\lineage\ninfer-serve-RC2.exe`, sha `9453FFC6`) | same-recipe rebuild verdict binary | Gen5 + external pressure 400 = **41, valley but completes** |
 
 > **Hang culprit verdict (§136)**: the only variable across the three binaries = symbol linkage — **for production/external-pressure scenarios, prefer a symbol-linked build** (offi/sym3); the hang form no longer reproduces. The valley (slow but completes) still exists in all three — a load × environment phenomenon; see "Known limitations".
 
@@ -173,7 +173,7 @@ The launcher's "model" dimension now has **six tiers** (switching a model brings
 | BONSAI | prior-line file (**not downloaded**) | — | — | — | registered only, pending test (launcher warns if selected) |
 | iq4nl / iq4nlvis / orig | self-converted MTP head (no vision) + vision-grafted file / pure baseline original | — | — | — | three states of the internal processing chain; see the models trio below |
 
-- Engine binaries: **three active** (see table above) — production build = `engine\lineage\I3b_step13_fourlayer_20261015.exe` (sha256 `322A972D…`; = upstream fusion engine + full I3b patch chain (p2/s2–s11) + ledger42×3/44/46×2/47 + W1-W4; instrumentation gate `NINFER_STEP_PROFILE` default off, zero behavior change); symbol verdict binaries in `engine\variants\`. **2026-10-19 new conclusion: under Gen5 + external pressure the production build hangs while symbol-linked builds "valley but complete" ⇒ choose offi/sym3 for that scenario** (§136 three-binary matrix).
+- Engine binaries: **three active** (see table above) — production build = `engine\lineage\I3b_step13_fourlayer_20261015.exe` (sha256 `322A972D…`; = upstream fusion engine + full I3b patch chain (p2/s2–s11) + ledger42×3/44/46×2/47 + W1-W4; instrumentation gate `NINFER_STEP_PROFILE` default off, zero behavior change); symbol verdict binaries = `engine\lineage\ninfer-serve-RC2.exe` (sym3) / `engine\lineage\ninfer-serve-RC3.exe` (offi), with symbol files in `engine\pdb_archive\`. **2026-10-19 new conclusion: under Gen5 + external pressure the production build hangs while symbol-linked builds "valley but complete" ⇒ choose offi/sym3 for that scenario** (§136 three-binary matrix).
 - Context 256K logical (262,144); over-pool KV auto-sinks to a 16 GiB host arena; speculation **MTP K4**; thinking high + budget 16000; hemostat `--recover-invariant-failures` (**no growth**); vision overlay/off; concurrency **1** (ring hard constraint)
 - **Pool ≥ working set is hard discipline** (over-pool ⇒ retrieval subset intervenes ⇒ content may change; see "Key engineering conclusions")
 - Per-tier baselines & measurements in `baselines/<tier>/` (frozen sets are append-only; golden SHA comparable only within the same tier)

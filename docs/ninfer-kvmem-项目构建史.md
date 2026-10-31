@@ -4600,3 +4600,32 @@ it holds 79 -- short by 5 page(s)
 - **真释放以 Free 差值计**：删除走回收站，清空后 **Free 125.41 → 131.62 GB，释放 6.21 GB**（清空前已核对回收站仅含本次 5 个 exe）。
 - **C3（valley_etl.etl，归档保留）**：4.16 GB 由 `work\20261018\` 移入 **`evidence\20261018\`**。定性：ETL **取证原始数据，不可再生**（非构建产物）；谷未闭合（#8 页漂移族、P2 慢态），留作对比基线 ⇒ **不删**。`work\20261018\` 余 208 件 / 93 MB 同属取证现场，**另立条目**，本次不动。
 - **封存库保护补登记**：`structure.json` 的 `protected_paths` 增 **`engine/lineage`**（`unique-source`）。粒度如实——本条**防整树消失 / 改名逃逸对账**，**不防单件被删**（单件仍靠 `engine_assets` gate 的件数对账）；原 `engine/lineage/apps-archive` 条目保留（现冗余但无害）。
+#### 189.8 第二批收口（variants 清零 / pdb_archive 定角色 / 删除通道取证）
+
+**C1（`engine\variants` 整树清零，真释放 3.646 GB）**
+
+- 删前 sha 对账（新增脚本 `scripts\experimental\verify_variants_dup_sha.py`，落盘 `out\variants_dup_sha.json`）：`pairs_identical=4/4`（`ninfer-serve-sym.exe` 与 `lineage\ninfer-serve-RC2.exe` 逐字节相同；`ninfer-serve-sym-official.exe` 与 `lineage\ninfer-serve-RC3.exe` 逐字节相同；2 个 pdb 与 `pdb_archive` 对应件逐字节相同）+ `dlls_identical=16/16`（16 件 DLL 与 `self-built-20261008` 同名件逐字节一致）。
+- 引用面同步：`README.md` / `README.en.md` 的 offi/sym3 路径改指 `lineage`；活链引用扫描（排除 archive/evidence/build 树）**0 命中**（余下命中全是历史叙述与台账行）。`engine_registry.json` 早已在指 lineage（D1）。
+- 执行：DELETE 令牌下删 20 件 / 3,914,897,336 B；`engine_assets -Action gate` 删后仍 **23 件 == 23 行**。
+- 真释放：Free **131.62 → 135.27 GB（+3.646）**，与删除体积逐字节对齐。
+
+**删除通道取得独立证据（补 189.7 叙述缺口）**
+
+- 189.7 写「删除走回收站」，当时只有 Free 差值反推、无法独立确证。本批用 `scripts\experimental\enumerate_recyclebin.py` 直读 `J:\$Recycle.Bin\<SID>\$I` 元数据：删除动作确实生成 `$R` 载荷与 `$I` 原路径记录（113 条中仅 1 条带载荷 = 本次 `engine\variants`，20 files / 3,914,897,336 bytes；其余 112 条为 0 字节陈旧元数据）。清退该条载荷后 Free 才上升，即「删除走回收站」现已有 `$I` 元数据独立佐证，不再只靠差值反推。
+- 清退方式：**外科式**（只删本次那条 `$R` 载荷与其 `$I`，不动其余 112 条元数据），未做整站清空。
+
+**D3（`engine\pdb_archive` 定角色）** = **符号归档库**（14 件 pdb / 0.52 GB）。台账落 **`docs\07-归档\符号归档台账-pdb_archive-20261031.md`**（逐件 sha，2026-10-31 实测）；`structure.json` 的 `protected_paths` 增 `engine/pdb_archive`（第 6 条，备份走 `tools\backup_file.py`，留 `safety_backups/structure_20261031_084849_*.json`）。台账**不放在 `engine\lineage\MANIFEST.md`**：一是符号与引擎件分离更清晰（MANIFEST 只做 exe 件数对账），二是 `engine\**` 路径会触发提交前的 T-CHECKPOINT 声明门（该令牌 60 分钟窗口已于本批过期，不自签）。
+
+**D4（PM-RULES 补章节）**：`PM-RULES.md` 追加「引擎件目录角色」节（只追加、不改 §2 原文）——六目录角色表（lineage 封存库 / test-run 换装区 / self-built 现役位 / pdb_archive 符号归档库 / variants **已废除** / 构建树 = 中间物禁成品）+ 副本数例外条款 + 引用纪律（公开文档必须写当前有效路径，件迁移同轮改引用）。
+
+**新发现：公开面两处失效路径（本批未擅自改，列账待裁）**
+
+- `README.md` L192 / `README.en.md` L163 仍写 S13 在 `engine\self-built-20261008\ninfer-serve.exe`（sha `322A972D`），而该位现役件已是 RC6（`35D9E6B1`，§189 现役件封存）——**口径未同步**。
+- `README.md` L216 / `README.en.md` L176 仍写 `engine\lineage\I3b_step13_fourlayer_20261015.exe`——该文件**全盘已不存在**（已改名为 `ninfer-serve-RC1.exe`；`Get-ChildItem -Filter "*I3b_step13*"` 零命中）= 死链。
+- 判定：属「对外复现声明」的公开面准确性问题，改法涉及「对外称现役件为哪一件」的裁决 ⇒ **不擅自改，留一句裁决**。
+
+**C5 新立**：`work\20261018\` 余 208 件 / 92.86 MB = 2 个 `valley_etl.etl.NGENPDB` 符号缓存目录（各 6 件，45.91 MB × 2 = 91.82 MB，占 98.8%）+ 196 件实验脚本与输出（1.04 MB，含 `sym2_hang_20261018_10844.dmp` 0.29 MB）。NGENPDB **可再生**（重跑 ETL 分析即重建）⇒ 可删候选 ~91.8 MB（低优先，需 DELETE 令牌）；其余 196 件为取证现场，保留。
+
+**断链门处置（refs 27 → 14）**：删 `engine\variants` 后 `check_refs.py` 断链由 17 升到 27（基线 24）⇒ 提交被门禁拦下（拦截有效）。处置两条：① `work\20261018\symbolize.ps1`（**仍在用**的符号化工具，死谷续跑要用）默认 pdb/exe 改指 `engine\pdb_archive\ninfer-serve-sym_20261018.pdb` 与 `engine\lineage\ninfer-serve-RC2.exe`；② 检查器语义补两条豁免——`evidence/`（取证证据区，记录里的历史路径是证据本义）与 `work\20261018/`（10-18 取证现场快照）。处置后断链 **14 条 ≤ 基线 24**；其余 14 条为既有项（smart_push 工具引用 / build-out compile_commands 快照 / retired 回退快照 / valley_watch 运行时产物），与本批无关。
+
+**本批挂账**：C5（NGENPDB 91.8 MB，待令牌）、#57 `log_verify` FAIL_ANOMALY 裁定、C1（总表）池策略文档分界裁决、N5 分支保护（网页操作）、公开面两处失效路径裁决。

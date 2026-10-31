@@ -135,3 +135,4 @@
 - 依据：串行四工况零收益（§182，差 ≤0.71% 且方向有正有负）+ **多路并发零收益**（conc4/conc8 三件冷启 TTFT 极差 <2%）+ host CPU 无差异
 - §182 唯一未验场景（并发 host CPU 瓶颈）已验：无差异
 - 状态：`parked` → **`abandoned`**；编译现场 `.temp\build-sym120a` 随之解冻
+| **RC7** | PG3 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` | P-g3 插桩：`ensure_ring_room` 分段计时（retire/demote/settle/total），§191 |

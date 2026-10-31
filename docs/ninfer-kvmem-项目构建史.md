@@ -4355,7 +4355,7 @@ P0 起服老档并记基线 → P1-a 夜班采样器（三代迭代）→ P1-b �
 
 #### 183.4 待办文档（唯一现行总表）
 
-> **[`docs\07-归档\挂账总表-20261030.md`](07-归档/挂账总表-20261030.md)** —— **62 待办 / 20 失效 / 1 待裁 / 5 方法缺陷**
+> **[`docs\07-归档\挂账总表-20261030.md`](07-归档/挂账总表-20261030.md)** —— **70 待办**（P0 7 / P1 7 / P2 9 / P3 17 / P4 19 含 N1–N8 / P5 11）/ 20 失效 / 1 待裁 / 5 方法缺陷　*(2026-10-31 更正：原摘要写“62 待办”系旧口径，与逐行数表不符，已按实测改为 70)*
 
 结构：
 
@@ -4531,3 +4531,65 @@ it holds 79 -- short by 5 page(s)
 - **结论三（附带新发现，重要）**：同一件 35D9E6B1 **热跑 6 小时**后，并发 TTFT 由 748 / 1,432 劣化到 **1,078 / 1,945 ms（+44% / +36%）**；停服冷启即恢复 748/1,432 ⇒ **引擎性能随时间衰减**，跨时间点的读数**不可直接比较**；长期运行服务需定期重启或排查显存/内存碎片。
 - **方法学纠错**：首版流式取数只认 `delta.content`，因模型走 thinking（`reasoning_content`）而把全部成功请求判为失败（outlen=0）。凡流式采集必须同时认 `reasoning_content`。
 - **边界**：单机单卡、无并发写盘、prefix cache 三件同构；未测 A/B 档池（§182 结论五已证「池才是真杠杆」，两件一样差，不再重复）。
+
+### 189. 【全项目资产收口：142.57 GB 普查 → 身份判定 → 封存 → 隔离 → 清空，真释放 60.61 GB；并立“释放必须以 Free 差值验证”】（2026-10-31 00:0x–07:5x）
+
+- **触发**：用户令「每个文件都要找到线索、关系、依赖、作用，给出正确处置；严禁出事」→ 全量普查先行，禁止边干边扔。
+- **普查基数**：**38,607 文件 / 142.57 GB / git 跟踪 1,521**（产物 `work\survey-20261031.md`、`work\survey-detail-20261031.md`）。
+
+#### 189.1 引擎二进制：7 处散落 → 2 处
+
+| 位置 | 普查时 | 处置后 |
+|---|---|---|
+| `engine\lineage`（封存库） | 15 件 / 18.72 GB | **23 件**（5 RC + 10 仪表 + 5 legacy + p23 + B2 + RC6）+ 附录 A 全量 sha |
+| `engine\test-run`（换装区） | 9 件 / 11.26 GB | **1 份**（1.24 GB） |
+| `engine\variants`（未定义角色） | 3.65 GB | **仍在**（见 189.5 待办 C1） |
+| `engine\pdb_archive`（未定义角色） | 0.52 GB | **仍在**（待办 D3） |
+| `safety_backups\exe_lineage_*` | 5 件 / 6.2 GB | 副本已入 lineage，**源件待裁决**（B3） |
+| `build-out\apps`、`build\build-d1208a`、`.temp` 两棵、`engine-src\...\build` | 4 棵树 | 见 189.2 |
+
+#### 189.2 构建树：5 棵 → 1 棵
+
+| 树 | 体积 | 判定依据 | 结果 |
+|---|---|---|---|
+| `build\build-d1208a`（offi 符号） | 10.16 GB | serve `3543AD18` = **RC3** 已封存 | 已删 |
+| `.temp\build-1208a`（旧 Release） | 9.30 GB | serve `A81C843F` = **B2** 已封存 | 已删 |
+| `.temp\build-sym120a`（p23 现场） | 10.10 GB | p23 判废弃（§188） | 已删 |
+| `engine-src\...\build`（10-18 旧构建） | 11.17 GB | **arch 错配**：`cuobjdump` = 357 ELF **全 sm_86**、0 个 sm_120a；对比 RC3 = 384 ELF 全 sm_120a。属我们自己的构建（`CMAKE_HOME_DIRECTORY` 指向 engine-src 主树 + 本地 BuildTools 14.43），非上游件 | 已删 |
+| `build-out\build-1208a` | 9.31 GB | 四环验证通过（arch/起服/推理/增量） | **保留（唯一构建树）** |
+
+#### 189.3 封存（先提取、后删树，杜绝独一份丢失）
+
+| 件 | 来源 | 结果 |
+|---|---|---|
+| `DC54AE08`（p23） | `.temp\build-sym120a` | 早已在 `lineage\ninfer-serve-p23-candidate.exe`（+pdb）⇒ 原「唯一副本须先提取」为**冗余销账**，删树无丢失 |
+| `A81C843F`（B2） | `.temp\build-1208a` | 封存为 `ninfer-serve-B2-20261027.exe` |
+| 5 件 legacy（10-13~15 快照） | `safety_backups` | 封存为 `ninfer-serve-legacy-*` |
+| **9 个辅助 app**（`ninfer`/`calibrate`/`perplexity` × A1/A2/A3，10.5 GB） | 三棵树 | 提取到 `engine\lineage\apps-archive\`，登记进 `protected_paths`（long-rebuild 66 min） |
+| `35D9E6B1`（现役件） | `build-out` | 封存为 **`ninfer-serve-RC6.exe`**，消除“现役位唯一落点”敞口 |
+
+#### 189.4 隔离 → 清空，与一条血的教训
+
+- 隔离区 `_quarantine\20261031\` 共 5 条 / **50.66 GB**（A1/A2/A3/A5/C2），全部**逐条核对过归档状态**后才清空。
+- **教训**：本机 `Remove-Item` **走回收站**——此前三次报告「释放 8.70 / 10.1 / 40.7 GB」**全部为假**，文件只是进了 `J:\$RECYCLE.BIN`。
+- 真正释放以 **`Free` 差值**实测：`Clear-RecycleBin -DriveLetter J -Force` 后 **Free 66.04 → 126.65 GB，释放 60.61 GB**。
+- 已立为纪律（`PM-RULES` 删除验证纪律）：**释放数字必须来自 Free 差值，禁止拿“文件不在了”当释放**。
+
+#### 189.5 台账与门禁同步（机械层）
+
+| 项 | 变化 |
+|---|---|
+| `engine_registry.json` | 8 → **17 条**：3 条改指 lineage，补 RC4/RC5/step7/9/10/11/G2/p23/live 九条（最小文本改动，LF 保持） |
+| `BUILD_LEDGER.jsonl` | 25 → **31 行**：补 `35D9E6B1`、5 件 legacy、p23 `abandoned` |
+| `MANIFEST.md` | 15 → **23 行** + 附录 A（全量 sha 底账） |
+| `structure.json` | `protected_paths` 增 `engine/lineage/apps-archive`；A3 已删条目移入 `retired_20261031` 留痕；`underscore_dirs` 声明 `_quarantine` |
+| `check_refs.py` | 补 `_quarantine` 豁免 ⇒ 断链 40 → **16** |
+| `engine_assets.ps1` | 新增 `gate`/`audit`/`rotate`/`adopt`，并**焊进 PM-RULES 开工门第 4 步** |
+| `pre-push`（T-0001） | 恢复：禁裸 `git push`，双向实测 |
+| `modelscope_upload_gate.ps1` | 改令牌制 + 日志改道 `work\data` |
+
+#### 189.6 裁决与边界
+
+- **p23 判废弃**（`parked` → `abandoned`）：串行四工况零收益（§182）+ **多路并发零收益**（§188 三件冷启 TTFT 极差 <2%）⇒ 唯一未验场景也关闭；编译现场随之解冻。
+- **11 件步级仪表件保留**：谷未闭合（§136），是复跑必需的测量基础设施且**重建不出来**。`MANIFEST` 已立保留裁决：**禁止把脚本 `-Exe` 改指 RC 系件代替**（RC 件无打点，会产出假复现数据）；重提须待谷结案。
+- **本节未做的事**（如实）：`variants` 3.65 GB（C1，差 DELETE 令牌）、`pdb_archive` 定角色（D3）、`PM-RULES` 补章节（D4）、`valley_etl` 4.16 GB 与 legacy 源件 6.2 GB（等用户裁决）。

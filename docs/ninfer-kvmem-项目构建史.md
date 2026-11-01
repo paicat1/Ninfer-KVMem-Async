@@ -4737,3 +4737,15 @@ it holds 79 -- short by 5 page(s)
 - **新发现**：①FIXED_W 在 r1+r2 共 16 次臂对比中**零差异**（速度、接受率、输出 sha 全同）⇒ A 假设排除 ②现象**随上下文长度弱化**：速度比 2.17x→**1.145x**，接受率差 19.0pp→**3.4pp**，与"每步固定代价"说法不一致 ③内容差异在 r2 仍存在（len 8257 vs 8120、sha 不同）
 - **Δ 对上个基线（§197）**：P3-20 由"归因未知"变为"锁定 demote 异步路径，但幅度依赖上下文长度"
 - **本批挂账**：①E8 host 往返地图已产出（`work\data\e8_roundtrip_map.md`，含 C1-C5 候选与 4 条取证缺口）②demote 侧 `copy_to_host` 时序未取证（本次只追 restore 侧）③更深档（r3）未跑
+
+### 199. 【SCORE=0 负对照定案：检索内容评分选择路径=2.17x 反转主犯】(2026-11-02 06:14-06:22)
+
+- **数字**：SCORE=0（词法回退）下 off **339.3 / 338.2** tok/s（接受率 1840/1968=**93.5%**）、on **296.9 / 297.0**（1805/2023=**89.2%**）、on_fixedw 296.8 / 297.0（与 on 逐位同 sha=84e57781，FIXED_W 零差异第三次确认）；on/off=**1.143x**（SCORE=1 同档 2.172x）、接受率差 **4.3pp**（原 19.0pp）；len 8429 vs 8081、sha 3631e1ef vs 84e57781
+- **阶段/原因**：P3-20（§198）锁定"async×rk2v4-e8 交互"后，用户令"实测二元答案"下发负对照点火单；预登记判据：SCORE=0 下 on/off≈1 且接受率差收窄⇒检索选择路径=凶手；比值仍≈2.17⇒E8 页往返=凶手
+- **判定**：预登记判据命中——**检索内容评分选择路径=主犯，词法回退即恢复**。两处独立佐证：①off 臂自身同变（313.6→339.3、sha 5c349942→3631e1ef）＝开关真实生效的天然对照 ②serve 日志自证 "[ring] the content scorer was EXPLICITLY DISABLED...falls back to the lexical IDF ra[nking]"（logs\test_ta_on_b1.log）
+- **怎么改**：NINFER_TERNARY_KVMEM_SCORE=0 进程级继承 + three_arm_fixedw.ps1 -Batches 2 -Rounds 1（depth=2/pool=58368/rk2v4-e8 不变）；跑完 deploy_engine.ps1 恢复 SYM3（台账 L107 restored sha16=9453FFC6FF077252，本轮实测 GPU 60 MiB、现役哈希一致）
+- **新发现**：①评分开关默认开（kvmem_score.h L77-81：未表态且 KV_WINDOW>0 即开）⇒ 生产低精度场景同样暴露 ②病臂（SCORE=1 async）ring profile 可见段（sel=0.015 / rr=0.38-1.2 / rs=1.27-6.6ms）与健康 sync 臂（sel=0.015 / rr=0.42-0.66 / rs=1.26-4.7ms）同量级 ⇒ 2.17x 伤害在 profile 不可见处（forward 内 scoring 开销/读回等待 × async stream 竞争 + 组成质量），不在 demote/restore 段 ③restore 无失败记录（抽查 preferred=restored=128，与 e8 map C2 全量核对一致）④"restore 读在飞未发布数据"证伪：在飞页保留 device 副本（context.cpp L2738-2740）、restore 跳过 device-resident 页（L2785）⑤context.cpp L2077-2090 "SCORE=0 still slow" 注释系 2026-10-12 depth=2 prefill 塌陷结论，与本 decode 反转非同一现象 ⑥SCORE=1 时 preferred 深达 last=2323/2365，SCORE=0 词法仅 last≈1149-1185——评分选择深挖 host 页、词法只取近页 ⑦gate_ta_*.json 跨 invocation 累积缺陷实证（061406 台账 L12-17：runs=4 混入 r1/r2 旧轮行）
+- **同轮治理项**：配额门修复（gates.ps1 三处：protected 目录超线改告警不阻断且读 structure.json、未超线目录不再被拖入 overdue、超线提示语中性化；T-BACKUP、Parser 0 错误、rebuild#9、GATE_LOG 补记、全门禁绿 streak 40）
+- **教训**：判定性结论必须起服实测（用户令"光做纸面推演有个屁用"）；判读必须对照预登记判据、不得事后发明；证据样本回看（off 臂 sha 变化=开关生效的独立佐证）；引用历史结论必须读全上下文再定性（L2084 注释险些被误判为与本轮矛盾）
+- **Δ 对上个基线（§198）**：P3-20 由"锁定 demote 异步路径"变为"锁定 async×内容评分选择交互；SCORE=0 词法回退即恢复 1.14x/4.3pp"
+- **本批挂账**：①伤害通道占比未拆分（甲=组成质量→接受率崩塌；乙=scoring forward 内开销/读回×async stream 竞争→每步延迟）②B 线修复方案待用户裁决 ③depth=2 与生产口径核对 ④rk8v4 生产漂移（10-31 起服 rk8v4@51200 vs 定稿 rk2v4-e8）⑤gate JSON 累积缺陷处置 ⑥RC6 转正 ⑦r3 更深档未跑

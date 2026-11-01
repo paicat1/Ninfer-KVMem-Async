@@ -4728,3 +4728,12 @@ it holds 79 -- short by 5 page(s)
 - **本批挂账**：503 线异地冗余方案待用户裁定
 
 - **追加（2026-11-01 23:54，用户令"删"）**：afc0046 / d9a3c7d 两提交已自远端历史抹除——squash 为单提交（树与 d9a3c7d 完全一致，文件面零变化）经 `--force-with-lease` 强推替换；远端不再有任何提交含该 bundle；GitHub GC 前旧 hash 理论上按址可取。暴露窗口实测 23:25-23:55（约 30 分钟），期间已被 clone/fetch 的副本不受控。本地 reflog 保留原两提交可审计。
+
+### 198. 【P3-20 三臂归因：FIXED_W 零差异（A 假设排除）；2.17x 现象在 152K 档弱化到 1.145x】(2026-11-02 00:25-01:33)
+
+- **数字**：r1（75K）off **313.6** / accepted 1819/1993=**91.3%**；on **144.4** / 1487/2058=**72.3%**；on_fixedw **144.4** / 1487/2058。r2（152K）off **312.5** / 1864/1911=**97.5%**；on **273.0** / 1827/1941=**94.1%**；on_fixedw **273.0** / 1827/1941。4 批奇偶 counterbalance，臂内 sha 逐批一致（r1 on=8/8 同 sha，r2 同理）
+- **阶段/原因**：P3-20 需判定 decode 段崩塌由 A（mtp 自适应砍宽）还是 B（demote 异步路径）造成；10-31 源码 `2336ba3` 已加 `NINFER_MTP_FIXED_W` 开关但从未实测
+- **怎么改**：`scripts\experimental\three_arm_fixedw.ps1` 三臂（DEMOTE×FIXED_W 环境变量切换、同字节 exe、奇偶批顺序 counterbalance）；r2 前打 patch v2 三处——finally 恢复改走 `deploy_engine.ps1`、日志文案改用 `$RestoreExe` 实参、SUMMARY 按 `batch, arm, round` 分组（否则 r2 两轮混入同一均值）
+- **新发现**：①FIXED_W 在 r1+r2 共 16 次臂对比中**零差异**（速度、接受率、输出 sha 全同）⇒ A 假设排除 ②现象**随上下文长度弱化**：速度比 2.17x→**1.145x**，接受率差 19.0pp→**3.4pp**，与"每步固定代价"说法不一致 ③内容差异在 r2 仍存在（len 8257 vs 8120、sha 不同）
+- **Δ 对上个基线（§197）**：P3-20 由"归因未知"变为"锁定 demote 异步路径，但幅度依赖上下文长度"
+- **本批挂账**：①E8 host 往返地图已产出（`work\data\e8_roundtrip_map.md`，含 C1-C5 候选与 4 条取证缺口）②demote 侧 `copy_to_host` 时序未取证（本次只追 restore 侧）③更深档（r3）未跑

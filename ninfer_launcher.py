@@ -53,6 +53,9 @@ ENGINE_DIR  = os.path.dirname(ENGINE)
 # 2026-10-17 恢复：本行原指向 engine\self-built-20261008\ninfer-serve.exe；该文件被误删后我先改成谱系件，
 #   但**正确修法是恢复文件**（已用同 sha 的 lineage\G2_default_depth1.exe 逐字节拷回）⇒ 指针一并改回原路径，行为不变。
 ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（已恢复）
+# 2026-10-31：16 个 DLL（libcurl/z/cublas/avcodec…）只在 self-built-20261008\；lineage\ 件零 DLL。
+# 启动器直跑 lineage\*.exe 时必须把 DLL 目录放进 PATH，否则加载器报 libcurl.dll / z.dll 缺失。
+DLL_DIR = os.path.join(ROOT, "engine", "self-built-20261008")
 # ENGINE_PREV（engine\self-built\ninfer-serve.exe）已于 2026-10-19 删除：该目录本线不存在，属死项；
 # 按用户令死项一律删除、不做置灰。
 # 2026-10-10 用户裁决后的收口：下拉只留【自编·现役】一项。原三项的两个问题：
@@ -80,56 +83,33 @@ ENGINE_REGISTRY_PATH = os.path.join(ROOT, "engine_registry.json")
 
 def _registry_seed():
     # 2026-10-19 整理（用户令"整理启动器：引擎下拉/异步深度/场景与引擎关系"）：
-    #  ① 现役三件置顶（S13 生产 / sym3 判决件 / offi 官方链+符号判决件），label 短化（下拉一眼可读），
+    #  ① 现役三件置顶（sym3 生产=对外 RC1 / offi 判决件 / S13 历史受控件），label 短化（下拉一眼可读），
     #     tags ≤4 个关键性质；note 精确但不再轰炸；
     #  ② 4 条 I3b 中间调试件 + H1 回滚锚 status→"已归档"（历史价值保留，退出常用视野）；
     #  ③ label/时间/大小等冗长实况不再拼进下拉（见 engine_display），选中件实况在状态行展示。
     _VARIANTS = os.path.join(ROOT, "engine", "variants")
     return [
-        {"label": "S13 · 生产（仅 Gen4/零外压；Gen5+外压卡死缺陷）", "path": ENGINE_SELF,
-         "tags": ["生产", "官方链", "Gen5+外压卡死缺陷", "仅Gen4/零外压"],
-         "note": "现役生产件：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。"
-                 "出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。"
-                 "Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。",
-         "status": "现役", "added": "2026-10-15", "replaced_by": "", "preset": ""},
-        {"label": "offi · 官方链 14.44 + 符号（20261019）",
-         "path": os.path.join(_VARIANTS, "ninfer-serve-sym-official.exe"),
+        {"label": "★★sym3 · 生产件（对外 RC1 · 新构建链 + 符号 · 20261018）",
+         "path": os.path.join(ROOT, "engine", "lineage", "ninfer-serve-RC2.exe"),
+         "tags": ["生产", "新链", "符号", "384×sm_120a"],
+         "note": "生产件（对外名 RC1）：2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。"
+                 "Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。与 S13 行为等价（三档 sha 逐字同、速度差 ≤0.6%），带符号件 = 对外分发正身。",
+         "status": "生产", "added": "2026-10-18", "replaced_by": "", "preset": ""},
+        {"label": "★offi · 官方链 14.44 + 符号（判决件 · 20261019）",
+         "path": os.path.join(ROOT, "engine", "lineage", "ninfer-serve-RC3.exe"),
          "tags": ["判决件", "官方链", "符号", "384×sm_120a"],
          "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + env /Zi + LINK=/DEBUG（独立目录 build-d1208a）。"
                  "sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——"
                  "与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
-         "status": "现役", "added": "2026-10-19", "replaced_by": "", "preset": ""},
-        {"label": "sym3 · 新构建链 + 符号（20261018）",
-         "path": os.path.join(_VARIANTS, "ninfer-serve-sym.exe"),
-         "tags": ["判决件", "新链", "符号", "384×sm_120a"],
-         "note": "2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。"
-                 "Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。带符号件的另一独立角。",
-         "status": "现役", "added": "2026-10-18", "replaced_by": "", "preset": ""},
-        {"label": "H1_54fix（历史件 · 回滚锚）",
-         "path": os.path.join(ROOT, "engine", "lineage", "H1_54fix_20261013.exe"),
-         "tags": ["首轮极速好", "谷深", "超池500风险(~11%)"],
-         "note": "首轮峰 463.9；R2/R3 深谷 0.2-7.2；超池升级 500 约 11%（已由 v2 修复）。仅回滚锚，日常不用。",
-         "status": "已归档", "added": "2026-10-13", "replaced_by": "", "preset": ""},
-        {"label": "I3b_step1_step_profile（档案）",
-         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step1_20261013.exe"),
-         "tags": ["步级仪表", "档案"],
-         "note": "I3b P2/P3 平台件（2026-10-13 夜）：decode 轮 wall 四分解（submit/wait/post/rest）。开：NINFER_STEP_PROFILE=1。",
-         "status": "已归档", "added": "2026-10-13", "replaced_by": "I3b_step2_step_profile_s2", "preset": ""},
-        {"label": "I3b_step2_step_profile_s2（档案）",
-         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step2_20261013.exe"),
-         "tags": ["S2五分", "档案"],
-         "note": "I3b S2 平台件（2026-10-13 深夜）：提交段五分 rows/pre/launch/sync/harvest；稳态 wall≈launch（27-32ms/轮）。",
-         "status": "已归档", "added": "2026-10-13", "replaced_by": "I3b_step3b_s3b_ingraph", "preset": ""},
-        {"label": "I3b_step3b_s3b_ingraph（档案）",
-         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step3b_20261014.exe"),
-         "tags": ["图内事件", "档案"],
-         "note": "I3b S3b 修复版（2026-10-14 凌晨）：MTP 图内事件四区间 + capture 节点计数（1107）。ingraph 区间暂未出数（待修）。",
-         "status": "已归档", "added": "2026-10-14", "replaced_by": "", "preset": ""},
-        {"label": "I3b_step4_debug_diag（档案）",
-         "path": os.path.join(ROOT, "engine", "lineage", "I3b_step4_debug_20261014.exe"),
-         "tags": ["诊断件", "档案"],
-         "note": "I3b S4 调试件（2026-10-14 05:2x）：谷态实测（05:26 单轮 142.9s）即用它。仅调试用。",
-         "status": "已归档", "added": "2026-10-14", "replaced_by": "", "preset": ""},
+         "status": "判决件", "added": "2026-10-19", "replaced_by": "", "preset": ""},
+        {"label": "S13 · 历史受控件（原标生产件；Gen5+外压卡死缺陷）", "path": ENGINE_SELF,
+         "tags": ["历史受控件", "官方链", "Gen5+外压卡死缺陷", "仅Gen4/零外压"],
+         "note": "历史受控件（原标「生产件」，2026-10-28 起废止）：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。"
+                 "出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。"
+                 "Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。**生产件 = sym3（对外 RC1）**，S13 仅 Gen4/零外压可继续用。",
+         "status": "封存", "added": "2026-10-15", "replaced_by": "", "preset": ""},
+        # 2026-10-31 用户令：启动器只留可用三件（S13 / offi / sym3）；H1 + I3b×4 归档件已从下拉移除
+        # （文件仍留在 engine\lineage\，需要时可按路径直指，但不占下拉、避免"选了却忘了它是归档件"）。
     ]
 
 
@@ -201,38 +181,32 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-
 #   orig     : 原件（MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码，做纯基线）
 #   注：这里的 argv 列表留空 —— 模型是引擎的**位置参数**（第一个），不走 --flag。
 # ---------------------------------------------------------------
-# ── 品牌三选一（2026-10-14 用户令）：Q2LYNN / SWIFT 1.5 / BONSAI ──
-#   Q2LYNN = 现役（与 iq4nlvis 同文件 · Coder390 Q2Lynn 3.89bpw + 视觉塔）
-#   SWIFT  = swift15_iq3s_mtp.ninfer（GSQ-RCO IQ3_S · 11.3 GiB 上卡 · 含视觉塔+MTP）
-#            实测：载入 ~9s、方言 gguf_blocks_v1 可载；65,536@rk8v4 free 727.9 MiB、
-#            65,536@nvfp4 free 1.09 GiB、57,344@int8 free 482.6 MiB（起服须 -Graph 192，64 会告警）
-#   BONSAI = 前序线（Ternary-Bonsai-2-27B-ninfer-v3.ninfer）· 件未下载，仅登记待测试
+# ── 模型档（2026-10-31 更正：显示名用模型技术名，不把量化名当自造品牌）──
+#   q2lynn   = Coder390 · Q2LynnStyle 3.89bpw + 视觉塔（现役定稿，与 iq4nlvis 同文件）
+#   iq4nl    = Coder390 · iq4_nl 头 · 无视觉（vision off 对照）
+#   swift    = swift15_iq3s_mtp.ninfer（GSQ-RCO IQ3_S · 11.3 GiB 上卡 · 含视觉塔+MTP）
+#              实测：载入 ~9s、方言 gguf_blocks_v1 可载；65,536@rk8v4 free 727.9 MiB、
+#              65,536@nvfp4 free 1.09 GiB、57,344@int8 free 482.6 MiB（起服须 -Graph 192，64 会告警）
+#   iq4nlvis = Coder390 · iq4_nl + 视觉塔（嫁接件）
 MODEL_OPTIONS = {
-    "q2lynn":   ("★Q2LYNN（现役 · Q2Lynn 3.89bpw + 视觉）", []),
-    "swift":    ("SWIFT 1.5（IQ3_S GSQ-RCO · 11.3 GiB 上卡 · 含视觉）", []),
-    "bonsai":   ("BONSAI（前序线 · 件未下载 · 待测试）", []),
-    "iq4nl":    ("iq4_nl 头 · 无视觉档（= vision 件 + --vision off）", []),
-    "iq4nlvis": ("★iq4_nl + 视觉塔（嫁接件 · 含 vision 组件）", []),
-    "q8mtp":    ("Q8MTP（真 8-bit 头 430.4 MiB · 池上限 50,000 · 三项全负仅作对照）", []),
-    # q8mtp 于 2026-10-11 曾移除；2026-10-30 用户重新下载并实测（构建史 §184）：
-    #   decode 每格更慢、接受率无增益、池上限 50,000 < iq4_nl 的 58,368 ⇒ 仅作对照档，不作定稿。
-    # "orig" 已于 2026-10-30 删除：原件 MTP 头是引擎不支持的 gguf_q4_0，文件已从 models\ 移除。
+    "q2lynn":   ("★★Coder390 · 主Q2LynnStyle-3.89bpw · MTP-iq4_nl · 视觉bf16+gq · 12.3GiB", []),
+    "iq4nl":    ("Coder390 · 主Q2LynnStyle-3.89bpw · MTP-iq4_nl · 视觉关 · 12.3GiB", []),
+    "swift":    ("Swift1.5 · 主IQ3_S-GSQ-RCO · MTP-iq3_s系混合 · 视觉bf16+gq · 11.3GiB", []),
+    # 2026-10-31：iq4nlvis 已删——与 q2lynn/iq4nl 同文件，DEFAULTS vision=off 让它实际"关视觉"，
+    # 名字叫视觉塔却名不副实、且与 iq4nl 完全重复。视觉=q2lynn 已覆盖，无视觉=iq4nl 已覆盖。
+    # 2026-10-31 用户令：BONSAI（件未下载）与 q8mtp（三项全负、池上限 50,000）已从下拉移除；
+    # "orig" 已于 2026-10-30 删除（MTP 头是不支持的 gguf_q4_0）。下拉只留四个可起、有意义的档。
 }
 MODEL_PATHS = {
     "iq4nl": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
-    "iq4nlvis": os.path.join(
-        ROOT, "models",
-        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
+
     "q2lynn": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
     "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer"),
-    "bonsai": os.path.join(ROOT, "models", "Ternary-Bonsai-2-27B-ninfer-v3.ninfer"),
-    "q8mtp": os.path.join(
-        ROOT, "models",
-        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-Q8MTP.ninfer"),
+
 }
 # --model-id 按档映射（2026-10-19 用户撞见 BUG：选 SWIFT1.5 但 model-id 仍是 coder390——
 #   原 L765 硬编码 qwen3.8-27b-coder390，模型文件选对但标识没跟档走，误导性极强）：
@@ -243,13 +217,12 @@ MODEL_IDS = {
     "swift":    "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
     "q2lynn":   "qwen3.8-27b-coder390",
     "iq4nl":    "qwen3.8-27b-coder390",
-    "iq4nlvis": "qwen3.8-27b-coder390",
-    "orig":     "qwen3.8-27b-coder390",
-    "bonsai":   "ternary-bonsai-2-27b-ninfer-v3",
+
+
 }
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
-VISION_CAPABLE_MODELS = frozenset(("iq4nlvis", "q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）
+VISION_CAPABLE_MODELS = frozenset(("q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）；iq4nlvis 已删（与 iq4nl 重复）
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
@@ -340,10 +313,14 @@ ASYNC_DEPTH_OPTIONS = {
 SPEC_OPTIONS = {"k0": ("无（裸档 · 慢 · A/B 对照用）", [])}
 SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}" + ("（★本线定稿）" if i == 3 else ""),
                                ["--spec", "mtp", "--draft-tokens", str(i)])
-                     for i in range(1, 6)})
-SPEC_OPTIONS.update({f"d{i}": (f"DFlash2 K={i}（本线不可行·包内无该组件）",
-                               ["--spec", "dflash2", "--draft-tokens", str(i), "--lm-head-draft"])
-                     for i in range(1, 16)})
+                     for i in range(1, 16)})   # 2026-10-31 用户令：K 档由 1..5 扩到 1..15（引擎上限 15）
+# 2026-10-31：DFlash2（d1..d15）已删——包内无该组件，选了必起不来；不放在启动器里装样子。
+# 投机自适应（2026-10-31 用户令接入）：引擎 --adaptive-mtp，每轮在 3..--draft-tokens 间
+# 按 drafts 实测存活率 + 轮成本自动选宽度；仅 --spec mtp 有效（k0/dflash2 加会被引擎拒启）。
+ADAPTIVE_MTP_OPTIONS = {
+    "off": ("关 · 固定 K（--draft-tokens K 恒定）", []),
+    "on":  ("开 · 投机自适应（--adaptive-mtp，每轮 3..K 自适应）", ["--adaptive-mtp"]),
+}
 KV_OPTIONS = {
     "k8v4":     ("k8v4（官方默认）", ["--kv-dtype", "k8v4"]),
     "rk8v4":    ("rk8v4",           ["--kv-dtype", "rk8v4"]),
@@ -357,7 +334,7 @@ KV_OPTIONS = {
 }
 # GDN 循环状态存储精度（2026-10-20 挂账 #37/#47 过门实验后接入启动器）：
 #   引擎 CLI 旗标 --gdn-state-fp16：recurrent state 以 FP16 存储（recurrence 仍 FP32 计算，
-#   仅轮间存储取整）。三现役引擎（S13/sym3/offi）二进制均实证支持该旗标。
+#   仅轮间存储取整）。三件（sym3 生产 / offi 判决 / S13 历史受控件）二进制均实证支持该旗标。
 #   实验结论（构建史 §145）：host state pinned 1.15 GiB→598.6 MiB（减半确证）；
 #   agent 红线提示（代码/JSON/逐字复述/shell）5/5 逐字全过、reasoning 8/8 全等；
 #   开放式解释 prompt 6/8 条件档（p6/p7 各一处同义 paraphrase）。
@@ -472,7 +449,7 @@ GRAPH_OPTIONS = {
 }
 HEMOSTAT_OPTIONS = {
     "on":     ("开（★定稿 20261010 · 仅防崩，去 growth）", ["--recover-invariant-failures"]),
-    "legacy": ("旧E5止血(含growth·已判死:超池撞墙)",      ["--kv-lease-growth", "--recover-invariant-failures"]),
+    # 2026-10-31：legacy（含 growth）已删——深超池把输出砍在 ~4,096 租约窗口，已判死。
     "off":    ("关（官方 bat 原样）",                       []),
 }
 # 思考预算档：--default-thinking-budget N —— 治“思考墙死循环”（xhigh 思考烧光输出预算 → 空正文）。
@@ -508,6 +485,10 @@ REQLOG_OPTIONS = {
 DIMENSIONS = [
     ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（iq4nlvis 含视觉组件，2026-10-11 实测）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
+    ("adaptivemtp", "投机自适应", ADAPTIVE_MTP_OPTIONS),   # 2026-10-31：--adaptive-mtp（仅 spec=mtp 生效）
+    # 2026-10-31 更正：async 不在 DIMENSIONS 是**刻意**的——它在顶部星窗独立框
+    # （d9c69a6「旗舰开关置顶」，row(star,"async")）。今天误判"从未注册"并重复加进 DIMENSIONS，现撤回。
+    # async 一直可用：DIM_LABEL/DIM_TABLE/valid_keys 均含它。
     ("asyncdepth", "异步深度(批)", ASYNC_DEPTH_OPTIONS),   # 2026-10-19 用户令：A/B 之外可选在飞批数（默认 2）
     ("kv",     "KV 类型",         KV_OPTIONS),
     ("fp16state", "GDN 状态精度",  FP16STATE_OPTIONS),   # 2026-10-20：FP32/FP16 recurrent state（#37/#47 过门实验）
@@ -551,11 +532,12 @@ DEFAULTS = {
     #                      ⚠️ **思考不额外占显存**（只是多生成 token），关思考既不省显存也没好处。
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
-    "model": "iq4nl",
+    "model": "q2lynn",   # 2026-10-31：默认档改为现役定稿 Q2LYNN（原 iq4nl 保留为无视觉对照档）
     "spec": "k3", "kv": "rk8v4",    "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
+    "adaptivemtp": "off",  # 2026-10-31：投机自适应默认关（定稿 k3 固定不变；opt-in 开启，仅 spec=mtp 生效）
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
 }
 
@@ -567,10 +549,12 @@ LEGACY_VALUE_MAP = {
 }
 
 DIM_TIPS = {
+    "adaptivemtp": "投机自适应（--adaptive-mtp）：每轮在 3..--draft-tokens 间按 drafts 实测存活率 + 轮成本自动选宽度（贪心输出不变）。**仅 --spec mtp（k1..k15）有效**，k0/DFlash2 不适用。2026-10-31 接入，实测数据待补。",
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
-    "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **默认 FP32（关）；fp16 按需 opt-in 开启**（用户 2026-10-20 后令：默认应 FP32，开关保留）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三现役引擎（S13/sym3/offi）均实证支持该旗标。",
-    "spec":   "投机解码（只加速解码）。k0=无；k1..k5=MTP；d1..d15=DFlash2（K 越大猜得越多，d12=官方首起档）。改档需重启 serve。**★定稿 k3（2026-10-21 A 组实测）**：K=3 decode 282.4 tok/s、接受率 93.7%，比 K=4（199.9/73.5%）**快 +41%**；曲线非单调 3>2>5>1>4（**K=4 反而全档最慢**，反常原因见挂账 #52）。逐字门 **5/8 条件档**（2 处散文同义改写 + 1 处代码风格差异，语义等价；reasoning 8/8 全等）⇒ **改档会改输出**，以旧档为基准的逐字/golden 基线需重标。",
+    "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **默认 FP32（关）；fp16 按需 opt-in 开启**（用户 2026-10-20 后令：默认应 FP32，开关保留）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三件（sym3 生产 / offi 判决 / S13 历史受控件）均实证支持该旗标。",
+    "spec":   "投机解码（只加速解码）。k0=无；k1..k15=MTP（K 越大猜得越多；引擎上限 15）。改档需重启 serve。**★定稿 k3（2026-10-21 A 组实测）**：K=3 decode 282.4 tok/s、接受率 93.7%，比 K=4（199.9/73.5%）**快 +41%**；曲线非单调 3>2>5>1>4（**K=4 反而全档最慢**，反常原因见挂账 #52）。逐字门 **5/8 条件档**（2 处散文同义改写 + 1 处代码风格差异，语义等价；reasoning 8/8 全等）⇒ **改档会改输出**，以旧档为基准的逐字/golden 基线需重标。",
+    "model":  "模型档（第一选择；换档自动带整套 KV/池/Graph/视觉参数）。★★Coder390 Q2LynnStyle 3.89bpw + 视觉=默认·现役定稿（51200 池、最快）；Coder390 iq4_nl=无视觉对照档（vision off）；Swift 1.5 IQ3_S=11.3 GiB 高精度档（64K 池 + graph 192）；Coder390 iq4_nl+视觉塔=嫁接件。",
     "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
@@ -760,9 +744,12 @@ def _gpu_used_mib(max_age=5.0):
         pass
     running = False
     try:
-        r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ninfer-serve*", "/NH"],
-                           capture_output=True, text=True, timeout=10)
-        running = "ninfer-serve" in r.stdout
+        # 2026-10-31 修：tasklist 的 IMAGENAME 不支持通配符，且当前件名是 infer-serve-RC2.exe
+        #（不是 ninfer-serve.exe）⇒ 原检测永远 False，引擎在跑也当"未起"，余量报乐观值。
+        # 改用 nvidia-smi 计算应用列表，匹配 infer-serve（含 RC2/RC3 等）。
+        r = subprocess.run(["nvidia-smi", "--query-compute-apps=process_name",
+                            "--format=csv,noheader"], capture_output=True, text=True, timeout=10)
+        running = "infer-serve" in (r.stdout or "").lower()
     except Exception:
         pass
     _VRAM_GPU_CACHE.update({"t": now, "val": (used, total, running)})
@@ -874,7 +861,11 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
     argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）
-    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k3"),       "k3")     # P1b: 回退对齐 DEFAULTS（原 "k0"；要裸解码请显式选 k0）；2026-10-21 定稿 k4→k3
+    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k3"),       "k3")     # P1b: 回退对齐 DEFAULTS（k3 定稿；K 可选 1..15）
+    # 2026-10-31：投机自适应只对 --spec mtp（k1..k15）生效；k0/dflash2 加 --adaptive-mtp 会被引擎拒启
+    _spec_key = str(combo.get("spec", "k3"))
+    if combo.get("adaptivemtp", "off") == "on" and _spec_key.startswith("k") and _spec_key != "k0":
+        argv += _argv_of(ADAPTIVE_MTP_OPTIONS, "on", "off")
     argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "off"),    "off")    # P0: 回退与 DEFAULTS 对齐（原为 "on"，Coder390 无 vision 组件会启动失败）
     argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
     argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
@@ -923,7 +914,7 @@ def env_for_launch(exe=None, profile=None, combo=None):
     #   cublas —— 实测本机系统 PATH 首个命中 = J:\Bonsai\landing\cuda-13.3\bin\x64
     #   （**前序已封存线的目录**），版本 6.14.11.1360 ≠ 打包版 6.14.11.1351
     #   -> 结果不确定、且隐式依赖外部线。加入 ENGINE_DIR 后固定用打包版（确定性 + 自包含）。
-    _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE_SELF), ENGINE_DIR], set(), []
+    _parts, _seen, _uniq = [os.path.dirname(exe or ENGINE_SELF), ENGINE_DIR, DLL_DIR], set(), []
     for _p in _parts:
         if _p and _p not in _seen:
             _seen.add(_p)
@@ -1103,6 +1094,19 @@ class LauncherApp:
         self.var_spec_k = tk.StringVar(value=_sk)
         self._build_widgets()
         self._refresh()
+        self._lock_combobox_wheel(self.root)   # 2026-10-31 用户令：滚轮不再改下拉选中值（防误选）
+
+    def _lock_combobox_wheel(self, widget):
+        """递归给所有 Combobox 绑滚轮拦截：滚轮不改选中项（2026-10-31 用户令，滚轮常误选）。"""
+        try:
+            for child in widget.winfo_children():
+                self._lock_combobox_wheel(child)
+        except Exception:
+            pass
+        if isinstance(widget, ttk.Combobox):
+            widget.bind("<MouseWheel>", lambda e: "break")
+            widget.bind("<Button-4>", lambda e: "break")
+            widget.bind("<Button-5>", lambda e: "break")
 
     def _build_widgets(self):
         main = tk.Frame(self.root, bg=self.bg)
@@ -1135,7 +1139,7 @@ class LauncherApp:
                                       font=("Microsoft YaHei UI", 9))
         self.engine_cb.pack(side="left", padx=(4, 0), fill="x", expand=True)
         self.engine_cb.bind("<<ComboboxSelected>>", self._on_engine_select)
-        ToolTip(self.engine_cb, "引擎二进制（登记册驱动）。带 preset 的条目：选中即自动套用（参数 + env 一键复现）。")
+        ToolTip(self.engine_cb, "引擎下拉（谁在跑）：★★sym3=生产件（对外 RC1）｜★offi=判决件（官方链+符号）｜S13=历史受控件（Gen5+外压卡死缺陷，仅 Gen4/零外压）。换引擎=换二进制；参数与模型档独立。")
 
         # ---- 主体：左参数 / 右预览 ----
         body = tk.Frame(main, bg=self.bg)
@@ -1192,13 +1196,12 @@ class LauncherApp:
                 ToolTip(cb, DIM_TIPS[key])
             return cb
 
-        # ★ 全窗最醒目：异步页流水（本线拳头产品）A/B 开关 + 在飞深度
-        star = ttk.LabelFrame(inner, text="★ 异步页流水（本线拳头产品 · A/B 开关 + 在飞深度）")
+        # 异步页流水（A/B 开关 + 在飞深度）
+        star = ttk.LabelFrame(inner, text="★ 异步页流水（A/B 开关 + 在飞深度）")
         star.pack(fill="x", pady=(0, 10), padx=2)
         row(star, "async")
         row(star, "asyncdepth")
-        tk.Label(star, text="开=异步（搬运与计算重叠，默认）；关=同步批回退（OFF 对照臂）。"
-                            "深度=同时 in-flight 的 demote 批数（关时无效）。"
+        tk.Label(star, text="开=异步（搬运与计算重叠，默认）；关=同步批回退（OFF 对照臂）。深度=同时 in-flight 的 demote 批数（关时无效）。"
                             "实测：单发超池 r=1.13（打平）、深轮重载 r=0.801（净收益成立，最深段≈2×）；"
                             "浅载三档 2批 187.1 > 同步 183.6 > 1批 182.6；深载分档（3/4 批）未实测，保守默认 2。"
                             "改档需重启 serve；A/B 只切这两项。",
@@ -1366,7 +1369,7 @@ class LauncherApp:
             self.combo_spec_k.set("")
             self.combo_spec_k.config(state="disabled")
         elif t == "MTP":
-            self.combo_spec_k["values"] = [str(i) for i in range(1, 6)]
+            self.combo_spec_k["values"] = [str(i) for i in range(1, 16)]   # 2026-10-31 用户令：MTP K 上限由 5 开到 15
             self.combo_spec_k.config(state="readonly")
         else:  # DFlash2
             self.combo_spec_k["values"] = [str(i) for i in range(1, 16)]
@@ -1387,7 +1390,7 @@ class LauncherApp:
         if typ == "无":
             return "k0"
         if typ == "MTP":
-            return f"k{k}" if k.isdigit() and 1 <= int(k) <= 5 else "k4"
+            return f"k{k}" if k.isdigit() and 1 <= int(k) <= 15 else "k3"    # 2026-10-31：K 范围 1..15，越界回退定稿 k3
         if typ == "DFlash2":
             return f"d{k}" if k.isdigit() and 1 <= int(k) <= 15 else "d12"
         return "k0"

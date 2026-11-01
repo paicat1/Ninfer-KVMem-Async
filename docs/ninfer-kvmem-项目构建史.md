@@ -4691,3 +4691,12 @@ it holds 79 -- short by 5 page(s)
 - **本轮处置（用门自带的放行通道，非旁路）**：置 `NINFER_ALLOW_ASSET_SINGLE=1` 放行本次提交，理由三条 —— ① 引擎树改动**已双重归档**（子仓本地 commit `0f5210b` + `_safety_backups/context_pg3_20261031.patch` + 备份 `context_20261031_pre_pg3.cpp`）② 插桩件**已入 lineage**（RC7，sha `442DF906…`，`MANIFEST.md` 已记行）③ 本轮提交内容是**文档 + 台账**，与引擎树资产双份无因果关系。**发布动作（把 line-coder390 快照刷进 `engine-main` 并 push，体量 100 MB+）属独立资产发布决策，不在"提交记录"的因果链里**，故不夹带 ⇒ 单列为 **P3-21**，何时发布由用户定。
 - **Δ 对上个基线**：§192 只交付数据与结论；本轮把**结论的入库链路本身**走通并留痕（三道门的真实语义、子仓归档 commit 号、放行理由），使下一次改引擎树时不必重新踩坑。
 - **本批挂账**：新增 **P3-21 = 引擎树资产双份发布**（local tree `6e70e52a` vs pub `39545879`，门在下次改引擎树时会再次拦）；P3-18 保持 ✅（§192）、P3-20 保持 🔴（decode 段插桩，下一步）、P3-19 保持 🟢（既存噪音）。
+### 194. 【P3-21 落地：引擎树快照发布到 origin/engine-main（asset-dual 首次转绿）；顺带订正 PG3 台账 source 错记】
+
+- **数字**：发布提交 `62ec267`；引擎树增量 **2 文件 +56/−1**（`decode.cpp` +35 / `storage/context.cpp` +22）；`src-tree/fusion-engine-src` 子树 = `fee8bd02`（= engine-src `2336ba3`），与 `origin/engine-main` 一致；全史 bundle 13,900,684 B / **110 commits** / 5 refs（2 分支 + 3 tag）
+- **阶段/原因**：现役 PG3（`90FB3869`）编自**含 FIXED_W** 的树，而 GitHub 上 `engine-main` 停在 `7e14453`（该树内无 `NINFER_MTP_FIXED_W`）⇒ 他人 clone 构建 ≠ 现役件，复现链断
+- **怎么改**：对象级携入——`git fetch` 本地 engine-src → `update-index -z --index-info` 删 2466 条子树条目 → `read-tree --prefix` 绑 `2336ba3` 子树 → `commit-tree` → `update-ref`；**不建 worktree、不 robocopy、不碰工作区**
+- **门链**：`commit-msg` 钩子手工补跑 exit 0（tier-gate 留痕）；`gates.ps1` 除 asset-dual 外全绿；`smart_push.ps1 origin engine-main` 推送成功 `15d72f9..62ec267`，推后 asset-dual 转绿
+- **新发现**：①`update-index --force-remove --stdin` 在临时索引下**静默不删**（仅打印 Ignoring path），首次因此生成空树提交 `a1130ad`（无引用、已弃用）②PG3 台账 `source 7e14453` 错记，实为 `2336ba3`（证据：二进制字面量命中 1 次 + PE 编译戳 10-31 13:05:53 晚于提交 13:05:41）
+- **Δ 对上个基线（§193）**：P3-21 由"独立发布决策待定"变为 ✅ 已发布；asset-dual 门**自建立以来首次转绿**
+- **本批挂账**：①engine-src 历史仅本地（bundle 已补，但 bundle 是否入库待裁决）②`PROVENANCE.md` 的 bundle 路径仍写 `_safety_backups/`（实存 `repro\` 与 `safety_backups\`），订正在子仓、暂押后 ③单仓化独立方案未出

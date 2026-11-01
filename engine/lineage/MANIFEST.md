@@ -97,7 +97,7 @@
 |---|---|---|---|---|
 | RC6 | `ninfer-serve-RC6.exe` | 1272.2 | `35D9E6B1915837597207EDBD71AD17A3E83C7004F4C6A71668B904900A428838` | 主线 s6-1208a-release，source engine-src 7e14453（p23 未包含）；四环验证：arch 384/384 sm_120a、listen@57344、推理 838ms、ninja -n 7；现役件封存副本 |
 | RC7 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` | P-g3 插桩（`ensure_ring_room` 分段计时 retire/demote/settle/total），source 7e14453；2026-10-31 10:27 封存，§191/§192 夜班实验件 |
-| PG3-20261031 | `ninfer-serve-PG3-20261031.exe` | 1272.2 | `90FB3869D43127566171E08064EF72126B16BD5C8D2087E554FB936BD2FA287C` | P3-20 step-gap 插桩（`mtp step` 打点 + `ensure_ring_room` 分段），source 7e14453；2026-11-01 补档（与 RC7 442DF906 为不同字节） |
+| PG3-20261031 | `ninfer-serve-PG3-20261031.exe` | 1272.2 | `90FB3869D43127566171E08064EF72126B16BD5C8D2087E554FB936BD2FA287C` | P3-20 step-gap 插桩（`mtp step` 打点 + `ensure_ring_room` 分段），source 2336ba3（2026-11-01 订正：原登记 7e14453；依据=PG3 二进制命中 NINFER_MTP_FIXED_W 字面量 + PE 编译戳 10-31 13:05:53 晚于 2336ba3 提交 13:05:41）；2026-11-01 补档（与 RC7 442DF906 为不同字节） |
 
 ## 附录 A：全量 sha 底账（2026-10-31 实测）
 

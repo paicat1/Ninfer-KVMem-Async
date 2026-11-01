@@ -166,9 +166,23 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
                          const runtime::ExecutionTiming& timing, const char* kind,
                          std::size_t kind_index) {
     if (!step_profile_enabled()) { return; }
+    static std::uint64_t g_total_calls = 0;
+    static double g_total_wall = 0.0, g_total_gap = 0.0;
     const auto finished = std::chrono::steady_clock::now();
     const double wall =
         std::chrono::duration<double, std::milli>(finished - started).count();
+    {
+        static std::chrono::steady_clock::time_point g_last{};
+        static bool g_has = false;
+        const double gap = g_has
+            ? std::chrono::duration<double, std::milli>(started - g_last).count()
+            : 0.0;
+        g_total_gap += gap;
+        g_total_wall += wall;
+        ++g_total_calls;
+        g_last = finished;
+        g_has = true;
+    }
     const double submit = static_cast<double>(timing.submit_host_ns) / 1e6;
     const double wait   = static_cast<double>(timing.device_wait_ns) / 1e6;
     const double post   = static_cast<double>(timing.post_host_ns) / 1e6;
@@ -260,6 +274,9 @@ void step_profile_record(std::chrono::steady_clock::time_point started,
                      window.sum_rest / n, window.max_wall, window.max_submit, window.max_wait,
                      window.max_post, window.max_rest);
     }
+    std::fprintf(stderr,
+                 "[ninfer] step profile total: kind=%s steps=%llu sum_wall_ms=%.1f sum_gap_ms=%.1f\n",
+                 kind, static_cast<unsigned long long>(g_total_calls), g_total_wall, g_total_gap);
     if (window.ingraph_rounds > 0) {
         const double in = static_cast<double>(window.ingraph_rounds);
         std::fprintf(stderr,
@@ -794,8 +811,12 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
     const bool copy_round =
         std::any_of(matches.begin(), matches.end(),
                     [](const NgramProposer::Match& match) { return !match.tokens.empty(); });
+    static const bool mtp_fixed_w = [] {
+        const char* e = std::getenv("NINFER_MTP_FIXED_W");
+        return e != nullptr && e[0] == '1';
+    }();
     std::uint32_t verify_window = copy_round ? ngram_draft_window : draft_window;
-    if (mtp_controller && !copy_round) {
+    if (mtp_controller && !copy_round && !mtp_fixed_w) {
         verify_window =
             std::clamp(mtp_controller->select(
                            std::span<const MtpAdaptiveSignal* const>(signals.data(), lanes.size()),
@@ -957,6 +978,18 @@ ProgramImpl::decode_mtp_batch(std::span<const std::uint32_t> lanes,
             };
             request.lifecycle = Lifecycle::Pending;
             request.timings.decode_seconds += seconds;
+        }
+        if (step_profile_enabled()) {
+            std::uint32_t adv_sum = 0, drafted_sum = 0, accepted_sum = 0;
+            for (std::size_t r = 0; r < lanes.size(); ++r) {
+                adv_sum     += static_cast<std::uint32_t>(mtp_host_egress->licensed_counts[r]);
+                drafted_sum += static_cast<std::uint32_t>(mtp_host_ingress->current_extents[r]);
+                accepted_sum += static_cast<std::uint32_t>(mtp_host_egress->accepted_drafts[r]);
+            }
+            std::fprintf(stderr,
+                         "[ninfer] mtp step: vw=%u advanced=%u drafted=%u accepted=%u copy=%d lanes=%zu\n",
+                         verify_window, adv_sum, drafted_sum, accepted_sum,
+                         static_cast<int>(copy_round), lanes.size());
         }
         if (mtp_controller && !copy_round) {
             mtp_controller->observe_execution(static_cast<std::uint32_t>(lanes.size()),

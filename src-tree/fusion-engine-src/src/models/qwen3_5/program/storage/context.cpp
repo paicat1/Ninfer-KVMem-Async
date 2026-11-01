@@ -2713,6 +2713,21 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
                                    const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
                                    std::span<const std::uint32_t> preferred,
                                    PendingDemoteRing* async_ring) {
+    // P-g3 (2026-10-31, LOCAL): ensure_ring_room stage timers -- put a number on the per-step
+    // wait that the C-ctrl ON collapse (142 tok/s vs 309 tok/s OFF) lives in. Only active when
+    // the demote profile switch is on (engine_ctl sets NINFER_DEMOTE_PROFILE=1).
+    const bool kEnsureProfile = demote_profile_enabled();
+    const double t_ens0 = kEnsureProfile ? demote_profile_now_ms() : 0.0;
+    double t_retire_ms = 0.0;
+    double t_demote_ms = 0.0;
+    double t_settle_ms = 0.0;
+    auto ensure_profile_emit = [&](std::uint32_t live_cnt, std::uint32_t need_cnt, std::uint32_t free_cnt) {
+        if (!kEnsureProfile) { return; }
+        std::fprintf(stderr,
+                     "[ninfer] ensure profile: retire=%.2fms demote=%.2fms settle=%.2fms total=%.2fms live=%u need=%u free=%u\n",
+                     t_retire_ms, t_demote_ms, t_settle_ms,
+                     demote_profile_now_ms() - t_ens0, live_cnt, need_cnt, free_cnt);
+    };
     // LOCAL FIX (挂账42 第三步 v2 / 挂账46 v2.1): retire pending batches FIRST -- before the
     // free-page verdict below, so their pages count as freed. Depth 1 keeps the v2 blocking wait
     // (the copy flew during the decode step between calls; the wait is expected ~0). Depth >= 2
@@ -2744,10 +2759,12 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
             }
         }
     }
+    if (kEnsureProfile) { t_retire_ms = demote_profile_now_ms() - t_ens0; }
     // No-op unless the ring is active: with a pool that covers the logical context every page is
     // resident anyway, and a demotion pass would be pure overhead on the hot path.
     if (proto_kv_window_pages() == 0 ||
         pages.physical_pool().usable_pages() >= addresses.logical_page_capacity()) {
+        ensure_profile_emit(0, 0, 0);
         return;
     }
     // Keep a few pages of slack so the pool never runs at exactly 100%: the restore path always
@@ -2784,6 +2801,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     if (target_free == 0) {
         (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred,
                                       async_ring);
+        ensure_profile_emit(async_ring != nullptr ? static_cast<std::uint32_t>(async_ring->live) : 0U, need, free_now);
         return;
     }
     // Cold pages first: inactive addresses are pure cache, so drain them before touching this
@@ -2798,6 +2816,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t freed_own =
         demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred,
                                 async_ring);
+    if (kEnsureProfile) { t_demote_ms = demote_profile_now_ms() - t_ens0 - t_retire_ms; }
     // LOCAL FIX (B01 ring early verdict): both demotions used to have their return value dropped, so
     // a ring that could free nothing carried on into `ensure_mapped_to_tokens` and failed later --
     // as the paged-KV reservation invariant, as an engine death, or (measured 2026-10-04, community
@@ -2811,6 +2830,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     // in flight, settle them (blocking) and re-read before failing -- so a request is never failed
     // that a completed retire would have satisfied, and a failed retire still fails the request.
     if (free_final < need && async_ring != nullptr && async_ring->live > 0) {
+        const double t_settle0 = kEnsureProfile ? demote_profile_now_ms() : 0.0;
         while (async_ring->live > 0) {
             PendingDemote* slot = async_ring->retire_slot();
             const std::uint32_t claimed = slot->claimed_pages;
@@ -2818,6 +2838,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
             async_ring->claimed_pages -= claimed;
             async_ring->pop();
         }
+        if (kEnsureProfile) { t_settle_ms = demote_profile_now_ms() - t_settle0; }
         free_final = free_pages(pages);
     }
     if (free_final < need) {
@@ -2840,6 +2861,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
                      "continuing without slack\n",
                      freed_cold + freed_own, want_free, need, free_final, freed_cold, freed_own);
     }
+    ensure_profile_emit(async_ring != nullptr ? static_cast<std::uint32_t>(async_ring->live) : 0U, need, free_final);
 }
 
 void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32_t main_tokens,

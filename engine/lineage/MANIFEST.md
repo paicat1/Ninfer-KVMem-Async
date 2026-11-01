@@ -96,6 +96,8 @@
 | 代号 | 文件 | 大小 (MB) | SHA256 | 说明 |
 |---|---|---|---|---|
 | RC6 | `ninfer-serve-RC6.exe` | 1272.2 | `35D9E6B1915837597207EDBD71AD17A3E83C7004F4C6A71668B904900A428838` | 主线 s6-1208a-release，source engine-src 7e14453（p23 未包含）；四环验证：arch 384/384 sm_120a、listen@57344、推理 838ms、ninja -n 7；现役件封存副本 |
+| RC7 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` | P-g3 插桩（`ensure_ring_room` 分段计时 retire/demote/settle/total），source 7e14453；2026-10-31 10:27 封存，§191/§192 夜班实验件 |
+| PG3-20261031 | `ninfer-serve-PG3-20261031.exe` | 1272.2 | `90FB3869D43127566171E08064EF72126B16BD5C8D2087E554FB936BD2FA287C` | P3-20 step-gap 插桩（`mtp step` 打点 + `ensure_ring_room` 分段），source 7e14453；2026-11-01 补档（与 RC7 442DF906 为不同字节） |
 
 ## 附录 A：全量 sha 底账（2026-10-31 实测）
 
@@ -127,12 +129,15 @@
 | 21 | `ninfer-serve-RC5.exe` | 1272.2 | `5B34F211D7C6990931C823B1FC5D52A16B8E6CDA5C6874B9F0F2B0833BEEA5D0` |
 | 22 | `ninfer-serve-B2-20261027.exe` | 1272.2 | `A81C843F5256E669C8FE9E0DAA3786C26A19805966CCE3A5E2EB3238587645C4` |
 | 23 | `ninfer-serve-RC6.exe` | 1272.2 | `35D9E6B1915837597207EDBD71AD17A3E83C7004F4C6A71668B904900A428838` |
+| 24 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` |
+| 25 | `ninfer-serve-PG3-20261031.exe` | 1272.2 | `90FB3869D43127566171E08064EF72126B16BD5C8D2087E554FB936BD2FA287C` |
 
-合计：23 件。生成时刻：2026-10-31 01:40:45
+合计：25 件。生成时刻：2026-10-31 01:40:45（24-25 于 2026-11-01 补登，见正文「现役件封存」RC 表）
 
 ### 判决（2026-10-31）：判废弃
 
 - 依据：串行四工况零收益（§182，差 ≤0.71% 且方向有正有负）+ **多路并发零收益**（conc4/conc8 三件冷启 TTFT 极差 <2%）+ host CPU 无差异
 - §182 唯一未验场景（并发 host CPU 瓶颈）已验：无差异
 - 状态：`parked` → **`abandoned`**；编译现场 `.temp\build-sym120a` 随之解冻
-| **RC7** | PG3 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` | P-g3 插桩：`ensure_ring_room` 分段计时（retire/demote/settle/total），§191 |
+
+> 订正（2026-11-01）：原节此处登记的 RC7（`ninfer-serve-RC7.exe`, `442DF906…`）已并入正文「现役件封存」RC 表（L99）；本行删除，避免双处登记与代号双义（原代号列写「PG3」，与今晨 `PG3-20261031`（`90FB3869…`）冲突）。

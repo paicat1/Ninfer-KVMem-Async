@@ -110,20 +110,12 @@ def main():
                 timings.get('draft_n_accepted'), timings.get('draft_n'),
                 record.get('length'), record.get('sha'), record.get('error', '')))
     out = 'J:\\ninfer-kvmem\\work\\data\\gate_%s.json' % args.arm
-    # 2026-10-29 (C0): 合并而非覆盖——同名 arm 重跑时保留历史 runs
-    merged = []
-    try:
-        with open(out, 'r', encoding='utf-8') as prev_handle:
-            merged = (json.load(prev_handle) or {}).get('runs') or []
-    except Exception:  # noqa: BLE001
-        merged = []
-    new_keys = {(r.get('invocation'), r.get('run'), r.get('round')) for r in results}
-    merged = [r for r in merged
-              if (r.get('invocation'), r.get('run'), r.get('round')) not in new_keys]
-    merged.extend(results)
+    # 2026-11-02 (C1): 不再合并历史 runs——跨 invocation 累积会把旧轮数据混进下游 SUMMARY
+    # （three_arm r1/r2/SCORE=0 三轮同 tag 叠加，runs=4 实证见构建史 §199 新发现⑦）。
+    # 每次 invocation 只落本次 results；跨轮历史以台账 three_arm_*.txt 与归档日志为准。
     with open(out, 'w', encoding='utf-8') as handle:
-        json.dump({'arm': args.arm, 'runs': merged}, handle, ensure_ascii=False, indent=2)
-    print('written: %s (runs=%d)' % (out, len(merged)))
+        json.dump({'arm': args.arm, 'runs': results}, handle, ensure_ascii=False, indent=2)
+    print('written: %s (runs=%d)' % (out, len(results)))
 
 
 if __name__ == '__main__':

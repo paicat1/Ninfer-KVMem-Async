@@ -4745,6 +4745,8 @@ it holds 79 -- short by 5 page(s)
 - **判定**：预登记判据命中——**检索内容评分选择路径=主犯，词法回退即恢复**。两处独立佐证：①off 臂自身同变（313.6→339.3、sha 5c349942→3631e1ef）＝开关真实生效的天然对照 ②serve 日志自证 "[ring] the content scorer was EXPLICITLY DISABLED...falls back to the lexical IDF ra[nking]"（logs\test_ta_on_b1.log）
 - **怎么改**：NINFER_TERNARY_KVMEM_SCORE=0 进程级继承 + three_arm_fixedw.ps1 -Batches 2 -Rounds 1（depth=2/pool=58368/rk2v4-e8 不变）；跑完 deploy_engine.ps1 恢复 SYM3（台账 L107 restored sha16=9453FFC6FF077252，本轮实测 GPU 60 MiB、现役哈希一致）
 - **新发现**：①评分开关默认开（kvmem_score.h L77-81：未表态且 KV_WINDOW>0 即开）；暴露面=rk2v4-e8 档（低显存回退路径），生产现役 rk8v4 档 §179 已实测 async ON 健康（388.2 tok/s、+0.3%，构建史 L4251）②病臂（SCORE=1 async）ring profile 可见段（sel=0.015 / rr=0.38-1.2 / rs=1.27-6.6ms）与健康 sync 臂（sel=0.015 / rr=0.42-0.66 / rs=1.26-4.7ms）同量级 ⇒ 2.17x 伤害在 profile 不可见处（forward 内 scoring 开销/读回等待 × async stream 竞争 + 组成质量），不在 demote/restore 段 ③restore 无失败记录（抽查 preferred=restored=128，与 e8 map C2 全量核对一致）④"restore 读在飞未发布数据"证伪：在飞页保留 device 副本（context.cpp L2738-2740）、restore 跳过 device-resident 页（L2785）⑤context.cpp L2077-2090 "SCORE=0 still slow" 注释系 2026-10-12 depth=2 prefill 塌陷结论，与本 decode 反转非同一现象 ⑥SCORE=1 时 preferred 深达 last=2323/2365，SCORE=0 词法仅 last≈1149-1185——评分选择深挖 host 页、词法只取近页 ⑦gate_ta_*.json 跨 invocation 累积缺陷实证（061406 台账 L12-17：runs=4 混入 r1/r2 旧轮行）
+- **订正（2026-11-03 复核发现）**：上行①中『async ON 健康（388.2 tok/s、+0.3%）』的 +0.3% 系 sym3 与 S13 两发布件之差（构建史 L4251），非 async 开关对比——388.2 仅作绝对速度凭据，开 vs 关完整对比待查夜巡详表；②中『读回等待 × async stream 竞争』系通道乙旧表述，甲-0b 步级探针已撤回（stamp 与轮账双证，见下行追加④）
+
 - **同轮治理项**：配额门修复（gates.ps1 三处：protected 目录超线改告警不阻断且读 structure.json、未超线目录不再被拖入 overdue、超线提示语中性化；T-BACKUP、Parser 0 错误、rebuild#9、GATE_LOG 补记、全门禁绿 streak 40）
 - **教训**：判定性结论必须起服实测（用户令"光做纸面推演有个屁用"）；判读必须对照预登记判据、不得事后发明；证据样本回看（off 臂 sha 变化=开关生效的独立佐证）；引用历史结论必须读全上下文再定性（L2084 注释险些被误判为与本轮矛盾）
 - **Δ 对上个基线（§198）**：P3-20 由"锁定 demote 异步路径"变为"锁定 async×内容评分选择交互；SCORE=0 词法回退即恢复 1.14x/4.3pp"
@@ -4761,3 +4763,8 @@ it holds 79 -- short by 5 page(s)
 - **附带发现**：.temp\ 被显式 DENY ACE 锁死（BUILTIN\Users 禁止建文件/目录，icacls 实证）——一次性中间件改落 work\ 用后回收；权限变更非本任务授权范围未动
 - **Δ 对上个基线（§199 追加）**：P3-20 两腿落地——速度伤害=copy 轮有无（甲-0b）；检索质量=本探针未测得损失（天花板限制分辨率，非"等价"证明）⇒ B 线"修复质量"动机在本探针分辨率内不成立，剩余价值仅在速度侧口径与生产档验证
 - **本批挂账**：①probe_needle 两件+构建史本节+trap T#0074 台账待提交（等用户批）②#53 复读悬案判别（同探针复测 OFF 臂）③生产 rk8v4+async+scoring 的 copy 轮敏感性未测 ④RC6 转正仍挂账（本轮误恢复实证 RC6≠现役）⑤rk8v4 99.0% 接受率出处定位 ⑥配置档 A L55 旧文字更新需另批 ⑦探针天花板：四臂全满=无分辨率，B 线若重启须先设计判别力更强探针（部分召回/更难任务）⑧probe_needle.py est_block64 为 nominal 估算误导审读（CB 异议二触发），下次跑前改实测 cpt 映射 ⑨C 段零 SELECT/KEPT 事件机制（hysteresis 无变化 vs 前缀复用）未定位；KEPT 逻辑块号空间（token/64）vs ring 物理页空间（912 页）对照未做（CB 质询引出）
+
+### 201. 【挂账登记：B 线预登记方案文档待按审报修订，修订前仅作历史参考】(2026-11-03)
+- **事项**：docs\02-实验与预登记\实验-P3-20评分子系统修复-B线-预登记-CB-20261102.md（c1887cd）的 6.1 通道拆分表与行动 #2 矩阵写于甲-0b 步级判读之前，须按审报（84cefc2）修订清单 7 条更新；其信号层修复①已被源码否定（D2，无动作）。修订完成前该文档不得直接作为实验底稿
+- **价值保留**：recall@budget 质量门路线（已由埋针矩阵兑现）；页集合/last 深度采集设计（一项同时服务生产档 rk8v4 验证、"为什么 e8 档"判别、挂账⑨）；oracle_ok 排雷；#53 判别设计；R5 会话间状态污染防范
+- **触发**：下次启动 P3-20 相关实验（生产档验证/挂账⑨/判别实验）前，先读文档+审报对照，按修订矩阵形状点火

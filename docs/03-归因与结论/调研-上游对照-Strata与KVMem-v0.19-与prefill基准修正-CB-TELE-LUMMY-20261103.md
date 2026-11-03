@@ -1,4 +1,4 @@
-# 调研：Strata 上游技术对照与三方收敛（CB · TELE · LUMMY）
+# 调研：上游对照（Strata + KVMem v0.19）与 prefill 基准修正（CB · TELE · LUMMY）
 
 - 日期：2026-11-03
 - 对象：`Niko1221/Strata`（全库克隆，5,681 文件 / 87.4 MB，v0.2.10）
@@ -34,21 +34,17 @@
 
 ---
 
-## 〇 一句话
+## 〇 一句话（两份合并）
 
-**Strata 38,619 stars、26 天 20 个版本。三方收敛（CB 代码级 / TELE 文档级+静态核查 / LUMMY 跨项目对照）后的净账目：**
+**两个上游都读了，结论分三层：**
 
-| 类别 | 条数 | 内容 |
-|---|---|---|
-| ✅ **净可借（代码级）** | **2** | **自适应投机窗口 +7.88%**（sm_120 实测）· **`KV_PREFETCH` prefill −4.1~5.3%**（需读码确认是否已流水） |
-| ✅ **净可借（方法论）** | 1 组 | 冻结语料 / 量化标尺 / KL 噪声底 / 实测后否决目录 / AGENTS.md 对外闸 / 实验固化 |
-| ✅ **架构判断** | 1 | **评分子系统是稠密模型的必需件**——稠密无 indexer，选择必须引擎侧合成 ⇒ 该问"什么信号、多少预算"，不是"要不要留" |
-| ❌ **撤回** | 4 | granule 圆整（我们走 DeviceArena）· MTP Q8 化（10-09 已做，q8_0）· 编译期宏守卫（22 补丁零 `#if`）· 衰减计数第三臂（对象不同） |
-| ⏸ **显式挂起** | 3 | CUDA 13 双 API（前置：我们自己的提交/传输占比 profile）· SSD 三层（前置：页访问频率剂量学）· 精度梯度（前置：容器量化档可用性） |
+| 层 | 结论 |
+|---|---|
+| **基准** | **「我们 prefill 慢 2×」是错的**——那是拿 dense 27B 比 MoE。同 dense 27B：llama.cpp 197 tok/s、我们 **1,857**、qw3 融合 1,850 ⇒ **我们比 llama.cpp 快 9.4×，与 qw3 持平** |
+| **可借（KVMem 上游，同谱系）** | **三层 KV（RAM↔SSD）**：RAM ±0.1%、SSD +2.5%（260K）；**DFlash2 集成已完成**（Qwen3.8-27B dense，1.14 GB，+14.6~33.7%） |
+| **可借（Strata，同赛道）** | 自适应投机窗口 +7.88%（sm_120）· KV_PREFETCH prefill −4~5% · 方法论一组 |
 
-**⇒ 继续深挖的边际收益已接近零；最高优先仍是实机夜地基（前置五件 + SCORE=0 正确性 + classify_repeat）。**
-
----
+**⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
 ## 一 仓库概况
 
@@ -909,3 +905,152 @@ MoE 模型（Strata）  → attention 里有 indexer，稀疏选择是模型自�
 > **两轮交叉核查（先我读代码、后 TELE 读文档+静态核查）之后，Strata 对我们的净技术价值收敛到 2 条代码级 + 1 组方法论。**
 >
 > **但最有价值的产出不是技术，是 10.2 那条架构判断：评分子系统是稠密模型的必需件，不是可选项。**
+
+
+---
+
+## 十一 上游 KVMem v0.19 对照（同谱系，优先于 Strata）
+
+> 本节为本轮新增，原为独立报告 `调研-KVMem上游v0.19与prefill基准修正-CB-20261103.md`，现并入本文。
+> 克隆位置：`refs/kvmem-kvmem-main/`（821 文件 / 17.1 MB，`master` @ 2026-11-03）。
+
+### 11.0 版本差
+
+| 项 | 我们谱系文档（10-29） | 上游现状 |
+|---|---|---|
+| 版本 | 0.18.0 / 0.18.1 RC1 | **v0.19.1（10-31）** |
+| release | — | v0.19.poly1（10-30，PolyStrata · RTX 50）<br>v0.19.0-rc1（10-27，NInfer · RTX 20/30/40/50 · V100） |
+| 今日提交 | — | `17a19ee` **native FP8 prefill optimization**（PR #250）<br>`1e4b50` **arbitrate NInfer ngram copy yield**（PR #254） |
+
+**活跃分支里有 NInfer 专项**：
+
+```
+feat/ninfer-dflash2-layer-pipeline
+feat/ninfer-dflash2-quantized-heads
+feat/ninfer-cross-owner-checkpoints
+feat/selective-kv-refresh
+codex/ninfer-low-precision-patches-20261102
+```
+
+### 11.1 **prefill 基准修正（本轮最重要）**
+
+### 2.1 三个基准放在一起
+
+| 实现 | 模型 | 上下文 | prefill | 出处 |
+|---|---|---|---|---|
+| **llama.cpp + KVMem（ISTA）** | **dense 27B IQ3_S** | 260,012 | **197 tok/s** | `prefill-harvest-optimization.md:23` |
+| **我们（NInfer 27B）** | **dense 27B** | 199,500 | **1,857 tok/s** | 第三方实测（RTX 4090，10-04） |
+| **qw3 FP8 融合实现** | dense 27B | — | **1,849.77 tok/s** | `kvmem_qw3/docs/kvmem_fp8_performance_benchmark_20260725.md`（上游引用） |
+| Strata | **MoE** Qwen3.8-Flash-Next IQ2_XS | 199,500 | **3,833 tok/s** | Strata `bench/results/…dense-27b/` |
+
+### 2.2 结论
+
+```
+我们 1,857  vs  llama.cpp 197   = 9.4×（同 dense 27B，同属 KVMem 谱系）
+我们 1,857  vs  qw3 融合 1,850  = 1.004×（持平）
+Strata 3,833 是 MoE 架构优势（激活参数少），不是引擎优势
+```
+
+**⇒ 撤回「我们 prefill 慢 2×」**：那是拿 dense 27B 比 MoE，架构不同，不可比。
+
+**⇒ 我们的 prefill 在 dense 27B 上已接近该谱系的极限**（与 qw3 的 FP8 融合实现持平）。
+
+### 2.3 上游对"prefill 2×"的诊断（llama.cpp 侧，不适用我们）
+
+`prefill-harvest-optimization.md:23-30` 原文：
+
+> That profile is **host idle plus thousands of tiny ggml launches**, not FlashAttention saturating HBM over a 60k window.
+>
+> The KVMem-local bottleneck is harvest: `process_ubatch` launches the graph asynchronously, then
+> `llama_kvmem_harvest_ubatch` **host-syncs the capture backend**, D2D-snapshots with a **host snap wait**,
+> converts F16→F32→F16, and issues **~256 synchronous 64 KiB `pwrite`s plus `drop_page_cache` on the compute thread**.
+
+**⇒ 这是 llama.cpp 的 harvest 路径 host-wait 阻塞 ubatch overlap，与我们的引擎无关。**
+
+**但有一条通用教训值得记**：**"host 端等待"会让 ubatch 之间无法 overlap**——若我们的 restore/demote 在 prefill 里有类似 host-wait，同样会阻塞。
+
+---
+
+### 11.2 三层 KV 分层（**容量天花板的终极解**）
+
+### 3.1 三个参数（两后端统一）
+
+```text
+--kvmem-host-mib H --kvmem-disk-path PATH --kvmem-disk-mib D
+```
+
+### 3.2 八个机制（`active-kv-tiering.md`）
+
+| 机制 | 内容 |
+|---|---|
+| **单一所有权** | 同一份原生 KV 只有一套记录；活动→闲置移动所有权，保留 RAM/SSD 位置 |
+| **增量恢复** | 恢复只读实际选中的内容，**不再生成全量 KV 冷快照** |
+| **配额先于写入** | 先取得目的配额，**完成后才发布新副本、释放旧副本** |
+| **读租约** | 读租约保留内容及配额，即使原会话已删除 |
+| **失败不丢副本** | 磁盘满/读失败/取消都不能提前丢弃唯一有效副本 |
+| **碎片显式拒绝** | 连续记录无法分配时明确拒绝，**不超配** |
+| **小记录打包** | 按 **256 KiB / 64 条**打包，相邻区间合并写入 |
+| **存储 worker 不碰 GPU** | 不执行 GPU API、不拥有需 CUDA 析构的对象 |
+
+**边界（原文）**：完整 K/V（含**量化 scale 和 MTP KV**）都可离开 RAM；**活跃 mean-K 留在 RAM**；H/D 都**不是**进程 RSS 限制（OS 文件缓存另计）。
+
+### 3.3 验证数据（RTX 5060 Ti，逐对交替 + 95% 单侧上界）
+
+| 对照 | 配对数 | 中位数 | 95% 上界 |
+|---|---|---|---|
+| ninfer 原引擎 → 累计 RAM（short-0） | 7 | **−0.101%** | +0.569% |
+| ninfer 原引擎 → 累计 RAM（continue-0） | 7 | **−0.159%** | +0.934% |
+| **llama 260K 长上下文 → 最终 RAM** | 7 | **+2.476%** | +4.150% |
+
+**⇒ RAM 层几乎零成本（±0.1%）；SSD 层在 260K 下 +2.5%。**
+
+**且验证覆盖我们的配置**：原文 *"ninfer 覆盖 C1/C2/C8、RK8V4/MTP3/CUDA Graph"*。
+
+---
+
+### 11.3 与 Strata 对比：哪个更值得学
+
+| 维度 | **kvmem/kvmem（上游）** | Niko1221/Strata |
+|---|---|---|
+| 谱系 | **同一套代码（我们的上游）** | 同赛道竞品（借鉴过 ninfer 思路） |
+| 模型 | **dense 27B（和我们一样）** | MoE Qwen3.8-Flash-Next |
+| 配置 | **RK8V4 / MTP3 / CUDA Graph（和我们一样）** | 自研 QSA |
+| KV 分层 | **三层（GPU↔RAM↔SSD），已验证** | 两层 + SSD 文档 |
+| prefill 优化 | **有专项 68 KB 文档 + 5 stage** | KVA（MoE 专用） |
+| 验证方法学 | **95% 单侧上界 + 逐对交替** | ABBA |
+| 可借鉴 | **SSD 第三层 / 所有权机制 / 打包策略** | 自适应窗口 / KV_PREFETCH |
+
+**⇒ 上游更值得学：同谱系、同模型、同配置、有实测。**
+
+---
+
+### 11.4 可借鉴清单
+
+| # | 项 | 收益 | 前置 |
+|---|---|---|---|
+| **1** | **三层 KV（RAM↔SSD）** | 容量天花板解，代价 **+2.5%**（260K） | 需实现 `HostKvStorage` + 租约 + 配额 |
+| **2** | **小记录打包（256 KiB / 64 条）** | 减少 SSD 随机写 | 零（策略） |
+| **3** | **单一所有权 + 增量恢复** | 避免全量冷快照 | 设计层 |
+| 4 | **prefill host-wait 检查** | 若有类似阻塞，可拿 overlap | 读码（零） |
+| 5 | 上游 v0.19.1 的 FP8 prefill | 未知（今日刚合） | 需读 PR #250 |
+
+---
+
+### 11.5 边界
+
+- 192 篇 docs 只精读 4 篇（tiering / validation / prefill / retrieval-stagein）
+- v0.19.1 的 FP8 prefill（PR #250）尚未读实现
+- 三层 KV 的代码未读（只有文档 + 验证记录）
+- 未在实机验证任何数字
+
+---
+
+### 11.6 引用
+
+- `refs/kvmem-kvmem-main/docs/active-kv-tiering.md`（82 行）
+- `refs/kvmem-kvmem-main/docs/active-kv-tiering-validation-20261010.md`（167 行）
+- `refs/kvmem-kvmem-main/docs/prefill-harvest-optimization.md:23-30`（prefill 诊断）
+- `refs/kvmem-kvmem-main/docs/retrieval-stagein-optimization.md`（247 行，PR 0–3 landed）
+- `refs/kvmem-kvmem-main/docs/dflash2-kvmem-integration.md`（177 行，含 16 GB profile）
+- GitHub API：v0.19.1 / PR #250 / PR #254 / 分支列表
+

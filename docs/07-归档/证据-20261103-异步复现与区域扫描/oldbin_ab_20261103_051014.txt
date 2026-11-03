@@ -1,0 +1,39 @@
+﻿05:10:14 | ######## OLDBIN AB START 20261103_051014 ########
+05:10:14 | grid: kv=rk2v4-e8 pool=65536 filler=45KB depth=2 graph=64 max_tokens=2000
+05:10:15 | == bin RC1_S13 engine\lineage\ninfer-serve-RC1.exe sha16=322A972D6596A16D ==
+05:10:15 | ---- arm off DEMOTE=0 tag=old_RC1_S13_off ----
+05:10:36 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:10:36 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:10:36 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:10:36 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_old_RC1_S13_off.log
+05:10:47 |   waitready: READY
+05:10:59 |   RESULT run 1 round 1  9.9s  decode=402.1  accepted=1835/1961  len=8241  sha=0dc6e58f65d75451
+05:10:59 | ---- arm on DEMOTE=1 tag=old_RC1_S13_on ----
+05:11:22 |   [ctl] T#0059: backup live exe -> J:\ninfer-kvmem\engine\test-run\ninfer-serve.exe.bak_20261103_051116
+05:11:22 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:11:22 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:11:22 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_old_RC1_S13_on.log
+05:11:33 |   waitready: READY
+05:11:45 |   RESULT run 1 round 1  9.9s  decode=402.5  accepted=1835/1961  len=8241  sha=0dc6e58f65d75451
+05:11:47 | == bin RC2_sym3 engine\lineage\ninfer-serve-RC2.exe sha16=9453FFC6FF077252 ==
+05:11:47 | ---- arm off DEMOTE=0 tag=old_RC2_sym3_off ----
+05:12:12 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261103_051116)
+05:12:12 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:12:12 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:12:12 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_old_RC2_sym3_off.log
+05:12:23 |   waitready: READY
+05:12:35 |   RESULT run 1 round 1  9.9s  decode=402.4  accepted=1835/1961  len=8241  sha=0dc6e58f65d75451
+05:12:35 | ---- arm on DEMOTE=1 tag=old_RC2_sym3_on ----
+05:12:55 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:12:55 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:12:55 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:12:55 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_old_RC2_sym3_on.log
+05:13:06 |   waitready: READY
+05:13:18 |   RESULT run 1 round 1  9.9s  decode=402.4  accepted=1835/1961  len=8241  sha=0dc6e58f65d75451
+05:13:18 | ---- finally: stop engine, restore live exe ----
+05:13:27 |   [deploy] [backup] 1376953856 bytes -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_051325 (sha256:9453FFC6FF077252)
+05:13:28 |   [deploy] [deploy] engine\lineage\ninfer-serve-RC2.exe -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe (sha256:9453FFC6FF077252 size:1376953856)
+05:13:28 |   [deploy] [done] 回退命令: Copy-Item "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_051325" "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe" -Force
+05:13:29 |   live restored sha16 = 9453FFC6FF077252
+05:13:29 |   vram after teardown = 59 MiB
+05:13:29 | ######## OLDBIN AB DONE ########

@@ -1,0 +1,71 @@
+{
+  "arm": "repro32_c2_on",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "invocation": "20261103_055837",
+      "elapsed_s": 51.2,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 74700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 76700
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 1989,
+        "draft_n_accepted": 1827,
+        "predicted_ms": 6176.8674,
+        "predicted_n": 2000,
+        "predicted_per_second": 323.62682741093,
+        "predicted_per_token_ms": 3.0899786893446723,
+        "prompt_ms": 44951.455799999996,
+        "prompt_n": 74700,
+        "prompt_per_second": 1661.7926754665864,
+        "prompt_per_token_ms": 0.6017597831325301
+      },
+      "sha": "35bbafa0740511e8",
+      "length": 8321,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c2_on_20261103_055837_r1.txt"
+    },
+    {
+      "run": 1,
+      "round": 2,
+      "invocation": "20261103_055837",
+      "elapsed_s": 89.8,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 151362,
+        "prompt_tokens_details": {
+          "cached_tokens": 74695
+        },
+        "total_tokens": 153362
+      },
+      "timings": {
+        "cache_n": 74695,
+        "draft_n": 1889,
+        "draft_n_accepted": 1865,
+        "predicted_ms": 6339.3377,
+        "predicted_n": 2000,
+        "predicted_per_second": 315.33262536242546,
+        "predicted_per_token_ms": 3.1712544772386195,
+        "prompt_ms": 83332.166,
+        "prompt_n": 76667,
+        "prompt_per_second": 920.0168875965614,
+        "prompt_per_token_ms": 1.0869365698410007
+      },
+      "sha": "7b7e6eda53a726fb",
+      "length": 8434,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c2_on_20261103_055837_r2.txt"
+    }
+  ]
+}

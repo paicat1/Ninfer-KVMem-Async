@@ -1,0 +1,70 @@
+﻿05:05:57 | ######## P65536 RERUN START 20261103_050557 ########
+05:05:58 | exe=build-out\build-1208a\apps\ninfer-serve.exe sha16=90FB3869D4312756  Graph=32
+05:05:58 | cells=4 arms=2 total_runs=8
+05:05:58 | === cell p65536_rk8v4_k45_d2 ===
+05:05:58 | ---- arm off DEMOTE=0 pool=65536 kb=45 depth=2 tag=p65536_rk8v4_k45_d2_off ----
+05:06:21 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:06:21 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:06:21 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:06:21 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k45_d2_off.log
+05:06:32 |   waitready: FAILED
+05:06:32 |   READY-FAILED, skip off
+05:06:32 | ---- arm on DEMOTE=1 pool=65536 kb=45 depth=2 tag=p65536_rk8v4_k45_d2_on ----
+05:06:49 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:06:49 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:06:49 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:06:49 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k45_d2_on.log
+05:06:55 |   waitready: FAILED
+05:06:55 |   READY-FAILED, skip on
+05:06:55 | === cell p65536_rk8v4_k150_d2 ===
+05:06:55 | ---- arm off DEMOTE=0 pool=65536 kb=150 depth=2 tag=p65536_rk8v4_k150_d2_off ----
+05:07:13 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:07:13 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:07:13 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:07:13 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k150_d2_off.log
+05:07:24 |   waitready: FAILED
+05:07:24 |   READY-FAILED, skip off
+05:07:24 | ---- arm on DEMOTE=1 pool=65536 kb=150 depth=2 tag=p65536_rk8v4_k150_d2_on ----
+05:07:41 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:07:41 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:07:41 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:07:41 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k150_d2_on.log
+05:07:52 |   waitready: FAILED
+05:07:52 |   READY-FAILED, skip on
+05:07:52 | === cell p65536_rk8v4_k450_d2 ===
+05:07:52 | ---- arm off DEMOTE=0 pool=65536 kb=450 depth=2 tag=p65536_rk8v4_k450_d2_off ----
+05:08:10 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:08:10 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:08:10 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:08:10 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k450_d2_off.log
+05:08:21 |   waitready: FAILED
+05:08:21 |   READY-FAILED, skip off
+05:08:21 | ---- arm on DEMOTE=1 pool=65536 kb=450 depth=2 tag=p65536_rk8v4_k450_d2_on ----
+05:08:39 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:08:39 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:08:39 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:08:39 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k450_d2_on.log
+05:08:50 |   waitready: FAILED
+05:08:50 |   READY-FAILED, skip on
+05:08:50 | === cell p65536_rk8v4_k45_d1 ===
+05:08:50 | ---- arm off DEMOTE=0 pool=65536 kb=45 depth=1 tag=p65536_rk8v4_k45_d1_off ----
+05:09:09 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:09:09 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:09:09 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:09:09 |   [ctl] start: depth=1 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k45_d1_off.log
+05:09:20 |   waitready: FAILED
+05:09:20 |   READY-FAILED, skip off
+05:09:20 | ---- arm on DEMOTE=1 pool=65536 kb=45 depth=1 tag=p65536_rk8v4_k45_d1_on ----
+05:09:39 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+05:09:39 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:09:39 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:09:39 |   [ctl] start: depth=1 port=8094 log=J:\ninfer-kvmem\logs\test_p65536_rk8v4_k45_d1_on.log
+05:09:50 |   waitready: FAILED
+05:09:50 |   READY-FAILED, skip on
+05:09:50 | ---- finally: stop engine, restore live exe ----
+05:09:59 |   [deploy] [backup] 1333992960 bytes -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_050957 (sha256:90FB3869D4312756)
+05:10:00 |   [deploy] [deploy] engine\lineage\ninfer-serve-RC2.exe -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe (sha256:9453FFC6FF077252 size:1376953856)
+05:10:00 |   [deploy] [done] 回退命令: Copy-Item "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_050957" "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe" -Force
+05:10:02 |   live restored sha16 = 9453FFC6FF077252
+05:10:02 |   vram after teardown = 59 MiB
+05:10:02 | ######## P65536 DONE ########

@@ -1,0 +1,71 @@
+{
+  "arm": "repro32_c1_off",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "invocation": "20261103_055243",
+      "elapsed_s": 53.1,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 74700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 76700
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 1889,
+        "draft_n_accepted": 1732,
+        "predicted_ms": 8186.4995,
+        "predicted_n": 2000,
+        "predicted_per_second": 244.18251048570883,
+        "predicted_per_token_ms": 4.0952973986993495,
+        "prompt_ms": 44860.3072,
+        "prompt_n": 74700,
+        "prompt_per_second": 1665.169158716773,
+        "prompt_per_token_ms": 0.6005395876840697
+      },
+      "sha": "81749d21fb20714a",
+      "length": 8990,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c1_off_20261103_055243_r1.txt"
+    },
+    {
+      "run": 1,
+      "round": 2,
+      "invocation": "20261103_055243",
+      "elapsed_s": 92.6,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 151362,
+        "prompt_tokens_details": {
+          "cached_tokens": 74695
+        },
+        "total_tokens": 153362
+      },
+      "timings": {
+        "cache_n": 74695,
+        "draft_n": 1856,
+        "draft_n_accepted": 1739,
+        "predicted_ms": 9285.8594,
+        "predicted_n": 2000,
+        "predicted_per_second": 215.27355884798342,
+        "predicted_per_token_ms": 4.645252326163082,
+        "prompt_ms": 83158.5527,
+        "prompt_n": 76667,
+        "prompt_per_second": 921.9376421398445,
+        "prompt_per_token_ms": 1.0846720583823548
+      },
+      "sha": "2e13dd9c06a9acb3",
+      "length": 8987,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c1_off_20261103_055243_r2.txt"
+    }
+  ]
+}

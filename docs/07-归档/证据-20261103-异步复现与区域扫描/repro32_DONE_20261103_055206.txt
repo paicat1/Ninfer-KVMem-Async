@@ -1,0 +1,2 @@
+﻿REPRO32 OK 20261103_055206
+ledger=work\data\repro32_20261103_055206.txt

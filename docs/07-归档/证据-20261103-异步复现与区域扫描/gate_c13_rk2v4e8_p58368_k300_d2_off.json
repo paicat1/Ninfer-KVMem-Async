@@ -1,0 +1,38 @@
+{
+  "arm": "c13_rk2v4e8_p58368_k300_d2_off",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "invocation": "20261103_050309",
+      "elapsed_s": 51.6,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 74700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 76700
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 1993,
+        "draft_n_accepted": 1819,
+        "predicted_ms": 6381.8771,
+        "predicted_n": 2000,
+        "predicted_per_second": 313.230726426869,
+        "predicted_per_token_ms": 3.192534817408704,
+        "prompt_ms": 45141.4816,
+        "prompt_n": 74700,
+        "prompt_per_second": 1654.7972585817831,
+        "prompt_per_token_ms": 0.6043036358768407
+      },
+      "sha": "5c349942b76b4982",
+      "length": 8261,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_c13_rk2v4e8_p58368_k300_d2_off_20261103_050309_r1.txt"
+    }
+  ]
+}

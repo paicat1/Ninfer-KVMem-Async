@@ -1,0 +1,71 @@
+{
+  "arm": "repro32_c2_off",
+  "runs": [
+    {
+      "run": 1,
+      "round": 1,
+      "invocation": "20261103_060133",
+      "elapsed_s": 53.2,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 74700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 76700
+      },
+      "timings": {
+        "cache_n": 0,
+        "draft_n": 1889,
+        "draft_n_accepted": 1732,
+        "predicted_ms": 8173.3874,
+        "predicted_n": 2000,
+        "predicted_per_second": 244.5742385831363,
+        "predicted_per_token_ms": 4.088738069034517,
+        "prompt_ms": 44935.6105,
+        "prompt_n": 74700,
+        "prompt_per_second": 1662.3786606838244,
+        "prompt_per_token_ms": 0.6015476639892905
+      },
+      "sha": "81749d21fb20714a",
+      "length": 8990,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c2_off_20261103_060133_r1.txt"
+    },
+    {
+      "run": 1,
+      "round": 2,
+      "invocation": "20261103_060133",
+      "elapsed_s": 92.7,
+      "usage": {
+        "completion_tokens": 2000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2000
+        },
+        "prompt_tokens": 151362,
+        "prompt_tokens_details": {
+          "cached_tokens": 74695
+        },
+        "total_tokens": 153362
+      },
+      "timings": {
+        "cache_n": 74695,
+        "draft_n": 1856,
+        "draft_n_accepted": 1739,
+        "predicted_ms": 9279.1257,
+        "predicted_n": 2000,
+        "predicted_per_second": 215.42977912240158,
+        "predicted_per_token_ms": 4.641883791895948,
+        "prompt_ms": 83238.0163,
+        "prompt_n": 76667,
+        "prompt_per_second": 921.0575096321703,
+        "prompt_per_token_ms": 1.0857085356150626
+      },
+      "sha": "2e13dd9c06a9acb3",
+      "length": 8987,
+      "text_path": "J:\\ninfer-kvmem\\work\\data\\abab_text_repro32_c2_off_20261103_060133_r2.txt"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+﻿ASYNC REGION OK 20261103_043850
+ledger=work\data\async_region_20261103_043850.txt

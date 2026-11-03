@@ -1,0 +1,64 @@
+﻿05:52:06 | ######## REPRO 32PCT START 20261103_055206 ########
+05:52:07 | exe=engine\lineage\ninfer-serve-RC2.exe sha16=9453FFC6FF077252
+05:52:08 | restore=engine\lineage\ninfer-serve-RC2.exe sha16=9453FFC6FF077252
+05:52:10 | live before=9453FFC6FF077252
+05:52:10 | cell: kv=rk2v4-e8 pool=65536 depth=2 filler_kb=300 rounds=2 max_tokens=2000 no-warm
+05:52:10 | PREREG reference: ON r1 322.x / OFF r1 244.0 ; gate sha ON 35bbafa0 / OFF 81749d21 ; 2 cycles ABBA
+05:52:10 | === cycle 1 (order off->on) ===
+05:52:10 | ---- arm off NINFER_ASYNC_DEMOTE=0 tag=repro32_c1_off ----
+05:52:30 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:52:30 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:52:30 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:52:30 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_repro32_c1_off.log
+05:52:41 |   waitready: READY
+05:55:09 |   [gate] run 1 round 1  53.1s  decode=244.2  accepted=1732/1889  len=8990  sha=81749d21fb20714a
+05:55:09 |   [gate] run 1 round 2  92.6s  decode=215.3  accepted=1739/1856  len=8987  sha=2e13dd9c06a9acb3
+05:55:09 |   [gate] written: J:\ninfer-kvmem\work\data\gate_repro32_c1_off.json (runs=2)
+05:55:09 |   [req] 2026-11-03 05:53:36.711  INFO  req#1 done | openai-chat | output limit | prompt 74,700 | output 2,000 | cache 0 (0.0%) | TTFT 44.9s | total 53.1s | queue 25.6 ms | prefill 1.66k tok/s | decode 244.7 tok/s | mixed speculation accepted 1,732/1,889 (91.7%) | ngram 1,071/1,125 accepted, 75 rounds | thinking 2,000/16,000
+05:55:09 |   [req] 2026-11-03 05:55:09.319  INFO  req#2 done | openai-chat | output limit | prompt 151,362 | output 2,000 | cache 74,695 (49.3%, turn closure) | TTFT 1m 23.3s | total 1m 32.6s | queue 66.0 ms | prefill 921.9 tok/s | decode 215.7 tok/s | mixed speculation accepted 1,739/1,856 (93.7%) | ngram 1,089/1,120 accepted, 76 rounds | thinking 2,000/16,000
+05:55:09 |   ARM-RESULT arm=off cycle=1 r1=244.2 r2=215.3 sha1=81749d21fb20714a sha2=2e13dd9c06a9acb3
+05:55:09 | ---- arm on NINFER_ASYNC_DEMOTE=1 tag=repro32_c1_on ----
+05:55:30 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:55:30 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:55:30 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_repro32_c1_on.log
+05:55:41 |   waitready: READY
+05:58:04 |   [gate] run 1 round 1  51.2s  decode=323.3  accepted=1827/1989  len=8321  sha=35bbafa0740511e8
+05:58:04 |   [gate] run 1 round 2  89.7s  decode=315.6  accepted=1865/1889  len=8434  sha=7b7e6eda53a726fb
+05:58:04 |   [gate] written: J:\ninfer-kvmem\work\data\gate_repro32_c1_on.json (runs=2)
+05:58:04 |   [req] 2026-11-03 05:56:35.096  INFO  req#1 done | openai-chat | output limit | prompt 74,700 | output 2,000 | cache 0 (0.0%) | TTFT 45.0s | total 51.2s | queue 24.2 ms | prefill 1.66k tok/s | decode 324.0 tok/s | mixed speculation accepted 1,827/1,989 (91.9%) | ngram 1,749/1,777 accepted, 119 rounds | thinking 2,000/16,000
+05:58:04 |   [req] 2026-11-03 05:58:04.785  INFO  req#2 done | openai-chat | output limit | prompt 151,362 | output 2,000 | cache 74,695 (49.3%, turn closure) | TTFT 1m 23.3s | total 1m 29.7s | queue 67.6 ms | prefill 921.6 tok/s | decode 316.1 tok/s | mixed speculation accepted 1,865/1,889 (98.7%) | ngram 1,839/1,845 accepted, 123 rounds | thinking 2,000/16,000
+05:58:04 |   ARM-RESULT arm=on cycle=1 r1=323.3 r2=315.6 sha1=35bbafa0740511e8 sha2=7b7e6eda53a726fb
+05:58:04 | === cycle 2 (order on->off) ===
+05:58:04 | ---- arm on NINFER_ASYNC_DEMOTE=1 tag=repro32_c2_on ----
+05:58:24 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+05:58:24 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+05:58:24 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+05:58:24 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_repro32_c2_on.log
+05:58:35 |   waitready: READY
+06:00:58 |   [gate] run 1 round 1  51.2s  decode=323.6  accepted=1827/1989  len=8321  sha=35bbafa0740511e8
+06:00:58 |   [gate] run 1 round 2  89.8s  decode=315.3  accepted=1865/1889  len=8434  sha=7b7e6eda53a726fb
+06:00:58 |   [gate] written: J:\ninfer-kvmem\work\data\gate_repro32_c2_on.json (runs=2)
+06:00:58 |   [req] 2026-11-03 05:59:28.679  INFO  req#1 done | openai-chat | output limit | prompt 74,700 | output 2,000 | cache 0 (0.0%) | TTFT 45.0s | total 51.2s | queue 26.2 ms | prefill 1.66k tok/s | decode 324.2 tok/s | mixed speculation accepted 1,827/1,989 (91.9%) | ngram 1,749/1,777 accepted, 119 rounds | thinking 2,000/16,000
+06:00:58 |   [req] 2026-11-03 06:00:58.517  INFO  req#2 done | openai-chat | output limit | prompt 151,362 | output 2,000 | cache 74,695 (49.3%, turn closure) | TTFT 1m 23.5s | total 1m 29.8s | queue 60.6 ms | prefill 919.9 tok/s | decode 315.8 tok/s | mixed speculation accepted 1,865/1,889 (98.7%) | ngram 1,839/1,845 accepted, 123 rounds | thinking 2,000/16,000
+06:00:58 |   ARM-RESULT arm=on cycle=2 r1=323.6 r2=315.3 sha1=35bbafa0740511e8 sha2=7b7e6eda53a726fb
+06:00:58 | ---- arm off NINFER_ASYNC_DEMOTE=0 tag=repro32_c2_off ----
+06:01:19 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+06:01:19 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+06:01:19 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+06:01:19 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_repro32_c2_off.log
+06:01:30 |   waitready: READY
+06:03:58 |   [gate] run 1 round 1  53.2s  decode=244.6  accepted=1732/1889  len=8990  sha=81749d21fb20714a
+06:03:58 |   [gate] run 1 round 2  92.7s  decode=215.4  accepted=1739/1856  len=8987  sha=2e13dd9c06a9acb3
+06:03:58 |   [gate] written: J:\ninfer-kvmem\work\data\gate_repro32_c2_off.json (runs=2)
+06:03:58 |   [req] 2026-11-03 06:02:26.227  INFO  req#1 done | openai-chat | output limit | prompt 74,700 | output 2,000 | cache 0 (0.0%) | TTFT 45.0s | total 53.2s | queue 25.0 ms | prefill 1.66k tok/s | decode 245.0 tok/s | mixed speculation accepted 1,732/1,889 (91.7%) | ngram 1,071/1,125 accepted, 75 rounds | thinking 2,000/16,000
+06:03:58 |   [req] 2026-11-03 06:03:58.902  INFO  req#2 done | openai-chat | output limit | prompt 151,362 | output 2,000 | cache 74,695 (49.3%, turn closure) | TTFT 1m 23.4s | total 1m 32.6s | queue 69.6 ms | prefill 921.1 tok/s | decode 215.8 tok/s | mixed speculation accepted 1,739/1,856 (93.7%) | ngram 1,089/1,120 accepted, 76 rounds | thinking 2,000/16,000
+06:03:58 |   ARM-RESULT arm=off cycle=2 r1=244.6 r2=215.4 sha1=81749d21fb20714a sha2=2e13dd9c06a9acb3
+06:03:58 | ==== REPRO SUMMARY (r1 = 74,700 prompt / r2 = 151,362 prompt) ====
+06:03:58 | cycle=1 off_r1=244.2 on_r1=323.3 delta_r1_pct=32.4 | off_r2=215.3 on_r2=315.6 delta_r2_pct=46.6
+06:03:58 |         sha off=81749d21fb20714a/2e13dd9c06a9acb3  on=35bbafa0740511e8/7b7e6eda53a726fb
+06:03:58 | cycle=2 off_r1=244.6 on_r1=323.6 delta_r1_pct=32.3 | off_r2=215.4 on_r2=315.3 delta_r2_pct=46.4
+06:03:58 |         sha off=81749d21fb20714a/2e13dd9c06a9acb3  on=35bbafa0740511e8/7b7e6eda53a726fb
+06:03:58 | ---- finally: stop engine, restore live exe ----
+06:04:09 |   live restored sha16 = 9453FFC6FF077252 (expected 9453FFC6FF077252)
+06:04:11 |   vram after teardown = 59 MiB
+06:04:11 | ######## REPRO 32PCT DONE ########

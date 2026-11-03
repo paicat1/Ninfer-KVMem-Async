@@ -1,0 +1,48 @@
+﻿03:18:53 | ######## THREE-ARM FIXEDW START 20261103_031853 ########
+03:18:54 | exe=build-out\build-1208a\apps\ninfer-serve.exe sha16=90FB3869D4312756
+03:18:54 | condition: batches=1 rounds=1 pool=58368 kv=rk8v4
+03:18:54 | === batch 1 / 1 (order off->on->on_fixedw) ===
+03:18:54 | ---- arm off (DEMOTE=0 FIXED_W=0) tag=ta_off_b1 ----
+03:19:19 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261102_002537)
+03:19:19 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+03:19:19 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+03:19:19 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_ta_off_b1.log
+03:19:30 |   waitready: READY
+03:20:21 |   run 1 round 1  49.4s  decode=384.1  accepted=1863/1890  len=8380  sha=5a81cad25742a389
+03:20:21 |   written: J:\ninfer-kvmem\work\data\gate_ta_off_b1.json (runs=1)
+03:20:21 |   workload wall = 50s
+03:20:21 |   R1 decode=384.1 tok/s sha=5a81cad25742a389
+03:20:22 |   logstat demote_profile=88
+03:20:22 | ---- arm on (DEMOTE=1 FIXED_W=0) tag=ta_on_b1 ----
+03:20:40 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+03:20:40 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+03:20:40 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+03:20:40 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_ta_on_b1.log
+03:20:51 |   waitready: READY
+03:21:42 |   run 1 round 1  49.4s  decode=388.6  accepted=1865/1877  len=8375  sha=574dd2c84a5685b1
+03:21:42 |   written: J:\ninfer-kvmem\work\data\gate_ta_on_b1.json (runs=1)
+03:21:42 |   workload wall = 50s
+03:21:42 |   R1 decode=388.6 tok/s sha=574dd2c84a5685b1
+03:21:42 |   logstat demote_profile=145
+03:21:42 | ---- arm on_fixedw (DEMOTE=1 FIXED_W=1) tag=ta_on_fixedw_b1 ----
+03:22:04 |   [ctl] T#0059: backup skipped (identical hash already archived as ninfer-serve.exe.bak_20261031_140145)
+03:22:04 |   [ctl] vram before start: used=59 MiB / 16303 MiB
+03:22:04 |   [ctl] start: exe=J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+03:22:04 |   [ctl] start: depth=2 port=8094 log=J:\ninfer-kvmem\logs\test_ta_on_fixedw_b1.log
+03:22:15 |   waitready: READY
+03:23:07 |   run 1 round 1  49.4s  decode=389.0  accepted=1865/1877  len=8375  sha=574dd2c84a5685b1
+03:23:07 |   written: J:\ninfer-kvmem\work\data\gate_ta_on_fixedw_b1.json (runs=1)
+03:23:07 |   workload wall = 50s
+03:23:07 |   R1 decode=389 tok/s sha=574dd2c84a5685b1
+03:23:07 |   logstat demote_profile=145
+03:23:07 | ==== SUMMARY (decode tok/s) ====
+03:23:07 | batch=1 arm=off round=1 mean_decode=384.1
+03:23:07 | batch=1 arm=on round=1 mean_decode=388.6
+03:23:07 | batch=1 arm=on_fixedw round=1 mean_decode=389
+03:23:07 | ---- finally: stop engine, restore live exe to engine\lineage\ninfer-serve-RC2.exe ----
+03:23:16 |   [deploy] [backup] 1333992960 bytes -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_032314 (sha256:90FB3869D4312756)
+03:23:17 |   [deploy] [deploy] engine\lineage\ninfer-serve-RC2.exe -> J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe (sha256:9453FFC6FF077252 size:1376953856)
+03:23:17 |   [deploy] [done] 回退命令: Copy-Item "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe.bak_20261103_032314" "J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe" -Force
+03:23:19 |   live exe restored sha16 = 9453FFC6FF077252
+03:23:19 |   vram after teardown = 59 MiB
+03:23:19 | ######## THREE-ARM FIXEDW DONE ########

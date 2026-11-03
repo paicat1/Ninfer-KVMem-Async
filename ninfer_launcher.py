@@ -12,6 +12,9 @@
   · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
 
 版本：v1（覆盖起服 + 自检/就绪自测）。
+沿革补：2026-11-04 新增 DFlash2 档位 d1-d15（与 MTP 互斥联动，spec=d* 自动切
+      swift15_dflash2.ninfer 与 16384@rk8v4 参数集；甜品 d4/d5=121-124 tok/s，夜班
+      实测见构建史 §205）；引擎登记册置顶 RC8（status=基线，GUI 默认）。
 沿革：本文件最初为前序 Bonsai 线所写；2026-10-09（P0）迁移到 Coder390，2026-10-10 按用户裁决
       清除全部 Bonsai 口径（档位 / 脚本 / UI 文本），本线不再保留任何 Bonsai 引用。
 

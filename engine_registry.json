@@ -4,7 +4,7 @@
     "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
     "tags": ["最新", "DFlash2 实证", "sm_120a", "源=2336ba3+conv扩展"],
     "note": "2026-11-03 23:23 编（s6_1208a 管线），sha B93B1791…，exe 1.29GB。DFlash2 唯一起服实证件：swift15_dflash2.ninfer + --spec dflash2 接受率 17-20%、decode 87-93 tok/s（§203）。源 = 2336ba3 + 6 处 conv/draft/startup 扩展（非 Q8 conv 投影 workspace 修正）。【2026-11-04 用户令转正】lineage RC8 封存 + 现役位 self-built-20261008 已部署同 sha（ENGINE_SELF 即此件）；ARCH-GATE 384/384 sm_120a PASS。MTP 场景在 RC8 上未复测（理论超集），有疑用 sym3 对照。",
-    "status": "生产",
+    "status": "基线",
     "added": "2026-11-04",
     "replaced_by": "",
     "preset": ""

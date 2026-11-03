@@ -98,6 +98,7 @@
 | RC6 | `ninfer-serve-RC6.exe` | 1272.2 | `35D9E6B1915837597207EDBD71AD17A3E83C7004F4C6A71668B904900A428838` | 主线 s6-1208a-release，source engine-src 7e14453（p23 未包含）；四环验证：arch 384/384 sm_120a、listen@57344、推理 838ms、ninja -n 7；现役件封存副本 |
 | RC7 | `ninfer-serve-RC7.exe` | 1272.2 | `442DF90635347D201B0F844A432DE0904CE894EB731119E265F5E6B181C67DE4` | P-g3 插桩（`ensure_ring_room` 分段计时 retire/demote/settle/total），source 7e14453；2026-10-31 10:27 封存，§191/§192 夜班实验件 |
 | PG3-20261031 | `ninfer-serve-PG3-20261031.exe` | 1272.2 | `90FB3869D43127566171E08064EF72126B16BD5C8D2087E554FB936BD2FA287C` | P3-20 step-gap 插桩（`mtp step` 打点 + `ensure_ring_room` 分段），source 2336ba3（2026-11-01 订正：原登记 7e14453；依据=PG3 二进制命中 NINFER_MTP_FIXED_W 字面量 + PE 编译戳 10-31 13:05:53 晚于 2336ba3 提交 13:05:41）；2026-11-01 补档（与 RC7 442DF906 为不同字节） |
+| RC8 | `ninfer-serve-RC8.exe` | 1272.2 | `B93B179176A0DC239C2C2EB158E8CDAE8264F1DBA6149D13B9D1E8E2FC6291C0` | **主线现役件（2026-11-04 用户令转正）**：2026-11-03 23:23 编（s6_1208a 管线），source 2336ba3 + 6 文件未提交 conv/draft/startup 扩展（非 Q8 conv 投影 workspace 修正，22:52 改/23:23 编）。DFlash2 唯一起服实证件：swift15_dflash2.ninfer + --spec dflash2 接受率 17.3%/19.9%、decode 87-93 tok/s（构建史 §203）；二进制标记 NINFER_MTP_FIXED_W/STEP_PROFILE/DEMOTE_PROFILE 全 HIT；ARCH-GATE 384/384 sm_120a、0 sm_86、0 PTX（work\draft\arch_gate_B93B.log）。现役位 self-built-20261008 已同步部署同 sha |
 
 ## 附录 A：全量 sha 底账（2026-10-31 实测）
 

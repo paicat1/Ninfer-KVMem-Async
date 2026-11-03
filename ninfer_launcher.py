@@ -243,7 +243,14 @@ MODEL_BUNDLES = {
                        "2026-10-30 八格实测：decode 每格更慢、接受率无增益 ⇒ 仅作对照档，不作定稿"},
     "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "前序线 · 件未下载（仅登记待测试）"},
+    # swift_dflash2 非 GUI 模型档，由 spec=d* 联动套用（2026-11-04 §203）：
+    "swift_dflash2": {"kv": "rk8v4", "kvcap": "16384", "graph": "192", "vision": "overlay",
+                      "note": "DFlash2 件 13.29 GiB（MTP 头换 DFlash2 头，§203）；"
+                              "夜班实测（§205）：rk8v4@16384 全档扫描，甜品 d4/d5=121-124 tok/s（k0 基线 66）；"
+                              "rk8v4 池上限 20480、rk2v4-e8 池上限 32768；默认给 16384@rk8v4 留足余量"},
 }
+# SWIFT 按投机类型切的模型件（2026-11-04 用户令：DFlash 与 MTP 互斥 = 换件实现）：
+SWIFT_DFLASH2_MODEL = os.path.join(ROOT, "models", "swift15_dflash2.ninfer")
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")
@@ -314,7 +321,20 @@ SPEC_OPTIONS = {"k0": ("无（裸档 · 慢 · A/B 对照用）", [])}
 SPEC_OPTIONS.update({f"k{i}": (f"MTP K={i}" + ("（★本线定稿）" if i == 3 else ""),
                                ["--spec", "mtp", "--draft-tokens", str(i)])
                      for i in range(1, 16)})   # 2026-10-31 用户令：K 档由 1..5 扩到 1..15（引擎上限 15）
-# 2026-10-31：DFlash2（d1..d15）已删——包内无该组件，选了必起不来；不放在启动器里装样子。
+def _dlabel(i):
+    if i == 5:
+        return "DFlash2 K=5（★夜班实测最快 123-124 tok/s）"
+    if i == 4:
+        return "DFlash2 K=4（次快 121-124 tok/s）"
+    return f"DFlash2 K={i}"
+
+
+SPEC_OPTIONS.update({f"d{i}": (_dlabel(i),
+                               ["--spec", "dflash2", "--draft-tokens", str(i)])
+                     for i in range(1, 16)})
+# 2026-11-04：DFlash2（d1..d15）恢复——SWIFT DFlash2 件已建成（swift15_dflash2.ninfer，§203），
+# 起服实测 17.3%/19.9% 接受率、decode 87-93 tok/s。仅 SWIFT 模型可用（联动见 _apply_model_coupling d）；
+# 选 d* 自动切 DFlash2 件与参数集，选 MTP/无 切回 MTP 件——两件互斥由件切换实现。
 # 投机自适应（2026-10-31 用户令接入）：引擎 --adaptive-mtp，每轮在 3..--draft-tokens 间
 # 按 drafts 实测存活率 + 轮成本自动选宽度；仅 --spec mtp 有效（k0/dflash2 加会被引擎拒启）。
 ADAPTIVE_MTP_OPTIONS = {
@@ -668,6 +688,16 @@ def validate(combo, exe=None):
         warns.append(f"未找到模型：{_mp}")
     if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
         warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
+    # 2026-11-04：DFlash2 护栏（联动之外的第二道门，防 profile 手改）。
+    _spec_v = str(combo.get("spec", "k3"))
+    if _spec_v.startswith("d") and combo.get("model") != "swift":
+        warns.append("DFlash2 件只有 SWIFT 有（swift15_dflash2.ninfer，§203）；q2lynn/iq4nl 的 DFlash2 组件不存在"
+                     "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
+    if combo.get("model") == "swift" and _spec_v.startswith("d") and not os.path.exists(SWIFT_DFLASH2_MODEL):
+        warns.append(f"未找到 DFlash2 件：{SWIFT_DFLASH2_MODEL}（§203 产物；如被清理请重跑 graft_dflash2.py）。")
+    if combo.get("model") == "swift" and _spec_v.startswith("d"):
+        warns.append("★DFlash2 件（13.29 GiB）实测池上限未标定：目前仅 8192@rk2v4-e8 起服实证"
+                     "（接受率 17-20%、decode 2.2x，§203）；抬高 KV 容量前请先实测。")
     # ---- 2026-10-10 实测踩坑（日志 serve_20261010_025432）：模型与视觉必须配对 ----
     # 模型不含 vision 组件却传 --vision* -> 引擎启动即挂
     #   "Qwen3.5 config: missing component vision"（79 us 就失败，即"秒退"）。
@@ -853,6 +883,11 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
     model_id = MODEL_IDS.get(combo.get("model", "iq4nl"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
+    # 2026-11-04 用户令：SWIFT + DFlash2（spec=d*）⇒ 换 DFlash2 件（与 MTP 件互斥，§203）。
+    _spec_key_cmd = str(combo.get("spec", "k3"))
+    if combo.get("model") == "swift" and _spec_key_cmd.startswith("d") and _spec_key_cmd != "d0":
+        model_path = SWIFT_DFLASH2_MODEL
+        model_id = "swift-1.5-dflash2"
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", model_id]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
@@ -1347,6 +1382,31 @@ class LauncherApp:
                 if _key in self.var:
                     self.var[_key].set(_table[_val][0])   # 同步下拉显示
             print("[bundle] " + _model_now + " -> " + str(_bundle))
+        # d) DFlash2 联动（2026-11-04 用户令）：DFlash2 件只有 SWIFT 有（swift15_dflash2.ninfer）。
+        #    非 swift 模型选了 d* -> spec 自动回 k3（模型选择优先，spec 跟随）；
+        #    swift 选 d* -> 套 swift_dflash2 参数集（换件在 build_command 做）；选 k*/k0 -> 套回 MTP 件参数集。
+        _spec_now = str(self.selection.get("spec", "k3"))
+        _model_cur = self.selection.get("model", "q2lynn")
+        if _spec_now.startswith("d") and _model_cur != "swift":
+            self.selection["spec"] = "k3"
+            if hasattr(self, "_apply_spec_to_ui"):
+                self._apply_spec_to_ui("k3")     # 同步两级 spec 下拉显示
+            print("[coupling] DFlash2 仅 SWIFT 有件（q2lynn/iq4nl 的 DFlash2 件已删）-> spec 回 MTP K=3")
+        elif _model_cur == "swift":
+            _want = "swift_dflash2" if _spec_now.startswith("d") else "swift"
+            if getattr(self, "_spec_bundle_key", None) != _want:
+                self._spec_bundle_key = _want
+                _sb = MODEL_BUNDLES.get(_want)
+                if _sb:
+                    for _key in ("kv", "kvcap", "graph", "vision"):
+                        _val = _sb.get(_key)
+                        _table = DIMENSIONS_MAP.get(_key)
+                        if not _val or not _table or _val not in _table:
+                            continue
+                        self.selection[_key] = _val
+                        if _key in self.var:
+                            self.var[_key].set(_table[_val][0])   # 同步下拉显示
+                    print("[bundle] spec=" + _spec_now + " -> " + _want + " " + str(_sb))
         cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
         if not cap:
             return

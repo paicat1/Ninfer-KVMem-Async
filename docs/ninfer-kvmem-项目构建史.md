@@ -4788,3 +4788,39 @@ it holds 79 -- short by 5 page(s)
 - **实测边界（本轮记录）**：decode 段 demote 复算 ON 22.0 ms / OFF 30.7 ms；ON 臂 `retire wait` 全 0.00 ms；两臂与 2.0 s 墙钟差之间仍差一个数量级，机制未定数。
 - **落档**：台账 `work\data\repro32_20261103_055206.txt`；脚本 `scripts\experimental\repro_32pct.ps1`；gate json 四份。
 - **挂账**：①机制定数（2.0 s 差 vs 22–31 ms 搬运）②异步收益-档位地图（跨精度 / 跨池方向的系统对照，未做）。
+
+### 203. 【DFlash2 攻坚闭环：SWIFT-1.5 底模 + z-lab Q4_K_M 头起服成功，接受率 17-20%，decode 2.2x】(2026-11-04 00:00-00:40)
+
+- **目的**：16 GB 卡上让 DFlash2 跑起来（用户裁决改用 SWIFT-1.5 作底模，放弃 Coder390 路线——其 weights 13.4 GiB 使可用显存差 0.54 GiB 起不来）。
+- **数字**：`models\swift15_dflash2.ninfer`（13.29 GiB，1183+66 对象）起服成功（`listening on 127.0.0.1:8094` + `/v1/models` 200）；req#1 `dflash2 accepted 209/1,206 (17.3%) / decode 87.0 tok/s`，req#2 `147/737 (19.9%) / 93.4 tok/s`；对照（混装版）`0.0%/0.2% / 39.9 tok/s` ⇒ decode **2.2x**。池 8192 / rk2v4-e8 / draft-tokens 7。
+- **解决（三个独立 bug，全部有 [EVIDENCE]）**：
+  1. conv kernel_projection 须 BF16+Contiguous+13107200B（dynamic_grouped_conv.cpp:38-51）→ graft 脚本 emit 特判反量化 BF16；验证 `_verify_swift15_dflash2.py` VERIFY PASS（10/10 bf16）。
+  2. draft 的 mlp gate/up 必须融合为单个 [2I,h] 父对象（draft.cpp:511 project_swiglu 只读 mlp.gate_up，dense() 的双亲分支对 draft 无效）→ 每层 ffn_gate+ffn_up 融合、绑定按元素区间切分；修复前报 "gguf swiglu: parent is not [gate; up]"。
+  3. **混装根因（接受率≈0 的真因）**：Bonsai v2 ref（qwen3_8_27b.ninfer）drafter 与 z-lab gguf drafter 是不同版——ref codebook 与 gguf 同 multiset 但行序置换（ref 行12345↔gguf 行11977 唯一匹配，sorted cos=1.0000），ref selector_hidden 与 gguf 连 multiset 都不同（sorted cos 0.28）→ 旧 graft 取 ref 的 qkv+codebook、其余取 gguf ⇒ 候选 id 空间错位 ⇒ 提案全废。修复：drafter 全部 gguf 自洽（codebook Q4_K→BF16、qkv Q4_K→q8_g32_fp16 row_split_k128_v1 numpy 重打包，无 torch）。
+- **新发现**：qkv 格式硬约束在 weight_input.cpp:249（Q8_G32_FP16）；draft 执行层绕过 dense() 的 up 分支是引擎设计（别指望双亲路径）；布局权威=tools/artifact/codecs/row_split.py+layouts.py（编码器比 CUDA 源码好读）。
+- **Δ 对上个基线**：DFlash2 从"从未在任何件上起服"（Coder390 两件卡 conv bug）→ 起服+有效加速 2.2x。异步 +32.4% 格子（§202）与 DFlash2 叠加未测。
+- **本批挂账**：①draft-tokens 甜点未调（现 7，上游参照 K=5）②17-20% 接受率是否=头与微调底模的错配上限，未判别 ③graft 脚本+验证脚本+launch_patched 待提交（等用户令牌）④v2 ref 整件路线 13.97 GiB 超 VRAM 上限已判死，勿再试 ⑤旧验证脚本 _cmp_scope/_calib_q8 中间产物在 work\draft 待清理
+
+### 204. 【引擎转正：11-03 件（B93B1791）升 RC8 进 lineage + 现役位，用户令】(2026-11-04)
+
+- **目的**：核实 11-03 编的 ninfer-serve.exe（build-out\build-1208a\apps，sha16 B93B1791）是否含全部补丁，按用户令转正保存。
+- **核实（全部有 [EVIDENCE]）**：
+  1. 源覆盖 = engine-src HEAD 2336ba3 + 4 提交（7e14453..HEAD：0f5210b/66ef9aa/29f45b7/2336ba3，P3-20 插桩线）+ 6 文件未提交 conv/draft/startup 扩展（非 Q8 conv 投影 workspace 修正）；
+  2. 二进制标记 HIT×3：NINFER_MTP_FIXED_W / NINFER_STEP_PROFILE / NINFER_DEMOTE_PROFILE（Select-String 裸 exe）；
+  3. 补丁源文件 mtime 11-03 22:52，exe 编出 23:23（晚 31 分钟，增量编译必含）；
+  4. ARCH-GATE PASS：384/384 sm_120a、0 sm_86、0 PTX（build\gates_arch_product.ps1，日志 work\draft\arch_gate_B93B.log）。
+- **转正动作（2026-11-04）**：①lineage 封存 `ninfer-serve-RC8.exe`（只读位，sha 复核 True）+ MANIFEST.md RC8 行；②现役位 self-built-20261008\ninfer-serve.exe 同 sha 部署（原 RC2/9453FFC6 在 lineage 有封存可恢复）；③BUILD_LEDGER.jsonl 追加 promoted 条目；④engine_registry.json 条目 候选→生产（GUI 引擎下拉首项）。
+- **Δ 对上个基线**：现役件由 RC2/SYM3（10-18，无 P3-20 插桩、无 conv 扩展）→ RC8（11-03）。DFlash2 从"只能靠 work\draft\launch_patched.ps1 直指 build-out"→ 启动器 GUI（ENGINE_SELF）原生可用。
+- **新发现/风险提示**：①MTP 场景在 RC8 未复测（源为超集，理论无回归，有疑用 sym3 对照）；②engine-src 工作区仍有 6 文件未提交（转正件源状态），提交需用户令牌；③16 DLL 白名单未变（build 树 vcpkg 无新 DLL），无需重部署。
+- **本批挂账**：①MTP/裸解码在 RC8 的冒烟复测（一次 k3 起服即可）②6 文件引擎补丁未提交（等令牌）③B2/p23 树仍在 _quarantine 观察期（不动）。
+
+### 205. 【夜班全量对比基准：MTP vs DFlash2 全档扫完，甜品 d4/d5=121-124 tok/s，双池上限标定，adaptive 判死】(2026-11-04 夜班，用户睡前授权)
+
+- **目的**：用户睡前令"把所有对比测试做完，穷尽一切可能"。统一协议：贪心、同请求（384 tok）、引擎 RC8（B93B1791，转正件顺带完成 47 次起停零故障验证）、池 16384@rk8v4 生产口径、单变量=投机档。
+- **数字（decode tok/s / 接受率）**：k0 裸基线 66.1；MTP：m1=104.4(77.3%)、**m2=115.0(57.3%)**、m3=114.5(43.6%)、m4=104.2、m5=110.0、m6=104.8、m7-m15 单调递减至 68.0(14.0%)；DFlash2：d1=89.6(62.3%)、d2=100.4、d3=101.2、**d4=121.1(36.2%)、d5=124.4(32.2%)**、d6=114.5(26.3%)、d7=99.2、d8-d15 递减至 93.0(11.5%)。甜品复测 ×3 轮一致（bestm2=115.5、bestd4=123.8、bestd5=123.2）。**结论：DFlash2 甜品 K=4-5（+85-88% vs 裸基线），K≥4 全域胜 MTP；MTP 在 K=1-3 更优（m2 +74%）；两者 K 上限后均单调劣化（草案过长反噬）。**
+- **池上限标定（DFlash2 件 13.29 GiB）**：rk8v4=**20480**（24576 差 24 MiB 拒启）；rk2v4-e8=**32768**（49152 差 62 MiB 拒启）；rk2v4-e8@32768+d7=102.4 tok/s——精度换池：同速度下池容量 ×2。
+- **adaptive 判死**：--adaptive-mtp 预留 5.06-5.29 GiB（池无关部分主导），16 GB 卡即使 8192 池也装不下（avail 3.6 GiB）。除非引擎改预留策略，SWIFT 场景不可用。
+- **启动器同步**：甜品标注 d7→d4/d5；swift_dflash2 参数集升级 8192@rk2v4-e8→16384@rk8v4（留余量口径）；回归冒烟 12/12 PASS。
+- **窗口纪律执行**：单可见标题窗跑全程（40 臂+1 重试），引擎同窗附着，跑完自关，零残留、零人工干预；夜班驱动 work\draft\bench_night.py（45min 墙钟预算+finally 兜底杀）。
+- **新发现**：①MTP K=1 接受率 77.3%（极高）但增益平平——接受率高≠吞吐高，短草案校验开销占比小；②DFlash 在中段 K 耐受性显著优于 MTP（同为 +3 递进，d 系列衰减平缓）；③greedy 下同配置轮次完全可复现（bestd 系列与 phase1 数字一致）。
+- **本批挂账**：①--adaptive-mtp 预留策略（引擎侧，需用户裁决是否立项）②d4/d5 在更长输出（1K+）与并发下的稳定性未测③夜班脚本/报告/CSV 待提交（等令牌）④k0 基线只有单轮，若要论文级结论需扩样本。

@@ -1,4 +1,4 @@
-# 调研：上游对照（Strata + KVMem v0.19）与 prefill 基准修正（CB · TELE · LUMMY）
+# 调研：上游对照（Strata + KVMem v0.19）· prefill 基准修正 · DFlash2 可行性修正（CB · TELE · LUMMY）
 
 - 日期：2026-11-03
 - 对象：`Niko1221/Strata`（全库克隆，5,681 文件 / 87.4 MB，v0.2.10）
@@ -45,6 +45,8 @@
 | **可借（Strata，同赛道）** | 自适应投机窗口 +7.88%（sm_120）· KV_PREFETCH prefill −4~5% · 方法论一组 |
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
+
+**❗ 本轮第五层结论（§十二）**：**DFlash2 的「无法加载」是 10 月算式错误**（把互斥的 MTP 加了进去）——引擎早已实现，Bonsai 线已有 `dflash2` 独立档（kvcap 17,920），Q4_K_M 转容器约 1.4~1.6 GiB，**可行**，缺的只是一次转码 + 一晚实测。
 
 ## 一 仓库概况
 
@@ -1054,3 +1056,135 @@ Strata 3,833 是 MoE 架构优势（激活参数少），不是引擎优势
 - `refs/kvmem-kvmem-main/docs/dflash2-kvmem-integration.md`（177 行，含 16 GB profile）
 - GitHub API：v0.19.1 / PR #250 / PR #254 / 分支列表
 
+---
+
+## 十二 DFlash2 可行性修正（**推翻 10 月「无法加载」的结论**）
+
+> 2026-11-03 追加。本节推翻构建史 §184.5 L4466 的结论，并给出可执行的验证路径。
+
+### 12.1 10 月的算式错在哪
+
+构建史 §184.5 L4466 原文：
+
+> DFlash2 头：**无该件**。按 `dflash2_inventory.py` 逐张量算得 **2,118,708,560 B ≈1.97 GiB**
+> （比 MTP iq4_nl 多 1.75 GiB）⇒ 推算池上限为负（**12.6 + 1.97 = 14.6 GiB** 已超可用），**无法加载**。
+
+**错误**：`12.6` 是「**MTP 配置下**的总占用」。而 MTP 与 DFlash2 **互斥**（见 12.2），
+不该把 MTP 的占用加到 DFlash2 头上。
+
+```
+错误算式：12.6 + 1.97 = 14.6        ← MTP 与 DFlash2 并存
+正确算式：12.6 − 0.9（MTP）+ 1.97 = 13.67
+```
+
+**⇒ 10 月多算了 0.9 GiB，很可能因此误判为「无法加载」。**
+
+### 12.2 互斥是引擎文档明写的
+
+`origin/engine-main:src-tree/fusion-engine-src/docs/maintainer/dflash.md:3-7` 原文：
+
+> NInfer implements DFlash and DFlash2 as **optional components** of the Qwen3.5 model.
+> Their private config and bindings select the stored weights;
+> **startup chooses one backend, draft width and proposal head.**
+
+**⇒ 「startup chooses one backend」= 运行时只选一个，不并存。**
+
+**Bonsai 线的实证**（`paicat1/Bonsai-27B-NInfer-kvmem` 的 `ninfer_launcher_profiles.json`）：
+
+| 档名 | spec | kv | ctx | **kvcap** |
+|---|---|---|---|---|
+| **起服-dflash档** | **dflash2** | k8v4 | 256k | **17,920** |
+| **备用-MTP档** | **mtp** | k8v4 | 256k | **17,920** |
+| 省显存-无视觉 | dflash2 | k8v4 | 256k | 17,920 |
+| 180k k8v4 关视觉 | d7 | k8v4 | 180k | 180k |
+
+⇒ **`dflash2` 与 `mtp` 是两个独立档**；**两者的 kvcap 都是 17,920**（不是 58,368）。
+
+**⇒ 池不必是 58,368——Bonsai 线本来就是「小池 17,920 + host 16 GiB 镜像」的配置。**
+
+### 12.3 引擎实现早已存在
+
+`origin/engine-main` 的 DFlash2 实现（完整，非空缺）：
+
+```
+src/models/qwen3_5/load/dflash.cpp + dflash2.cpp
+src/models/qwen3_5/execution/draft.cpp（44 KB）
+src/models/qwen3_5/program/storage/draft_context.cpp
+src/ops/attn_input_proj/q8/q8_dflash2_attn_input.cu (+_unified)
+src/ops/linear_swiglu/q8/q8_dflash2_linear_swiglu.cu (+_unified)
+src/ops/common/dflash_rope.cuh
+tests/.../test_engine_dflash2_real.cpp
+docs/maintainer/dflash.md（317 行完整规格）
+```
+
+**27B DFlash2 几何**（`dflash.md` 表）：
+
+```
+Hidden width H    5120        Draft layers     5
+Intermediate      17408       Target block IDs [5,19,33,47,61]
+Sliding window    2048        Selector         Top-16, rank 256
+Conv              Two taps, group width 16
+```
+
+**⇒ 引擎侧无需改动；缺的只是容器内的 `dflash2/` 组件。**
+
+### 12.4 头体积：三个口径必须分清
+
+| 口径 | 值 | 说明 |
+|---|---|---|
+| HF 的 GGUF `Q4_K_M` | **1.065 GB**（1,143,006,816 B） | 只有 3 档：BF16 3.595 / Q8_0 1.915 / Q4_K_M 1.065 |
+| 构建史算的「Q8 容器」 | **1.97 GiB**（2,118,708,560 B） | 按 `dflash2_inventory.py` 逐张量累计 |
+| **Q4_K_M 转容器后的估算** | **约 1.4~1.6 GiB** | 待 `dflash2_inventory.py` 实测确认 |
+
+**MoE 版（Strata 用的）更小，但我们不能用**：
+
+```
+Qwen3.8-Flash-Next-DFlash2-Q4_K_M.gguf   0.337 GB
+Qwen3.8-Flash-Next-DFlash2-Q8_0.gguf     0.607 GB   ← 用户看到的「0.7 G」接近这档
+```
+
+`docs/TERMINAL_LAUNCH.md:98`：**「`dflash2` is for Qwen3.8-Flash-Next only」** ⇒ 绑定 MoE，不适用 dense 27B。
+
+### 12.5 可行性判断
+
+| 配置 | 池 | DFlash2 头 | MTP | 判定 |
+|---|---|---|---|---|
+| 10 月假设 | 58,368 | 1.97 + 12.6（含 MTP） | 加载 | ❌ 14.6 GiB，超 |
+| **修正后（Q4_K_M）** | **17,920** | **1.4~1.6** | **不加载** | ✅ **可能装下** |
+| 修正后（Q8） | 17,920 | 1.97 | 不加载 | ⚠ 需算 |
+
+**⇒ 「Q8 换 Q4_K_M」可行，前提是：**
+
+```
+① 池降到 17,920（Bonsai 的「起服-dflash档」配置）
+② 确认引擎用 dflash2 时不加载 MTP（dflash.md 已写，NInfer 侧待实测）
+③ 容器转码：Q4_K_M GGUF → .ninfer 的 dflash2/ 组件
+```
+
+### 12.6 收益预期（上游实测，非外推）
+
+`refs/kvmem-kvmem-main/docs/dflash2-kvmem-integration.md`（RTX 5060 Ti，16 GB）：
+
+| 阶段 | MTP3 | DFlash2-5 |
+|---|---|---|
+| 长文本 | 54.69 | **73.09（+33.7%）** |
+| 图像 | 63.23 | **81.63（+29.1%）** |
+| 代码+thinking | 72.50 | **83.07（+14.6%）** |
+
+**显存代价**：MTP3 13,327 MiB → DFlash2-3 14,669 MiB（**+1.31 GiB**，该实测是「MTP objects unchanged」的配置）。
+
+**⚠ 边界**：上游 Task 1 是 **13K token 负载**（远小于 36,864 池），**未触发换页** ⇒ 长上下文场景的外推**未验证**。
+
+### 12.7 下一步（三条，全在 mac 上可做）
+
+| # | 动作 | 机时 | 产出 |
+|---|---|---|---|
+| **1** | 跑 `dflash2_inventory.py` 算 **Q4_K_M 转容器后**的体积 | 0 | 决定「装不装得下」 |
+| 2 | 若 ≤1.6 GiB ⇒ 按 Bonsai「起服-dflash档」（kvcap 17,920 / host 16 GiB）起一次 | 1 晚 | 实测 decode |
+| 3 | 判据：**长上下文（>100K）decode 是否仍净收益**（换页成本要算进去） | 同晚 | 分场景结论 |
+
+### 12.8 一句话
+
+> **DFlash2 从来不是「装不下」，是「按错的池算 + 加了不该加的 MTP」。**
+>
+> **引擎已实现、容器可转码、Bonsai 线已有可用配置；缺的只是一次 Q4_K_M 转码 + 一晚实测。**

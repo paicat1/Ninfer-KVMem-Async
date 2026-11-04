@@ -292,8 +292,10 @@ def scan(args):
     decodes = [e['decode'] for e in series if e['decode'] is not None]
     hosts = [e['host'] for e in series if e['host'] is not None]
     prefills = [e['prefill'] for e in series if e['prefill'] is not None]
-    # 判据口径 v2（2026-10-13 夜）：低 decode 窗必须分类——idle（无请求）与 prefill 混合窗不是谷。
+    # 判据口径 v3（2026-11-05，#70 加固）：低 decode 窗必须分类——idle（无请求）与 prefill 混合窗不是谷。
     #   真谷（host_bound）= decode 活跃 + host 饱和（decode<20 且 host>=70%）；unattributed = decode 活跃但 host 空闲（收尾/空转伪影，待查）。
+    #   v3 双口径：valley_samples / valley_share_pct 是「所有 <20 的 5s 窗口」历史口径，含 idle 与
+    #   prefill 混合窗，**不可**当掉速指标；valley_samples_true / valley_share_true_pct 只计 host_bound。
     low = [e for e in series if e['decode'] is not None and e['decode'] < 20.0]
     idle_w = [e for e in low if e['phase'] == 'idle']
     mixed_w = [e for e in low if e['phase'] in ('prefill', 'other')]
@@ -335,6 +337,7 @@ def scan(args):
         'throughput': {'samples': len(series), 'decode': _stats(decodes), 'prefill': _stats(prefills),
                        'host_max': max(hosts) if hosts else None,
                        'valley_samples': len(low),
+                       'valley_samples_true': len(host_bound),
                        'valley_share_pct': round(100.0 * len(low) / len(decodes), 1) if decodes else None,
                        'valley_class': {'host_bound': len(host_bound), 'idle': len(idle_w),
                                         'prefill_mixed': len(mixed_w), 'unattributed': len(unattributed)},

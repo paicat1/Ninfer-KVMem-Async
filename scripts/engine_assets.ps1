@@ -97,15 +97,41 @@ switch ($Action) {
         if ($runFiles.Count -le 1) { Write-Output '[ROTATE] test-run 已是 1 件，无需轮转'; exit 0 }
         $keep = $runFiles[0]
         Write-Output ('[ROTATE] 保留当前件: ' + $keep.Name)
+        $victims = @($runFiles | Select-Object -Skip 1)
+        # 2026-11-05 (#76): 先按 lineage MANIFEST 的 sha 把待删件分成「已归档」与「唯一副本」。
+        # 未登记件一律不动 —— 旧版按 LastWriteTime 无脑删，会把全项目唯一副本一起删掉。
+        if (-not (Test-Path -LiteralPath $man)) {
+            Write-Output '[ROTATE] BLOCKED: lineage MANIFEST 缺失，无法判定归档状态 => 拒绝'
+            exit 1
+        }
+        $mtxt = [IO.File]::ReadAllText($man, [Text.Encoding]::UTF8)
+        $ledger = @{}
+        foreach ($mm in [regex]::Matches($mtxt, '[0-9A-Fa-f]{64}')) {
+            $ledger[$mm.Value.ToUpperInvariant()] = $true
+        }
+        $archived = @()
+        $unique = @()
+        foreach ($f in $victims) {
+            $h = Sha $f.FullName
+            if ($ledger.ContainsKey($h.ToUpperInvariant())) { $archived += $f } else { $unique += $f }
+        }
         if (-not $Apply) {
             Write-Output '[ROTATE] 干跑：以下将被删除（加 -Apply 才执行）'
-            $runFiles | Select-Object -Skip 1 | ForEach-Object { Write-Output ('   - ' + $_.Name) }
+            foreach ($f in $archived) { Write-Output ('   - [archived] ' + $f.Name) }
+            foreach ($f in $unique) { Write-Output ('   - [KEEP unique] ' + $f.Name + '  (未登记于 lineage，不会删)') }
             exit 0
         }
+        if ($unique.Count -gt 0) {
+            Write-Output '[ROTATE] BLOCKED: 待删件含未登记于 lineage MANIFEST 的唯一副本 => 整体拒绝'
+            foreach ($f in $unique) {
+                Write-Output ('   - ' + $f.Name + '  sha16=' + (Sha $f.FullName).Substring(0, 16))
+            }
+            exit 1
+        }
         if (-not (TokenOk)) { Write-Output '[ROTATE] BLOCKED：缺有效 NINFER_APPROVED_DELETE 令牌'; exit 1 }
-        $runFiles | Select-Object -Skip 1 | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Force
-            Write-Output ('   DELETED ' + $_.Name)
+        foreach ($f in $archived) {
+            Remove-Item -LiteralPath $f.FullName -Force
+            Write-Output ('   DELETED ' + $f.Name)
         }
         exit 0
     }

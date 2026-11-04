@@ -5188,3 +5188,54 @@ it holds 79 -- short by 5 page(s)
 | # | 事项 | 状态 |
 |---|---|---|
 | 76 | **`rotate -Apply` 剩余误删风险** | ⏸ 新增：删除后 test-run 仅剩 2 份 B 类唯一副本，按时间删旧件会误删其一；本轮未越界改 `rotate`，裁决前禁止对其传 `-Apply` |
+
+### 214. 【修法 A `spare_prefix_pages` 落地并转现役：源码 +31/-9、增量编译 24 秒、现役 F814B07A、冒烟 200】(2026-11-05，用户令「全部同意」)
+
+- **目的**：把挂账 #64 的施工书变成二进制——改 L0 共享降级路径、编译、过两道机器门、封存、转现役、起服冒烟；同步清 #67 / #70 / #76 三个工具类挂账。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --log logs\test_fixA.log --tag 20261105_fixA`，产物 `work\data\scan_20261105_fixA.json`（1592 B）。本轮只有 1 个冒烟请求，**样本不足、不作性能基线**：`req_done=1 / req_started=1 / http500=0 / prompt_exceeds=0`；`samples=1, decode=5.0, prefill=12.8, host_max=12.1`；`valley_samples=1`、`valley_samples_true=0`、`valley_class={host_bound:0, idle:1, prefill_mixed:0, unattributed:0}` —— 正好演示 #70 的双口径：唯一的低窗是请求结束后的 idle 窗，不是谷。
+  - 源码：`program_impl.h` `+5`、`context.cpp` `+17/-9`（合计 `+31/-9`，2 文件）；行尾 `context.cpp crlf=0 bare_lf 3201→3218`、`program_impl.h crlf=0 bare_lf 2055→2060`（纯 LF 保持）。
+  - 编译：单目标预检 `context.cpp.obj` `exit=0 / 6.2 s`；全量 `BUILD-EXIT=0 2026/11/05 7:22:39.90`，`[20/20] Linking`，**24 秒**（CMakeCache 在 + 增量 20 目标，非冷编 55–66 min）；`affinity=0x0FFF`。
+  - 产物：`1333993472 B`、`sha16=F814B07A2B71ED4E`；`ARCH-GATE ELF=384 sm_120a=384 sm_86=0 ptx=0 OK`；`DEPLOY-DLLS OK files=16`；现役 16 件 DLL vs build-out `dll_sha_diff=0`。
+  - 起服：`--kv-capacity 57344`（默认 65536 不可用）、`warmup 381 ms`、`listening on http://127.0.0.1:8094`、`/v1/models` **200**、chat `0.8 s / content=2 / completion 26`。
+- **阶段**：① 开工门 + 源码树干净度与构建目录核查 → ② T-CHECKPOINT 三问 + T-BACKUP（4 件 + sha + 行尾基线）→ ③ 读本仓与参考实现定位 4 个改动点（`is_preferred` / 两处定义 / 两处内部调用 / 取值点）→ ④ 字节级补丁（纯 LF、逐处唯一性断言）→ ⑤ 单目标预检 → ⑥ 按唯一入口全量编译（可见窗口 + 钉 P 核）→ ⑦ 两道机器门 → ⑧ adopt 封存 + MANIFEST 行 → ⑨ `-Experimental` 转现役并起服 → ⑩ 接口/推理冒烟 + DLL 对账 → ⑪ 落盘与门控。
+- **原因**：#64 自 §209 起停在「只读评估 / 施工书已备」；用户「全部同意」给出源码施工、编译窗口、转现役三项授权。修法 A 是页漂移唯一便宜解——capture 只能在 frontier 以下每页都 Device-resident 时落袋，而降级是 oldest-first，正好吃掉这个前缀。
+- **Δ 对上个基线（§213）**：§213 是「删 16 份副本释放 19.9 GiB、零代码改动」；本节是**引擎源码实改 + 二进制更换 + 现役位换装**。§213 结束后现役仍是 RC8 `B93B179176A0DC23`，本节结束后现役是 `F814B07A2B71ED4E`。
+- **解决结论（有实证）**：
+  1. **改动面（2 文件 4 类）**：`program_impl.h` 两个声明各加 `std::uint32_t spare_prefix_pages = 0U`；`context.cpp` 两处定义加同名参数、`is_preferred` 加 `page < spare_prefix_pages ||` 短路、`ensure_ring_room` 内两处 `demote_kv_pages_to_host` 转发、`ensure_sequence_kv_mapped` 新增取值点并传给 Main/Backend 两次 `ensure_ring_room`。**只嵌判断，不整段替换**（该文件有挂账 42/44/46 的异步降级、批量 D2H、profile 等本仓特有增强）。
+  2. **取值口径**：`requests[sequence.lane].prefill->capture_groups.back().frontier`（与参考实现同源）。**不取 `total_tokens`**——那是本步映射 frontier，decode 时可等于全长，会把几乎所有页列入保护、使第一遍永远空跑。**不含 `shared_candidates`**——本仓 `RequestControl::Prefill`（`program_impl.h:532`）只保留 `capture_groups`，`shared_candidates` 属 plan 期结构（`RequestBasePlanImpl:213` / `AdmissionCandidateImpl:271`），`PreparedPromptData` 也不持有，运行期发布走 `capture_groups`。无 pending capture 时恒 0，decode 不付代价。
+  3. **编译 24 秒而非 55–66 分钟**：`CMakeCache` 已在、只 2 文件受影响 ⇒ 增量 20 目标；这与冷编口径不矛盾，记录时必须写明「增量」，不得当作编译提速结论。
+  4. **`-Experimental` 即转现役**：`engine_ctl.ps1 start -Exe <外部件>` 先被 T#0059 拦（`refuse to overwrite live engine`），加 `-Experimental` 后 `backup skipped (identical hash in lineage MANIFEST)` 并把件复制到 `engine\self-built-20261008\`。所以「起实验件冒烟」与「转现役」在这条入口上是同一个动作——本轮的结果是现役位已换成 `F814B07A`，进程 pid=23220 用的即该件。两侧锚点都在 lineage（旧 `B93B1791`=RC8、新 `F814B07A`），可 `Copy-Item` 秒级还原。
+  5. **三个工具类挂账同步清**：#76 `rotate -Apply` 改为先按 lineage MANIFEST 的 sha 把待删件分「已归档/唯一副本」，含唯一副本即整体拒绝（实测 `[KEEP unique] bak_20261031_123144 (未登记于 lineage，不会删)`，**adopt 前** `gate 26==26 OK`）；#70 `valley_bench.py` 新增 `valley_samples_true` 双口径字段（复跑 `valley_samples=9 → valley_samples_true=0`）；#67 核查确认当前 `log_verify.ps1` 对 `Refresh`/`FileInfo` **0 命中**（仅有 `LastWriteTime`），旧备份 1972 B 亦无，属旧版遗留描述。
+- **新发现**：
+  1. **冒烟与转现役不可分离**（在 `engine_ctl -Experimental` 路径上）：想「先冒烟不转现役」必须另走 `test-run` 路径，否则一次命令就把现役位换掉。本轮据实记录该副作用，不掩饰。
+  2. **源码树是纯 LF、PS/文档是 CRLF**：同一轮里改两类文件必须分别按各自行尾写，否则整文件 diff（本日已在 `engine_assets.ps1` 补丁上踩过一次，被断言拦下）。
+  3. **默认 `-Pool 65536` 是雷**：`engine_ctl.ps1` 参数默认值 65536，当前模型必须显式 57344；起服日志确认实际生效值是 `--kv-capacity 57344`。
+  4. **冒烟日志的低窗是 idle 而非谷**：`valley_class idle=1 / host_bound=0`，与 §208/§209 的三特征判据一致；这也再次证明不能拿 5s 窗口最小值当掉速指标。
+- **本批挂账**：#64 ✅ 销账（源码+编译+转现役+冒烟；**效果验证转 #77**）；#67 ✅、#70 ✅、#76 ✅ 销账；**新增 #77**（修法 A 效果验证：`publish declined` / `capture install` 深度 / `hit` 收益 / 三后端冒烟 / 掩码分布）；#68 ⏸ 仍待夜班长跑；#73 ⏸ 严禁不变。
+- **落盘与门控**：施工记录落 `docs\01-构建与发布\施工记录-修法A-spare_prefix_pages-20261105.md` 并入库；`engine-src` 是独立未跟踪子仓，**本轮不提交**（保持 HEAD 不变以不打断 asset-dual 树的同一性检查），改动以「备份 + 本记录 + binary sha」三者锚定；`work\data\patch_fixA.py`、`start_build_fixA.ps1`、`precheck_fixA.ps1`、`append_214.py` 为一次性留痕件，不入库。
+
+`[EVIDENCE] git -C engine-src diff --stat: 2 files changed, 31 insertions(+), 9 deletions(-)`
+`[EVIDENCE] build-out\build_engine.log: BUILD-EXIT=0 2026/11/05 7:22:39.90 ;; [20/20] Linking CXX executable apps\ninfer-serve.exe ;; ARCH-GATE: ELF=384 sm_120a=384 sm_86=0 ptx=0 ;; ARCH-GATE: OK`
+`[EVIDENCE] 命令输出: DEPLOY-DLLS: OK files=16 ;; deploy_exit=0`
+`[EVIDENCE] 命令输出: live sha16=F814B07A2B71ED4E mtime=07:22:32 ;; pid=23220 path=...\self-built-20261008\ninfer-serve.exe ;; live_dll=16 build_dll=16 dll_sha_diff=0`
+`[EVIDENCE] logs\test_fixA.log: warmup complete | 381 ms ;; listening on http://127.0.0.1:8094 | model qwen3.8-27b-coder390`
+`[EVIDENCE] 命令输出: models_status=200 ;; HTTP OK elapsed_s=0.8 ;; content=2 ;; completion_tokens=26`
+`[EVIDENCE] 命令输出: [ROTATE] 干跑 ... [KEEP unique] ninfer-serve.exe.bak_20261031_123144 (未登记于 lineage，不会删) ;; assets: lineage 27 件 == MANIFEST 27 行 -- OK（adopt 前为 26==26）`
+`[EVIDENCE] work\data\scan_20261105_fixA.json: "req_done": 1, "valley_samples": 1, "valley_samples_true": 0, "valley_class": {"host_bound": 0, "idle": 1}`
+`[EVIDENCE] _safety_backups\20261105_pre_fixA: context.cpp 174982/325AAE3EE7276FFD ;; program_impl.h 114471/CAA4DCA16CED34F6`
+
+---
+
+## 四-AD、挂账表增量（2026-11-05，§214 追加后同步）
+
+> 沿用四-A…四-AC 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages` 未合并** | ✅ **销账**：源码 2 文件 `+31/-9` 落地、增量编译 24 秒、两道门过、封存 lineage `FIXA-20261105`、现役位换为 `F814B07A2B71ED4E`、起服 200 + 推理 0.8 s；**效果验证转 #77** |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()`** | ✅ **销账**：当前脚本对 `Refresh`/`FileInfo` 0 命中（仅 `LastWriteTime`），旧备份 1972 B 亦无 ⇒ 旧版遗留描述 |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 不变：方案已出，待夜班长跑（固定提示词 + 每档 ≥2 次 + 先压离散 < ±1.5%） |
+| 70 | **`valley_bench.py` 低速判据加固** | ✅ **销账**：新增 `valley_samples_true`（只计 host_bound）并注明旧口径不可作掉速指标；复跑 `9 → 0` |
+| 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ **保持严禁**：实体未动，sha 逐件 `match=True` |
+| 76 | **`rotate -Apply` 剩余误删风险** | ✅ **销账**：待删件先按 lineage sha 分类，含未登记唯一副本即整体拒绝；实测 `[KEEP unique]` + `gate OK` |
+| 77 | **修法 A 效果验证** | ⏸ 新增：`publish declined` / `capture install` 深度 / `hit` 收益 / MTP·DFlash·DFlash2 三后端冒烟 / 掩码分布，随 #68 长跑一并做 |

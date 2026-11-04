@@ -5072,3 +5072,51 @@ it holds 79 -- short by 5 page(s)
 | 72 | **`engine\self-built-20261008\` 下 16 份 `.bak` 未审计** | ✅ **销账**：16 份逐件实测 SHA256 + 六项意见书已出，见 §211 与同日审计报告 |
 | 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 不变：唯一副本，**严禁纳入任何处置范围** |
 | 74 | **A 类候选 16 份（≈19.9 GiB）处置** | ⏸ 新增：self-built 10 份 + test-run 6 份，①–⑤ 达成、⑥ 缺点名 token；按 #0090/#0091 **不构成删除提案、不执行任何删除** |
+
+### 212. 【用户令「同意删除可安全删除的」→ 删除通道门控核查：四缺口未闭合，一份不删】(2026-11-05)
+
+- **目的**：用户给出类别式书面同意，要求删除上轮报告中的 A 类候选。按 T0「原方案 + 现状 + 可选路径 + 各自风险，绝不自行降级」，先核删除通道的机械门与现成执行入口，再决定是否动手。**结论：四个客观缺口未闭合，本轮不删除、不移动、不覆盖任何文件。**
+- **数字（全量扫，非抽样）**：沿用本日 `valley_bench.py scan --tag 20261105_bakaudit` 对 `serve_20261104_232131.log`（23:22:04–23:59:01）全量扫：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_share_true_pct=0.0, host_bound=0`；`cache median=99.8 avg=87.2`。产物 `work\data\scan_20261105_bakaudit.json`（2310 B）。
+  - 删除对象规模：A 类 **16 份 ≈19.9 GiB**（self-built 10 份 ≈12.46 GiB + test-run 6 份）；B 类严禁 **8 份**（self-built 6 + test-run 2）；`lineage 26 件`永久只读；`J free 37.3 GiB`。
+  - 现成轮子干跑：`rotate` 保留 `bak_20261031_140145`，列出 **7 份**待删，其中 2 份是 B 类唯一副本；self-built 10 份**完全不在其扫描范围**。
+  - 实体复核：`bak_count=16 total_GiB=19.85`、`A 类 10 份存在性=10`、4 个 lineage 同 sha 件（RC1/PG3/RC6/RC2）实体仍在；`check_refs.py 断链 24 = 基线 24`。
+- **阶段**：① 开工门（wake 81 条 / tier=1 / session_gate OK）→ ② 核 `NINFER_APPROVED_DELETE` 令牌时效 → ③ 全项目搜令牌消费方，定位 `scripts\engine_assets.ps1` 与 `tools\grant_allow.ps1` → ④ 读桌面一键 bat 与退役台账 → ⑤ **不加 `-Apply` 干跑现成轮子取证删除范围** → ⑥ 核 test-run 排序、A 类实体数、lineage 副本 → ⑦ 按用户既有偏好把 DELETE 令牌并入桌面一键 bat（+1 行）→ ⑧ 出点名清单与门控报告 → ⑨ 落盘与门控。
+- **原因**：#0091 规定《绝对安全意见书》六项缺一项＝提案无效禁止提交；#0090 规定长重建成本件禁删需「绝对不再重建」三条全满足；项目硬规则 §6 规定删任何文件须「审计 → 意见书 → 用户点名 token → 执行 → 回填台账」。用户的类别式同意补上了书面结论的一部分，但机械门与执行路径未闭合。
+- **Δ 对上个基线（§211）**：§211 是「只审计、只报告，⑥ 缺点名 token ⇒ 一份不删」；本节用户已给同意，但**新增发现执行层两个硬阻断**（令牌过期 + 现成轮子会误删唯一副本），把问题从「授权缺口」推进到「通道缺口」。本轮零代码改动、零删除；唯一改动是桌面一键 bat `+1 行`（本机 AI 工具链件，不入 git）。
+- **解决结论（有实证）**：
+  1. **缺口① 令牌过期且不可自签**：`NINFER_APPROVED_DELETE` = `granted=2026-10-31 08:30:54 / minutes=60`，当前 `2026-11-05 06:48:13`，过期 5 天。`tools\grant_allow.ps1:5-6` 明写门端只认桌面 bat 调用链签发的令牌、**AI 直调一律无效**（T-NO-SELF-TOKEN）；桌面一键 bat 原本 8 条 `grant_allow.ps1` 调用**不含 DELETE**。⇒ 本轮按用户「令牌整合」既有偏好把 `-Name NINFER_APPROVED_DELETE -Minutes 60` 并入一键 bat（改前 15 行 / 改后 16 行，仅 +1 行），**不自行运行、不自签**。
+  2. **缺口② 现成轮子的误删风险（记 T#0082）**：`scripts\engine_assets.ps1:93-108` 的 `rotate -Apply` 按 LastWriteTime 保留最新 1 件、无脑删其余 `test-run` 旧件，**不查 sha 是否在 lineage 归档、不区分 A/B 类**。干跑 7 份待删里含 `bak_20261031_125544`(`02B5E65F`) 与 `bak_20261031_123144`(`C1972DCB`) 两份全项目唯一副本；照跑即造成不可逆字节丢失。且该轮子 `$run` 固定指向 `engine\test-run`，self-built 10 份一份也删不到。⇒ **即使令牌有效也不能直接用现有轮子**。
+  3. **缺口③ 既有「保留」书面结论**：`.codebuddy\sda\engine-retired-20261030.md:38` 明写 `bak_20261030_230643`「保留（当前件副本）」，系 T#0074 事故锚点；按 #0091 第 ② 条要动它需新证据 + 差异说明，本轮无。
+  4. **缺口④ 点名与 #0090 第 ② 条**：「同意删除可安全删除的」是类别式书面同意，未点名到具体文件，未给「绝对不再重建 / 永久替代」书面结论。如实指出判据适用对象：被删的是**冗余副本**（lineage 秒级 `Copy-Item` 可还原），冷编 55–66 min 是**原件**成本而原件不删，上轮意见书 §5 把原件成本套到副本上属偏保守；但按 T0 不得由 AI 单方面据此放行，须用户书面明确。
+  5. **可选路径与风险**：A（推荐）扩展现有 `engine_assets.ps1` 新增 `purge -Manifest <清单>`（白名单 + 逐件验 lineage 同 sha 实体 + B 类黑名单硬排除 + `TokenOk` + 默认干跑 + 回填台账），风险是改共享代码、`MODE tier=1` 需逐项批准、改动面约 40 行需过 T-CHECKPOINT/T-VERIFY；B（先 `adopt` 2 份 B 类再 `rotate`）会改写 MANIFEST 权威台账、仍不覆盖 self-built 且等于绕过严禁判定，不推荐；C（另写一次性白名单脚本）属旁路，违反 feedback_no_bypass，不推荐。
+  6. **本轮零删除**：16 份 self-built `.bak` 与 8 份 test-run `.bak` 全在原地，现役件 `B93B179176A0DC23` 未动。执行前须重跑 16 份逐件 SHA256 并与 lineage 实体对账，删除后回填退役台账。
+- **新发现**：
+  1. **「同意删」≠「能删」**：删除通道有三层（授权令牌 / 执行轮子 / 书面结论口径），前两轮只盯意见书六项，漏了执行轮子与令牌的实际消费方；`engine_assets.ps1` 的 `rotate` 与审计结论的 A/B 分类**语义不兼容**（记 T#0082）。
+  2. **令牌门存在隐性死锁**：一键 bat 不含 DELETE，而 `grant_allow.ps1` 又只认一键 bat 调用链 ⇒ 用户不补 bat 就永远无法签发有效 DELETE 令牌。本轮补 1 行解除。
+  3. **lineage「只读」表述需核实**：实测 4 个同 sha 件中 `ninfer-serve-PG3-20261031.exe` 与 `ninfer-serve-RC6.exe` 的 `ReadOnly` 属性位为 `None`（另 2 件为 `ReadOnly`）。不影响 sha 一致性与归档判定，但「全部只读封存」的文字与实体属性有出入，后续如需动该库须先逐件核属性。
+  4. **T#0079 三段式再次适用**：`rotate` 干跑只能证明「该轮子的删除范围」，不能证明「这些件可删」；把工具输出当成安全结论即为举证倒置。
+- **本批挂账**：#71 🟡（用户已给类别式同意，仍缺点名 + `bak_20261030_230643` 新证据/差异说明）；#74 🟡（A 类 16 份处置：令牌过期 + 轮子误删风险 ⇒ 不执行）；**新增 #75**（删除执行轮子 `rotate` 与 A/B 分类不兼容，需扩展 `engine_assets.ps1`，待用户逐项批准）；#72 ✅ 已销账；#73 ⏸ 严禁不变；#64/#68/#70 不变。
+- **落盘与门控**：报告与点名清单落 `docs\01-构建与发布\删除通道门控核查与A类点名清单-20261105.md` 并入库（遵 T#0073）；构建史按 append-only 字节级保 CRLF 纯追加；桌面一键 bat 为本机 AI 工具链件（`.gitignore` 不入 git），改前改后已在报告 §0 记录；`work\data\append_212.py` 为一次性留痕脚本，不入库。
+
+`[EVIDENCE] 命令输出: {"name":"NINFER_APPROVED_DELETE","granted":"2026-10-31 08:30:54","minutes":60} ;; 2026-11-05 06:48:13`
+`[EVIDENCE] 命令输出: [ROTATE] 保留当前件: ninfer-serve.exe.bak_20261031_140145 ;; 干跑：以下将被删除 ... - ninfer-serve.exe.bak_20261031_125544 ... - ninfer-serve.exe.bak_20261031_123144`
+`[EVIDENCE] 命令输出: bak_count=16 total_GiB=19.85 ;; A 类 10 份存在性 = 10`
+`[EVIDENCE] 命令输出: ninfer-serve-RC1.exe size=1333820928 ro=ReadOnly ;; ninfer-serve-PG3-20261031.exe size=1333992960 ro=None ;; ninfer-serve-RC6.exe size=1333991424 ro=None ;; ninfer-serve-RC2.exe size=1376953856 ro=ReadOnly`
+`[EVIDENCE] .codebuddy\sda\engine-retired-20261030.md:38: | ninfer-serve.exe.bak_20261030_230643 | 1272 | 保留（当前件副本） |`
+`[EVIDENCE] tools\grant_allow.ps1:5: # 门端(gates.ps1 / pre-commit)只认 source 含桌面"一键授权-提交与推送.bat"调用链的令牌,`
+`[EVIDENCE] 命令输出: check_refs.py → 断链 24 条（基线 24）`
+`[EVIDENCE] work\data\scan_20261105_bakaudit.json: "req_done": 113, "valley_share_true_pct": 0.0`
+
+---
+
+## 四-AB、挂账表增量（2026-11-05，§212 追加后同步）
+
+> 沿用四-A…四-AA 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 71 | **test-run 6 份已登记 BAK 处置** | 🟡 用户已给类别式书面同意；仍缺点名到文件、`bak_20261030_230643` 新证据 + 差异说明；不执行删除 |
+| 72 | **self-built 16 份 `.bak` 未审计** | ✅ 已销账（§211） |
+| 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 不变：全项目唯一副本，**严禁纳入任何处置范围**；本轮发现 `rotate -Apply` 会误删，见 #75 |
+| 74 | **A 类候选 16 份（≈19.9 GiB）处置** | 🟡 用户「同意删除可安全删除的」已收；令牌 `NINFER_APPROVED_DELETE` 过期 5 天、执行轮子误删风险未解 ⇒ **一份未删** |
+| 75 | **删除执行轮子与 A/B 分类不兼容** | ⏸ 新增：`engine_assets.ps1 rotate -Apply` 不查归档 sha、会删 2 份 B 类唯一副本、不覆盖 self-built 10 份；需扩展现有轮子（路径 A），`MODE tier=1` 待用户逐项批准 |

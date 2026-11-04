@@ -5120,3 +5120,71 @@ it holds 79 -- short by 5 page(s)
 | 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 不变：全项目唯一副本，**严禁纳入任何处置范围**；本轮发现 `rotate -Apply` 会误删，见 #75 |
 | 74 | **A 类候选 16 份（≈19.9 GiB）处置** | 🟡 用户「同意删除可安全删除的」已收；令牌 `NINFER_APPROVED_DELETE` 过期 5 天、执行轮子误删风险未解 ⇒ **一份未删** |
 | 75 | **删除执行轮子与 A/B 分类不兼容** | ⏸ 新增：`engine_assets.ps1 rotate -Apply` 不查归档 sha、会删 2 份 B 类唯一副本、不覆盖 self-built 10 份；需扩展现有轮子（路径 A），`MODE tier=1` 待用户逐项批准 |
+
+### 213. 【A 类 16 份已归档冗余副本删除执行：扩展现有轮子 purge，释放 19.9 GiB】(2026-11-05，用户令「已双击授权，按清单执行，批准路径A」)
+
+- **目的**：§212 的四个删除通道缺口在用户双击重签令牌、点名清单、批准路径 A 后全部闭合。按「守卫碍事唯一正确动作＝改守卫，禁另写旁路」扩展现有 `engine_assets.ps1`，用机器门完成 A 类 16 份删除，B 类 8 份唯一副本与现役件一字不动。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --log logs\serve_20261104_232131.log --tag 20261105_purge`，产物 `work\data\scan_20261105_purge.json`（2289 B）。日志目录最新文件即该 113 段基线（10689520 B / 00:01:17），本轮 `engine_proc=0` 无新引擎日志，与 §208–§212 同口径：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_share_true_pct=0.0, host_bound=0`；`cache median=99.8 avg=87.2`。
+  - 授权：`NINFER_APPROVED_DELETE granted=2026-11-05 06:56:58 / 60min / age=1.1 / desktop=True`；`NINFER_APPROVED_COMMIT 06:56:49`、`NINFER_ALLOW_ASSET_SINGLE 06:56:51` 同样有效。
+  - 代码：`scripts\engine_assets.ps1` `+104/-2`（`7162 → 12622 B`，`crlf 144 → 246 / bare_lf=0`，UTF-8 BOM 保留，`PS SYNTAX OK`）；改前备份 `_safety_backups\20261105_pre_purge\engine_assets.ps1`（7162 B）。
+  - 门控：清单 `items=16 / forbidden=8 / version=1`；负例 `BLOCKED ... exit 1`；干跑 `PRECHECK OK: 16 件通过四验；黑名单 8 项 0 命中`（26.8 s）；`-Apply` 重跑四验后删除 16 件（27.5 s）。
+  - 结果：`selfbuilt_bak 16 → 6 / 7.39 GiB`、`testrun_bak 8 → 2 / 2.48 GiB`（余下全为 B 类）、`J free 37.3 → 57.2 GiB`（释放 **19.9 GiB**）、`lineage_exe=26`、`gate OK`、`断链 24 = 基线 24`。
+- **阶段**：① 开工门（wake 82 条 / tier=1 / session_gate OK）→ ② 客观核验三枚令牌时效与调用链 → ③ 补提交推送上轮 2 文件（`8958a36`）清空工作区 → ④ T-BACKUP + T-CHECKPOINT 三问 → ⑤ 写机器可读点名清单与 B 类黑名单 → ⑥ 字节级扩展现有轮子（保 BOM/CRLF + 断言现有 4 action 未丢）→ ⑦ T-VERIFY（语法/行尾/断链/`gate`+`rotate` 回归/黑名单负例）→ ⑧ 完整干跑 → ⑨ `-Apply` 执行 → ⑩ 逐件复算保留件 sha → ⑪ 落盘与门控。
+- **原因**：用户已给类别式同意与点名，但 §212 证明现有 `rotate -Apply` 按 LastWriteTime 无脑删 `test-run` 旧件，会误删 `C1972DCB` / `02B5E65F` 两份全项目唯一副本，且完全不覆盖 self-built 10 份；#0091 与项目硬规则 §6 要求删除走「审计 → 意见书 → 点名 token → 执行 → 回填台账」。
+- **Δ 对上个基线（§212）**：§212 是「四缺口未闭合、一份不删、只做准备」；本节是**共享工具实改 + 真实删除 16 件 + 释放 19.9 GiB + 台账回填**。上节为零代码改动零删除，本节为 `+104/-2` 代码改动与 16 次删除。
+- **解决结论（有实证）**：
+  1. **`purge` action（唯一删除入口，用户批准路径 A）**：`scripts\engine_assets.ps1` 新增第 5 个 action，与 `rotate` 语义不同——不按时间排序、不扫目录全量、只认白名单。四道门：① 黑名单硬排除（`name` 或 `sha16` 任一命中 B 类即**整体拒绝、不做部分删除**）② 逐件四验（存在 / sha 与清单一致 / 全量 sha 在 lineage MANIFEST 台账 / 封存库同 sha 实体存在）③ `-Apply` 前 `TokenOk` + `size/mtime` 二次快检防 TOCTOU ④ 默认干跑，加 `-Apply` 才真删。现有 `audit/rotate/adopt/gate` 一字未改，`gate` 回归 `26 == 26 OK`、`rotate` 干跑行为不变。
+  2. **施工中一次被拦与修正（记 T#0083）**：首次干跑报 `BLOCKED: sha 与清单不符 bak_20261101_231713`。根因是清单把审计报告表格的 **8 位前缀**当成 `sha16` 填，而工具按 `Substring(0,16)` 比较；实测确认应为 16 位（`322A972D6596A16D`）。按实测把 items 与 forbidden 全量统一为 16 位后重跑通过，**没有放宽校验、没有改用 8 位比较**。
+  3. **`bak_20261030_230643` 的 #0091 第②条重开依据**：退役台账曾写「保留（当前件副本）」。新证据＝① 该件 `35D9E6B191583759` 与 `ninfer-serve-RC6.exe` 逐字相同（干跑四验实证）② 现役件是 RC8 `B93B179176A0DC23` 而非 RC6 ③ §210 已把 `engine_ctl.ps1` 去重源从物理 `.bak` 扫描改为 lineage MANIFEST sha 清单。差异说明＝10-30 的「当前件副本」语境与物理副本去重成立于当时，11-05 现役已换 RC8、守卫不再依赖物理副本，T#0074 兜底需求消失，条件已变而非「以相同理由再次提案」。用户「按清单执行」为点名确认，清单该项带 ⚠️ 备注。
+  4. **删除后核验**：`selfbuilt_bak=6 / 7.39 GiB`、`testrun_bak=2 / 2.48 GiB`（余下全为 B 类）、现役 `B93B179176A0DC23` 未变、`lineage_exe=26` 且 `gate OK`、断链 `24 = 基线 24`、J 盘可用 `57.2 GiB`。**B 类 8 份唯一副本逐件复算 sha 全部 `match=True`**（`B8F62A38DDB91850` / `8FCA91461E299073` / `16698451DA0C3C6A` / `B0E9B1A1D7074282` / `298948C4348B2EAD` / `65516EEED9ECB6AF` / `C1972DCB4A6D909D` / `02B5E65F15790B0C`）。
+  5. **回滚能力**：16 件中的每一件在 `engine\lineage\` 都有同 sha 实体（RC1/PG3/RC6/RC2/RC5/RC7），`Copy-Item` 秒级还原、字节无损；冷编 55–66 min 与本批无关（原件不删）。
+- **新发现**：
+  1. **机器清单必须与消费方对齐位数**：两份人读文档用不同精度（8 位 / 16 位），机器清单混用即被门拦住。门是正确的，错的是数据；被拦时只修数据（T#0083）。
+  2. **负例是删除前的必要门**：把 B 类项混进白名单验证 `exit 1` 整体拒绝，比只看干跑输出更能证明黑名单真的生效；本次负例在算 sha 之前就拦截，说明不会发生「删了几个才发现命中黑名单」。
+  3. **删除通道三层缺一不可**：授权令牌 / 执行轮子语义 / 书面结论口径。§211 只查第一层（意见书）、§212 补齐三层认知，本节才真正闭合。
+  4. **空间账**：本仓引擎副本足迹从约 71 GiB 降到约 51 GiB，但门与三账（开工门、令牌门、`check_doc_eol.py`、`check_refs.py`、append-only 三账）几乎不占空间、一份未减；`MODE tier=1` 未解除，不因本轮执行顺利而撤护栏。
+- **本批挂账**：#71 / #74 / #75 **全部销账**；#73 保持 ⏸（B 类 8 份唯一副本严禁，本轮逐件复算 sha 全 match）；#72 ✅ 已销账；#64/#68/#70 不变。
+- **落盘与门控**：执行报告、点名清单落 `docs/01-构建与发布\` 并入库（遵 T#0073）；退役台账 `.codebuddy\sda\engine-retired-20261030.md` 追加回填节；构建史按 append-only 字节级保 CRLF 纯追加；`work\data\patch_engine_assets_purge.py`、`append_213.py`、`purge_negative_test.json` 为一次性留痕件，在 work/ 暂存区不入库；桌面一键 bat 为本机 AI 工具链件不入 git。
+
+`[EVIDENCE] 命令输出: NINFER_APPROVED_DELETE granted=2026-11-05 06:56:58 minutes=60 age=1.1 OK=True desktop=True`
+`[EVIDENCE] 命令输出: patched bytes=7162 -> 12622 crlf=246 bare_lf=0 bom=OK ;; PS SYNTAX OK ;; 断链 24 条`
+`[EVIDENCE] 命令输出: [PURGE] BLOCKED: 白名单命中 B 类严禁项 ninfer-serve.exe.bak_20261031_125544 / 02B5E65F15790B0C ;; negative_exit=1`
+`[EVIDENCE] 命令输出: [PURGE] PRECHECK OK: 16 件通过四验（存在 / sha 一致 / sha 在台账 / 封存库同 sha 实体在）；黑名单 8 项 0 命中 ;; purge_dryrun_exit=0 elapsed_s=26.8`
+`[EVIDENCE] 命令输出: [PURGE] DONE: 删除 16 件；回滚=从封存库对应件 Copy-Item 还原（sha 逐件相同） ;; purge_apply_exit=0 elapsed_s=27.5`
+`[EVIDENCE] 命令输出: selfbuilt_bak=6 size_GiB=7.39 ;; testrun_bak=2 size_GiB=2.48 ;; live_sha16=B93B179176A0DC23 ;; lineage_exe=26 ;; disk_free_GiB=57.2`
+`[EVIDENCE] 命令输出: assets: lineage 26 件 == MANIFEST 26 行 -- OK ;; 断链 24 条`
+`[EVIDENCE] 命令输出: OK  B8F62A38DDB91850 ... match=True`（B 类 8/8 行逐件）
+`[EVIDENCE] work\data\scan_20261105_purge.json: "req_done": 113, "valley_share_true_pct": 0.0`
+
+---
+
+## 四-AC、挂账表增量（2026-11-05，§213 追加后同步）
+
+> 沿用四-A…四-AB 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 71 | **test-run 6 份已登记 BAK 处置** | ✅ **销账**：随 A 类 16 份一并删除，sha 逐件四验通过；退役台账已回填 |
+| 72 | **self-built 16 份 `.bak` 未审计** | ✅ 已销账（§211） |
+| 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ **保持严禁**：本轮逐件复算 sha 全部 `match=True`，实体未动 |
+| 74 | **A 类候选 16 份（≈19.9 GiB）处置** | ✅ **销账**：已删除 16 份，J 盘 37.3 → 57.2 GiB；现役件与 lineage 26 件未变 |
+| 75 | **删除执行轮子与 A/B 分类不兼容** | ✅ **销账**：`purge` action 已落地并通过负例/干跑/语法/回归验证 |
+
+### 213 补记（同日）：删除后 `rotate -Apply` 的剩余误删风险
+
+- **新发现 5（完整性风险，发现即报）**：本批删除后 `engine\test-run\` 只剩 **2 份 `.bak`，且两份都是 B 类全项目唯一副本**（`C1972DCB4A6D909D` / `02B5E65F15790B0C`）。`engine_assets.ps1` 的 `rotate -Apply` 语义本轮一字未改（按 LastWriteTime 保留最新 1 件、删其余、不查归档 sha、不区分 A/B 类），此时若有人执行 `rotate -Apply`，会**删掉其中一份唯一副本且无 lineage 同 sha 实体可还原**。
+- **为什么不顺手修**：用户「批准路径A」的授权范围是**新增 `purge` action**，不含改 `rotate`；按最小改动 / 冻结能用部件（稳定 ≥1 天的部件默认冻结）与 Scope Fence，越界改动＝T0。故本轮只上报、不越界施工。
+- **建议（待用户裁决）**：给 `rotate -Apply` 加与 `purge` 同款的黑名单硬排除（约 10 行），或把 `rotate` 标为退役只留干跑；两者都需用户逐项批准 + T-CHECKPOINT 三问 + T-VERIFY。
+- **新增挂账 #76**：`rotate -Apply` 对当前 test-run 2 份 B 类唯一副本仍有误删风险，待用户裁决；在裁决前**禁止对 `rotate` 传 `-Apply`**。
+
+`[EVIDENCE] 命令输出（删除后实测）: [ROTATE] 保留当前件: ninfer-serve.exe.bak_20261031_125544 ;; 干跑：以下将被删除 ... - ninfer-serve.exe.bak_20261031_123144`
+`[EVIDENCE] 命令输出: testrun_bak=2 size_GiB=2.48 ;; OK  C1972DCB4A6D909D ... match=True ;; OK  02B5E65F15790B0C ... match=True`
+待删项 `bak_20261031_123144` 即 `C1972DCB4A6D909D`，在 B 类严禁清单内、无 lineage 同 sha 实体。
+
+---
+
+## 四-AC 补记、挂账表增量（2026-11-05，§213 追加后同步）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 76 | **`rotate -Apply` 剩余误删风险** | ⏸ 新增：删除后 test-run 仅剩 2 份 B 类唯一副本，按时间删旧件会误删其一；本轮未越界改 `rotate`，裁决前禁止对其传 `-Apply` |

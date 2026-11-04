@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "created": "2026-11-05",
+  "source": "docs/01-构建与发布/删除通道门控核查与A类点名清单-20261105.md",
+  "note": "A 类已归档冗余副本点名清单。dir 为目录标签（由 engine_assets.ps1 映射到现役位/test-run），不是路径；name 为纯文件名；sha16 为 SHA256 前 16 位十六进制（实测，非 8 位前缀）；lineage 为封存库同 sha 实体文件名。forbidden 为 B 类全项目唯一副本，脚本按 name 或 sha16 任一命中即整体拒绝。",
+  "items": [
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261101_231713", "sha16": "322A972D6596A16D", "lineage": "ninfer-serve-RC1.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261102_013216", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261102_062139", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261102_080630", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261102_204422", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261102_205127", "sha16": "35D9E6B191583759", "lineage": "ninfer-serve-RC6.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261103_032314", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261103_050538", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261103_050957", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261103_051325", "sha16": "9453FFC6FF077252", "lineage": "ninfer-serve-RC2.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261030_230643", "sha16": "35D9E6B191583759", "lineage": "ninfer-serve-RC6.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261031_100224", "sha16": "5B34F211D7C69909", "lineage": "ninfer-serve-RC5.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261031_102850", "sha16": "442DF90635347D20", "lineage": "ninfer-serve-RC7.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261031_140145", "sha16": "90FB3869D4312756", "lineage": "ninfer-serve-PG3-20261031.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261102_002537", "sha16": "9453FFC6FF077252", "lineage": "ninfer-serve-RC2.exe" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261103_051116", "sha16": "322A972D6596A16D", "lineage": "ninfer-serve-RC1.exe" }
+  ],
+  "forbidden": [
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261011_203641", "sha16": "B8F62A38DDB91850" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261011_233701", "sha16": "8FCA91461E299073" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261011_235516", "sha16": "16698451DA0C3C6A" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261012_024944", "sha16": "B0E9B1A1D7074282" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_20261012_073043", "sha16": "298948C4348B2EAD" },
+    { "dir": "self-built-20261008", "name": "ninfer-serve.exe.bak_pre_W1W4", "sha16": "65516EEED9ECB6AF" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261031_123144", "sha16": "C1972DCB4A6D909D" },
+    { "dir": "test-run", "name": "ninfer-serve.exe.bak_20261031_125544", "sha16": "02B5E65F15790B0C" }
+  ]
+}

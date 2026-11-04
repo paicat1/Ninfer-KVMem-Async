@@ -4,12 +4,14 @@
 #   rotate  清 test-run 只留当前件（-Apply 才真删；默认干跑）
 #   adopt   新件入封存库 + 写 MANIFEST 行（-Exe -Label -Note）
 #   gate    台账完整性门（exe 数 == MANIFEST 行数），供 gates.ps1 调用；不符 exit 1
-# 纪律：删只走 rotate -Apply，且要求 token NINFER_APPROVED_DELETE 有效。
+#   purge   按点名清单删已归档冗余副本（-Manifest <json>；-Apply 才真删；默认干跑）
+# 纪律：删只走 rotate -Apply 或 purge -Manifest ... -Apply，且要求 token NINFER_APPROVED_DELETE 有效。
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('audit', 'rotate', 'adopt', 'gate')][string]$Action,
+    [Parameter(Mandatory = $true)][ValidateSet('audit', 'rotate', 'adopt', 'gate', 'purge')][string]$Action,
     [string]$Exe = '',
     [string]$Label = '',
     [string]$Note = '',
+    [string]$Manifest = '',
     [switch]$Apply
 )
 
@@ -139,6 +141,106 @@ switch ($Action) {
             exit 1
         }
         Write-Output ('assets: lineage {0} 件 == MANIFEST {0} 行 -- OK' -f $nDisk)
+        exit 0
+    }
+
+    'purge' {
+        # 按点名清单删除已归档冗余副本（2026-11-05 用户批准路径 A）。
+        # 与 rotate 的语义差别：不按时间排序、不扫目录全量，只认白名单；逐件验 sha 与封存库同 sha 实体。
+        if (-not $Manifest) { Write-Output '[PURGE] BLOCKED: 需 -Manifest <点名清单.json>'; exit 1 }
+        if (-not (Test-Path -LiteralPath $Manifest)) { Write-Output ('[PURGE] BLOCKED: 清单不存在 ' + $Manifest); exit 1 }
+        $mj = Get-Content -LiteralPath $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ([int]$mj.version -ne 1) { Write-Output '[PURGE] BLOCKED: 清单 version 不为 1'; exit 1 }
+        $items = @($mj.items)
+        $forbidden = @($mj.forbidden)
+        if ($items.Count -eq 0 -or $forbidden.Count -eq 0) {
+            Write-Output '[PURGE] BLOCKED: 清单为空或缺 forbidden 黑名单'; exit 1
+        }
+
+        # 目录标签白名单：清单禁止携带任意路径
+        $dirMap = @{ 'self-built-20261008' = $live; 'test-run' = $run }
+
+        # ① 黑名单硬排除：任一命中 B 类 name 或 sha16 ⇒ 整体拒绝，不做部分删除
+        foreach ($it in $items) {
+            foreach ($fb in $forbidden) {
+                if ($it.name -eq $fb.name -or
+                    ([string]$it.sha16).ToUpperInvariant() -eq ([string]$fb.sha16).ToUpperInvariant()) {
+                    Write-Output ('[PURGE] BLOCKED: 白名单命中 B 类严禁项 ' + $it.name + ' / ' + $it.sha16)
+                    exit 1
+                }
+            }
+        }
+
+        # ② 权威台账 sha 集合
+        if (-not (Test-Path -LiteralPath $man)) { Write-Output '[PURGE] BLOCKED: lineage MANIFEST 缺失'; exit 1 }
+        $mtxt = [IO.File]::ReadAllText($man, [Text.Encoding]::UTF8)
+        $ledger = @{}
+        foreach ($mm in [regex]::Matches($mtxt, '[0-9A-Fa-f]{64}')) {
+            $ledger[$mm.Value.ToUpperInvariant()] = $true
+        }
+
+        # ③ 逐件四验：存在 / sha 与清单一致 / sha 在台账 / 封存库同 sha 实体在
+        $plan = @()
+        $lc = @{}
+        foreach ($it in $items) {
+            $d = [string]$it.dir
+            if (-not $dirMap.ContainsKey($d)) { Write-Output ('[PURGE] BLOCKED: 未知 dir ' + $d); exit 1 }
+            $p = Join-Path $dirMap[$d] ([string]$it.name)
+            if (-not (Test-Path -LiteralPath $p)) {
+                Write-Output ('[PURGE] BLOCKED: 文件不存在 ' + $it.name); exit 1
+            }
+            $h = Sha $p
+            if ($h.Substring(0, 16).ToUpperInvariant() -ne ([string]$it.sha16).ToUpperInvariant()) {
+                Write-Output ('[PURGE] BLOCKED: sha 与清单不符 ' + $it.name); exit 1
+            }
+            if (-not $ledger.ContainsKey($h.ToUpperInvariant())) {
+                Write-Output ('[PURGE] BLOCKED: sha 未登记于 lineage MANIFEST ' + $it.name); exit 1
+            }
+            $ln = [string]$it.lineage
+            if (-not $lc.ContainsKey($ln)) {
+                $lp = Join-Path $lin $ln
+                if (-not (Test-Path -LiteralPath $lp)) {
+                    Write-Output ('[PURGE] BLOCKED: 封存库实体缺失 ' + $ln); exit 1
+                }
+                $lc[$ln] = Sha $lp
+            }
+            if ($lc[$ln].ToUpperInvariant() -ne $h.ToUpperInvariant()) {
+                Write-Output ('[PURGE] BLOCKED: 封存库同 sha 实体不符 ' + $ln); exit 1
+            }
+            $fi = Get-Item -LiteralPath $p
+            $plan += [pscustomobject]@{
+                Path = $p; Name = $it.name; Sha = $h; Lineage = $ln
+                Size = $fi.Length; MTime = $fi.LastWriteTimeUtc.Ticks
+            }
+        }
+
+        Write-Output ('[PURGE] PRECHECK OK: {0} 件通过四验（存在 / sha 一致 / sha 在台账 / 封存库同 sha 实体在）；黑名单 {1} 项 0 命中' -f $plan.Count, $forbidden.Count)
+        if (-not $Apply) {
+            Write-Output '[PURGE] 干跑：以下将被删除（加 -Apply 才执行）'
+            foreach ($x in $plan) {
+                Write-Output ('   - {0}  {1} B  sha16={2}  lineage={3}' -f $x.Name, $x.Size, $x.Sha.Substring(0, 16), $x.Lineage)
+            }
+            exit 0
+        }
+
+        # ④ 真删前：令牌 + size/mtime 二次快检（防 TOCTOU）
+        if (-not (TokenOk)) { Write-Output '[PURGE] BLOCKED: 缺有效 NINFER_APPROVED_DELETE 令牌'; exit 1 }
+        foreach ($x in $plan) {
+            if (-not (Test-Path -LiteralPath $x.Path)) {
+                Write-Output ('[PURGE] BLOCKED: 删除前文件消失 ' + $x.Name); exit 1
+            }
+            $fi = Get-Item -LiteralPath $x.Path
+            if ($fi.Length -ne $x.Size -or $fi.LastWriteTimeUtc.Ticks -ne $x.MTime) {
+                Write-Output ('[PURGE] BLOCKED: 删除前文件被改动 ' + $x.Name); exit 1
+            }
+        }
+        $n = 0
+        foreach ($x in $plan) {
+            Remove-Item -LiteralPath $x.Path -Force
+            $n++
+            Write-Output ('   DELETED ' + $x.Name + '  sha16=' + $x.Sha.Substring(0, 16))
+        }
+        Write-Output ('[PURGE] DONE: 删除 {0} 件；回滚=从封存库对应件 Copy-Item 还原（sha 逐件相同）' -f $n)
         exit 0
     }
 }

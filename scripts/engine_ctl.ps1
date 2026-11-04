@@ -274,11 +274,28 @@ if ($exeFull -ne $runExe) {
         # 2026-10-27: hash dedupe. The old code archived a 1.27 GB copy on EVERY start even when
         # an identical binary was already archived -- 14 copies of the same S13 accumulated (32 GB).
         $liveHash = Get-Sha256Hex $runExe
-        $same = Get-ChildItem $runDir -Filter 'ninfer-serve.exe.bak_*' -ErrorAction SilentlyContinue |
-            Where-Object { (Get-Sha256Hex $_.FullName) -eq $liveHash } |
-            Select-Object -First 1
-        if ($same) {
-            Write-Output ('T#0059: backup skipped (identical hash already archived as ' + $same.Name + ')')
+        # 2026-11-05: dedupe against the lineage MANIFEST sha index, not physical .bak copies.
+        # Old scan kept 1.27 GB copies in test-run alive purely as a dedupe pool.
+        # Only trust sha rows whose exe still exists in engine\lineage (ledger + artifact).
+        # Fallback: unreadable/empty ledger => conservative backup, never silently skip.
+        $manifest = Join-Path $root 'engine\lineage\MANIFEST.md'
+        $lineageDir = Split-Path -Parent $manifest
+        $archivedHashes = @()
+        if (Test-Path $manifest) {
+            foreach ($row in Get-Content -LiteralPath $manifest -Encoding UTF8) {
+                $mSha = [regex]::Match($row, '[0-9A-Fa-f]{64}')
+                $mExe = [regex]::Match($row, '([A-Za-z0-9_.-]+\.exe)')
+                if ($mSha.Success -and $mExe.Success -and (Test-Path (Join-Path $lineageDir $mExe.Groups[1].Value))) {
+                    $archivedHashes += $mSha.Value.ToUpperInvariant()
+                }
+            }
+        }
+        if ($archivedHashes.Count -eq 0) {
+            Write-Output ('WARN T#0059: lineage MANIFEST sha index empty; conservative backup')
+        }
+        $skipBackup = ($archivedHashes.Count -gt 0) -and ($archivedHashes -contains $liveHash.ToUpperInvariant())
+        if ($skipBackup) {
+            Write-Output ('T#0059: backup skipped (identical hash in lineage MANIFEST)')
         }
         else {
             $bak = Join-Path $runDir ('ninfer-serve.exe.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))

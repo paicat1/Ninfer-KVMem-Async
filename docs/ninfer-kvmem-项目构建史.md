@@ -4974,3 +4974,53 @@ it holds 79 -- short by 5 page(s)
 | 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 方案已出：固定标准提示词 + 输出长度 + 任务序列、单变量 +1、每档 ≥2 次，先压离散 < ±1.5%；可复用 `work\draft\bench_night.py`；待夜班授权 |
 | 69 | **7 个极慢 5s 窗口（decode 3.4–8.4 tok/s）取样机制** | ✅ **销账**：固定 5s 墙钟分母 + 请求边界空窗/prefill 主导稀释，非引擎掉速；源码与 7 条上下文双证 |
 | 70 | **`valley_bench.py` 低速判据加固** | ⏸ 新增：5s 窗口最小值不应作掉速指标；建议剔除 `running 0` 与 prefill 主导窗口或按活跃时长归一，工具未改 |
+
+### 210. 【改守卫消除副本机械堆积：T#0059 去重源切换 + 已登记 BAK 六项意见书（评估稿）】(2026-11-05，用户令「同意你的123」)
+
+- **目的**：用户问「现在这种备份机制价值还有吗 / 项目管理好一些没有 / 还需要重重备份吗」，结论落到三步：① 改守卫（不再靠物理副本做去重）② 出《绝对安全意见书》六项重评 ③ 用户点名 token 后才执行处置。本轮完成 ①②，**③ 停下未执行任何删除**。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --tag 20261105_guard` 对 `serve_20261104_232131.log`（23:22:04–23:59:01）全量扫，数字与 §208/§209 一致：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_share_true_pct=0.0, host_bound=0`；`cache median=99.8 avg=87.2`。产物 `work\data\scan_20261105_guard.json`（2307 B）。
+  - 守卫改动：`scripts\engine_ctl.ps1` `+22/-5`（`17788 → 18831 B`，`crlf 478 → 495`，`bare_LF=0`，UTF-8 BOM 保留）；改前备份 `_safety_backups\20261105_pre_archived_hash\engine_ctl.ps1`（17788 B）。
+  - 台账解析：`sha_rows=51 missing_artifact_filtered=0 accepted=51`；依赖类扫描 `dep_files=317 / dep_bak_mentions=10 / read_type_hits=0`；`check_refs.py 断链 24 = 基线 24`。
+  - 备份足迹：`engine\lineage 26 exe / 32.65 GiB`、`engine\test-run 8 bak / 9.98 GiB`、`engine\self-built-20261008 4 exe + 16 bak + 16 dll / 25.12 GiB`、`_safety_backups 2.49 GiB`、`logs 1.04 GiB`、`J free 37.3 GiB`。
+- **阶段**：① 开工门 + T-CHECKPOINT 三问 + 核 git track/备份/EOL → ② 字节级替换去重块（Python 脚本保 BOM/CRLF + 四条断言）→ ③ T-VERIFY（语法/解析/三态回归/断链）→ ④ 出意见书落 `docs\01-构建与发布\` → ⑤ 落盘与门控。
+- **原因**：`engine_ctl.ps1:277` 原用 `Get-ChildItem $runDir -Filter 'ninfer-serve.exe.bak_*'` 逐份哈希比对现役件，使 1.27 GB 的 `test-run` 副本**被当作活引用池而必须保留**，同时《绝对安全意见书》第 ③ 项（依赖类引用 0 命中）永远不满足；且现役 RC8 的 sha 并不在那 8 份里 ⇒ 这 8 份对去重**现时价值为 0**，守卫却仍会在起实验件时再复制一份。属"守卫让副本机械堆积"，不是"备份太多"。
+- **Δ 对上个基线（§209）**：§209 把修法 A 停在"只读评估、不改码"；本节是**共享守卫实改 + T-VERIFY 全过 + 意见书入库**。且把意见书第 ③ 项从"❌ 不满足"推进到"✅ 达成"，六项由 4/6 变 5/6（⑥ 仍缺）。
+- **解决结论（有实证）**：
+  1. **守卫改造（本轮唯一代码改动）**：`scripts/engine_ctl.ps1` 去重源改为 `engine\lineage\MANIFEST.md` 的 sha 清单，只采信「台账有 sha 且 `engine\lineage\` 中实体文件仍在」的行（正则逐行取 64-hex + `.exe` 名，`Test-Path` 过滤）；台账不可读/为空 ⇒ 输出 WARN 并**保守新建备份、绝不静默跳过**。仅动去重块，`if (-not $Experimental)` 覆盖保护（`:306`）、`Copy-Item $Exe $runExe -Force`（`:310`）、`$runDir` 定义（`:253`）一字未改。
+     - **T-CHECKPOINT 三问**：① 1 个全局共享起服守卫；② 影响所有 `engine_ctl.ps1 start` 调用方（现役/实验件/夜班 20+ 处）；③ 不需分支（git 已 track + 改前备份可回滚）。
+     - **T-VERIFY**：`PS SYNTAX OK`；`bytes=18831 crlf=495 bare_lf=0 bom=239,187,191`；台账 `sha_rows=51 missing_artifact_filtered=0 accepted=51`，RC8 与 6 份已登记 sha 全命中、未登记件 `C1972DCB` 正确不命中；**从文件真实代码提取去重块做三态回归** `RC8_IN_LEDGER skipBackup=True` / `UNKNOWN_HASH skipBackup=False` / `LEDGER_MISSING skipBackup=False hashes=0`；`check_refs.py` 断链 `24 = 基线 24` 零新增。
+     - 效果：现役 RC8 的 sha 已在 MANIFEST，起实验件时直接 `skipBackup=True`，**不再生成重复 1.27 GB 备份**；且不删任何文件、不削弱覆盖保护。
+  2. **意见书（评估稿，落 `docs\01-构建与发布\`）**：六项重评 ① 身份 ✅ ② 归档 sha ✅（6/6 与 lineage 只读件逐字相同）③ 引用扫描 0 命中 ✅（本轮改造后 `read_type_hits=0`）④ 活件三源未命中 ✅ ⑤ 重建时长已评估 ✅（冷编 55–66 min，属 #0090 默认禁删类）⑥ **用户书面结论 ❌ 仍缺**（无「永久替代/废弃」书面结论、无点名到具体文件、无 `NINFER_APPROVED_DELETE`）。**按决策 #0091「缺一项＝提案无效禁止提交」，本文件不构成删除提案，不执行任何删除/移动/覆盖。**
+  3. **③ 停下**：`T-NO-SELF-TOKEN` 禁止自签，硬规则 §6 要求用户点名 token；且 `.codebuddy\sda\engine-retired-20261030.md:38` 明写 #1（RC6）「保留（当前件副本）」——按 #0091 第 ② 条要动它需新证据 + 说明差异。
+- **新发现**：
+  1. **引用数 ≠ 依赖引用**：改造后 `dep_bak_mentions=10` 但 `read_type_hits=0`。10 条中 8 条是 `.codebuddy\sda\engine-retired-20261030.md` 的记录表、1 条是 `feedback_lineage_first.md` 记录、1 条是 `engine_ctl.ps1:301` 的**写入型**备份名前缀。只看总命中数会误判"引用未归零"（记 T#0080）。
+  2. **备份足迹的重头不在本轮讨论对象**：`self-built-20261008` 下 16 份 `.bak`（25.12 GiB 中的主体）与 `lineage` 26 件（32.65 GiB）远大于 `test-run` 8 份（9.98 GiB）；前几轮聚焦 test-run，焦点偏了。`self-built` 那 16 份**未审计**（新增挂账 #72）。
+  3. **2 份未登记件是唯一副本**：`C1972DCB`（`bak_20261031_123144`）与 `02B5E65F`（`bak_20261031_125544`）全项目 11781 文本文件 + 5 份台账 0 命中，与"已登记"性质相反，严禁纳入任何处置范围。
+  4. **门与副本要分开算**：真正拦住本会话 3 次失误的是开工门、令牌门、`check_doc_eol.py`、`check_refs.py`、`audit_windows.py`、`log_verify.ps1` 与 append-only 三账（几乎不占空间），不是 71 GiB 的副本；且 `MODE tier=1` 自 2026-10-14 至今未解除 ⇒ 不能凭"我自评项目管理变好了"撤护栏。
+- **本批挂账**：#71（6 份已登记 BAK 处置：意见书 5/6，待 ⑥ 点名 token）；#72（`self-built-20261008` 16 份 `.bak` 未审计）；#73（2 份未登记唯一副本，严禁纳入处置）；#64/#68/#70 状态不变。
+- **落盘与门控**：构建史按 append-only 字节级保 CRLF 纯追加；`scripts/engine_ctl.ps1` 为共享守卫实改（+22/-5）；意见书落 `docs/01-构建与发布/` 并入库（遵 T#0073）；`work/data/patch_engine_ctl.py` 与 `append_210.py` 为一次性留痕脚本，在 `work/` 暂存区不入库。
+
+`[EVIDENCE] scripts\engine_ctl.ps1:277 (改前): $same = Get-ChildItem $runDir -Filter 'ninfer-serve.exe.bak_*' -ErrorAction SilentlyContinue |`
+`[EVIDENCE] scripts\engine_ctl.ps1:280 (改后): $manifest = Join-Path $root 'engine\lineage\MANIFEST.md'`
+`[EVIDENCE] 命令输出: patched bytes=17788 -> 18831 (delta=1043) ;; bom=OK crlf=495 bare_lf=0`
+`[EVIDENCE] 命令输出: PS SYNTAX OK ;; --- guards intact --- 306: if (-not $Experimental) { ;; 310: Copy-Item $Exe $runExe -Force`
+`[EVIDENCE] 命令输出: sha_rows=51 missing_artifact_filtered=0 accepted=51 ;; B93B179176A0DC23 accepted=True ;; C1972DCB4A6D909D accepted=False`
+`[EVIDENCE] 命令输出: case=RC8_IN_LEDGER skipBackup=True hashes=51 ;; case=UNKNOWN_HASH skipBackup=False ;; case=LEDGER_MISSING skipBackup=False hashes=0`
+`[EVIDENCE] 命令输出: dep_files=317 ;; dep_bak_mentions=10 ;; read_type_hits=0`
+`[EVIDENCE] 命令输出: check_refs.py → ❌ 断链 24 条（基线 24）`
+`[EVIDENCE] 命令输出: engine\lineage: 26 exe / 32.65 GiB ;; test-run: 8 bak / 9.98 GiB ;; self-built-20261008: pure_exe=4 bak=16 dll=16 / 25.12 GiB`
+`[EVIDENCE] .codebuddy\sda\engine-retired-20261030.md:38: | ninfer-serve.exe.bak_20261030_230643 | 1272 | 保留（当前件副本） |`
+`[EVIDENCE] 决策 #0091: 缺一项=提案无效禁止提交 ;; #0090: 长重建成本件(>=30min)与成品默认禁删不进删除候选池`
+`[EVIDENCE] work\data\scan_20261105_guard.json: "req_done": 113, "valley_share_true_pct": 0.0`
+
+---
+
+## 四-Z、挂账表增量（2026-11-05，§210 追加后同步）
+
+> 沿用四-A…四-Y 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 71 | **test-run 6 份已登记 BAK 处置** | 🟡 **意见书 5/6**：①②③④⑤ 达成（③ 由本轮守卫改造达成），⑥ 用户书面结论仍缺（无点名文件、无 `NINFER_APPROVED_DELETE`）；按 #0091 **不构成删除提案、不执行任何删除** |
+| 72 | **`engine\self-built-20261008\` 下 16 份 `.bak` 未审计** | ⏸ 新增：25.12 GiB 中主体，足迹重于 test-run，需单独出意见书 |
+| 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 新增：全项目 11781 文本文件 + 5 份台账 0 命中，唯一副本，**严禁纳入任何处置范围** |

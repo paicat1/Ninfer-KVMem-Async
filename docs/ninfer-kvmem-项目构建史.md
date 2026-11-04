@@ -4926,3 +4926,51 @@ it holds 79 -- short by 5 page(s)
 | 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()` / IDLE_OK** | 🟡 **部分**：IDLE_OK 已修（opt-in `-IdleOk` + `IDLE_OK`，默认行为不变，T-VERIFY 五项过）；`FileInfo.Refresh()` 在当前脚本全文件 0 命中，待确认是否旧版遗留描述 |
 | 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 新增：报告 ≤17 / 329–334 不可套到多任务交替段；需固定提示词 + 固定输出长度 + 固定任务序列复验 |
 | 69 | **7 个极慢 5s 窗口（decode 3.4–8.4 tok/s）取样机制** | ⏸ 新增：全在 host<98，3 个 running 0，余 prefill 混合；非 host-bound，机制未定位 |
+
+### 209. 【挂账推进：极慢 5s 窗口机制定位、受控序列复验方案、修法 A 立项前只读评估】(2026-11-05，用户令「同意，继续」)
+
+- **目的**：按上轮挂账序继续推进——#69 极慢 5s 窗口取样机制（零机时闭环）、#68 受控序列复验（出方案）、#64 修法 A 立项（只读评估与施工书）。本轮**未改任何代码、未点火、未编译**。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --tag 20261105_slowwin` 对 `serve_20261104_232131.log`（23:22:04–23:59:01）全量扫，数字与 §208 的 `--tag 20261105_idleok` 一致：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_samples=9 (5.1%), host_bound=0, valley_share_true_pct=0.0, peak_ge400=3`；`cache median=99.8 avg=87.2`；分段 avg decode `23:20=141.1 → 23:30=96.1 → 23:40=105.5 → 23:50=98.1`。产物 `work\data\scan_20261105_slowwin.json`。
+- **阶段**：① 开工门 + `log_verify.ps1 -IdleOk` 客观重验（`IDLE_OK`）→ ② #69 读 `throughput` 打印链 + 7 个慢窗口逐条上下文 → ③ #68 读标准提示词纪律与现成夜班驱动 → ④ 修法 A 定位参考源码、本仓调用点、参数取值链与编译入口 → ⑤ 落盘销账。
+- **原因**：#69 的极低 decode 值（3.4–8.4 tok/s）此前只被记为「取样机制未定位」；#64 只记「未合并，半天 + 参数取值」，参考源码是否在本机、改动面多大、参数怎么取全未核实；#68 只有「需固定任务序列」的方向，无可执行方案。
+- **Δ 对上个基线（§208）**：§208 把 113 段页漂移从「关联」推进到「三特征共现 0」并销 #65/#66；本节把**剩余低速窗口**从「机制未定位」推进到「源码口径实证」，把修法 A 从「待裁决的一句话」推进到「本机参考源码 + 三处改动 + 取值链 + 回归清单」的施工书；#68 从方向推进到可复用驱动的实验协议。
+- **解决结论（有实证）**：
+  1. **#69 机制定位（销账）**：`operational_log.cpp:376-379` 的 `decode_rate = report.committed_decode_tokens / report.interval_seconds`，分母是**固定 5.0s 墙钟**；`http_server.cpp:60-65` 分子只是两次采样间累计增量；`operational_log.cpp:175-183` 的 `host%` 是 5 类 host 工作耗时 delta，不是 decode 活跃时长。对照 `console_stats.cpp:92` 逐请求汇总用 `rate_cell(sum.decode_tokens, sum.decode_seconds)`（实际活跃秒数）⇒ **两套口径分母不同**，正是用户令「5s 窗口与汇总 decode 严禁混用」的源码根因。7 个慢窗口逐条：3 个 `running 0` 是请求刚结束后的空窗（`req#14 done` 23:26:04.832 → 窗口 23:26:09.653 → `req#15 started` 23:26:11.810；`req#23 done` 23:37:09.840 → 下一请求隔 96s；`req#113 done` 23:58:57.335 → `server stopped`），3 个 prefill 主导（prefill 7,210 / 8,064 / 4,598 tok，host 2.5–2.6s），1 个 prefill 仅 173 tok、host 0.34s 的请求间空档/长 TTFT；窗口内 decode 仅 17–42 tok，除以 5s 得 3.4–8.4 tok/s。⇒ **极慢值是统计口径产物，不是引擎掉速**，与 `host_bound=0`、`valley_share_true_pct=0.0`、§208 三特征共现 0 一致。
+  2. **#68 方案（未点火）**：头号阻断为 D↔G 全同配置复现 13.7% 离散 > 配置效应 ±1.5%。固定项 = 标准提示词（鹈鹕骑自行车，`req#1 prompt 232` 为锚）+ 输出长度 + 任务序列 + 单变量 +1 + 每档 ≥2 次；**先让全同配置重复离散降到 < ±1.5% 才允许比配置效应**。可复用现成驱动 `work\draft\bench_night.py`（统一 greedy / 45min 墙钟 / 单可见标题窗 / finally 兜底杀）与 `bench_one.ps1`，不另造轮子；起服只走 `scripts\engine_ctl.ps1 start`，池档查当前模型表。未点火原因：属多小时级长跑，用户在场禁启动（2026-10-15 用户令），需用户明确夜班授权 + WAIT-BUDGET 声明。
+  3. **修法 A 立项前评估（未改码、未编译）**：**参考源码完整在本机** `refs\community\tancau-ninfer-kvmem-ring`——`src\models\qwen3_5\program\storage\context.cpp:1551-1563` 含 8 参实现与 `is_preferred = page < spare_prefix_pages || binary_search(preferred, page)`；`program_impl.h:1225-1229` 参数默认值 `= 0U`；`context.cpp:1876/1879` 两处调用传 `spare_prefix`；`docs\maintainer\ring-reuse-depth-and-failure-brief.md:232-234` 写明取值 = `requests[sequence.lane].prefill->capture_groups.back().frontier` 对应页数。本仓现状：`engine-src\...\storage\context.cpp:2176-2182` 为 7 参（末参 `PendingDemoteRing* async_ring = nullptr`）、`:2195-2197` 的 `is_preferred` 只有 `binary_search(preferred)`；两遍降级在 `:2355-2363`（`if (!second_pass && is_preferred(current)) continue;`，第二遍让出 preferred，正合 tancau 语义）；全树 `demote_kv_pages_to_host(` 仅 3 命中（定义 + `:2802/:2817` 两调用）；`program_impl.h:1705-1709` 为签名。本仓 `request_plan.cpp:423-427` 已有 `capture_frontier = capture_groups.back().frontier` 与 `backing_frontier = max(capture_frontier, shared_frontier)`，`context.cpp:68-72` 可取 `*requests[lane].prefill` ⇒ **取值链存在**。
+     - **T-CHECKPOINT 三问**：① 1 个引擎源码树，所有投机后端（MTP/DFlash/DFlash2）+ 裸解码共用 KVMem 环降级路径；② 影响页降级顺序、capture 落袋、host KV 往返与超池行为，属 L0 共享核心；③ `git ls-files engine-src = 0`（未跟踪树），改动不进本仓 git，需备份到 `_safety_backups/` + 单独台账；编译唯一入口 `build\s6_1208a.bat`（冷编 55–66 分钟），产物必过 `gates_arch_product.ps1` 与 `deploy_dlls.ps1`。
+     - **改动面 3 处 + 1 个取值点**：`program_impl.h:1705` 加默认 `= 0U` 参数 → `context.cpp:2176` 签名 + `:2195` 的 `is_preferred` 加 `page < spare_prefix_pages ||` → `:2802/:2817` 两处调用传值；取值 = `kv_pages_for_frontier(backing_frontier)`，需处理 `shared_candidates` 与 clamp 到 mapped 范围。**只嵌判断、不整段替换**（本仓该文件有挂账 42/44/46 的异步降级、批量 D2H、profile 等大量特有增强，与 tancau 版差异大）。
+     - **回归清单**：ARCH-GATE、`deploy_dlls` 16 件白名单、起服 `listening` + `/v1/models` 200、页漂移三特征共现复测、34 轮 cache replay 对照、超池 `prompt exceeds` 行为、MTP/DFlash/DFlash2 三后端冒烟、`mask hidden` 分布对比。未动原因：改 L0 共享源码 + 冷编属多小时级作业，用户在场禁启动，且 `MODE tier=1` 逐项批准。
+  4. **当场撤回**：初查用 `Test-Path 'refs\tancau-ninfer-kvmem-ring'` 返回 `not present`，我写成「tancau 现成代码不在本机」——**错误**。按证据纪律三段式：该[方法]只测单一路径，[输出] `not present`，[能证明] 仅该路径不存在 / [不能证明] 对象不在本机；全项目复扫即找到 `refs\community\...` 且源码完整。已当场公开撤回，记 T#0079。
+- **新发现**：
+  1. 引擎内**同时存在两套吞吐口径**：5s 窗口用墙钟分母、逐请求汇总用活跃秒数分母；`valley_bench.py` 的 `valley_share_true_pct=0.0` 与 `valley_class` 中 `idle=3 / prefill_mixed=2 / unattributed=4` 的划分，本轮由源码+上下文得到解释（余下 `unattributed` 也落在空窗/prefill 混合）。
+  2. 报告 13.4 的「tancau 现成代码」位于 `refs\community\` 而非 `refs\` 根，且本仓 `request_plan.cpp:423-427` 已有 `backing_frontier = max(capture_frontier, shared_frontier)` ⇒ 参数取值比报告预估的更可控，但需额外处理 `shared_candidates`。
+  3. 本仓两遍降级的 `second_pass` 语义与 tancau 版「第一遍豁免、第二遍让出」天然一致，合并只需在 `is_preferred` 加一个短路，不必改降级循环。
+- **本批挂账**：#69 销账；#68 方案已出、待夜班长跑；#64 施工书已备、待点名授权与编译窗口；新增 #70（`valley_bench.py` 低速判据加固：剔除 `running 0` / prefill 主导窗口，或按活跃时长归一）；#67 的 `FileInfo.Refresh()` 项仍待确认。
+- **落盘与门控**：本节按 append-only 纯追加、字节级保 CRLF；本轮未改任何源码、未起服、未编译；`log_verify.ps1 -IdleOk` 客观重验 `IDLE_OK` 后才读日志。
+
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/serve/operational_log.cpp:378: static_cast<double>(report.committed_decode_tokens) / report.interval_seconds`
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/serve/http_server.cpp:64: .committed_decode_tokens = current.committed_decode_tokens - previous.committed_decode_tokens`
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/serve/console_stats.cpp:92: rate_cell(sum.decode_tokens, sum.decode_seconds)`
+`[EVIDENCE] work\data\scan_20261105_slowwin.json: "req_done": 113, "host_bound": 0, "valley_share_true_pct": 0.0`
+`[EVIDENCE] 命令输出: === ln=8037 === 8036: 2026-11-04 23:26:04.832  INFO  req#14 done | openai-chat | tool calls 1 | prompt 43,796`
+`[EVIDENCE] 命令输出: 8037: 2026-11-04 23:26:09.653  INFO  throughput | 5.0s | decode 6.6 tok/s (33 tok) | running 0 | batch 1.00 | host 3.8% (192 ms)`
+`[EVIDENCE] 命令输出: 8038: 2026-11-04 23:26:11.810  INFO  req#15 started | openai-chat stream | 31 messages`
+`[EVIDENCE] refs\community\tancau-ninfer-kvmem-ring\src\models\qwen3_5\program\storage\context.cpp:1561: return page < spare_prefix_pages ||`
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/models/qwen3_5/program/storage/context.cpp:2196: return !preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page);`
+`[EVIDENCE] 命令输出: --- local materialization demote calls --- context.cpp:2176 / 2802 / 2817 ;; count=3`
+`[EVIDENCE] 命令输出: git ls-files engine-src | Measure-Object → 0 ;; build\s6_1208a.bat EXISTS`
+`[EVIDENCE] 命令输出: powershell -File log_verify.ps1 -IdleOk → verdict=IDLE_OK ... EXITCODE=0`
+
+---
+
+## 四-Y、挂账表增量（2026-11-05，§209 追加后同步）
+
+> 沿用四-A…四-X 增量惯例：主表与四-W/四-X 原文均不动，仅追加增量节；本节即 #64/#68/#69 的当前状态与新增未闭项。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages` 未合并** | 🟡 **施工书已备**：参考源码完整在 `refs\community\tancau-ninfer-kvmem-ring`，本仓改动面 3 处 + 1 取值点、回归清单已列；待用户点名授权 + 编译窗口（L0 共享源码 + 冷编 55–66min，用户在场禁启动） |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 方案已出：固定标准提示词 + 输出长度 + 任务序列、单变量 +1、每档 ≥2 次，先压离散 < ±1.5%；可复用 `work\draft\bench_night.py`；待夜班授权 |
+| 69 | **7 个极慢 5s 窗口（decode 3.4–8.4 tok/s）取样机制** | ✅ **销账**：固定 5s 墙钟分母 + 请求边界空窗/prefill 主导稀释，非引擎掉速；源码与 7 条上下文双证 |
+| 70 | **`valley_bench.py` 低速判据加固** | ⏸ 新增：5s 窗口最小值不应作掉速指标；建议剔除 `running 0` 与 prefill 主导窗口或按活跃时长归一，工具未改 |

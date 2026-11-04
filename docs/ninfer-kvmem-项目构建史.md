@@ -4879,3 +4879,50 @@ it holds 79 -- short by 5 page(s)
 | 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()` / IDLE_OK** | ⏸ 承表#60：本轮 `FAIL_ANOMALY age=2621s` 再现考古误报（已完成日志静止超时），脚本仍未改 |
 
 **销账**：§206 的「580 T/s 观察待复现」由 §207 的 2.8K 尖峰平台（9 帧）转为「特征已记录、机制未定位」，不再作为待复现观察挂账；「构建史 §207 与推送等令牌」由本轮落盘推送闭环。
+
+### 208. 【零机时收口：adaptive-mtp 5 GiB 预留构成查清、113 段 mask hidden 定性无页漂移、log_verify IDLE_OK 守卫修复】(2026-11-05，用户令「同意1 2」→「D（落盘」)
+
+- **目的**：单位报告 `4559aca` 的建议 #1（查 `--adaptive-mtp` 的 5 GiB 预留构成）与 §13.4（页漂移 `mask hidden` 判据）两项零机时核实。用户授权 ①②，随后选 D（改守卫而非绕守卫）并令落盘。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --tag 20261105_idleok` 对 `serve_20261104_232131.log`（23:22:04–23:59:01）全量扫：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_samples=9 (5.1%), host_bound=0, valley_share_true_pct=0.0, peak_ge400=3`；`cache median=99.8 avg=87.2`；分段 avg decode `23:20=141.1 → 23:30=96.1 → 23:40=105.5 → 23:50=98.1`。产物 `work\data\scan_20261105_idleok.json`。
+- **阶段**：① 开工门 + 判据原文读取 → ② 源码链定位 5 GiB 构成并纠正报告建议 #1 → ③ T-LOG-VERIFY 客观门遇静止日志误判，按用户裁决走 D 改守卫 → ④ 守卫 T-VERIFY 五项验证 → ⑤ 客观重验得 `IDLE_OK` 后读日志全量逐行定性 → ⑥ 落盘与销账。
+- **原因**：§207 只记「tail 出现 `hidden=177 mid_lo=338`，仅记录关联、未据以判定」与「上游 128 MiB vs 本仓 5.06–5.29 GiB 差 40 倍，是更值得查的省显存方向」；两项都停在关联/待查，且 40 倍差异的口径从未核实。
+- **Δ 对上个基线（§207）**：由「关联/待查」推进到「源码链条实证 + 18816 行全量逐行定性 + 251 窗口共现核验」，并**撤回**报告建议 #1「若 706 MiB 缺口有一部分来自 Graph/workspace 预留，那才是真正能省的地方」在本仓的推论（跨场景误配，见下）。
+- **解决结论（有实证）**：
+  1. **5 GiB 构成**：`startup.cpp:1446-1448` 表明它是 `device_reservation_bytes` 里的 CUDA Graph driver-state **planning allowance（保守上界）**，非实测占用。MTP adaptive 分支 `startup.cpp:1393-1401` 从 `first_window=3`（`graph_profiles.h:26-28`）到 `draft_window` 每个 verify 宽度各建一套图集并累加；`graph_profiles.cpp:127` 按 128/512/2048/4096/8198/16390/32768 边界生成 profile，`:159-164` 在宽度 ≥8 时每个 profile 独占一个 `topology_class`；`startup.cpp:1376-1389` 每类给固定 `12 MiB`（`final_visible<=4096`）或 `82 MiB`，`:163-185` 按类取 max 累加，`:1402` 乘 `max_concurrency`、`:1404-1412` 再加 ngram 图集。**放大源 = 宽度数 × 拓扑类数 × 12/82 MiB 常量**，与真实图大小无关，解释了 §205 的「池无关部分主导」。
+  2. **对报告建议 #1 的四点纠正**：① `startup.cpp:1441-1443` 显示 `--cuda-graph-allowance-mib N` 无条件覆盖整个计算值（`serve_options.cpp:106-108` 帮助文本 `default 0: computed per profile`；`test_serve_options.cpp:1135` 断言省略该参数才保留计算值）⇒ **无需改引擎、无需立项**；② `operational_log.cpp:550-556` 显示超限只是 WARN 不是硬失败；③ 本仓早已实证：构建史 L43（64K 池 + `128`，decode 101.1 零代价）、L1300（压 128 → 25 秒 READY）、L2522（`64` 会 WARN `used 236.8 MiB > allowed 64.0 MiB`，`192` 后 WARN 消失）、L4830（长上下文实测用 192）⇒ 真实占用是几百 MiB 量级；④ **跨场景误配**：706 MiB 缺口出自 Coder390 + **DFlash2**，而 `--adaptive-mtp` 只在 `--spec mtp` 合法（`speculative_options.h:72/85/93` 三处 `"--adaptive-mtp requires --spec mtp"`；`ninfer_launcher.py:903-906` 只对 `k*` 下发），DFlash2 走 `startup.cpp:1413-1439` 另一分支（每 batch 类 64/96 MiB）。⇒ 那 5 GiB 不会出现在 706 MiB 缺口里，「省 5 GiB 补缺口」不成立。另上游 128 MiB 与本仓 5 GiB 属**口径不对等**（单档固定宽度 vs adaptive 全宽度×全拓扑类×并发上界）。**挂账 #65 据此销账，销账措辞为「构成已查清 = 保守上界，一行启动参数已可压到 128–192 MiB 且本仓长期使用」，不得写成「省 5 GiB 补 706 MiB 缺口」。**
+  3. **113 段 `mask hidden` 定性（全量逐行）**：日志内 `mask hidden:` 共 **18816 行**（`site=mapped` / `site=commit` 各 9408）；`hidden min=7 p25=146 median=201 p75=265 p95=322 max=346`；分箱 `≤17=484`、`18–328=18016`、`329–334=2`、`≥335=314`；`mid_lo max=393 / mid_hi max=786 / mid_hidden max=137`。按日志位置十等分 hidden 中位 `48→259→177→258→322→172→258→96→168`，是**跳变不是爬升**，与用户所述「多个任务交替使用一个大模型」一致，不是 34 轮同会话式单调挤出。窗口级共现：251 个 5s 窗口中 92 个含 hidden 行；`host≥98` 的 64 窗口 decode `min=97.1 median=141.5 max=572.4`、`<20` 者 **0**；`host<98` 的 113 窗口 decode `min=3.4 median=85.1`、`<20` 者 9；`hmax≥329` 仅 1 窗口且该窗口 `decode=126.7 host=94.3`；**三特征共现（`decode<20` 且 `host≥98` 且 `hmax≥300`）= 0**。⇒ 按单位报告「hidden 稳定 329–334 + host 98–101% + decode ≈3 tok/s」判据，**113 段无页漂移掉速**；与全量扫 `host_bound=0 / valley_share_true_pct=0.0` 独立一致。
+  4. **判据适用性纠正**：报告的 `hidden ≤17` / `329–334` 是 34 轮同会话、特定池与 prompt 下的绝对值；113 段是「多任务交替 + prompt 61,328 + cache 99.9%」，工作集本就大（`median hidden=201`）。套用单点阈值会把本段误判为掉速组。判据必须用**三特征共现**，不可只看 hidden 单点。
+  5. **守卫修复（D，改守卫不是绕守卫）**：`log_verify.ps1` 新增 opt-in `-IdleOk` 与 `IDLE_OK` verdict，仅当 `size≥5KB` 且 tail 非空时把静止 `FAIL_ANOMALY` 改判；**默认路径行为一字不变**。`git check-ignore -v` 证实该文件被 `.git/info/exclude:12` 排除（本机 AI 工具链件，不入库，未 `git add -f`）；改前备份 `_safety_backups\20261105_pre_idleok\log_verify.ps1`（1972 B）。T-VERIFY 五项全过：`PS SYNTAX OK` / `bytes=2550 crlf=45 bare_lf=0 中文注释完好` / 默认仍 `FAIL_ANOMALY` / `-IdleOk` 得 `IDLE_OK exit=0` / 2.3KB 小日志带 `-IdleOk` 仍 `FAIL_ANOMALY`（5KB 门槛生效）。
+- **新发现**：
+  1. hidden 与 decode 在本段甚至**正相关**（窗口 `hmax 18–200` 组 decode 中位 82.1 < `201–328` 组 121.1 < `≥329` 组 126.7），与「hidden 高导致掉速」方向相反；疑为任务形态混杂（长 prompt/高 cache 同时抬高两者），**不得据此反推因果**，需受控任务序列复验。
+  2. 7 个极慢 5s 窗口（`decode 3.4–8.4 tok/s`）全部落在 `host<98`（3.8%–52.3%），其中 3 个 `running 0`（空窗）、其余 prefill 混合 ⇒ 属取样/空窗/prefill 混合效应，非 host 往返瓶颈。
+  3. T-LOG-VERIFY 的 `FAIL_ANOMALY` 在本仓实为「静止超时」而非「无有效数据」（脚本自述 `:5` 与 `:29-32`），对已完成日志的离线考古是**判据错配**；本次用 opt-in 分支解决，未削弱实时日志的默认判定。
+- **本批挂账**：① hidden 绝对阈值跨场景不可用，需受控任务序列（固定提示词 + 固定输出长度 + 固定任务序列）下复验（新增 #68）② 7 个极慢 5s 窗口的取样机制未定位（新增 #69）③ `log_verify.ps1` 表#60 的 `FileInfo.Refresh()` 项经当前脚本全文件查证 0 命中，待确认是否旧版遗留描述（#67 部分）④ 修法 A `spare_prefix_pages` 仍未合并（#64 不变）⑤ DFlash 分支 allowance 未单独测算。
+- **落盘与门控**：本节按 append-only 纯追加、字节级保 CRLF；`log_verify.ps1` 为本机排除件不入库；令牌 `NINFER_APPROVED_COMMIT` 有效、`NINFER_APPROVED_PUSH` 过期但消费方脚本 0 命中（T#0076 已知虚警，不报缺口）。
+
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp:1442: impl->graph_allowance_bytes = inputs.cuda_graph_allowance_bytes;`
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp:1388: return (final_visible <= 4096 ? 12ULL : 82ULL) * kMiB;`
+`[EVIDENCE] engine-src/src-tree/fusion-engine-src/src/product/speculative_options.h:93: throw std::invalid_argument("--adaptive-mtp requires --spec mtp");`
+`[EVIDENCE] docs/ninfer-kvmem-项目构建史.md:4822: - **adaptive 判死**：--adaptive-mtp 预留 5.06-5.29 GiB（池无关部分主导）`
+`[EVIDENCE] work\data\scan_20261105_idleok.json: "host_bound": 0, "valley_share_true_pct": 0.0`
+`[EVIDENCE] 命令输出: mask_lines=18816 parsed=18816 site=commit count=9408 site=mapped count=9408`
+`[EVIDENCE] 命令输出: hidden min=7 p25=146 median=201 p75=265 p95=322 max=346 ;; bin_329_334=2 bin_ge335=314`
+`[EVIDENCE] 命令输出: host_ge98 n=64 decode min=97.1 median=141.5 max=572.4 lt20=0`
+`[EVIDENCE] 命令输出: cooccur(decode<20,host>=98,hmax>=300)=0`
+`[EVIDENCE] log_verify.ps1:5: FAIL_ANOMALY=超过 600s 未更新（疑似停写）；FAIL_EMPTY=最新日志无有效数据（空/过小）`
+`[EVIDENCE] 命令输出: git check-ignore -v log_verify.ps1 → .git/info/exclude:12:log_verify.ps1`
+`[EVIDENCE] 命令输出: powershell -File log_verify.ps1 -IdleOk → verdict=IDLE_OK ... EXITCODE=0`
+
+---
+
+## 四-X、挂账表增量（2026-11-05，§208 追加后同步）
+
+> 沿用四-A…四-W 增量惯例：主表（L2566 起）与四-W 原文均不动，仅追加增量节；本节即 #65–#67 的当前状态与新增未闭项。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 65 | **`--adaptive-mtp` 5 GiB 预留构成** | ✅ **销账**：构成查清＝宽度数 × 拓扑类数 × 12/82 MiB 常量的保守上界；`--cuda-graph-allowance-mib` 一行可压到 128–192 MiB 且本仓长期使用，无需改引擎；与 DFlash2 706 MiB 缺口非同场景 |
+| 66 | **req#21–113 多任务交替段 + `mask hidden` 判据核验** | ✅ **判据核验部分销账**：18816 行全量逐行 + 251 窗口共现核验完成，三特征共现 0 ⇒ 无页漂移掉速；「多任务交替段不纳入八段对比表」为口径决定，非挂账 |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()` / IDLE_OK** | 🟡 **部分**：IDLE_OK 已修（opt-in `-IdleOk` + `IDLE_OK`，默认行为不变，T-VERIFY 五项过）；`FileInfo.Refresh()` 在当前脚本全文件 0 命中，待确认是否旧版遗留描述 |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 新增：报告 ≤17 / 329–334 不可套到多任务交替段；需固定提示词 + 固定输出长度 + 固定任务序列复验 |
+| 69 | **7 个极慢 5s 窗口（decode 3.4–8.4 tok/s）取样机制** | ⏸ 新增：全在 host<98，3 个 running 0，余 prefill 混合；非 host-bound，机制未定位 |

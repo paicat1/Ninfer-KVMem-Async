@@ -5239,3 +5239,47 @@ it holds 79 -- short by 5 page(s)
 | 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ **保持严禁**：实体未动，sha 逐件 `match=True` |
 | 76 | **`rotate -Apply` 剩余误删风险** | ✅ **销账**：待删件先按 lineage sha 分类，含未登记唯一副本即整体拒绝；实测 `[KEEP unique]` + `gate OK` |
 | 77 | **修法 A 效果验证** | ⏸ 新增：`publish declined` / `capture install` 深度 / `hit` 收益 / MTP·DFlash·DFlash2 三后端冒烟 / 掩码分布，随 #68 长跑一并做 |
+
+### 215. 【长跑未点火：驱动盘点出三个阻断点，改落方案待用户回来】(2026-11-05，用户令「开始」→「稍等…等回来再跑长跑」)
+
+- **目的**：用户令「开始」后随即叫停长跑（上班）。本节不点火、不请求、不起服，只把「回来即可照着跑」的方案与阻断点落盘，避免下次重新踩。
+- **数字（全量扫，非抽样）**：本轮**无新日志、无新请求**，故无新 scan 产物；沿用最近一次全量扫 `work\data\scan_20261105_fixA.json`（1 个冒烟请求，`valley_samples=1 / valley_samples_true=0`）作为修法 A 件的现状基线，并明确它**不构成性能基线**。
+  - 现状：主仓工作区干净、`unpushed=0`（上轮 `008cca2` 已推）、`engine-src` 干净（`2755b24`）；引擎 `pid=23220`（修法 A 件，07:24 起）在用户离开前停掉。
+  - 驱动盘点：`work\draft\` 下 `bench_night.py 8575 B` / `bench_one.ps1 2810 B` / `bench_run.py 5512 B` / `bench_ceiling.ps1 886 B` / `bench_adapt_retry.py 499 B` / `bench_night_window.ps1 595 B` / `bench_sweep_window.ps1 595 B`；`scripts\bench_spec.py 11586 B`。
+- **阶段**：① 开工门 → ② 核主仓/engine-src/引擎三态 → ③ 列 `work\draft` 与 `scripts` 全部 bench 驱动（不另造轮子）→ ④ 读 `bench_night.py` 全文与 `bench_one.ps1` 头部 → ⑤ 判定适用性并识别阻断点 → ⑥ 出方案文档 → ⑦ 落盘与门控。
+- **原因**：#68 方案虽在 §209 出过，但当时只写「可复用 `bench_night.py`」；本轮读全文才发现它是 **SWIFT-1.5 专用扫描器**，与现役 Coder390 模型不匹配，且末尾 `taskkill` 会误杀外部引擎。若照 §209 直接复用，回来第一次点火就会失败或误杀现役服务。
+- **Δ 对上个基线（§214）**：§214 完成了「源码→编译→转现役→冒烟」；本节把长跑从「有方案」推进到「方案+驱动适用性实证+三个阻断点」，但**未产生任何实验数据**。
+- **解决结论（有实证）**：
+  1. **`bench_night.py` 不能直接用于当前模型**：`MTP`/`DFL` 硬编码 `swift15_iq3s_mtp.ninfer` / `swift15_dflash2.ninfer`；报告头硬写 `engine=RC8 (B93B1791)`；末尾 `finally` 执行 `taskkill /IM ninfer-serve.exe /F`，会连带杀掉非它起的引擎。⇒ #77 不用它。
+  2. **`bench_one.ps1` 需加 `-Exe`**：`$exe` 硬编码现役位，A/B 对照（`F814B07A` vs `RC8 B93B1791`）无法只靠参数切换。改动面 2 行，回来经批准后做。
+  3. **384 tok prompt 触发不了 ring demote**：`bench_prompt.json` 自述 384 tok，而池 `57344` / sink `5120` / retrieve `8192`。384 tok 不产生 pending capture，**修法 A 在该 prompt 上与旧件零差异**。⇒ #77 必须换「长 prompt ≥ 池容量」或「小池 `-Kvcap 16384` + ≥20K tok prompt」。
+  4. **两引擎不能并存**：`bench_one.ps1` 起 8095、现役在 8094，各 12.3 GiB 权重，16 GB 卡装不下 ⇒ 跑基准前必须先 `engine_ctl -Action stop`，跑完再起现役。
+  5. **实验设计（回来照跑）**：A/B = `F814B07A`（修法 A）vs `RC8`（无修法 A），其余全同（同模型、`--spec mtp --draft-tokens 4`、`--kv-capacity 16384`、`--kv-dtype rk8v4`、`--host-kv-mib 16384`、`--greedy`、同长 prompt），序列 `A B A B`，先算全同配置离散，离散 > ±1.5% 不许比 A/B；收益指标看 `publish declined` / `capture install` 深度 / `hit` / `prompt exceeds`。
+- **新发现**：
+  1. **「可复用」必须读到细节再确认**：§209 基于文件名与描述判定 `bench_night.py` 可复用，本轮读全文才发现模型硬编码与 `taskkill` 两个硬阻断。这是 T#0079 的同类错误——只凭单一路径/名称判断，不是凭内容。
+  2. **修法 A 的验证前提是池压力**：没有 pending capture 就没有 `spare_prefix_pages` 的作用面。任何用短 prompt 得出的「修法 A 无差异」都是伪结论。
+- **本批挂账**：#68 ⏸（方案已细化，驱动需 2 项改造）；#77 ⏸（同上，且必须长 prompt）；#73 ⏸ 严禁不变；#64/#67/#70/#76 保持 ✅。
+- **落盘与门控**：方案落 `docs\01-构建与发布\方案-修法A效果验证与受控序列复验-20261105.md` 并入库；构建史 append-only 保 CRLF；`work\data\append_215.py` 为一次性留痕件，不入库；本轮零请求、零起服、零数据。
+
+`[EVIDENCE] work\draft\bench_night.py:21: MTP = os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer")`
+`[EVIDENCE] work\draft\bench_night.py:163: "Protocol: greedy, prompt=bench_prompt.json (384 tok), engine=RC8 (B93B1791),"`（原文跨行，此处合并引用）
+`[EVIDENCE] work\draft\bench_night.py:210: subprocess.run(["taskkill", "/IM", "ninfer-serve.exe", "/F"],`
+`[EVIDENCE] work\draft\bench_one.ps1:18: $exe = Join-Path $root 'engine\self-built-20261008\ninfer-serve.exe'`
+`[EVIDENCE] 命令输出: git status --short（空）;; unpushed=0 ;; git -C engine-src status --porcelain（空）`
+`[EVIDENCE] work\data\scan_20261105_fixA.json: "req_done": 1, "valley_samples": 1, "valley_samples_true": 0`
+
+---
+
+## 四-AE、挂账表增量（2026-11-05，§215 追加后同步）
+
+> 沿用四-A…四-AD 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages`** | ✅ 保持销账（§214） |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()`** | ✅ 保持销账（§214） |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 方案已细化（§215 §4）：驱动需 2 项改造（`bench_one.ps1` 加 `-Exe`、新增长 prompt），等用户回来点火 |
+| 70 | **`valley_bench.py` 低速判据加固** | ✅ 保持销账（§214） |
+| 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ 保持严禁：实体未动 |
+| 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
+| 77 | **修法 A 效果验证** | ⏸ 前置已实证：`bench_night.py` 模型不匹配且会 `taskkill` 误杀、`bench_one.ps1` 需 `-Exe`、384 tok prompt **触发不了 demote**；必须长 prompt + 小池，等用户回来 |

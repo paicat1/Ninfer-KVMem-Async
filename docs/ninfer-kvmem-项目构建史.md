@@ -5024,3 +5024,51 @@ it holds 79 -- short by 5 page(s)
 | 71 | **test-run 6 份已登记 BAK 处置** | 🟡 **意见书 5/6**：①②③④⑤ 达成（③ 由本轮守卫改造达成），⑥ 用户书面结论仍缺（无点名文件、无 `NINFER_APPROVED_DELETE`）；按 #0091 **不构成删除提案、不执行任何删除** |
 | 72 | **`engine\self-built-20261008\` 下 16 份 `.bak` 未审计** | ⏸ 新增：25.12 GiB 中主体，足迹重于 test-run，需单独出意见书 |
 | 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 新增：全项目 11781 文本文件 + 5 份台账 0 命中，唯一副本，**严禁纳入任何处置范围** |
+
+### 211. 【self-built 16 份 BAK 逐件审计：A 类 10 份候选 / B 类 6 份严禁，⑥ 仍缺故一份不删】(2026-11-05，用户令「那几个可以安全删除的？报告。并审计 16 份 .bak」)
+
+- **目的**：§210 挂账 #72 指出备份足迹重头在 `engine\self-built-20261008\` 下 16 份 `.bak`（25.12 GiB 主体）却从未审计。本轮按项目硬规则 §6 与决策 #0090/#0091 出《绝对安全意见书》六项逐件判定，**只审计、只报告，不删除、不移动、不覆盖任何文件**。
+- **数字（全量扫，非抽样）**：`valley_bench.py scan --tag 20261105_bakaudit` 对 `serve_20261104_232131.log`（23:22:04–23:59:01）全量扫，与 §208/§209/§210 一致：`req_done=113 / req_started=113 / http500=0 / prompt_exceeds=18`；`samples=251, decode n=177 min=3.4 median=113.9 avg=113.7 max=572.4, host_max=99.4, valley_share_true_pct=0.0, host_bound=0`；`cache median=99.8 avg=87.2`。产物 `work\data\scan_20261105_bakaudit.json`（2310 B）。
+  - 审计对象：`bak_count=16 / total_GiB=19.85 / distinct_sha=10`；分 4 批实测 16 份 SHA256（不抽样、不按 size 推断身份）。
+  - 分类：**A 类 10 份 ≈12.46 GiB**（有 lineage 同 sha 只读副本）、**B 类 6 份 ≈7.39 GiB**（全项目唯一副本）；`90FB3869`（PG3）独占 7 份，是冗余主体。
+  - 引用与活件：`dep_files=318 / dep_bak_mentions=12 / read_type_hits=0`（按 T#0080 区分读取型与记录/写入型）；现役 `live_sha16=B93B179176A0DC23`（RC8），四条 registry path 均不指向 `.bak`；无 `ninfer-serve` 进程。
+  - 唯一性复核：`size_matched_files=6` 且恰好只指向这 6 份自己；`lineage 26 exe min=1333769216 max=1377789952 / overlap_with_6_sizes=0`；`check_refs.py 断链 24 = 基线 24`；`J free 37.3 GiB`。
+- **阶段**：① 开工门（wake 80 条 / tier=1 / session_gate OK）→ ② 列目录 + 无进程核查 → ③ 分 4 批实测 16 份 sha → ④ 写只读审计脚本对账 `engine\lineage\MANIFEST.md`（产物 `work\data\audit_selfbuilt_bak.json`，8901 B）→ ⑤ 对 6 个未登记 sha 按 T#0079 三段式做 size 全扫与双台账复扫 → ⑥ 引用扫描 + 活件三源 + 全量扫 → ⑦ 报告落 `docs\01-构建与发布\` → ⑧ 落盘与门控。
+- **原因**：用户要求「那几个可以安全删除的？报告」，并点名审计此前未闭合的 #72；§210 已证明守卫改造后 `test-run` 8 份的去重价值归零，剩下最大足迹必须逐件确权才能谈处置，而 #0091 规定「缺任一意见书项＝提案无效禁止提交」。
+- **Δ 对上个基线（§210）**：§210 只审 `test-run` 8 份并把 self-built 16 份标为「未审计」挂账 #72；本节把 **16 份逐件实测闭合、出六项意见书、#72 销账**，并把 A 类候选从 6 份合并为全仓 16 份 ≈19.9 GiB。本轮 **零代码改动**（§210 有 `engine_ctl.ps1` 实改 +22/-5，本轮无）。
+- **解决结论（有实证）**：
+  1. **A 类 10 份：六项意见书 5/6，当前一份都不能删**。① 身份 ✅（历史备份非活件本体，10/10 在 MANIFEST 有行且 lineage 实体在）② 归档 sha ✅（RC1 `322A972D` / PG3 `90FB3869` / RC6 `35D9E6B1` / RC2 `9453FFC6` 与 lineage 只读件逐字相同）③ 引用扫描 0 命中 ✅（`read_type_hits=0`，12 条全为记录类或写入型前缀，按 T#0080）④ 活件三源未命中 ✅ ⑤ 重建时长已评估 ✅（冷编 55–66 min，属 #0090 长重建成本件与成品，默认禁删；副本可秒级还原但 #0090 豁免需三条全满足）⑥ **用户书面结论 ❌ 仍缺**（无「绝对不再重建/永久替代」书面结论、未点名到具体文件、无 `NINFER_APPROVED_DELETE`）。**按 #0091 不构成有效删除提案。**
+  2. **B 类 6 份：全项目唯一副本，严禁删除**。`B8F62A38` / `8FCA9146` / `16698451` / `B0E9B1A1` / `298948C4` / `65516EEE`：按 T#0079 三段式 —— [方法] 台账 sha 集合对账 + `archive\temp-root-20261030\hash_cache.json` 查同 sha 其他路径 + 全项目按 size 扫（同 sha 必同 size，严格必要判据）+ 双台账字面量复扫；[输出] 同 sha 其他路径全部 `exists=False`，`size_matched_files=6` 只指向自己，lineage 26 件与 6 个 size 零重叠；[能证明] 本机扫描范围内这 6 个 sha 的字节只在这 6 份里，[不能证明] 不排除外部机器/未挂载介质/未扫描的二进制容器。它们是 10 月初 v2 异步 demote / v2.1 / W1W4 代际唯一实物，`65516EEE` 为 10-08 初始基线，删掉即永久丢失按现源码无法重建的字节。
+  3. **合并总账**：A 类候选 16 份 ≈19.9 GiB（self-built 10 + test-run 6）；B 类严禁 8 份（self-built 6 + test-run 的 `C1972DCB` / `02B5E65F`）；`engine\lineage\` 26 件永久只读。用户问「那几个可以安全删除的」——**字节层面答案是 A 类 16 份，程序层面答案是一份都不能删**，两者差额就是第 ⑥ 项。
+  4. **本轮未删除、未移动、未覆盖任何文件**；要推进须用户点名到 A 类具体文件（不含任何 B 类）+ 签发 `NINFER_APPROVED_DELETE` + 对涉及既有「保留」书面结论的件给新证据与差异说明。
+- **新发现**：
+  1. **`hash_cache.json` 覆盖率陷阱（记 T#0081）**：它只覆盖 lineage 26 件中的 10 件，用它下「没有归档副本」必然误判；本轮改用 size 全扫这一严格必要判据才把 B 类唯一性闭合。
+  2. **`BUILD_LEDGER.jsonl` 有两处而非项目根**：上一轮 `Get-Content` 在项目根报 `Cannot find path`，按证据纪律只能记为「该路径未查到」；本轮定位 `docs\01-构建与发布\BUILD_LEDGER.jsonl`（39 行）与 `engine\BUILD_LEDGER.jsonl`（24 行），是 T#0079 的正向应用。
+  3. **同一 sha 重复 7 次**：`90FB3869` 在 11-02~11-03 被反复复制，说明 §210 的守卫改造（去重源改 lineage 台账）切中的正是副本机械堆积的来源；改造后再起实验件不再新增。
+  4. **有台账记录 ≠ 有实体副本**：6 个未登记 sha 在 `deploy_history.txt`、`产物清单.md`、`MANIFEST.txt` 有字面量命中，但全项目无第二份字节；历史取证价值与回滚价值是两回事。
+  5. **无进程占用 ≠ 可删**：16 份 `Get-Process` 空，但 ⑥ 仍缺；且 #0090 对长重建成本件默认禁删。
+- **本批挂账**：#72 **销账**（16 份逐件实测 + 意见书已出）；#71 保持 🟡 5/6；#73 保持 ⏸ 严禁；**新增 #74**（A 类 16 份候选处置待 ⑥ 点名 token，按 #0091 不构成删除提案）；#64/#68/#70 状态不变。
+- **落盘与门控**：报告落 `docs\01-构建与发布\审计-self-built-16份BAK删除安全报告-20261105.md` 并入库（遵 T#0073，不留 work/ 暂存区）；构建史按 append-only 字节级保 CRLF 纯追加；`work\data\audit_selfbuilt_bak.py` 与 `append_211.py` 为一次性只读/留痕脚本，在 work/ 暂存区不入库。
+
+`[EVIDENCE] 命令输出: bak_count=16 total_GiB=19.85 ;; count=16 distinct_sha=10 ;; UNREGISTERED = 6 ;; ARCHIVED_IN_LINEAGE = 10`
+`[EVIDENCE] 命令输出: size_matched_files=6 ;; lineage=26 min=1333769216 max=1377789952 ;; overlap_with_6_sizes=0`
+`[EVIDENCE] 命令输出: dep_files=318 ;; dep_bak_mentions=12 ;; read_type_hits=0`
+`[EVIDENCE] 命令输出: live_sha16=B93B179176A0DC23 ;; registry 四条 path 均不指向 .bak ;; 无 ninfer-serve 进程`
+`[EVIDENCE] 命令输出: ninfer-serve-RC6.exe sha16=35D9E6B191583759 ;; ninfer-serve-PG3-20261031.exe sha16=90FB3869D4312756 ;; ninfer-serve-RC2.exe sha16=9453FFC6FF077252 ;; ninfer-serve-RC1.exe sha16=322A972D6596A16D`
+`[EVIDENCE] 命令输出: lineage_exe=26 cache_covered=10 ;; 同 sha 其他路径 exists=False`
+`[EVIDENCE] 命令输出: check_refs.py → 断链 24 条（基线 24）`
+`[EVIDENCE] work\data\scan_20261105_bakaudit.json: "req_done": 113, "valley_share_true_pct": 0.0`
+`[EVIDENCE] 决策 #0091: 缺一项=提案无效禁止提交 ;; #0090: 长重建成本件(>=30min)与成品默认禁删不进删除候选池`
+
+---
+
+## 四-AA、挂账表增量（2026-11-05，§211 追加后同步）
+
+> 沿用四-A…四-Z 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 71 | **test-run 6 份已登记 BAK 处置** | 🟡 不变：意见书 5/6，⑥ 用户书面结论仍缺；按 #0091 不构成删除提案 |
+| 72 | **`engine\self-built-20261008\` 下 16 份 `.bak` 未审计** | ✅ **销账**：16 份逐件实测 SHA256 + 六项意见书已出，见 §211 与同日审计报告 |
+| 73 | **2 份未登记 BAK（`C1972DCB` / `02B5E65F`）** | ⏸ 不变：唯一副本，**严禁纳入任何处置范围** |
+| 74 | **A 类候选 16 份（≈19.9 GiB）处置** | ⏸ 新增：self-built 10 份 + test-run 6 份，①–⑤ 达成、⑥ 缺点名 token；按 #0090/#0091 **不构成删除提案、不执行任何删除** |

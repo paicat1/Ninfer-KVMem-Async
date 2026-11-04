@@ -1,4 +1,4 @@
-# 调研：上游对照（Strata + KVMem v0.19）· prefill 基准修正 · DFlash2 可行性修正（CB · TELE · LUMMY）
+# 调研：上游对照（Strata + KVMem v0.19）· prefill 基准修正 · DFlash2 可行性修正 · 本仓落地状态（CB · TELE · LUMMY）
 
 - 日期：2026-11-03
 - 对象：`Niko1221/Strata`（全库克隆，5,681 文件 / 87.4 MB，v0.2.10）
@@ -1188,3 +1188,226 @@ Qwen3.8-Flash-Next-DFlash2-Q8_0.gguf     0.607 GB   ← 用户看到的「0.7 G�
 > **DFlash2 从来不是「装不下」，是「按错的池算 + 加了不该加的 MTP」。**
 >
 > **引擎已实现、容器可转码、Bonsai 线已有可用配置；缺的只是一次 Q4_K_M 转码 + 一晚实测。**
+
+---
+
+## 十三 本仓对上游建议的落地状态 + pinned 前缀分析（2026-11-04 追加）
+
+### 13.1 六条建议的实际处理
+
+| # | 建议 | 本仓动作 | 状态 |
+|---|---|---|---|
+| 1 | 自适应投机窗口 +7.88% | **早已实现**（`mtp_adaptive.h`，`kAdaptiveMtpMaximumDrafts=15`）；**§205 实测判死**：准入预算要 5.06–5.29 GiB，16 GB 卡给不出（avail 3.6） | ❌ 关闭 |
+| 2 | KV_PREFETCH（逐层重叠） | 核验确认**已是逐层事件流水**（`execution/text.cpp:1223` `cudaStreamWaitEvent(stream, layer_ready_[layer], 0)`） | ⚠ 未测剩余收益 |
+| 3 | DFlash2 容器转码 | **§203 已落地**：SWIFT-1.5 + z-lab Q4_K_M 起服成功，接受率 17–20%，2.2× | ✅ 完成 |
+| 4 | pinned 前缀 | 构建史仅有 `pinned` **host arena**（非 KV 前缀钉住）；核验文档明写「未见钉住保留策略」 | ⚠ 未做（见 13.2） |
+| 5 | 三层 KV（RAM↔SSD） | 未推进（128 GB 内存，SSD 层无收益且伤盘） | ⛔ 主动放弃 |
+| 6 | 实验固化（件 sha + 全参数 + 补丁链） | **无机制**，且已出事故：§200 `RestoreExe` 默认值陷阱把现役件错置成 RC6（35D9E6B1），生产件应为 RC2（9453FFC6） | ⚠ 缺口 |
+
+**附加**：B 线预登记文档（286 行）已被本仓（§201）判定「修订完成前不得直接作为实验底稿」——
+其 6.1 通道拆分与行动 #2 矩阵写于甲-0b 步级判读之前，且信号层修复①已被源码否定（D2）。
+
+### 13.2 pinned 前缀：作用、本仓现状、收益条件
+
+#### ① Strata 的定义（`conversation_cache.hpp` 原文）
+
+> `pinned` … **the read-only prefix many suffix queries branch from, so retention never evicts it**
+> (conv_cache.hpp) and a parked conversation holding it stays parked.
+> A run-time mark only: it is not in the session file.
+
+**⇒ 标记「只读共享前缀」，retention 永不驱逐。**
+
+#### ② 解决的问题
+
+多轮会话每轮的新请求都是「旧前缀 + 新内容」：
+
+```
+第 1 轮： [系统提示 2.5K] + [用户1] + [助手1]
+第 2 轮： [同一前缀] + [用户2]
+第 3 轮： [同一前缀] + [用户3]
+```
+
+**池压力把前缀驱逐 ⇒ 下一轮要从头 prefill 整条历史。**
+
+#### ③ 本仓已有半个机制：`NINFER_KV_SINK`
+
+§184.4 报错原文：
+
+```
+NINFER_KV_SINK pin leaves no working room: pin needs 80 page(s),
+the ring needs at least 4 page(s) beyond it, so the pool must hold at least 84 page(s)
+```
+
+**⇒ sink 默认钉住开头 80 页。** 按 §184.4 换算（84 页 = 5,376 token）：
+
+```
+1 页 ≈ 64 token
+80 页 ≈ 5,120 token
+```
+
+#### ④ 差异在「钉什么」，不在「钉多少」
+
+| | 本仓 `KV_SINK` | Strata `pinned` |
+|---|---|---|
+| 钉的对象 | **开头固定 80 页**（静态） | **被复用过的任意前缀**（动态标记） |
+| 覆盖量 | ≈5,120 token | 可钉任意长度、可多段 |
+| 触发 | 起服时固定 | 运行时按「谁被复用」标记 |
+
+**⇒ 我们是「保开头」，他们是「保命中过的」。**
+
+#### ⑤ 收益条件（关键）—— 但实测数据已经否定了这一项
+
+**构建史 L1314 的实测：多轮会话的 cache replay 命中率 = 99.9%。**
+
+```
+命中率 99.9% ⇒ 离上限不到 0.1%
+pinned 最多能到 100%
+⇒ 收益上限 0.1% ⇒ 不值得做
+```
+
+**⇒ 13.2 的结论：pinned 在本仓无收益，建议关闭。**
+
+**真正的问题不是命中率，是 §13.4 的页漂移。**
+
+#### ⑤-旧 收益条件的理论推算（已被实测否定，保留作记录）
+
+```
+系统提示 + 前几轮历史 < 5,120 token  ⇒ sink 已保住，pinned 无用
+                     > 5,120 token  ⇒ 超出部分会被驱逐，pinned 有价值
+```
+
+| 场景 | 前缀长度 | 现状 |
+|---|---|---|
+| 简单问答 | ~3K | ✅ sink 保得住 |
+| **长 agent 会话（Claude Code 类）** | **20K–80K** | ❌ **保不住，每轮重 prefill** |
+| 多文件代码审查 | 30K+ | ❌ 保不住 |
+
+**粗算**（3,000 tok/s）：30K token 重 prefill ≈ 10 s/轮，20 轮 ≈ **200 s/会话**。
+
+#### ⑥ 但先要确认一件事
+
+本仓 `§205` 记录 retention 用 **LRFU**——**高频访问的前缀本来就留得住**。
+
+```
+若 LRFU 已把共享前缀保住 ⇒ pinned 的真实收益远小于 200 s
+若 LRFU 只看近期、前缀被新内容挤出 ⇒ pinned 有价值
+```
+
+**⇒ 判据：看驱逐日志里有没有「每轮都被访问、却被驱逐」的页。有 ⇒ pinned 有价值；没有 ⇒ 不必做。**
+
+### 13.3 建议（三件，均不与 DFlash 冲突）
+
+| 序 | 项 | 为什么 | 机时 |
+|---|---|---|---|
+| 1 | **查 LRFU 下共享前缀的实际驱逐行为** | 决定 pinned 值不值得做（0 机时读日志） | 0 |
+| 2 | **实验固化的最小形态**（起服前打印件 sha + 全参数，缺一拒启） | §200 已出事故；不提速但防「又用错件」 | 半天 |
+| 3 | KV_PREFETCH 剩余收益测算（读现成 profile 日志） | 决定要不要做 | 0 |
+| — | ~~pinned 实现~~ | 先等 #1 的结论 | — |
+
+### 13.4 页漂移：真实残留与已找到的解法（2026-11-04 核实）
+
+#### ① 现象（构建史 L1306-1314，四对照实验）
+
+| 对照 | 配置 | 超池深度 | decode |
+|---|---|---|---|
+| 单轮深超池 | 标准件 + 64K 池 | 246 页（81,264 tok） | **134.5** ✓ |
+| 多轮 + cache replay | 标准件 + 64K 池 | 101 页（72K） | **125.8** ✓ |
+| V1a 完全复刻 | vision + 51,200 + growth | 327 页（72K） | **134.0** ✓ |
+| **掉速现场（req#34，34 轮）** | 同上 | ~150–330 页 | **3 tok/s** ✗ |
+
+**判别特征（原文）**：
+
+> decode 期 `mask hidden` 页数——不掉速组 hidden ≤ 17；掉速组**稳定 329-334 页**
+> ⇒ **每步 attend 需 330 页在 host ⇒ 每 token host 往返 ⇒ host 98-101%**
+
+#### ② 机理（与容量、与算法都无关）
+
+> 每轮 cache replay（99.9% 命中）重新映射历史页，把**最早的页逐渐挤出设备池**；34 轮后 ~330 页早期上下文滞留 host。
+> **不是「prompt > 池」触发（V1a 超池更深却正常），是「会话轮数」触发**
+
+**⇒ 命中率 99.9% 也无法避免——那 0.1% 恰好是「每步 attend 都要用的开头」。**
+
+**tancau（环作者）的独立结论（`ring-reuse-depth-and-failure-brief.md`）**：
+
+> **结论一：复用深度由降级顺序决定，不由池大小决定**——「把池调大不是方案，只是把悬崖挪到更高处」
+>
+> **结论二：会话>池时「落袋」与「降级」互斥**——落袋要求 `[0,frontier)` 全设备驻留（`capture.cpp:63-115`），
+> 服务超池会话必须降级同区间 ⇒ 两者不可兼得 ⇒ **超池会话存不下新锚**
+
+#### ③ 三个修法（tancau 10-06 施工书）
+
+| 修法 | 内容 | 本仓状态 |
+|---|---|---|
+| **C** | `HostKVExtentStore::publish` 把「陈旧 host 副本挂不上」判死刑（`std::terminate`）+ 调用方 `(void)` 丢返回值 ⇒ 九次静默死亡。改为可失败（`std::nullopt` + declined 日志） | ✅ **已修**（tancau `618cf7b`），本线 s6 树**含 C** |
+| **A** | `demote_kv_pages_to_host` 新增 **`spare_prefix_pages`**——第一遍降级**跳过 `[0, 最深待发布 capture)`** | ❌ **未合并**（本仓 grep 0 命中，与 2026-10-11 TELE 复核一致） |
+| **B** | **host-backed anchor**——checkpoints **引用** ring 已有的 host 页而不拷贝 | ❌ **未做**（引擎深度改动，= 挂账 42 蓝图） |
+
+#### ④ 修法 A 的实际代码（tancau 克隆 `refs/tancau-ninfer-kvmem-ring`）
+
+`src/models/qwen3_5/program/program_impl.h:1551`：
+
+```cpp
+std::uint32_t ProgramImpl::demote_kv_pages_to_host(
+    KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
+    const KVAddressSpaceHandle& address,
+    std::uint32_t sink_pages, std::uint32_t target_free,
+    std::span<const std::uint32_t> preferred,
+    std::uint32_t spare_prefix_pages)          // ← 新增参数
+{
+    const auto is_preferred = [&](std::uint32_t page) {
+        return page < spare_prefix_pages ||    // ← 前缀页豁免（第一遍）
+               (!preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page));
+    };
+    // Oldest first, skipping the attention sink and (in the first pass) the pages retrieval
+    // wants to keep. If that is not enough the second pass gives up the retrieved pages too,
+    // so the caller is guaranteed to get the room it asked for whenever the Device can supply it at all.
+}
+```
+
+**两遍降级**：
+
+```
+第一遍：跳过 [0, spare_prefix_pages) + preferred（检索想要的）
+不够   ⇒ 第二遍：连 preferred 也让出（保证调用方一定拿到空间）
+```
+
+**⇒ 这就是页漂移的直接解法：给前缀页一个「第一遍豁免」。**
+
+#### ⑤ 合并工作量（三处）
+
+| # | 改动 | 难点 |
+|---|---|---|
+| 1 | `program_impl.h` 加参数 + `is_preferred` 加一个判断 | 无 |
+| 2 | `program_impl.h/.cpp` 两处调用点传值 | 无 |
+| 3 | **决定 `spare_prefix_pages` 的取值** | **难点**：必须等于「最深待发布 capture」，不能拍脑袋 |
+
+**tancau 注释写明了语义**：`[0, 最深待发布 capture)`。
+
+### 13.5 核实纠正（本报告此前两处错误）
+
+| 此前的说法 | 核实结果 |
+|---|---|
+| 「本仓 retention 用 LRFU」（§13.2⑤-旧、以及对话中的表述） | ❌ **`lrfu`/`LRFU` 在 `origin/engine-main` 全树 0 命中**。LRFU 是 **kvmem 上游 16GB profile 的参数**（`dflash2-kvmem-integration.md` 的 `LRFU lambda 0.5`），不是本仓实现 |
+| 「理论上限 = 池容量 / 会话长度 = 40%」 | ❌ **该公式只适用于「单次长 prompt、无历史」**；多轮对话实测命中 99.9%，与此公式无关 |
+
+**本仓实际的降级策略**（`program_impl.h:1215-1218` 原文注释）：
+
+> LOCAL PROTOTYPE (KVMem-style ring): **demote the oldest Device-resident pages**
+> (skipping the attention sink and, on the first pass, `preferred`) until at least `target_free` Device pages
+> have been released, or nothing more can be demoted.
+
+**⇒ 策略 = 「最旧优先（按逻辑页号）+ 跳过 sink + （tancau 版）第一遍跳过 preferred」——接近 FIFO，不是 LRU。**
+
+**⇒ 与 tancau 作者的判断一致：「环的实际策略 = 无脑 FIFO + sink」。**
+
+**但注意**：本仓连 `spare_prefix_pages` 都没有，所以**我们可能连「第一遍跳过 preferred」都不完整**——这一条待家里读实际调用点确认。
+
+### 13.6 修正后的建议序
+
+| 序 | 项 | 依据 | 机时 |
+|---|---|---|---|
+| **1** | **合并修法 A（`spare_prefix_pages`）** | 页漂移的唯一便宜解；tancau 现成代码 | 半天 + 参数取值 |
+| 2 | 实验固化最小形态（件 sha + 全参数） | §200 已出事故 | 半天 |
+| 3 | KV_PREFETCH 剩余收益测算 | 读现成 profile | 0 |
+| — | ~~pinned 前缀~~ | 命中率 99.9%，无收益 | **关闭** |
+| — | ~~修法 B（host-backed anchor）~~ | 引擎深度改动，需单独立项 | 暂缓 |

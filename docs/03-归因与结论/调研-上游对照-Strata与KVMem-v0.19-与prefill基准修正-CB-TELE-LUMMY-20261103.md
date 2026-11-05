@@ -1893,6 +1893,104 @@ prompt = 池 × 1.2（确保超池）
 
 ---
 
+
+### 14.13 自动适配锚大小（按池自动选步长）——设计草案
+
+**目标**：启动时按 `--kv-capacity` 自动算出该池能撑的最深锚，不需要人工设步长。
+
+#### ① 公式法（启动时算，10–20 行）
+
+```cpp
+std::uint32_t anchor_stride_for_pool(std::uint32_t pool_tokens) {
+    constexpr std::uint32_t kWorkingSet = 16384;  // 256 页（capture.cpp:35-39 实证）
+    constexpr std::uint32_t kMinReserve = 12800;  // 200 页 decode 余量（可调）
+    constexpr std::uint32_t kMinStride  = 8192;   // 最小锚
+
+    if (pool_tokens <= kWorkingSet + kMinReserve + kMinStride) { return 0; }  // 池太小 ⇒ 不锚
+
+    const std::uint32_t budget = pool_tokens - kWorkingSet - kMinReserve;
+
+    std::uint32_t stride = kMinStride;
+    while (stride * 2 <= budget) { stride *= 2; }   // 取不超过 budget 的最大 2 的幂
+    return stride;
+}
+```
+
+**验算（三档余量）：**
+
+| 池（token） | **保守**（余 200 页） | **平衡**（余 64 页） | **激进**（余 0） |
+|---|---|---|---|
+| 32,768 | 0（不锚） | 8K | 8K |
+| 40,960 | 8K | 16K | 16K |
+| **51,200** | **16K** | **16K** | **32K**（余 32 页） |
+| 57,344 | 16K | **32K** | 32K |
+| 65,536 | 32K | 32K | 32K |
+| 80,000 | 32K | 32K | 32K（64K 需 81,920） |
+| 98,304 | 64K | 64K | 64K |
+| 262,144 | 128K | 128K | 192K |
+
+**⇒ 关键结论：51,200 档没有「既安全又最优」的中间解——**
+
+```
+32K 锚（省 17.1 秒）⇔ 余量仅 32 页（decode 几乎无调度空间）
+16K 锚（省 8.5 秒）⇔ 余量充足
+```
+
+**⇒ 自动适配只能选一种取舍，不能两全。**
+
+#### ② 查表法（实测后写死，更准）
+
+```cpp
+struct AnchorProfile { std::uint32_t pool_min, pool_max, stride; };
+
+// 需实机扫描后填（示例值，未验证）
+static constexpr AnchorProfile kAnchorTable[] = {
+    {  32768,  40959,  8192 },
+    {  40960,  57343, 16384 },
+    {  57344,  94207, 32768 },
+    {  94208, 131071, 65536 },
+    { 131072, 262144, 98304 },
+};
+```
+
+**⇒ 推荐：查表优先 + 公式兜底**
+
+```cpp
+std::uint32_t stride = lookup_anchor_table(pool_tokens);
+if (stride == 0) { stride = anchor_stride_for_pool(pool_tokens); }
+```
+
+#### ③ 三档策略做成参数
+
+```cpp
+enum class AnchorPolicy { Conservative, Balanced, Aggressive };
+// Conservative: kMinReserve = 12800（200 页）
+// Balanced:     kMinReserve =  4096（ 64 页）
+// Aggressive:   kMinReserve =     0（贴线，不推荐生产）
+```
+
+**⇒ 对应 CLI：`--anchor-policy conservative|balanced|aggressive`**
+
+#### ④ 落地路径（顺序不能跳）
+
+| 步 | 动作 | 前提 |
+|---|---|---|
+| **1** | 不改代码，用 §14.8 的 A/B 验证锚能落袋 | 现役件 `F814B07A` + §206 场景 |
+| **2** | env 化步长（`NINFER_ANCHOR_STRIDE`），手工扫出各池档的实际甜点 | 步 1 通过 |
+| **3** | 把实测结果写进查表 + 加 `--anchor-policy` | 步 2 有数据 |
+| **4** | 启动时自动查表，不需要人工设 | 步 3 稳定 |
+
+**⇒ 跳过步 1、2 直接写公式，就是拿未验证的假设做自动化——等于把错误固化。**
+
+#### ⑤ 与 §14.6 角点解的关系
+
+```
+单位页收益恒定（0.033 秒/页）⇒ 最优永远是"池允许的最深锚"
+⇒ 自动适配的本质 = "算出这个边界"
+⇒ 但边界受"decode 余量"约束 ⇒ 余量策略是唯一的自由度
+```
+
+
 ### 14.12 引用
 
 | 内容 | 出处 |
@@ -1904,7 +2002,8 @@ prompt = 池 × 1.2（确保超池）
 | 满员替换（非自动 LRU） | `capture.cpp:700-723` |
 | 修法 A `spare_prefix_pages` | `program_impl.h:1219-1229`（声明与语义注释）+ `storage/context.cpp:1551-1563`（`demote_kv_pages_to_host` 实现，`is_preferred` 在 1560-1563） |
 | 锚数量默认 2 | `runtime/engine/model_instance.cpp:118` |
-| CLI 参数 | `serve/serve_options.cpp:288-292`（锚数）、`L363`（auto-prefix-grid） |
+| CLI 参数 | `serve/serve_options.cpp:288-292`（锚数）、`L363`（auto-prefix-grid）
+| 工作集 256 页推导（retrieve 192 + prefill 16 + slack 8 + COW 1） | `capture.cpp:35-44` | |
 | token/页 = 64 | 构建史 L812（`KV 20,480 tokens \| pages 320/4,096`） |
 | 页大小 0.83 MB（rk2v4） | 构建史 L633-636 |
 | 页大小 1.56 MB（rk8v4，**增量实测**：25 MiB / 1024 tok） | 构建史 L4831 |

@@ -46,6 +46,8 @@
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
+**❗ 第六层结论（§十四）**：**长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」**——门槛 = 锚页数 + 256 页工作集 + 余量 ≤ 池；收益线性（0.033 秒/页），最优 = 池允许的最深锚。**家里第一步零成本可做**：用 §206 的 63,989 prompt + 51,200 池，看现役件 `capture install` 是否 0→>0。
+
 **❗ 本轮第五层结论（§十二）**：**DFlash2 的「无法加载」是 10 月算式错误**（把互斥的 MTP 加了进去）——引擎早已实现，Bonsai 线已有 `dflash2` 独立档（kvcap 17,920），Q4_K_M 转容器约 1.4~1.6 GiB，**可行**，缺的只是一次转码 + 一晚实测。
 
 ## 一 仓库概况
@@ -1339,7 +1341,7 @@ pinned 最多能到 100%
 | 修法 | 内容 | 本仓状态 |
 |---|---|---|
 | **C** | `HostKVExtentStore::publish` 把「陈旧 host 副本挂不上」判死刑（`std::terminate`）+ 调用方 `(void)` 丢返回值 ⇒ 九次静默死亡。改为可失败（`std::nullopt` + declined 日志） | ✅ **已修**（tancau `618cf7b`），本线 s6 树**含 C** |
-| **A** | `demote_kv_pages_to_host` 新增 **`spare_prefix_pages`**——第一遍降级**跳过 `[0, 最深待发布 capture)`** | ❌ **未合并**（本仓 grep 0 命中，与 2026-10-11 TELE 复核一致） |
+| **A** | `demote_kv_pages_to_host` 新增 **`spare_prefix_pages`**——第一遍降级**跳过 `[0, 最深待发布 capture)`** | ✅ **已合入并转现役**（2026-11-05，`008cca2`，现役件 `F814B07A2B71ED4E`） |
 | **B** | **host-backed anchor**——checkpoints **引用** ring 已有的 host 页而不拷贝 | ❌ **未做**（引擎深度改动，= 挂账 42 蓝图） |
 
 #### ④ 修法 A 的实际代码（tancau 克隆 `refs/tancau-ninfer-kvmem-ring`）
@@ -1383,6 +1385,66 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(
 
 **tancau 注释写明了语义**：`[0, 最深待发布 capture)`。
 
+
+#### ⑥ 本仓已按此实现（2026-11-05，commit `008cca2`）
+
+**改动**：2 文件 `+31 / −9`
+
+| 文件 | 改动 |
+|---|---|
+| `program_impl.h` | `ensure_ring_room` / `demote_kv_pages_to_host` 各加 `std::uint32_t spare_prefix_pages = 0U`；补语义注释（+5） |
+| `context.cpp` | 两处定义加参数；`is_preferred` 加 `page < spare_prefix_pages \|\|` 短路；`ensure_ring_room` 内两处转发；`ensure_sequence_kv_mapped` 新增取值点并传给 Main / Backend 两次调用（+17/−9） |
+
+**取值口径**（`施工记录-修法A-spare_prefix_pages-20261105.md` §2）：
+
+```cpp
+std::uint32_t spare_prefix_pages = 0U;
+if (sequence.lane < max_concurrency && requests[sequence.lane].prefill &&
+    !requests[sequence.lane].prefill->capture_groups.empty()) {
+    spare_prefix_pages = kv_pages_for_frontier(
+        requests[sequence.lane].prefill->capture_groups.back().frontier);
+}
+```
+
+**两个「不取」的理由（原文）**：
+
+| 不取 | 理由 |
+|---|---|
+| `total_tokens` | 那是本步要映射的 frontier，decode 阶段可达 100K+ ⇒ **会把几乎所有页列入保护、第一遍永远空跑**，退化成纯 oldest-first 的第二遍 |
+| `shared_candidates` | 本仓 `RequestControl::Prefill` 只保留 `capture_groups`；运行期发布走它，无漏项可加 |
+
+**无 pending capture 时恒为 0** ⇒ **decode 不付任何代价。**
+
+**编译与门**：增量 24 秒（`BUILD-EXIT=0`）、ARCH-GATE `384/384 sm_120a / 0 sm_86 / 0 PTX`、DEPLOY-DLLS 16 件。
+
+#### ⑦ 效果验证：方案就绪，**未点火**
+
+`方案-修法A效果验证与受控序列复验-20261105.md` 原文：
+
+> 状态：**未点火、零请求、零数据**。本文只做「回来即可照着跑」的方案与阻断点盘点。
+
+**三个阻断点**：
+
+| # | 阻断点 | 后果 |
+|---|---|---|
+| 1 | `bench_night.py` 末尾 `taskkill /IM ninfer-serve.exe /F` | **会连带杀掉不是它起的引擎** |
+| 2 | 两个引擎不能并存（各 12.3 GiB，16 GB 装不下） | 跑基准前必须先 `engine_ctl -Action stop`，跑完再起现役 |
+| 3 | **`bench_prompt.json` 只有 384 tok** | **触发不了 ring demote** ⇒ 修法 A 在这个 prompt 上与旧件**零差异** |
+
+**⇒ 第 3 条是设计缺陷**：验证修法 A 必须用「长 prompt（≥池容量）」或「缩小池（`-Kvcap 16384` + ≥20K tok prompt）」。
+
+**实验设计（原方案）**：
+
+```
+臂 A = F814B07A2B71ED4E（修法 A，现役）
+臂 B = engine\lineage\ninfer-serve-RC8.exe（B93B1791，无修法 A）
+其余全同：Coder390 件 / --spec mtp --draft-tokens 4 / --kv-capacity 16384
+          / rk8v4 / host-kv-mib 16384 / prefill-chunk 512 / greedy / 同长 prompt
+序列 A B A B（每臂 ≥2 次）
+先算全同配置重复离散；>±1.5% 不许比 A/B
+指标：publish declined 次数 / capture install 落袋深度 / hit / prompt exceeds
+```
+
 ### 13.5 核实纠正（本报告此前两处错误）
 
 | 此前的说法 | 核实结果 |
@@ -1402,12 +1464,453 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(
 
 **但注意**：本仓连 `spare_prefix_pages` 都没有，所以**我们可能连「第一遍跳过 preferred」都不完整**——这一条待家里读实际调用点确认。
 
+
 ### 13.6 修正后的建议序
 
 | 序 | 项 | 依据 | 机时 |
 |---|---|---|---|
-| **1** | **合并修法 A（`spare_prefix_pages`）** | 页漂移的唯一便宜解；tancau 现成代码 | 半天 + 参数取值 |
-| 2 | 实验固化最小形态（件 sha + 全参数） | §200 已出事故 | 半天 |
-| 3 | KV_PREFETCH 剩余收益测算 | 读现成 profile | 0 |
+| **1** | **点火修法 A + 锚落袋验证**（§14.8 第一步：§206 现成场景 63,989 prompt + 51,200 池，看 `capture install` 0→>0） | 零构造零改码，用现役件 `F814B07A`（已合入修法 A 但未测过）；旧件 `B93B1791` 同场景对照 | **1 小时** |
+| **2** | **源码资产化：`patches/24_fixA` + `patches/25_conv_draft_startup`** | §13.7：改动只在机器里，23 个 patch 都有主仓，唯修法 A 漏了 | **10 分钟** |
+| 3 | 实验固化最小形态（件 sha + 全参数） | §200 已出事故 | 半天 |
+| 4 | KV_PREFETCH 剩余收益测算 | 读现成 profile | 0 |
+| — | ~~合并修法 A~~ | ✅ **已完成**（`008cca2`，2026-11-05） | — |
 | — | ~~pinned 前缀~~ | 命中率 99.9%，无收益 | **关闭** |
 | — | ~~修法 B（host-backed anchor）~~ | 引擎深度改动，需单独立项 | 暂缓 |
+
+
+### 13.7 源码资产化缺口：`engine-src` 的改动**只在机器里**（2026-11-05 核实）
+
+#### ① 现状：三样东西锚定，缺了最关键的第四样
+
+`施工记录-修法A-spare_prefix_pages-20261105.md:4` 原文：
+
+> **本文件记录的是「当前生效二进制」与其源码改动集的反溯关系**：
+> `engine-src` 是**独立未跟踪子仓**，改动不提交（**保持 HEAD 不变以免打断 asset-dual 树的同一性检查**），
+> 故以**本记录 + 备份 + binary sha** 三者共同锚定。
+
+**⇒ 现在锚定修法 A 的只有：**
+
+| # | 载体 | 内容 |
+|---|---|---|
+| ① | 施工记录（文字） | `+31/−9`、改哪两个函数、取值口径 |
+| ② | `_safety_backups\20261105_pre_fixA\` | **改动前**备份（4 文件） |
+| ③ | binary sha | `F814B07A2B71ED4E` |
+| **④** | **改动后源码** | ❌ **不在任何版本控制里** |
+
+#### ② 理由成立，但只解决了「不能提交到 engine-main」
+
+`asset-dual` 检查的逻辑：引擎源码 HEAD ↔ 编译产物 sha，**HEAD 一变就判不匹配**。
+
+**⇒ 不能随便给 `engine-main` 加提交。**
+
+**但这不等于「源码必须不上库」——两种做法都能保住 HEAD：**
+
+| 做法 | 改 HEAD | 能上库 |
+|---|---|---|
+| commit 到 `engine-main` | ✅ | ❌ 会打断 asset-dual |
+| **导出 patch 存进主仓 `patches/`** | ❌ | ✅ **可以** |
+| 建临时分支 `fixA-20261105` | ❌ | ✅ 可以 |
+
+#### ③ 项目本来就有这个惯例，唯独修法 A 没跟上
+
+```
+patches/  23 个 .patch，合计 0.2 MB
+  ledger42_v2_async_demote.patch（39,958 B）
+  i3b_s12v3_fourlayer.patch（16,062 B）
+  …
+```
+
+**⇒ 23 个补丁全部以 `.patch` 形式在主仓里，只有修法 A 漏了。**
+
+**⇒ 而且 §204 还记着：`engine-src` 另有 6 个文件未提交**（conv/draft/startup 扩展）——**也没有 patch**。
+
+#### ④ 风险：一旦机器上的 `engine-src` 丢失
+
+```
+丢/误 reset/换机器 ⇒ 只能靠施工记录的文字重写一遍
+⇒ 这正是"源码树被删了再重建"的同型事故
+```
+
+#### ⑤ 建议（两条命令，不动 HEAD）
+
+```powershell
+# 修法 A
+cd engine-src
+git diff -- program_impl.h storage/context.cpp > ..\patches\24_fixA_spare_prefix_pages.patch
+
+# §204 的 6 文件扩展
+git diff -- <6 files> > ..\patches\25_conv_draft_startup_ext.patch
+```
+
+**判据**：patch 能否干净应用（`git apply --check`）——能 ⇒ 源码资产化完成。
+
+### 13.8 分支完整度核实（2026-11-05）
+
+**核实方法**：GitHub API 列全部仓库分支 + 与本地 `git branch -r` 对比。
+
+| 仓库 | 分支数 | 分支 | 最近推送 |
+|---|---|---|---|
+| **`Ninfer-KVMem-Async`**（主仓） | **2** | `engine-main` / `main` | 2026-11-04 23:34 |
+| `Bonsai-27B-NInfer-kvmem`（旧仓） | **3** | `engine-main` / `main` / **`port-20261020`** | 2026-10-20（停更） |
+| `Bonsai-27B-NInfer`（旧仓） | 2 | `engine-main` / `main` | 2026-10-06（停更） |
+| `Ninfer-KVMem` | 2 | `engine-main` / `main` | 2026-11-04 23:34（**与主仓同 sha**） |
+
+**结论**：
+
+```
+主仓 Ninfer-KVMem-Async：2 分支，本地齐全，无遗漏、无残留
+「第三分支 port-20261020」属旧仓 Bonsai-27B-NInfer-kvmem，10-20 遗留，非新增
+Ninfer-KVMem 与 Ninfer-KVMem-Async 的 sha 完全相同 ⇒ 同一仓库的旧名重定向，不是两个仓
+```
+
+**⇒ 分支结构干净；真正的缺口是 13.7 的「源码改动未资产化」，不是分支数。**
+
+---
+
+## 十四 长前缀锚（PrivateLongAnchor）：机制、门槛与落地指导
+
+> 2026-11-05 追加。本节把「多轮讨论 + TELE 六轮交叉复核」综合成可直接执行的形态。
+> 与 §13.4（页漂移 + 修法 A/B）的关系：§13.4 讲「为什么需要」，本节讲「怎么用、什么时候能用、能省多少」。
+
+### 14.1 一句话
+
+**长前缀锚 = 把「prompt 第 N 个 token 处」的 KV 状态标成「值得保留」，下一轮若前缀匹配就跳过那 N 个 token 的 prefill。**
+
+**它不加速 prefill，它是「让下一轮少做 prefill」。收益 = 省下的 token 数 ÷ prefill 速度。**
+
+---
+
+### 14.2 它到底是什么（先破除三个误解）
+
+### 误解 1：「锚是一个程序」
+
+**不是。锚是一个位置标记 + 那一段 KV 被保留。**
+
+```cpp
+// frontend.cpp:575-582
+if (full_prompt_frontier >= 32768) {
+    for (std::uint32_t frontier = 32768; frontier < full_prompt_frontier; frontier += 32768) {
+        add_opportunity(PromptCacheMarkerKind::PrivateLongAnchor, ..., frontier, ...);
+    }
+}
+```
+
+**⇒ 它只是在「32K、64K、96K…」这些位置各提一个「这里值得存一份」的机会。**
+
+### 误解 2：「锚是保留提示词文本」
+
+**不是。保留的是那 N 个 token 算出来的 KV。**
+
+```
+1 页 = 64 token（构建史 L812）
+1 页 ≈ 1.66 MB（rk8v4，由「2 倍 rk2v4」推断；L4831 增量实测支撑 1.56 MB/页）
+⇒ 每 token ≈ 26 KB
+⇒ 32K token = 512 页 × 1.66 MB ≈ 850 MB
+```
+
+**⚠ 注意**：按 64 层 × 8 KV heads × 128 dim × 0.75 B（**示例参数，未逐层核实**）直算会得 96 KB/token，比实测大 3.7 倍——因为 Qwen3.5 是 **hybrid 架构，只有部分层是 attention**（GDN 层只存 state，不存 KV）。**估算必须用「页 × 页大小」，不能用「层数 × 头数」直算。**
+
+### 误解 3：「锚是显存预留」
+
+**不是。它不预分配，只在「落袋那一刻」检查「能不能装下」。装不下就 decline + 打日志，什么都不发生。**
+
+```cpp
+// capture.cpp:120-126
+if (publish_scan_pages + work > usable) {
+    fprintf(stderr, "anchor publish declined: frontier=%u needs=%u+workset=%u usable=%u ...");
+    publish_private = false; publish_shared = false;
+}
+```
+
+---
+
+### 14.3 参数与开关（现成的，不用改代码）
+
+| 参数 | 含义 | 默认 | 位置 |
+|---|---|---|---|
+| **`--max-long-anchors-per-continuation N`** | 每个会话最多几个锚；**0 = 完全关闭** | **2** | `serve_options.cpp:288-292` |
+| `--auto-prefix-grid` | 另一套机制：**共享**前缀候选（`SharedStablePrefix`），**不是长锚的可调步长版** | 关 | `L363`，与 `--no-prefix-reuse` 互斥（L437） |
+| `NINFER_KV_HOST_ANCHORS=1` | **修法 B**：允许「前缀含 host 页」的锚落袋（按引用） | 关 | `capture.cpp:27-33` |
+
+**⇒ 长锚本身的开关就是第一个参数，不需要改代码。**
+
+### 步长是硬编码的，但可以解锁
+
+```cpp
+// frontend.cpp:576
+for (frontier = 32768; frontier < full_prompt_frontier; frontier += 32768) {
+//                 ↑ 这两个 32768 就是"锚的大小"
+```
+
+**⇒ 改成 8192 就是 8K 锚。** 建议 env 化（`NINFER_ANCHOR_STRIDE`）一次编译扫全矩阵。
+
+**作者为什么选 32K（`frontend.cpp:569-574` 注释原文）：**
+
+```
+32K stride bounds the extra chunk splits (~8 max). Gated to long prompts only.
+```
+
+**⇒ 两条都是工程取舍，不是原理约束：**
+1. 限制 chunk split 数量（每个锚会让 prefill 在那切一刀）
+2. 只对长 prompt 生效（避免短会话浪费）
+
+---
+
+### 14.4 门槛公式（唯一必须记住的东西）
+
+```
+锚页数 + 工作集 256 页 + decode 余量 ≤ 池页数
+```
+
+**工作集 256 页的构成**（`capture.cpp:35-39` 原文推导）：
+
+```
+NINFER_KV_RETRIEVE = 12288 tokens = 192 pages
+--prefill-chunk    = 1024 tokens  =  16 pages
+ring slack                         =   8 pages
+tail COW                           =   1 page
+─────────────────────────────────────────
+217 → rounded 256 pages
+```
+
+**换算：**
+
+```
+1 页 = 64 token              （构建史 L812：KV 20,480 tokens | pages 320/4,096）
+1 页 ≈ 1.66 MB（rk8v4）      （L4831：KV 51,200 tokens | pages 800/4,096 | runtime 2.23 GiB）
+1 页 ≈ 0.83 MB（rk2v4-e8）   （L633-636 实证）
+```
+
+**⇒ 锚 token 数 × 64 → 锚页数；再 + 256 + 余量 ≤ 池页数。**
+
+---
+
+### 14.5 各池档的判定（统一判据，余量 > 0 才算可用）
+
+| 池（token） | 页数 | **可用最深锚** | 锚页数 | 门槛（锚+256） | 余量 | 每轮省（1.92k tok/s） |
+|---|---|---|---|---|---|---|
+| **32,000** | 500 | **8K** | 128 | 384 | 116 | **4.2 秒** |
+| **32,768** | 512 | **8K** | 128 | 384 | 128 | **4.2 秒** |
+| 40,960 | 640 | 16K | 256 | 512 | 128 | 8.5 秒 |
+| **51,200**（SWIFT+DFlash 实测） | 800 | **32K** | 512 | 768 | **32** | **17.1 秒** |
+| **57,344**（Coder390 实测） | 896 | **32K** | 512 | 768 | 128 | **17.1 秒** |
+| 65,536 | 1,024 | 32K | 512 | 768 | 256 | 17.1 秒 |
+| **80,000**（SWIFT+MTP 已测） | 1,250 | **32K**（64K 差 30 页） | 512 | 768 | 482 | **17.1 秒** |
+| 89,600 | 1,400 | **64K** | 1,024 | 1,280 | 120 | 34.1 秒 |
+| 98,304 | 1,536 | 64K | 1,024 | 1,280 | 256 | 34.1 秒 |
+| **262,144**（Bonsai） | 4,096 | **192K** | 3,072 | 3,328 | 768 | **102 秒** |
+
+### 三个必须注意的边界
+
+**① 贴线 = 不可用**
+
+```
+81,920 池（1,280 页）+ 64K 锚（1,024）+ 工作集（256）= 1,280 ⇒ 余 0
+⇒ 看似"刚好装下"，实际 decode 没有任何调度空间
+⇒ 实用门槛 ≈ 89,600 token（1,400 页）
+```
+
+**② 80,000 与 81,920 之间没有阶跃**
+
+```
+两档都只能建 32K 锚
+真正阶跃在 ~89.6K 以上（64K 锚）
+```
+
+**③ 32K 池只有 8K 锚可用**
+
+```
+16K 锚 + 256 = 512 页 = 池 32,768 ⇒ 余 0 ⇒ 不可用
+⇒ 32K 池统一按 8K 锚算
+```
+
+---
+
+### 14.6 收益模型：为什么是「角点解」不是「内点最优」
+
+```
+单位页收益 = 64 token ÷ 1,920 tok/s = 0.0333 秒/页（恒定，与步长无关）
+⇒ 锚越大总收益越大，单位收益不变
+⇒ 没有中间最优点，最优 = 池允许的最深锚
+⇒ 扫描不是为了找最优，是为了验证"线性假设是否成立"
+```
+
+### 唯一的二阶因素：深锚的机会成本
+
+```
+锚越深 ⇒ 锁住的页越多 ⇒ decode 可调度页越少
+⇒ 降级/restore 流量越大
+⇒ 最深锚未必最舒服
+```
+
+**实践选择：在「能建的最深锚」和「留够 decode 余量」之间取平衡，余量建议 ≥ 200 页。**
+
+**⚠ 与 §14.5 表的衔接**：表中 89,600 档（64K 锚 + 256 工作集）余 120 页，**可用但低于建议余量** ⇒ 实践推荐 **94,720 以上**（98,304 档余 256 页，符合 200 页建议）。
+
+---
+
+### 14.7 与异步页流水的关系：互补，且下锚后更需要异步
+
+| | 长前缀锚 | 异步页流水 |
+|---|---|---|
+| **层** | 决策层（留什么） | 执行层（怎么搬） |
+| 时机 | prefill（保护） | decode（降级/恢复重叠） |
+| 解决 | 「该留的页被踢了」 | 「搬运时 GPU 空转」 |
+
+### 下锚后，三个方向让异步更重要
+
+```
+① 可用池变小：锚锁 512 页 ⇒ 可调度页少 ⇒ 换页更频繁
+② 复用要 restore：512 页 ≈ 850 MB，按 25 GB/s ≈ 34 ms（**25 GB/s 是 PCIe 4.0 x16 量级假设，本机未实测**）
+③ 落袋要腾空间：锚落袋前必须先降级别处
+```
+
+**⇒ 一句话：锚让「该留的留下」，异步让「该搬的搬得不疼」。**
+
+---
+
+### 14.8 家里的执行序（三步，按顺序）
+
+### 第一步：验证「现役件能不能落袋」（零成本，最优先）
+
+**用 §206 的现成场景，不要构造新 prompt：**
+
+```
+场景（L4832 实证）：prompt 63,989 token + 池 51,200
+三条件全满足：
+  ① 池 800 页 ≥ 768（门槛）✓
+  ② prompt 63,989 ≥ 32,768（有锚）✓
+  ③ prompt 63,989 > 池 51,200（触发降级）✓
+
+旧件（B93B1791，无修法 A）⇒ capture install 必为 0
+新件（F814B07A，含修法 A）⇒ 应 > 0
+```
+
+**判据：**
+
+```powershell
+# 臂 A（现役件，含修法 A）——必须用 §206 同款模型件
+scripts\engine_ctl.ps1 -Action start -Tag fixA -Depth 2 -Pool 51200 -Experimental
+#   模型件：models\swift15_dflash2.ninfer（§206 同款）
+
+# 跑 §206 的 63,989 prompt，先看一眼真实日志里 install 行长什么样
+Select-String -Path <log> -Pattern "capture install|anchor publish|KEPT"
+
+# 臂 B（旧件，无修法 A）——用 lineage 里的 RC8 同场景补跑
+#   engine\lineage\ninfer-serve-RC8.exe（B93B1791）
+#   ⚠ 两个件不能并存（各 12.3 GiB）⇒ 必须先 stop 再起
+```
+
+**⚠ 关键**：臂 B（旧件 `B93B1791`）**必须真的跑一次**。
+"旧件 install 必为 0" 目前只是**推断**（122K 会话的类比），§206 原始日志只有 `WARN: prompt exceeds...` 行，
+**没有 `install=0` 的直接证据** ⇒ 补跑一次（+30 分钟）才构成 A/B 双证据。
+
+**结果解读：**
+
+| install 计数 | 含义 |
+|---|---|
+| **> 0** | ✅ 修法 A 起效，锚能落袋 |
+| **= 0** | ❌ 修法 A 无效，或条件未满足（看 `anchor publish declined` 的数字） |
+
+### 第二步：扫描各池档的最深可用锚（如果第一步通过）
+
+**需要先做一件事：把步长 env 化**（改 `frontend.cpp` 两处字面量 + 重编译，一次编译扫全矩阵）。
+
+```powershell
+# 矩阵
+池 ∈ {32768, 40960, 51200, 57344, 65536, 80000}
+步长 ∈ {8192, 16384, 32768}
+锚数固定 = 1（--max-long-anchors-per-continuation 1）
+prompt = 池 × 1.2（确保超池）
+每臂 2 次，ABBA
+```
+
+**必须记录的三个量：**
+
+```
+① capture install 实际落袋的 frontier（日志有 frontier + ordinal）
+② prefill 总耗时（判 chunk split 成本）
+③ TTFT
+```
+
+**判据（绝对量，不用百分比）：**
+
+```
+8K 档 split 成本预算 = 4.2 秒 ÷ 7 切点 ≈ 0.6 秒/切点
+净收益 = TTFT 改善 − prefill 增量
+净收益 > 0 ⇒ 该步长可用
+```
+
+### 第三步：如果小步长有隐藏成本，再决定是否立项
+
+**唯一未测的变量是 chunk split 成本。作者选 32K 的唯一实质理由就在这。**
+
+```
+若 8K 步长的 prefill 增量 < 4.2 秒 ⇒ 可用
+若 > 4.2 秒 ⇒ 小步长不划算，回到 32K
+```
+
+---
+
+### 14.9 家里的三个先决条件（必须先确认）
+
+| # | 待确认 | 怎么查 |
+|---|---|---|
+| 1 | **32K 池档的实际 `--kv-capacity`** 是 32,000 还是 32,768 | 起服日志 `capacity \| KV xx,xxx tokens` 行 |
+| 2 | 本仓 `serve_options` 是否同构 tancau | `git grep -n "max-long-anchors-per-continuation"` |
+| 3 | 本仓 `frontend.cpp` 的锚步长是否也是 32768 硬编码 | `git grep -n "frontier += 32768"` |
+
+**⇒ 三条都是零机时，先查完再谈实验。**
+
+---
+
+### 14.10 本轮讨论中我犯的错（避免家里重复）
+
+| # | 错误 | 正确 |
+|---|---|---|
+| 1 | 页大小说成 26.1 KB / 6.1 MB | **0.83 MB（rk2v4）/ 1.66 MB（rk8v4）** |
+| 2 | 门槛加了 evidence 128（重复计 retrieve） | **工作集 256 页已含 retrieve 192，不重复加** |
+| 3 | "50K 是上下文" | **是池；上下文天生 256K** |
+| 4 | "rk8v4 上限 20,480" | **51,200**（完整旗标实测，L4831） |
+| 5 | **"80K 池能建 64K 锚"——连续三轮** | **80,000 = 1,250 页 < 1,280 ⇒ 只能 32K 锚** |
+| 6 | 32K 池口径漂移（500 vs 512 页） | **统一 8K 锚** |
+| 7 | 81,920 贴线标"可建"，却给 32,768 贴线标"不可用" | **同构场景同判据：贴线不可用** |
+| 8 | `--auto-prefix-grid` 说成"长锚的可调步长版" | **是另一套机制（`SharedStablePrefix` 共享前缀）** |
+
+**⇒ 根因都是一个：没有每次重新代入「工作集 256 页」和「池的实际页数」。**
+
+---
+
+### 14.11 一句给家里的总结
+
+> **长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」。**
+>
+> **它能建的前提是：锚页数 + 256 页工作集 + 余量 ≤ 池页数。**
+>
+> **它的收益是线性的（0.033 秒/页），所以最优永远是「池允许的最深锚」，扫描只为验证小步长的 chunk split 成本。**
+>
+> **现在能做的第一步，是用 §206 的 63,989 prompt + 51,200 池，看现役件 F814B07A 的 `capture install` 是否从 0 变成 > 0——这一步零构造、零改码。**
+
+---
+
+### 14.12 引用
+
+| 内容 | 出处 |
+|---|---|
+| 锚生成（32K 步长 + 两条取舍理由） | `refs/tancau-ninfer-kvmem-ring/src/models/qwen3_5/frontend/frontend.cpp:569-582` |
+| 落袋容量门 + decline 日志 | `.../program/transactions/capture.cpp:104-128` |
+| 工作集 256 页推导（含"不要用结果反推"的教训） | `capture.cpp:35-44` |
+| 修法 B 开关 `NINFER_KV_HOST_ANCHORS` | `capture.cpp:22-33` |
+| 满员替换（非自动 LRU） | `capture.cpp:700-723` |
+| 修法 A `spare_prefix_pages` | `program_impl.h:1219-1229`（声明与语义注释）+ `storage/context.cpp:1551-1563`（`demote_kv_pages_to_host` 实现，`is_preferred` 在 1560-1563） |
+| 锚数量默认 2 | `runtime/engine/model_instance.cpp:118` |
+| CLI 参数 | `serve/serve_options.cpp:288-292`（锚数）、`L363`（auto-prefix-grid） |
+| token/页 = 64 | 构建史 L812（`KV 20,480 tokens \| pages 320/4,096`） |
+| 页大小 0.83 MB（rk2v4） | 构建史 L633-636 |
+| 页大小 1.56 MB（rk8v4，**增量实测**：25 MiB / 1024 tok） | 构建史 L4831 |
+| 页大小 1.66 MB（rk8v4，**推断**：2 倍 rk2v4） | 本报告 §14.4 换算，非实测 |
+| rk8v4 池上限 51,200 | 构建史 L4831（`pages 800/4,096 \| runtime 2.23 GiB`） |
+| SWIFT+MTP 80,000 未探顶 | 构建史 L4464（**注：属 §184.5「每格 1 轮不得作强证据」节，引用需带限定**） |
+| Coder390 57,344（65,536 不可用） | 构建史 L5199 / L5212 |
+| §206 现成场景（63,989 prompt + 51,200 池） | 构建史 L4832 |
+| prefill 1.92k tok/s | 构建史 L4832 |

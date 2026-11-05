@@ -5284,3 +5284,52 @@ it holds 79 -- short by 5 page(s)
 | 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
 | 77 | **修法 A 效果验证** | ⏸ 前置已实证：`bench_night.py` 模型不匹配且会 `taskkill` 误杀、`bench_one.ps1` 需 `-Exe`、384 tok prompt **触发不了 demote**；必须长 prompt + 小池，等用户回来 |
 - 引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+### 216. 【长前缀锚落地：启动器开关+按池推荐已推；实机 A/B 首次测到真锚命中 50.0% long anchor，超池锚被 429 拒】(2026-11-06，用户令「更新构建史，推送」)
+
+- **目的**：把用户核心要求（锚在启动器里可选开关 / 可选大小 / 大小按 KV 池推荐 / TIP + 信息区计算提示）落到启动器，并用实机跑锚效果，回答「锚在家里的池上到底有没有用、在什么池档才有用」。
+- **数字（全量扫，本批四份日志均过 `valley_bench.py scan`）**：
+  - 池内场景（`prompt 32,819` < 池 `51,200`，池页 800）：变体请求（同长前缀、换尾问）关锚 **19.4s / 19.450s**（两轮），开锚 **10.6s / 10.341s**（两轮）；日志命中类型开锚 `cache 16,425 (50.0%, long anchor)`，关锚 `cache 0 (0.0%)`。**省 8.8s，约 45%，两臂各自离散 < 3%。**
+  - 逐字重复对照（turn closure）：关锚 `0.961s` / 开锚 `0.699s`（均 `100.0%, turn closure`）——**不是锚**，只是同请求重放；首轮曾误把它当锚效果，本轮已纠正。
+  - 超池场景（`prompt 65,327` = 1021 页 > 池 800 页）：关锚全量重算 **46.4s** 成功；开锚试图恢复 65K 锚 ⇒ `adopt host-backed: need=1021 usable=800` + `materialize-one FAIL tag=host-restore` ⇒ **HTTP 429**（req#3 失败，0.095s）。
+  - 首请求固定标准提示词实测 `prompt 96`（规则记为 232）⇒ **口径异常，不并入速度对比表**，仅作服务健康锚点。
+- **阶段**：① 开工门 → ② 令牌/工作区实证 → ③ 启动器改动（锚开关+大小+按池推荐+双 TIP）→ ④ 门禁提交推送 `94fc687` → ⑤ 造多 message 长 prompt（6 段长文+短交替，13 个 boundary）→ ⑥ 池内 A/B 两轮 → ⑦ 超池 A/B → ⑧ 停服清窗。
+- **原因**：引擎内部的「按池自动选锚」在本仓**零实现**（报告 §14.13 的 `anchor_stride_for_pool`/`AnchorProfile`/`kAnchorTable` 全树 0 命中；`kPrefixGridPageTokens=256` 只按 prompt 长度翻倍、不读 `kv_capacity`）。因此按用户口径把「推荐」做在启动器层：读当前 `kvcap` 档 → 算页数 → 减 256 页工作集与 decode 余量 → 取最大 2 次幂 → 显示计算过程并下发 `--long-anchor-spacing`。
+- **Δ 对上个基线（§215）**：§215 只有方案与阻断点、零请求；本节完成「启动器落地 + 实机 A/B + 真锚命中」，并首次给出本仓池档下锚的可用边界（池内有效、超池 429）。
+- **解决结论（有实证）**：
+  1. **启动器锚 UI 已入库推送**：`feat(launcher): 长前缀锚开关与按 KV 池推荐锚大小` = `94fc687`（+173/−0，纯新增）。默认 `anchor=off`，此时**零锚旗标**、起服命令与旧版逐字一致；`on` 时下发 `--auto-long-anchors --long-anchor-spacing <N> --max-long-anchors-per-continuation 4`。
+  2. **推荐值按报告 §14.13 ①公式法**：51200 池 → 16K（256 页），32k 池 → 8K，64k 池 → 32K，16k 小池 → 明确提示「无可用锚」；与报告表 8 档复算 6 档一致，2 档差异（32K 激进、256K 激进）已在 TIP 与信息区注明原因（表里 192K 非 2 次幂、自标未验证）。
+  3. **池内锚真实有效**：`--long-anchor-spacing 16384` 在 32,819 token 前缀上命中 `16,425` token（=50.0%，正是 32K 边界的一半），变体请求省 8.8s。这是本仓第一条「锚命中」不是「turn closure」的实测证据。
+  4. **超池锚必须被拒**：65K 锚需要 1021 页，池只有 800 页 ⇒ 恢复阶段 429。**报告 §14.4 门槛公式被实机验证**，不是纸面推导；启动器对「手选 64K 配 51200 池」已提前告警。
+  5. **两臂唯一变量确认**：关锚日志 `anchors 2`、开锚 `anchors 4 automatic`；长 prompt 两臂 sha16 一致 `4d5548dfa19dc581`。
+- **新发现**：
+  1. **`turn closure` 会伪装成锚命中**：逐字重复同一请求时 `cache 100.0%`，与锚无关。判据必须是命中类型字段（`long anchor` vs `turn closure`），不能只看 cache 百分比。
+  2. **锚的价值只在「同前缀不同尾问」**：这正是多轮对话/工具循环的形态；单轮一次性长文档，锚不会带来收益（没有下一轮）。
+  3. **本仓锚大小旋钮语义与 tancau 不同**：`--long-anchor-spacing` 是私有锚**最小间距**，不是 32K 绝对 grid 步长；启动器把它近似成「锚大小」，其真实效果是「锚之间至少隔 N token」。已写进 TIP，不冒充引擎自动适配。
+  4. **`--model-id` 必须用引擎招牌名**：驱动写 `bench` ⇒ 404 `model_not_found`，改用 `/v1/models` 实测 `qwen3.8-27b-coder390` 后通过。
+- **本批挂账**：#77 ✅ 条件性销账（锚效果已实测；修法 A 的 binary A/B 仍待做）→ 改为 **#77 收窄为「修法 A binary A/B」**；新增 **#78 超池锚 429 的产品化**（引擎是否应在 `--auto-long-anchors` 下自动跳过超池 frontier，而非让请求失败）；#68 ⏸ 不变；#73 ⏸ 严禁不变；#64/#67/#70/#76 保持 ✅。
+- **落盘与门控**：`ninfer_launcher.py` 已提交推送（`94fc687`）；实验驱动 `work\data\anchor_bench.py`、长 prompt `work\data\bench_prompt_anchor_long.json`、四份 scan json、`logs\test_anchor_{off3,on3,off3_rep,on3_rep}.log` 全部被 `.gitignore` 排除、不入库。窗口纪律：每臂 `Normal` 可见窗口 + 标题含任务与关闭条件，跑完 `stop` 清窗（引擎进程 0 / 残留窗口 0 / 显存回 67 MiB）。
+
+`[EVIDENCE] logs\test_anchor_on3.log:1161: req#3 done | prompt 32,820 | cache 16,425 (50.0%, long anchor) | TTFT 10.2s | total 10.6s`
+`[EVIDENCE] logs\test_anchor_off3.log:1445: req#3 done | prompt 32,820 | cache 0 (0.0%) | TTFT 18.9s | total 19.4s`
+`[EVIDENCE] logs\test_anchor_on3.log:1787: req#7 done | cache 16,425 (50.0%, long anchor) | TTFT 9.8s | total 10.3s（重复轮）`
+`[EVIDENCE] logs\test_anchor_off3_rep.log:req#3 done: cache 0 (0.0%) | TTFT 18.9s | total 19.4s（重复轮）`
+`[EVIDENCE] logs\test_anchor_on3.log:30: context cache | ... | anchors 4 automatic` / `logs\test_anchor_off3.log:30: ... anchors 2`
+`[EVIDENCE] logs\test_anchor_on2.log: adopt host-backed: frontier=65322 need=1021 usable=800 host_backed=251` → `materialize-one FAIL tag=host-restore` → `req#3 failed | HTTP 429 | server overloaded`
+`[EVIDENCE] engine-src 全树 grep: anchor_stride_for_pool=0 / AnchorProfile=0 / kAnchorTable=0 / kWorkingSet=0 / kMinReserve=0 / anchor_stride=0`
+
+---
+
+## 四-AF、挂账表增量（2026-11-06，§216 追加后同步）
+
+> 沿用四-A…四-AE 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages`** | ✅ 保持销账（§214） |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()`** | ✅ 保持销账（§214） |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 不变：独立于锚实验，等干净环境复验 |
+| 70 | **`valley_bench.py` 低速判据加固** | ✅ 保持销账（§214） |
+| 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ 保持严禁：实体未动 |
+| 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
+| 77 | **修法 A 效果验证** | ✅ 条件性销账（§216）：锚效果已实测（池内 19.4s→10.6s，`50.0% long anchor`）；**余项收窄为「修法 A binary A/B」**（`F814B07A` vs RC8，需长 prompt + 小池，未做） |
+| 78 | **超池锚 429 产品化** | **新增**：`--auto-long-anchors` 下若 frontier 页数 > 池 `usable`，引擎当前让请求 429（`materialize-one FAIL tag=host-restore`）。应改为跳过该 anchor frontier、退回全量 prefill，或启动时按池裁剪可落袋 frontier。证据 §216 |

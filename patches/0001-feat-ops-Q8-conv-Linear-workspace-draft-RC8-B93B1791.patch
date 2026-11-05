@@ -1,0 +1,216 @@
+From fc41af635fd482d0068708e551ec16967701c092 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 4 Nov 2026 07:52:11 +0800
+Subject: [PATCH 1/2] =?UTF-8?q?feat(ops):=20=E9=9D=9E=20Q8=20conv=20?=
+ =?UTF-8?q?=E6=8A=95=E5=BD=B1=20Linear=20=E6=9A=82=E5=AD=98=E4=B8=8E=20wor?=
+ =?UTF-8?q?kspace=20=E9=A2=84=E7=95=99=E4=BF=AE=E6=AD=A3=EF=BC=9Bdraft=20?=
+ =?UTF-8?q?=E5=90=AF=E5=8A=A8=E8=B7=AF=E5=BE=84=E8=B0=83=E6=95=B4=EF=BC=88?=
+ =?UTF-8?q?RC8=20=E5=AE=9E=E8=AF=81=E5=9F=BA=E7=BA=BF=EF=BC=8CB93B1791=20?=
+ =?UTF-8?q?=E5=AF=B9=E5=BA=94=E6=BA=90=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../include/ninfer/ops/dynamic_grouped_conv.h | 10 ++++----
+ .../src/models/qwen3_5/execution/draft.cpp    |  2 +-
+ .../qwen3_5/program/planning/startup.cpp      | 20 +++++++++-------
+ .../q8/q8_dynamic_grouped_conv_add_plan.cpp   | 23 ++++++++++++-------
+ .../q8/q8_dynamic_grouped_conv_add_plan.h     |  2 +-
+ .../src/ops/wrapper/dynamic_grouped_conv.cpp  |  9 +++++---
+ 6 files changed, 41 insertions(+), 25 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/include/ninfer/ops/dynamic_grouped_conv.h b/src-tree/fusion-engine-src/include/ninfer/ops/dynamic_grouped_conv.h
+index 9aad635..68b1067 100644
+--- a/src-tree/fusion-engine-src/include/ninfer/ops/dynamic_grouped_conv.h
++++ b/src-tree/fusion-engine-src/include/ninfer/ops/dynamic_grouped_conv.h
+@@ -69,10 +69,11 @@ void rmsnorm_dynamic_grouped_conv_prepare(const Tensor& residual, const Tensor&
+ /**
+  * Returns the transient capacity required by linear_dynamic_grouped_conv_add for every width/batch
+  * pair in the inclusive intervals. input_rows is 4096 or 17408, widths lie in [2,16], and batch
+- * sizes in [1,8]. Capacity follows every shape-selected production route.
++ * sizes in [1,8]. Capacity covers the actual projection format's routes, including Linear's
++ * staging for materialized projections; other formats do not contribute to the reservation.
+  */
+ [[nodiscard]] std::size_t linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-    std::int32_t input_rows, std::int32_t min_width, std::int32_t max_width,
++    QType projection_type, std::int32_t input_rows, std::int32_t min_width, std::int32_t max_width,
+     std::int32_t min_batch_size, std::int32_t max_batch_size);
+ 
+ /**
+@@ -88,8 +89,9 @@ void rmsnorm_dynamic_grouped_conv_prepare(const Tensor& residual, const Tensor&
+  *       + I(i>0) * (base_kernel[h,1,1] + finish_delta[g,1,i,b]) * z[h,i-1,b].
+  *
+  * Logical shapes / supported domain:
+- *   x is contiguous BF16 [C,W,B]; projection_weight is RowSplit [5120,C] with unpadded C, either
+- *   Q8_G32_FP16 (the fused routes) or a format Linear registers at that shape (projected through
++ *   x is contiguous BF16 [C,W,B]; projection_weight is [5120,C] with unpadded C, either
++ *   RowSplit Q8_G32_FP16 (the fused routes), another RowSplit format, GGUF blocks or NVFP4
++ *   that Linear registers at that shape (projected through
+  *   Linear into the same BF16 plane); base_kernel is contiguous BF16 [5120,2,2] with axes
+  *   [channel,tap,side];
+  *   finish_delta is contiguous BF16 [320,2,W,B]; and residual is contiguous BF16 [5120,W,B].
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/execution/draft.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/execution/draft.cpp
+index 442dd05..efd33e2 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/execution/draft.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/execution/draft.cpp
+@@ -255,7 +255,7 @@ void finish_dynamic_branch(ExecutionCore& execution, const Tensor& input,
+     const int width = input.ne[1], batch = input.ne[2];
+     WorkspaceArena scratch(
+         execution.work.alloc_bytes(ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-            input.ne[0], width, width, batch, batch)));
++            projection.weight.qtype, input.ne[0], width, width, batch, batch)));
+     ops::linear_dynamic_grouped_conv_add(input, projection.weight, weights.base_kernel,
+                                          finish_delta, residual, scratch, execution.device.stream);
+ }
+diff --git a/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp b/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp
+index 0140cf1..b4c11a1 100644
+--- a/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp
++++ b/src-tree/fusion-engine-src/src/models/qwen3_5/program/planning/startup.cpp
+@@ -828,10 +828,12 @@ WorkspacePlan build_workspace_plan(const SequencePlanImpl& plan) {
+                                              dimension(draft->attention.num_key_value_heads)},
+                                             dimension(draft->sliding_window.value_or(0)),
+                                             {0, plan.capacity}, width, width, batch));
+-                        scratch(layout,
+-                                ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-                                    dimension(draft->attention.query_width()), width, width, batch,
+-                                    batch));
++                        for (const auto& block : parameters.draft->layers) {
++                            const auto& w = block.output.weight;
++                            scratch(layout,
++                                    ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
++                                        w.qtype, w.k, width, width, batch, batch));
++                        }
+                     }
+                     {
+                         auto mlp = layout.scope();
+@@ -845,10 +847,12 @@ WorkspacePlan build_workspace_plan(const SequencePlanImpl& plan) {
+                                                     p.weight.qtype, p.weight.n, p.weight.k,
+                                                     p.policy, tokens, tokens)));
+                         }
+-                        scratch(
+-                            layout,
+-                            ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-                                dimension(draft->intermediate_size), width, width, batch, batch));
++                        for (const auto& block : parameters.draft->layers) {
++                            const auto& w = block.mlp.down.weight;
++                            scratch(layout,
++                                    ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
++                                        w.qtype, w.k, width, width, batch, batch));
++                        }
+                     }
+                     const auto mask_columns = proposal_drafts * batch;
+                     matrix(layout, DType::BF16, dimension(config.hidden_size), mask_columns);
+diff --git a/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.cpp b/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.cpp
+index 84a77d0..0b47498 100644
+--- a/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.cpp
++++ b/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.cpp
+@@ -8,7 +8,7 @@ namespace ninfer::ops::detail {
+ namespace {
+ struct Plan {
+     Q8DynamicConvAddSchedule schedule;
+-    std::size_t workspace_bytes;
++    std::size_t projected_bytes;      // the projected BF16 matrix this dispatch allocates
+ };
+ 
+ Plan resolve_plan(int input_rows, int width, int batch) {
+@@ -19,18 +19,24 @@ Plan resolve_plan(int input_rows, int width, int batch) {
+     const int columns = width * batch;
+     using S           = Q8DynamicConvAddSchedule;
+     const S schedule  = columns <= 88 ? S::TiledMma : S::MmaK128;
+-    return {schedule, static_cast<std::size_t>(5120) * columns * sizeof(std::uint16_t)};
++    const std::size_t projected = static_cast<std::size_t>(5120) * columns * sizeof(std::uint16_t);
++    return {schedule, projected};
+ }
+ } // namespace
+ 
+ std::size_t q8_linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-    int input_rows, int min_width, int max_width, int min_batch, int max_batch) {
++    QType projection_type, int input_rows, int min_width, int max_width, int min_batch, int max_batch) {
+     if (min_width < 2 || max_width > 16 || min_width > max_width || min_batch < 1 ||
+         max_batch > 8 || min_batch > max_batch)
+         throw std::invalid_argument(
+             "linear dynamic grouped conv add workspace: invalid W/B interval");
+-    // Every route shares one projected BF16 matrix; its capacity is monotonic in W and B.
+-    return resolve_plan(input_rows, max_width, max_batch).workspace_bytes;
++    const auto projected = resolve_plan(input_rows, max_width, max_batch).projected_bytes;
++    // The fused Q8 route needs only the projected matrix. Other formats use Linear with
++    // caller-owned staging. The BF16 plane is a multiple of the arena's 256-byte alignment.
++    return projected + (projection_type == QType::Q8_G32_FP16 ? 0 :
++        linear_workspace_capacity_bytes(projection_type, 5120, input_rows,
++                                        LinearPolicy::A16Only, min_width * min_batch,
++                                        max_width * max_batch));
+ }
+ 
+ const char* q8_linear_dynamic_grouped_conv_add_route_name(int input_rows, int width, int batch) {
+@@ -49,7 +55,7 @@ void q8_linear_dynamic_grouped_conv_add_dispatch(const Tensor& x, const Weight&
+                                                  cudaStream_t stream) {
+     const Plan plan          = resolve_plan(x.ne[0], x.ne[1], x.ne[2]);
+     auto scope               = workspace.scope();
+-    const DeviceSpan storage = workspace.alloc_bytes(plan.workspace_bytes);
++    const DeviceSpan storage = workspace.alloc_bytes(plan.projected_bytes);
+     Tensor projected(storage.data, DType::BF16, {5120, x.ne[1], x.ne[2]});
+     q8_dynamic_grouped_conv_add_materialized_launch(plan.schedule, x, weight, base, delta, residual,
+                                                     projected, stream);
+@@ -60,10 +66,11 @@ void materialized_linear_dynamic_grouped_conv_add_dispatch(
+     const Tensor& finish_delta, Tensor& residual, WorkspaceArena& workspace, cudaStream_t stream) {
+     const Plan plan           = resolve_plan(x.ne[0], x.ne[1], x.ne[2]);
+     auto scope                = workspace.scope();
+-    const DeviceSpan storage  = workspace.alloc_bytes(plan.workspace_bytes);
++    const DeviceSpan storage  = workspace.alloc_bytes(plan.projected_bytes);
+     const std::int32_t tokens = x.ne[1] * x.ne[2];
+     Tensor projected(storage.data, DType::BF16, {5120, tokens});
+-    linear(x.view({x.ne[0], tokens}), projection_weight, projected, stream);
++    linear(x.view({x.ne[0], tokens}), projection_weight, projected, LinearPolicy::A16Only,
++           workspace, stream);
+     dynamic_grouped_conv_finish_launch(projected, base_kernel, finish_delta, residual, x.ne[1],
+                                        stream);
+ }
+diff --git a/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.h b/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.h
+index 779468d..b5bbb2e 100644
+--- a/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.h
++++ b/src-tree/fusion-engine-src/src/ops/dynamic_grouped_conv/q8/q8_dynamic_grouped_conv_add_plan.h
+@@ -12,7 +12,7 @@
+ namespace ninfer::ops::detail {
+ 
+ std::size_t q8_linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-    std::int32_t input_rows, std::int32_t min_width, std::int32_t max_width,
++    QType projection_type, std::int32_t input_rows, std::int32_t min_width, std::int32_t max_width,
+     std::int32_t min_batch_size, std::int32_t max_batch_size);
+ 
+ const char* q8_linear_dynamic_grouped_conv_add_route_name(std::int32_t input_rows,
+diff --git a/src-tree/fusion-engine-src/src/ops/wrapper/dynamic_grouped_conv.cpp b/src-tree/fusion-engine-src/src/ops/wrapper/dynamic_grouped_conv.cpp
+index 626c933..125622f 100644
+--- a/src-tree/fusion-engine-src/src/ops/wrapper/dynamic_grouped_conv.cpp
++++ b/src-tree/fusion-engine-src/src/ops/wrapper/dynamic_grouped_conv.cpp
+@@ -76,7 +76,9 @@ void require_finish_projection_weight(const Weight& weight, std::int32_t input_r
+ // A row-split projection of any other format goes through Linear, which validates its registered
+ // format and shape; the fused routes are Q8's.
+ bool materialized_projection(const Weight& weight, std::int32_t input_rows) {
+-    return weight.qtype != QType::Q8_G32_FP16 && weight.layout == QuantLayout::RowSplit &&
++    return weight.qtype != QType::Q8_G32_FP16 &&
++           (weight.layout == QuantLayout::RowSplit ||
++            (weight.layout == QuantLayout::GgufBlocks && is_gguf(weight.qtype))) &&
+            weight.ndim == 2 && weight.n == kHidden && weight.k == input_rows &&
+            weight.qdata != nullptr && weight.payload != nullptr;
+ }
+@@ -196,13 +198,14 @@ void rmsnorm_dynamic_grouped_conv_prepare(const Tensor& residual, const Tensor&
+                                                        finish_delta, workspace, stream);
+ }
+ 
+-std::size_t linear_dynamic_grouped_conv_add_workspace_capacity_bytes(std::int32_t input_rows,
++std::size_t linear_dynamic_grouped_conv_add_workspace_capacity_bytes(QType projection_type,
++                                                                     std::int32_t input_rows,
+                                                                      std::int32_t min_width,
+                                                                      std::int32_t max_width,
+                                                                      std::int32_t min_batch_size,
+                                                                      std::int32_t max_batch_size) {
+     return detail::q8_linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
+-        input_rows, min_width, max_width, min_batch_size, max_batch_size);
++        projection_type, input_rows, min_width, max_width, min_batch_size, max_batch_size);
+ }
+ 
+ void linear_dynamic_grouped_conv_add(const Tensor& x, const Weight& projection_weight,
+-- 
+2.55.0.windows.4
+

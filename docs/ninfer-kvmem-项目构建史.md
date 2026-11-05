@@ -5283,3 +5283,4 @@ it holds 79 -- short by 5 page(s)
 | 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ 保持严禁：实体未动 |
 | 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
 | 77 | **修法 A 效果验证** | ⏸ 前置已实证：`bench_night.py` 模型不匹配且会 `taskkill` 误杀、`bench_one.ps1` 需 `-Exe`、384 tok prompt **触发不了 demote**；必须长 prompt + 小池，等用户回来 |
+- 引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

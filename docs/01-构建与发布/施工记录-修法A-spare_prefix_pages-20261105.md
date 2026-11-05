@@ -97,3 +97,4 @@ if (sequence.lane < max_concurrency && requests[sequence.lane].prefill &&
 - `publish declined` / `capture install` 深度 / `hit` 是否提升（修法 A 的直接收益指标）
 
 **不得**把本轮冒烟结论表述为「修法 A 已生效并提升命中」——那只证明件能编译、能起、能出 token。
+- 引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

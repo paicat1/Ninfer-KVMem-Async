@@ -40,3 +40,11 @@
 - 现在 `patches/` 下是 **23 个**、指纹 `89117602`…
 - ⇒ **两者不一致**。可能是 10-26 之后新增了补丁，也可能当时只统计了参与 RC1 的子集。
   **未查清即不声称哪个对**；本文件只提供"当前目录状态"的指纹。
+
+## 追加（publish_engine 20261106_035456）
+
+- 本节起 patches/*.patch 计数 = 25，PATCHSET_FINGERPRINT = `9C05201BAEEADCDA7DAD085217EBC4F495DB66AF3CED1B6FC551528D8A432364`
+- 上方「补丁数 = 23 / 旧指纹」为 2026-10-30 快照，已过时；以本节为准。
+- 本批新增 2 份：
+  - `0001-feat-ops-Q8-conv-Linear-workspace-draft-RC8-B93B1791.patch` sha256 `74799ec1335782690889854bbf431ceda3fd8637c089257530552f6951c590a5`
+  - `0002-feat-kvmem-capture.patch` sha256 `9fa73907cf7076aa8887a19edc7ebbe8de434f74e21e8cafb5d81d4abeaa60fe`

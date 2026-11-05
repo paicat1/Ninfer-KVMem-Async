@@ -143,3 +143,4 @@
 - 状态：`parked` → **`abandoned`**；编译现场 `.temp\build-sym120a` 随之解冻
 
 > 订正（2026-11-01）：原节此处登记的 RC7（`ninfer-serve-RC7.exe`, `442DF906…`）已并入正文「现役件封存」RC 表（L99）；本行删除，避免双处登记与代号双义（原代号列写「PG3」，与今晨 `PG3-20261031`（`90FB3869…`）冲突）。
+- 引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

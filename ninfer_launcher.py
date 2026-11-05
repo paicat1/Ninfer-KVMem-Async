@@ -403,6 +403,143 @@ KVCAP_OPTIONS = {
     "224k":    ("224K", ["--kv-capacity", "229376"]),
     "256k":    ("256K", ["--kv-capacity", "262144"]),
 }
+# ── 长前缀锚：按 KV 池推荐锚大小（2026-11-06 用户令）────────────────────────
+# 依据：docs\03-归因与结论\调研-上游对照-Strata与KVMem-v0.19-...md
+#       §14.4 门槛公式 / §14.5 池档表 / §14.13 公式法（三档余量）。
+# ⚠ 诚实口径：256 页工作集来自 tancau 原型 capture.cpp:35-39 的推导，
+#    本仓没有把它写成常量（容量走 startup.cpp 的 host-cache 预算）。
+#    因此下面是**按报告公式的静态建议值，本仓未实测**，不是性能承诺。
+# ⚠ 语义口径：本仓 --long-anchor-spacing 是「私有长锚之间的最小间距」，
+#    不是 tancau 的 32K 绝对 grid 步长；这里把推荐锚大小映射到该旋钮，
+#    属于近似控制，不能等同「引擎已按池自动选锚」。
+ANCHOR_TOKENS_PER_PAGE = 64
+ANCHOR_WORKSET_PAGES = 256
+ANCHOR_RESERVE_PAGES = {"conservative": 200, "balanced": 64, "aggressive": 0}
+ANCHOR_STRIDES = (8192, 16384, 32768, 65536, 131072)  # 2 的幂，与报告公式法一致
+ANCHOR_SIZE_TOKENS = {"8k": 8192, "16k": 16384, "32k": 32768,
+                      "64k": 65536, "128k": 131072}
+
+ANCHOR_OPTIONS = {
+    "off": ("关（默认 · 不启用长锚）", []),
+    "on":  ("开 · 启用长前缀锚", []),
+}
+ANCHOR_SIZE_OPTIONS = {
+    "auto": ("自动 · 按当前 KV 池推荐（★建议）", []),
+    "8k":   ("8K（8192 tok / 128 页）",   ["--long-anchor-spacing", "8192"]),
+    "16k":  ("16K（16384 tok / 256 页）", ["--long-anchor-spacing", "16384"]),
+    "32k":  ("32K（32768 tok / 512 页）", ["--long-anchor-spacing", "32768"]),
+    "64k":  ("64K（65536 tok / 1024 页）", ["--long-anchor-spacing", "65536"]),
+    "128k": ("128K（131072 tok / 2048 页）", ["--long-anchor-spacing", "131072"]),
+}
+
+
+def kvcap_tokens_of(combo):
+    """取当前 KV 池 token 数；auto / 未知值返回 None（起服后才有真实值）。"""
+    ent = KVCAP_OPTIONS.get(str(combo.get("kvcap", "51200")), KVCAP_OPTIONS["51200"])
+    try:
+        return int(ent[1][1])
+    except (IndexError, TypeError, ValueError):
+        return None
+
+
+def anchor_advice(pool_tokens, policy="conservative"):
+    """报告 §14.13 公式法：锚页数 + 256 页工作集 + 余量 ≤ 池页数，取最大 2 次幂。"""
+    reserve = ANCHOR_RESERVE_PAGES.get(policy, ANCHOR_RESERVE_PAGES["conservative"])
+    pages = int(pool_tokens) // ANCHOR_TOKENS_PER_PAGE
+    budget = pages - ANCHOR_WORKSET_PAGES - reserve
+    advice = 0
+    for s in ANCHOR_STRIDES:
+        if s // ANCHOR_TOKENS_PER_PAGE <= budget:
+            advice = s
+        else:
+            break
+    return {"pool_tokens": int(pool_tokens), "pages": pages, "reserve": reserve,
+            "budget_pages": budget, "advice_tokens": advice,
+            "advice_pages": advice // ANCHOR_TOKENS_PER_PAGE,
+            "margin_pages": budget - advice // ANCHOR_TOKENS_PER_PAGE}
+
+
+def anchor_effective_spacing(combo):
+    """实际传给引擎的 --long-anchor-spacing 数值（auto 档按池算）。"""
+    size = str(combo.get("anchorsize", "auto"))
+    if size != "auto":
+        return ANCHOR_SIZE_TOKENS.get(size, 8192)
+    pool = kvcap_tokens_of(combo)
+    if pool is None:
+        return 8192  # auto 池无法预知 ⇒ 保守 8K，起服后以日志 capacity 行为准
+    return anchor_advice(pool)["advice_tokens"] or 8192
+
+
+def anchor_calc_lines(combo):
+    """右侧信息区的计算提示（逐行显示，纯文本）。"""
+    pool = kvcap_tokens_of(combo)
+    on = combo.get("anchor", "off") == "on"
+    size = str(combo.get("anchorsize", "auto"))
+    label = "开" if on else "关（默认）"
+    size_label = ANCHOR_SIZE_OPTIONS.get(size, ANCHOR_SIZE_OPTIONS["auto"])[0]
+    out = ["【长前缀锚】%s ｜ 大小：%s" % (label, size_label)]
+    if pool is None:
+        out.append("池 = auto：起服前算不出页数，建议改固定池档")
+        out.append("或起服后看日志 `capacity | KV xx,xxx tokens` 行再选锚大小")
+        out.append("auto 池 + 自动档 ⇒ 暂按保守 8K 下发（--long-anchor-spacing 8192）")
+        return out
+    cons = anchor_advice(pool, "conservative")
+    bal = anchor_advice(pool, "balanced")
+    agg = anchor_advice(pool, "aggressive")
+    fmt = lambda t: ("%dK" % (t // 1024)) if t else "不锚"
+    out.append("池 %d tok ÷ 64 = %d 页" % (pool, cons["pages"]))
+    min_stride_pages = ANCHOR_STRIDES[0] // ANCHOR_TOKENS_PER_PAGE
+    if cons["budget_pages"] < min_stride_pages:
+        out.append("− 工作集 256 页 − decode 余量 %d 页（保守）⇒ 余量不足 %d 页（最小 8K 锚）"
+                   % (cons["reserve"], min_stride_pages))
+        out.append("⇒ 按报告 §14.13 门槛：该池无可用锚，建议关锚或调大 KV 池")
+        if on:
+            _fallback = anchor_effective_spacing(combo)
+            _how = "自动档退到最小档" if size == "auto" else "手选档仍按所选值"
+            out.append("⚠ %s下发 --long-anchor-spacing %d，仅供试跑；256 页工作集本仓未实测"
+                       % (_how, _fallback))
+        return out
+    out.append("− 工作集 256 页 − decode 余量 %d 页（保守）= 可供锚 %d 页"
+               % (cons["reserve"], cons["budget_pages"]))
+    out.append("⇒ 推荐 %s（%d 页），门槛 %d+256=%d 页 ≤ %d 页，余 %d 页"
+               % (fmt(cons["advice_tokens"]), cons["advice_pages"],
+                  cons["advice_pages"], cons["advice_pages"] + ANCHOR_WORKSET_PAGES,
+                  cons["pages"], cons["margin_pages"] + cons["reserve"]))
+    out.append("三档建议：保守 %s / 平衡 %s / 激进 %s（贴线，不推荐）"
+               % (fmt(cons["advice_tokens"]), fmt(bal["advice_tokens"]),
+                  fmt(agg["advice_tokens"])))
+    chosen = anchor_effective_spacing(combo)
+    if on:
+        out.append("实际下发：--long-anchor-spacing %d（+ --auto-long-anchors）" % chosen)
+        need = chosen // ANCHOR_TOKENS_PER_PAGE + ANCHOR_WORKSET_PAGES
+        if need > cons["pages"]:
+            out.append("⚠ 所选 %dK（%d 页）+256 > 池 %d 页：按报告门槛放不下"
+                       % (chosen // 1024, chosen // ANCHOR_TOKENS_PER_PAGE, cons["pages"]))
+    else:
+        out.append("开关为关 ⇒ 不下发任何锚旗标（以上为「若开启」的推荐值）")
+    return out
+
+
+ANCHOR_CAVEAT = (
+    "⚠ 工作集 256 页是报告 §14.4 的推导值（tancau 原型），本仓未实测；\n"
+    "⚠ 本仓该旗标控制「私有锚最小间距」，不是 tancau 的 32K 绝对步长；\n"
+    "⚠ 启动器固定带 --max-shared-prefixes 0（防打砖），共享前缀网格不可用；\n"
+    "   单条长文档（单 message）不产生私有锚，需多轮/多 message 才有边界。\n"
+    "⚠ 与报告 §14.13 表格的两处差异：本启动器按 ①公式法（最大 2 次幂）算，\n"
+    "   32K 池激进档得 16K、256K 池激进档得 128K；表里 8K/192K 是 ②查表草案值\n"
+    "   （192K 非 2 次幂，报告自标「示例值，未验证」），需实机扫描后才能定案。"
+)
+
+def anchor_info_text(combo):
+    return "\n".join(anchor_calc_lines(combo)) + "\n" + ANCHOR_CAVEAT
+
+
+def anchor_tip_text(combo):
+    return "长前缀锚：把第 N 个 token 处的 KV 标成可复用，让下一轮少做 prefill。\n\n" \
+           + "\n".join(anchor_calc_lines(combo)) + "\n\n" + ANCHOR_CAVEAT \
+           + "\n\n选择「自动」时，换 KV 池档位会立刻重算推荐值（本提示同步刷新）。"
+
+
 HOSTKV_OPTIONS = {
     "16384": ("16384（★本线定稿）", ["--host-kv-mib", "16384"]),
     "8192":  ("8192",            ["--host-kv-mib", "8192"]),
@@ -517,6 +654,8 @@ DIMENSIONS = [
     ("fp16state", "GDN 状态精度",  FP16STATE_OPTIONS),   # 2026-10-20：FP32/FP16 recurrent state（#37/#47 过门实验）
     ("ctx",    "上下文",          CTX_OPTIONS),
     ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
+    ("anchor", "长前缀锚开关",     ANCHOR_OPTIONS),      # 2026-11-06 用户令
+    ("anchorsize", "锚大小",       ANCHOR_SIZE_OPTIONS),  # 2026-11-06 用户令
     ("graph",  "CUDA Graph 预算", GRAPH_OPTIONS),
     ("hostkv", "主机 KV (MiB)",   HOSTKV_OPTIONS),
     ("prefill","prefill 块",      PREFILL_OPTIONS),
@@ -562,6 +701,8 @@ DEFAULTS = {
     "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
     "adaptivemtp": "off",  # 2026-10-31：投机自适应默认关（定稿 k3 固定不变；opt-in 开启，仅 spec=mtp 生效）
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
+    "anchor": "off",       # 2026-11-06：默认关，不改变既有起服行为
+    "anchorsize": "auto",  # 2026-11-06：默认按 KV 池推荐
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -572,6 +713,8 @@ LEGACY_VALUE_MAP = {
 }
 
 DIM_TIPS = {
+    "anchor": "长前缀锚开关（2026-11-06 用户令）。开 = 下发 --auto-long-anchors + --long-anchor-spacing N + --max-long-anchors-per-continuation 4；关（默认）= 完全不下发锚旗标，起服行为与旧版逐字一致。\n**收益是「让下一轮少做 prefill」，不加速本轮 prefill**。\n⚠ 本仓 --long-anchor-spacing 是私有锚之间的最小间距，不是 tancau 的 32K 绝对步长；右侧信息区会按当前 KV 池给出推荐值与完整计算过程。",
+    "anchorsize": "锚大小（--long-anchor-spacing，token）。**自动** = 按当前 KV 池容量算：池页数 − 工作集 256 页 − decode 余量 200 页，取不超过余量的最大 2 次幂（报告 §14.4 门槛 + §14.13 公式法）。也可手选 8K/16K/32K/64K/128K。\n⚠ 256 页工作集来自 tancau 原型推导，本仓未实测；推荐值仅供起步，需实机验证。\n⚠ --long-anchor-spacing 必须配 --auto-long-anchors，启动器开锚时已一并下发。",
     "adaptivemtp": "投机自适应（--adaptive-mtp）：每轮在 3..--draft-tokens 间按 drafts 实测存活率 + 轮成本自动选宽度（贪心输出不变）。**仅 --spec mtp（k1..k15）有效**，k0/DFlash2 不适用。2026-10-31 接入，实测数据待补。",
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
@@ -922,6 +1065,11 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     if _state_slots > 8:
         argv += ["--host-state-slots", str(_state_slots)]
     argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
+    # 2026-11-06 用户令：长前缀锚开关 + 大小（自动档按 KV 池算推荐值）
+    if combo.get("anchor", "off") == "on":
+        argv += ["--auto-long-anchors",
+                 "--long-anchor-spacing", str(anchor_effective_spacing(combo)),
+                 "--max-long-anchors-per-continuation", "4"]
     if combo.get("reqlog", "off") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
         argv += ["--request-log-jsonl", os.path.join("work", "data", "reqlog_serve_%s.jsonl" % port),
                  "--request-log-max-mib", "256", "--request-log-keep", "2"]
@@ -1289,6 +1437,15 @@ class LauncherApp:
         for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "vision", "fp16state"):
             row(f2, k)
 
+        # 分区：长前缀锚（2026-11-06 用户令：开关 + 大小 + 动态 TIP）
+        fa = section("长前缀锚（PrivateLongAnchor · 按 KV 池推荐）")
+        row(fa, "anchor")
+        row(fa, "anchorsize")
+        self.anchor_tip_obj = ToolTip(fa, "")
+        tk.Label(fa, text="锚让下一轮少做 prefill；换算与推荐值见右侧信息区，鼠标悬停本区看完整计算。",
+                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 8),
+                 wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
+
         # 分区：仪器与稳定性
         f3 = section("仪器与稳定性")
         for k in ("reqlog", "hemostat", "prefill"):
@@ -1314,6 +1471,12 @@ class LauncherApp:
                                   font=("Microsoft YaHei UI", 9, "bold"),
                                   justify="left", anchor="w", wraplength=430)
         self.vram_host.pack(anchor="w", pady=(2, 0))
+
+        self.anchor_info = tk.Label(right, text="", bg="#eef4ff", fg="#2b3a6b",
+                                   font=("Microsoft YaHei UI", 9),
+                                   justify="left", anchor="w", wraplength=430,
+                                   bd=1, relief="solid", padx=6, pady=4)
+        self.anchor_info.pack(anchor="w", fill="x", pady=(8, 0))
 
         self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
                                font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=430)
@@ -1621,6 +1784,16 @@ class LauncherApp:
             dev_txt, host_txt, vcolor = "显存：计算失败（%s）" % _e, "", "#b07a20"
         self.vram.config(text=dev_txt, fg=vcolor)
         self.vram_host.config(text=host_txt, fg=vcolor)
+        # 2026-11-06：锚推荐计算提示（换池档/开关/大小即重算）
+        try:
+            _ai = anchor_info_text(self.selection)
+        except Exception as _ae:      # 不因提示计算失败拖垮 GUI
+            _ai = "长前缀锚：推荐计算失败（%s）" % _ae
+        self.anchor_info.config(text=_ai)
+        try:
+            self.anchor_tip_obj.text = anchor_tip_text(self.selection)
+        except Exception:
+            pass
         warns = validate(self.selection, self._engine_path())
         if warns:
             self.status.config(text="⚠ " + "\n⚠ ".join(warns), fg="#b07a20")

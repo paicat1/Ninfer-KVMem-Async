@@ -1696,17 +1696,22 @@ private:
     void ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                           const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
                           std::span<const std::uint32_t> preferred,
-                          PendingDemoteRing* async_ring = nullptr);
+                          PendingDemoteRing* async_ring = nullptr,
+                          std::uint32_t spare_prefix_pages = 0U);
 
     // LOCAL PROTOTYPE (KVMem-style ring): demote the oldest Device-resident pages (skipping the
     // attention sink and, on the first pass, `preferred`) until at least `target_free` Device pages
     // have been released, or nothing more can be demoted. The content is always preserved on the
     // Host first, so demotion is lossless and retrieval can bring a page back.
+    // 2026-11-05 (FIX A, merged from refs/community/tancau-ninfer-kvmem-ring): `spare_prefix_pages`
+    // spares logical pages [0, N) from the FIRST demotion pass; ensure_ring_room derives N from the
+    // request's deepest pending capture frontier. The second pass still yields the prefix.
     std::uint32_t demote_kv_pages_to_host(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                                           const KVAddressSpaceHandle& address,
                                           std::uint32_t sink_pages, std::uint32_t target_free,
                                           std::span<const std::uint32_t> preferred,
-                                          PendingDemoteRing* async_ring = nullptr);
+                                          PendingDemoteRing* async_ring = nullptr,
+                                          std::uint32_t spare_prefix_pages = 0U);
     // LOCAL PROTOTYPE (KVMem-style ring): release Device pages held by OTHER (inactive) addresses
     // until `target_free` more Device pages are free. Inactive addresses are pure cache in ring mode
     // (reuse of a host-demoted source is declined), so their Device replicas can go without affecting

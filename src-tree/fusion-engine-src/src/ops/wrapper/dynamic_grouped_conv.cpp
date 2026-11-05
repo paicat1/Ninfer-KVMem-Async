@@ -76,7 +76,9 @@ void require_finish_projection_weight(const Weight& weight, std::int32_t input_r
 // A row-split projection of any other format goes through Linear, which validates its registered
 // format and shape; the fused routes are Q8's.
 bool materialized_projection(const Weight& weight, std::int32_t input_rows) {
-    return weight.qtype != QType::Q8_G32_FP16 && weight.layout == QuantLayout::RowSplit &&
+    return weight.qtype != QType::Q8_G32_FP16 &&
+           (weight.layout == QuantLayout::RowSplit ||
+            (weight.layout == QuantLayout::GgufBlocks && is_gguf(weight.qtype))) &&
            weight.ndim == 2 && weight.n == kHidden && weight.k == input_rows &&
            weight.qdata != nullptr && weight.payload != nullptr;
 }
@@ -196,13 +198,14 @@ void rmsnorm_dynamic_grouped_conv_prepare(const Tensor& residual, const Tensor& 
                                                        finish_delta, workspace, stream);
 }
 
-std::size_t linear_dynamic_grouped_conv_add_workspace_capacity_bytes(std::int32_t input_rows,
+std::size_t linear_dynamic_grouped_conv_add_workspace_capacity_bytes(QType projection_type,
+                                                                     std::int32_t input_rows,
                                                                      std::int32_t min_width,
                                                                      std::int32_t max_width,
                                                                      std::int32_t min_batch_size,
                                                                      std::int32_t max_batch_size) {
     return detail::q8_linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
-        input_rows, min_width, max_width, min_batch_size, max_batch_size);
+        projection_type, input_rows, min_width, max_width, min_batch_size, max_batch_size);
 }
 
 void linear_dynamic_grouped_conv_add(const Tensor& x, const Weight& projection_weight,

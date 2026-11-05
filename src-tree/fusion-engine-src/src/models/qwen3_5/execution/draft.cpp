@@ -255,7 +255,7 @@ void finish_dynamic_branch(ExecutionCore& execution, const Tensor& input,
     const int width = input.ne[1], batch = input.ne[2];
     WorkspaceArena scratch(
         execution.work.alloc_bytes(ops::linear_dynamic_grouped_conv_add_workspace_capacity_bytes(
-            input.ne[0], width, width, batch, batch)));
+            projection.weight.qtype, input.ne[0], width, width, batch, batch)));
     ops::linear_dynamic_grouped_conv_add(input, projection.weight, weights.base_kernel,
                                          finish_delta, residual, scratch, execution.device.stream);
 }

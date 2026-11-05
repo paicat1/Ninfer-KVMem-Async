@@ -2179,7 +2179,8 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
                                                    std::uint32_t sink_pages,
                                                    std::uint32_t target_free,
                                                    std::span<const std::uint32_t> preferred,
-                                                   PendingDemoteRing* async_ring) {
+                                                   PendingDemoteRing* async_ring,
+                                                   std::uint32_t spare_prefix_pages) {
     if (host_kv_extents == nullptr || !addresses.valid(address) || target_free == 0) { return 0; }
     // LOCAL (挂账44): profile helpers are file-level (shared with retire_pending_demote).
     const bool kDemoteProfile = demote_profile_enabled();
@@ -2192,8 +2193,13 @@ std::uint32_t ProgramImpl::demote_kv_pages_to_host(KVAddressSpaceStore& addresse
     // synchronous so the free-page verdict the caller relies on is still met by the time we return.
     const bool async_ok = async_demote_enabled() && async_ring != nullptr;
     const std::uint32_t mapped = addresses.mapped_pages(address);
+    // 2026-11-05 (FIX A, spare-publishable-prefix): a capture can only be banked while every page
+    // below its frontier is Device-resident, and demotion runs oldest-first, so it consumed exactly
+    // that prefix. Spare [0, spare_prefix_pages) on the FIRST pass only -- the second pass still
+    // yields it, so the caller's room guarantee is unchanged.
     const auto is_preferred = [&](std::uint32_t page) {
-        return !preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page);
+        return page < spare_prefix_pages ||
+               (!preferred.empty() && std::binary_search(preferred.begin(), preferred.end(), page));
     };
     // Oldest first, skipping the attention sink and (in the first pass) the pages retrieval wants to
     // keep. If that is not enough the second pass gives up the retrieved pages too, so the caller is
@@ -2712,7 +2718,8 @@ ProgramImpl::retained_device_kv_pages(const SharedPrefixHandle& shared) const no
 void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPageStore& pages,
                                    const KVAddressSpaceHandle& address, std::uint32_t total_tokens,
                                    std::span<const std::uint32_t> preferred,
-                                   PendingDemoteRing* async_ring) {
+                                   PendingDemoteRing* async_ring,
+                                   std::uint32_t spare_prefix_pages) {
     // P-g3 (2026-10-31, LOCAL): ensure_ring_room stage timers -- put a number on the per-step
     // wait that the C-ctrl ON collapse (142 tok/s vs 309 tok/s OFF) lives in. Only active when
     // the demote profile switch is on (engine_ctl sets NINFER_DEMOTE_PROFILE=1).
@@ -2800,7 +2807,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t target_free = want_free > demand_free ? want_free - demand_free : 0U;
     if (target_free == 0) {
         (void)demote_kv_pages_to_host(addresses, pages, address, sink_pages, 0U, preferred,
-                                      async_ring);
+                                      async_ring, spare_prefix_pages);
         ensure_profile_emit(async_ring != nullptr ? static_cast<std::uint32_t>(async_ring->live) : 0U, need, free_now);
         return;
     }
@@ -2815,7 +2822,7 @@ void ProgramImpl::ensure_ring_room(KVAddressSpaceStore& addresses, LogicalKVPage
     const std::uint32_t target2 = want_free > demand_after ? want_free - demand_after : 0U;
     const std::uint32_t freed_own =
         demote_kv_pages_to_host(addresses, pages, address, sink_pages, target2, preferred,
-                                async_ring);
+                                async_ring, spare_prefix_pages);
     if (kEnsureProfile) { t_demote_ms = demote_profile_now_ms() - t_ens0 - t_retire_ms; }
     // LOCAL FIX (B01 ring early verdict): both demotions used to have their return value dropped, so
     // a ring that could free nothing carried on into `ensure_mapped_to_tokens` and failed later --
@@ -2983,14 +2990,24 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
                                        [&](std::uint32_t page) { return page >= mapped_now; }),
                         preferred.end());
         ring_profile_mark(1);
+        // 2026-11-05 (FIX A, spare-publishable-prefix): derive the prefix to spare from the request's
+        // DEEPEST pending capture frontier -- same source as the reference implementation
+        // (requests[sequence.lane].prefill->capture_groups.back().frontier). Zero whenever the lane
+        // has no pending capture, so decode pays nothing.
+        std::uint32_t spare_prefix_pages = 0U;
+        if (sequence.lane < max_concurrency && requests[sequence.lane].prefill &&
+            !requests[sequence.lane].prefill->capture_groups.empty()) {
+            spare_prefix_pages = kv_pages_for_frontier(
+                requests[sequence.lane].prefill->capture_groups.back().frontier);
+        }
         // B01: room is made by the shared helper, which every mapping site now uses. It takes the
         // token frontier (proto_pages_for_tokens converts) and decides right here -- with these exact
         // numbers -- whether the pages this step must map can be freed at all.
         ensure_ring_room(*text_kv_addresses, *text_kv_pages, sequence.kv->text, main_tokens,
-                         preferred, pending_demote_text_.get());
+                         preferred, pending_demote_text_.get(), spare_prefix_pages);
         if (has_backend) {
             ensure_ring_room(*backend_kv_addresses, *backend_kv_pages, *sequence.kv->backend,
-                             backend_tokens, {}, pending_demote_backend_.get());
+                             backend_tokens, {}, pending_demote_backend_.get(), spare_prefix_pages);
         }
         ring_profile_mark(2);
     }

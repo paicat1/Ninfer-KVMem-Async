@@ -5385,3 +5385,48 @@ it holds 79 -- short by 5 page(s)
 | 78 | **超池检查点恢复 429 产品化** | ⏸ 订正（§217）：不再是「超池锚」问题——两臂皆然，根因「恢复需 1021 页 > 池 800 页」。方向改为：恢复失败时退回全量 prefill 而非 HTTP 429 |
 | 79 | **`_apply_model_coupling` 套档静默跳过** | **新增**：`_val not in _table` 时无任何日志，`"16384"` vs `"16k"` 这类键名错会静默失效（§217 实证）。应在跳过时 `print('[bundle] skip <key>=<val>')` 并纳入 validate 提示 |
 | 80 | **SWIFT+DFlash2 启动失败** | ✅ 已修（未提交）：`kvcap` 键名 `"16384"→"16k"` + `_on_spec_change` 补联动；待令牌恢复后提交 |
+### 218. 【#79 套档静默跳过已修；多会话锚在 DFlash2+51200 下命中 50%；修法 A binary A/B 无判决力（两臂均 429）】(2026-11-06)
+
+- **目的**：执行用户令「做123」——① 修 #79（套档静默跳过无告警）② 真实多会话锚验证 ③ #77 修法 A binary A/B。
+- **数字（全量/逐行统计）**：
+  - **① #79**：注入 `kvcap="99999"`（不在 `KVCAP_OPTIONS`）后 `_bundle_skipped=1`、状态区出现「套档跳过 kvcap='99999'（swift_dflash2 档，不在选项表）-> 保持 '64k'」；还原后 `skipped=[]`、`kvcap=16k`。改动 `+15/−0`。
+  - **② 多会话锚（DFlash2 + 51200 池，prompt 32,819/32,820）**：`req#2` 首建 16.943s；`req#3` 换尾问 **`cache 16,425 (50.0%, long anchor)` TTFT 9.8s / total 10.2s**（同 Coder390 结果）；`req#4` 逐字重复 `cache 32,814 (100.0%, turn closure)` 0.650s。⇒ **省 6.7s，约 40%**。
+  - **③ 修法 A A/B（FIXA `F814B07A` vs RC8 `B93B1791`，24K 池 + 33K prompt + spacing 8192）**：两臂 `publish host-backed` 均 **3** 次、`frontier` 均 **32814**、`publish declined` 均 **0**；仅 `host_backed` 页数 FIXA **274** vs RC8 **282**（差 8 页 / 0.78%）。两臂 `adopt host-backed: need=513 usable=384` ⇒ **均 HTTP 429**。
+- **阶段**：① 改 3 处（两处套档循环收集 + `_refresh` 并入状态区）→ 验证正常/注入两态 → ② 起 DFlash2+51200（首次误用 Coder390 报 `missing component dflash2`，补 `-Model swift15_dflash2.ninfer` 后 ready）→ 跑 4 请求序列 → ③ 起 FIXA 臂（现役同件）→ 起 RC8 臂（`-Experimental`，T#0059 因 sha 在 lineage 跳过备份）→ 跑同序列 → 停服 → **现役位换回 FIXA（`F814B07A`）**。
+- **原因与结论**：
+  1. **#79 是真隐患**：`pythonw` 无控制台，`print` 到不了用户，所以静默 `continue` 完全不可见。修法是收集到 `_bundle_skipped` 并在 `_refresh` 并入状态区告警——这才是「不静默」。
+  2. **锚在跨会话场景对 DFlash2 同样有效**：`50.0% long anchor` 与 Coder390 逐字同值，说明锚是件无关的引擎机制；省 6.7s。
+  3. **修法 A 的本轮 A/B 无判决力**：24K 池装不下 33K 前缀的恢复（need 513 > usable 384），两臂都在 adopt 阶段 429，修法 A 只在落袋时保住 8 页前缀，收益被 429 掩盖。**该设计不能作为 #77 的判决实验**。
+  4. **降级与恢复的物理矛盾**：单请求场景下「降级发生」⇒「超池」⇒「恢复失败 429」，中间没有可观测窗口。修法 A 的真实收益必须靠**跨轮浅锚**暴露：第一轮 33K 超池、落 8K(128 页) 锚；第二轮只带 8K 前缀 + 新问题（128+工作集 ≤ 池），才可能命中。本轮驱动没有这种「长→短」序列。
+- **Δ 对上个基线（§217）**：#217 只订正了口径与根因；本节把 #79 修掉、把锚在 DFlash2 上的有效性补齐，并把 #77 的实验设计证伪一次（负结果也是结论）。
+- **新发现**：
+  1. **修法 A 的 A/B 必须设计成「长→短」两轮**，否则两臂都 429，看不出差异。
+  2. **`engine_ctl -Exe` 指向非现役位会覆盖现役件**（`$runExe`），必须 `-Experimental`；sha 在 lineage MANIFEST 时跳过备份（T#0059），但**跑完必须手工换回**，否则现役变对照件。本轮已换回并核 `sha16=F814B07A`。
+  3. **`-Model` 与 `-Spec` 必须配套**：DFlash2 件 + 默认 Coder390 模型 ⇒ `Qwen3.5 config: missing component dflash2`，秒退。
+- **本批挂账**：#79 ✅ 销账（本轮修复 + 注入验证）；#77 ⏸ **改为「修法 A 长→短两轮 A/B」**（本轮负结果证明旧设计无效）；#78 证据加强（恢复超池检查点必 429，两臂皆然）；#80 ✅ 已在 §217 记录；#68/#73 保持 ⏸；#64/#67/#70/#76 保持 ✅。
+- **落盘与门控**：`ninfer_launcher.py`（#79）待提交；实验产物 `work\data\anchor_{run_multi,run_fixA,run_rc8}.txt`、`anchor_bench_{multi,fixA,rc8}.json`、`logs\test_{anchor_multi2,fixA_arm,rc8_arm}.log` 全被 gitignore 排除；起服全程可见窗口 + 标题含任务与关闭条件，跑完 `stop` 清窗，最终 `engine=0`、窗口 0、显存回 53 MiB。
+
+`[EVIDENCE] verify_79 注入态: 套档跳过 kvcap='99999'（swift_dflash2 档，不在选项表）-> 保持 '64k' / status_contains_skip=True / VERDICT=OK`
+`[EVIDENCE] logs\test_anchor_multi2.log:910 req#3 done | prompt 32,820 | cache 16,425 (50.0%, long anchor) | TTFT 9.8s | total 10.2s`
+`[EVIDENCE] logs\test_fixA_arm.log:942 publish host-backed: frontier=32814 scanned=1026 host_backed=274` / `:1139 adopt host-backed: frontier=32814 need=513 usable=384`
+`[EVIDENCE] logs\test_rc8_arm.log:939 publish host-backed: frontier=32814 scanned=1026 host_backed=282` / `:1128 adopt host-backed: frontier=32814 need=513 usable=384`
+`[EVIDENCE] logs\test_anchor_multi 首次失败: FATAL ... Qwen3.5 config: missing component dflash2（缺 -Model）`
+
+---
+
+## 四-AH、挂账表增量（2026-11-06，§218 追加后同步）
+
+> 沿用四-A…四-AG 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages`** | ✅ 保持销账（§214） |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()`** | ✅ 保持销账（§214） |
+| 68 | **hidden 绝对阈值跨场景不可用** | ⏸ 不变 |
+| 70 | **`valley_bench.py` 低速判据加固** | ✅ 保持销账（§214） |
+| 73 | **B 类唯一副本** | ⏸ 保持严禁：实体未动 |
+| 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
+| 77 | **修法 A 效果验证** | ⏸ **改判为「长→短两轮 A/B」**：§218 的 24K 池 + 33K prompt 设计两臂均 429（need 513 > usable 384），无判决力；须改为「第一轮 33K 超池落 8K 锚 → 第二轮 8K 前缀 + 新问题」 |
+| 78 | **超池检查点恢复 429 产品化** | ⏸ 证据加强（§218）：FIXA/RC8 两臂均 429，与 binary 无关 |
+| 79 | **`_apply_model_coupling` 套档静默跳过** | ✅ 销账（§218）：收集到 `_bundle_skipped` 并显示在状态区，注入态验证可见 |
+| 80 | **SWIFT+DFlash2 启动失败** | ✅ 已修并推送（§217，`b820e4b`） |

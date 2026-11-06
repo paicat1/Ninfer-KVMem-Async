@@ -1562,12 +1562,19 @@ class LauncherApp:
         #    之后用户手改单项不被反复覆盖（只在"模型变化"这一拍应用）。
         _model_now = self.selection.get("model", "iq4nl")
         _bundle = MODEL_BUNDLES.get(_model_now)
+        # #79（2026-11-06）：套档被跳过时必须可见。pythonw 无控制台，print 到不了用户，
+        # 所以收进列表由 _refresh 显示到状态区——今天 "16384" vs "16k" 就是靠静默 continue 藏住的。
+        self._bundle_skipped = []
         if _bundle and getattr(self, "_bundle_model", None) != _model_now:
             self._bundle_model = _model_now
             for _key in ("kv", "kvcap", "graph", "vision"):
                 _val = _bundle.get(_key)
                 _table = DIMENSIONS_MAP.get(_key)
                 if not _val or not _table or _val not in _table:
+                    if _val:
+                        self._bundle_skipped.append(
+                            "套档跳过 %s=%r（不在选项表）-> 保持 %r"
+                            % (_key, _val, self.selection.get(_key)))
                     continue
                 self.selection[_key] = _val
                 if _key in self.var:
@@ -1593,6 +1600,10 @@ class LauncherApp:
                         _val = _sb.get(_key)
                         _table = DIMENSIONS_MAP.get(_key)
                         if not _val or not _table or _val not in _table:
+                            if _val:
+                                self._bundle_skipped.append(
+                                    "套档跳过 %s=%r（%s 档，不在选项表）-> 保持 %r"
+                                    % (_key, _val, _want, self.selection.get(_key)))
                             continue
                         self.selection[_key] = _val
                         if _key in self.var:
@@ -1828,6 +1839,10 @@ class LauncherApp:
         except Exception:
             pass
         warns = validate(self.selection, self._engine_path())
+        # #79：把「套档被跳过」并入状态区（pythonw 无控制台，print 用户看不见）
+        _skipped = getattr(self, "_bundle_skipped", None) or []
+        if _skipped:
+            warns = list(warns) + ["⚠ " + s for s in _skipped]
         if warns:
             self.status.config(text="⚠ " + "\n⚠ ".join(warns), fg="#b07a20")
         else:

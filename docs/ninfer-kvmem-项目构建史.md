@@ -5333,3 +5333,55 @@ it holds 79 -- short by 5 page(s)
 | 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
 | 77 | **修法 A 效果验证** | ✅ 条件性销账（§216）：锚效果已实测（池内 19.4s→10.6s，`50.0% long anchor`）；**余项收窄为「修法 A binary A/B」**（`F814B07A` vs RC8，需长 prompt + 小池，未做） |
 | 78 | **超池锚 429 产品化** | **新增**：`--auto-long-anchors` 下若 frontier 页数 > 池 `usable`，引擎当前让请求 429（`materialize-one FAIL tag=host-restore`）。应改为跳过该 anchor frontier、退回全量 prefill，或启动时按池裁剪可落袋 frontier。证据 §216 |
+### 217. 【口径订正：§216 超池 429 两臂皆然、与锚无关；SWIFT+DFlash2 启动失败根因为参数档键名错；锚在真实单会话里零命中】(2026-11-06)
+
+- **目的**：把 TELE 复核（07:43 回执）指出的口径错误、以及用户实测「SWIFT + DFlash Head 启动失败」「锚到底有没有用」两问的结论，一并落盘并订正 §216，避免后续引用错误因果。
+- **数字（全量扫/逐行统计，非抽样）**：
+  - §216 超池段订正依据：`test_anchor_off2.log:3320` 变体 `req#3` **46.4s 成功 / cache 0**、`:3326` 逐字重复 `req#4` **HTTP 429**；`test_anchor_on2.log:1747` 变体 `req#3` **HTTP 429**、`:1922` 重复 `req#4` **0.781s 成功 / 100% turn closure** ⇒ **429 落在两臂的不同请求上，根因同一（检查点恢复需 1021 页 > 池 800 页），与锚开关无关**。
+  - SWIFT+DFlash2 失败：`serve_20261106_074534.log` / `074603.log` → `FATAL server failed during startup | requested Engine runtime reservation requires 2764170240 bytes, but only 2458910720 bytes are available`（差 305,259,520 B ≈ 291 MiB）。MTP 头同参数（`074248`）**成功 listening**，差别只在件大小：MTP 11.91 GiB vs DFlash2 13.29 GiB。
+  - 修好后实机：`serve_20261106_075112.log` → `capacity | KV 51,200 tokens, rk8v4, explicit | pages 800/4,096 | runtime 2.23 GiB | free 191.0 MiB`，`context cache | ... | anchors 4 automatic`。
+  - 真实会话锚命中统计（同一份 `075112` 日志，11 个 done 请求）：`long anchor = 0`、`private endpoint = 9`、`turn closure = 1`、`publish host-backed = 0`、`publish declined = 0`；`anchor` 全文仅 2 次，均为启动行 ⇒ **锚全程空转，连候选都未生成**。
+  - 该会话形态：`req#1`→`req#12` 为**同一条链**（2→5→7→…→25 messages，每轮 +1–2K token），prompt 由 11,630 涨至 48,740；`req#3` `cache 11,625 (27.6%, turn closure) | TTFT 17.5s`，`req#4`–`req#12` 全部 97.7–100% `private endpoint`、TTFT 321–980 ms。
+- **阶段**：① 接 TELE 复核 → ② 逐行复核两臂 429（成立）→ ③ 读用户实机三份失败日志定位 FATAL → ④ 诊断启动器套档路径 → ⑤ 修两处 + 改注释 → ⑥ 统计真实会话命中类型 → ⑦ 追加本节。
+- **原因（两层，皆有代码级证据）**：
+  1. **DFlash2 参数档键名错**：`MODEL_BUNDLES["swift_dflash2"]["kvcap"]` 原写 `"16384"`（token 数），而 `KVCAP_OPTIONS` 的键是 `"16k"` ⇒ `_apply_model_coupling` 套档循环 `if not _val or not _table or _val not in _table: continue` **静默跳过**，DFlash2 永远拿不到自己的池档，沿用 MTP 的 `64k`。
+  2. **UI 切换不触发联动**：`_on_spec_change` 只写 `selection["spec"]` 后直接 `_refresh()`，**不调用 `_apply_model_coupling`**，所以从两级下拉切 DFlash2 时连套档动作都不发生。诊断脚本实测：修复前 `after spec=DFlash2 d5: kvcap=64k / ACTUAL --kv-capacity 65536 / VERDICT: BUG`；修复后 `kvcap=16k / ACTUAL 16384 / VERDICT: OK`。
+- **Δ 对上个基线（§216）**：§216 给出了「池内锚有效」的正面证据，但把超池 429 归因成「开锚臂独有」，属拼接错误；本节改判为「两臂皆然、与锚无关」，并补上启动器 DFlash2 缺陷与真实会话零命中的反证。
+- **解决结论（有实证）**：
+  1. **§216 超池叙事作废**：正确表述是「超池 + 换尾变体 ⇒ 检查点恢复 429，两臂都会发生」；它印证报告 §14.4 门槛与启动器推荐 16K 的价值，**不是锚导致失败的证据，也不能当 A/B 对比项**。
+  2. **DFlash2 启动失败已修（两处，待提交）**：`kvcap` 改 `"16k"`；`_on_spec_change` 补 `_apply_model_coupling()`。另把 bundle 注释里过时的「rk8v4 池上限 20480」改为三段实测：**16384 稳 / 51200 可起但 free 仅 191 MiB / 65536 必 FATAL**。
+  3. **锚的适用边界被真实会话证伪了一次**：单会话连续工具循环里，`private endpoint`（同链续延）已 97.7–100% 命中，锚没有出手机会；且 `--long-anchor-spacing 16384` 远大于每轮增量（1–2K），锚候选根本不生成。锚的价值场景是「**同一个引擎内、多个会话共享同一段 ≥16K token 的逐字前缀**」；新开启动器窗口/重启引擎会清零，因为锚在进程内存里。
+  4. **用户标准提示词不可能触发锚**：鹈鹕骑自行车实测 `prompt 232`，与 16K 差约 70 倍，且是单条 message（本仓私有锚按 message 边界生成）。该提示词仍是速度对比的固定标尺，不用于锚验证。
+  5. **`req#3` 低命中（27.6%）的真因是池容**：`prompt 42,069 + 上轮 output 30,388 ≈ 1,132 页 > 池 800 页`，续延检查点只留得下前段；其中 thinking `16,000/16,000` 打满，占上轮 output 30,388 的 52.7%，但砍半仍超（约 1,001 页），要 100% 复用需单轮 output ≤ 9,100 token，工具循环不现实。
+- **新发现**：
+  1. **「锚开了」≠「锚在工作」**：`anchors 4 automatic` 只表示槽位存在；判据只能是命中类型字段 `long anchor`，`private endpoint` / `turn closure` 都是别的机制。
+  2. **同一条链上的多轮，续延端点天然强于锚**（100% vs 50%），所以锚不该在单会话场景被期待。
+  3. **参数档表里「值必须是选项表的键」这个约束没有类型保护**：`"16384"` 与 `"16k"` 只差一个字符，套档循环却静默 `continue`，无任何日志。属于同类隐患（静默失败）典型。
+- **本批挂账**：#78 订正为「**超池检查点恢复 429 产品化**」（不再写「超池锚」；两臂皆然，应退全量 prefill 而非 429）；新增 **#79 `_apply_model_coupling` 套档静默跳过无告警**（键不在表内时至少打一行 warning，避免下次再查半天）；#77 余项仍是「修法 A binary A/B」；#68/#73 保持 ⏸；#64/#67/#70/#76 保持 ✅。
+- **落盘与门控**：`ninfer_launcher.py` 本轮改动（两处 bug + 注释更正）**未提交**——令牌于 08:08 实测已过期（`TOKEN-FAIL: token expired: 71 min > 60 min`），需用户重新点 BAT 才能走门禁；本轮零起服、零请求、零 stop（现有实机 `pid 10220` 全程未触碰）。
+
+`[EVIDENCE] logs\test_anchor_off2.log:3320 req#3 done | cache 0 (0.0%) | TTFT 46.4s | total 47.0s` / `:3326 req#4 failed | HTTP 429`
+`[EVIDENCE] logs\test_anchor_on2.log:1747 req#3 failed | HTTP 429` / `:1922 req#4 done | cache 32,814 (100.0%, turn closure) | total 0.781s`
+`[EVIDENCE] logs\serve_20261106_074603.log: FATAL server failed during startup | requested Engine runtime reservation requires 2764170240 bytes, but only 2458910720 bytes are available for runtime capacity`
+`[EVIDENCE] logs\serve_20261106_075112.log:29 context cache | 1 active + 1 cached device states | host 8 states, 16.0 GiB KV | private 2 | shared 0 | anchors 4 automatic`
+`[EVIDENCE] 同日志全文统计：long anchor=0 / private endpoint=9 / turn closure=1 / publish host-backed=0 / publish declined=0 / anchor 仅 2 次（均为启动行）`
+`[EVIDENCE] ninfer_launcher.py:253 "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", ...}`
+
+---
+
+## 四-AG、挂账表增量（2026-11-06，§217 追加后同步）
+
+> 沿用四-A…四-AF 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 64 | **修法 A `spare_prefix_pages`** | ✅ 保持销账（§214） |
+| 67 | **`log_verify.ps1` 的 `FileInfo.Refresh()`** | ✅ 保持销账（§214） |
+| 68 | **hidden 绝对阈值跨场景不可用 / 受控序列复验** | ⏸ 不变 |
+| 70 | **`valley_bench.py` 低速判据加固** | ✅ 保持销账（§214） |
+| 73 | **B 类唯一副本（self-built 6 + test-run 2）** | ⏸ 保持严禁：实体未动 |
+| 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
+| 77 | **修法 A 效果验证** | ✅ 条件性销账（§216）；**余项 = 修法 A binary A/B**（`F814B07A` vs RC8），未点火 |
+| 78 | **超池检查点恢复 429 产品化** | ⏸ 订正（§217）：不再是「超池锚」问题——两臂皆然，根因「恢复需 1021 页 > 池 800 页」。方向改为：恢复失败时退回全量 prefill 而非 HTTP 429 |
+| 79 | **`_apply_model_coupling` 套档静默跳过** | **新增**：`_val not in _table` 时无任何日志，`"16384"` vs `"16k"` 这类键名错会静默失效（§217 实证）。应在跳过时 `print('[bundle] skip <key>=<val>')` 并纳入 validate 提示 |
+| 80 | **SWIFT+DFlash2 启动失败** | ✅ 已修（未提交）：`kvcap` 键名 `"16384"→"16k"` + `_on_spec_change` 补联动；待令牌恢复后提交 |

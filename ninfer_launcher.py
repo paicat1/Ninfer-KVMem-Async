@@ -247,10 +247,18 @@ MODEL_BUNDLES = {
     "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
                "note": "前序线 · 件未下载（仅登记待测试）"},
     # swift_dflash2 非 GUI 模型档，由 spec=d* 联动套用（2026-11-04 §203）：
-    "swift_dflash2": {"kv": "rk8v4", "kvcap": "16384", "graph": "192", "vision": "overlay",
-                      "note": "DFlash2 件 13.29 GiB（MTP 头换 DFlash2 头，§203）；"
+    # 2026-11-06 修 BUG：kvcap 必须是 KVCAP_OPTIONS 的**键**（"16k"），不是 token 数。
+    # 原写 "16384" 不在键集内 ⇒ 套档循环 _val not in _table 直接 continue，
+    # DFlash2 仍带 MTP 的 64k 池起服 ⇒ FATAL（2764170240 > 2458910720）。
+    "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", "graph": "192", "vision": "overlay",
+                      # 2026-11-06 三段实测更正（旧注「rk8v4 池上限 20480」已过时）：
+                     #   16384 -> 稳（§205 夜班全档，甜品 d4/d5 121-124 tok/s，k0 基线 66）
+                     #   51200 -> 能起，free 仅 191.0 MiB（logs\serve_20261106_075112.log）
+                     #   65536 -> FATAL（runtime 需 2.57 GiB > 剩 2.29 GiB，074534/074603）
+                     "note": "DFlash2 件 13.29 GiB（MTP 头换 DFlash2 头，§203）；"
                               "夜班实测（§205）：rk8v4@16384 全档扫描，甜品 d4/d5=121-124 tok/s（k0 基线 66）；"
-                              "rk8v4 池上限 20480、rk2v4-e8 池上限 32768；默认给 16384@rk8v4 留足余量"},
+                              "2026-11-06 实测三段：16384 稳 / 51200 可起但 free 仅 191 MiB（贴边）"
+                              " / 65536 起服即 FATAL（runtime 2.57 GiB > 可用 2.29 GiB）；默认 16k"},
 }
 # SWIFT 按投机类型切的模型件（2026-11-04 用户令：DFlash 与 MTP 互斥 = 换件实现）：
 SWIFT_DFLASH2_MODEL = os.path.join(ROOT, "models", "swift15_dflash2.ninfer")
@@ -844,6 +852,23 @@ def validate(combo, exe=None):
     if combo.get("model") == "swift" and _spec_v.startswith("d"):
         warns.append("★DFlash2 件（13.29 GiB）实测池上限未标定：目前仅 8192@rk2v4-e8 起服实证"
                      "（接受率 17-20%、decode 2.2x，§203）；抬高 KV 容量前请先实测。")
+        # 2026-11-06 三段实测（不是照抄 bundle 注释）：
+        #   16384 -> 起服稳（夜班 §205 全档扫描）
+        #   51200 -> 能起，但 `capacity | KV 51,200 ... runtime 2.23 GiB | free 191.0 MiB`
+        #            （logs\serve_20261106_075112.log）——贴边，桌面负载一涨就可能拒启
+        #   65536 -> FATAL「runtime reservation requires 2764170240 > available 2458910720」
+        #            （logs\serve_20261106_074534.log / 074603.log）
+        _dflash_cap = kvcap_tokens_of(combo)
+        if _dflash_cap is None:      # auto 池：起服前无法判断，交给引擎
+            _dflash_cap = 0
+        if _dflash_cap >= 65536:
+            warns.append(f"⚠ DFlash2 件 + 池 {_dflash_cap} 实测起服即 FATAL"
+                         "（runtime 需 2.57 GiB、只剩 2.29 GiB；13.29 GiB 权重比 MTP 多 1.38 GiB）。"
+                         "请降到 16k（16384；夜班定稿）或 51200（能起但仅余 191 MiB）。")
+        elif _dflash_cap > 20480:
+            warns.append(f"△ DFlash2 件 + 池 {_dflash_cap}：实测可起但余量很薄"
+                         "（51200 时 free 仅 191.0 MiB），桌面负载上涨可能拒启；"
+                         "16k（16384）是夜班 §205 的全档定稿档。")
     # ---- 2026-10-10 实测踩坑（日志 serve_20261010_025432）：模型与视觉必须配对 ----
     # 模型不含 vision 组件却传 --vision* -> 引擎启动即挂
     #   "Qwen3.5 config: missing component vision"（79 us 就失败，即"秒退"）。
@@ -1607,6 +1632,14 @@ class LauncherApp:
     def _on_spec_change(self, event=None):
         self._update_spec_k_range()
         self.selection["spec"] = self._spec_key_from_ui()
+        # 2026-11-06 修 BUG（SWIFT+DFlash2 启动即 FATAL）：
+        # 投机类型切换会换模型件（MTP 头 vs DFlash2 头），而两件的显存账完全不同
+        # （11.91 GiB vs 13.29 GiB）。此前只改 spec 键、不套 MODEL_BUNDLES 档，
+        # 于是 DFlash2 件仍带 MTP 的 --kv-capacity 65536 + graph 192 起服 ⇒
+        # "requested Engine runtime reservation requires 2764170240 bytes, but only
+        #  2458910720 bytes available"（logs\serve_20261106_074534/074603.log）。
+        # 必须走模型联动，让 swift_dflash2 档（kvcap=16384）生效。
+        self._apply_model_coupling()
         self._refresh()
 
     def _spec_key_from_ui(self):

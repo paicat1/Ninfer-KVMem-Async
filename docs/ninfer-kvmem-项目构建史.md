@@ -5517,3 +5517,26 @@ it holds 79 -- short by 5 page(s)
 | 归属项 | ✅ 已答 | `ninfer_launcher.py +49/−10` 归属见 §219 第五节，本批随构建史一同提交 |
 | 存量 | ⏸ 保持 | `cfg_d1208a.bat` 残留、refs 断链、logs 超线、心跳文件增长、#68/#73、Strata 口径、报告订正稿 |
 
+
+## 四-AJ、挂账表增量（2026-11-07，方案 0+1 收尾，用户批「同意入档」）
+
+以下四条按 TELE 指令逐字入档：
+
+**条目 1**
+
+现役件入基线后两条纪律（防误判为故障）：#77 类 binary A/B（-Exe 指向 RC8 等覆盖现役位）跑完必须换回 F814B07A（engine\self-built-20261008\ninfer-serve.exe），否则下次 commit/push 时 tamper 门必红；将来引擎重编转现役 → 新 sha ≠ 基线 → 门红 → 需监督位批准 rebuild#22 rehash（流程：改前快照 → 快照复制 → MANIFEST rehash → 重算锚 → GATE_LOG → 干跑 gates 验绿）。门红 = 检测语义按设计工作，不是故障。
+
+**条目 2**
+
+gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来优化需另批治理流程。
+
+**条目 3**
+
+归档状态：方案2 第一批闭环（CLI 实证生效；IDE gateless = 用户裁决的覆盖边界；settings.local.json 方向经 TELE 独立复核判死——IDE 读 settings.local.json 存在但 Craft hookManager 装载源唯一=插件包）+ 方案1 落地（CMakeCache 0D06930B + 现役件 F814B07A，rebuild#21，锚 385C6A69，宿主无关检测）。
+
+**条目 4**
+
+附记防重演：f39fa6b type=docs 但夹带 launcher 代码 61 行 = commit type 与入库内容不匹配，规范瑕疵记档——commit message type 应与入库内容一致（T-COMMIT-MSG）。
+
+> 交叉引用：四-AI 表 #81 的「待用户原话裁决」为追加当时的快照，状态以本表条目 3 为准；append-only 约束下原行保留不改。
+

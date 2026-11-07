@@ -797,7 +797,9 @@ DEFAULTS = {
     "spec": "k3", "kv": "rk8v4",    "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
-    "graph": "128", "reqlog": "off", "async": "on", "asyncdepth": "2",
+    "graph": "64",      # 2026-11-08：所有实测上限都在 graph64 下取得；128 会多吃 64 MiB，
+                        # 把 CODER390 86,016 的 63.5 MiB slack 吃光 -> FATAL
+ "reqlog": "off", "async": "on", "asyncdepth": "2",
     "adaptivemtp": "off",  # 2026-10-31：投机自适应默认关（定稿 k3 固定不变；opt-in 开启，仅 spec=mtp 生效）
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
     "anchor": "off",       # 2026-11-06：默认关，不改变既有起服行为
@@ -966,6 +968,21 @@ def validate(combo, exe=None):
     # engine-rc1-7e14453-6-g2755b24-dirty，无卡死缺陷，支持 --wddm-budget-arithmetic-only）。
     # 原「S13 卡死缺陷件」硬编码告警与新事实相反，已删除；S13 本体仍单独留在 registry 里标注封存。
     _pool_now = kv_pool_tokens_of(combo)
+    # 2026-11-08：graph 额度与池容量的相容性。实测所有上限都在 graph64 下取得，
+    # graph 每多 64 MiB 就从 slack 里扣 64 MiB（86,016 的 slack 只有 63.5）。
+    try:
+        _g = str(combo.get("graph", "64"))
+        _g_mib = int(_g) if _g.isdigit() else 0
+        if _g_mib >= 128 and _pool_now >= 81920:
+            _extra = _g_mib - 64
+            warns.append(
+                f"graph 额度 {_g_mib} MiB 比实测口径（64 MiB）多占 {_extra} MiB，"
+                f"而当前池 {_pool_now} 的实测 slack 只有 30~80 MiB。"
+                f"这个组合大概率起服即 FATAL（need > available）。"
+                f"高池请把 graph 调到 64；要保留 {_g_mib} 就把池降到 80K 以下再试。")
+    except (TypeError, ValueError):
+        pass
+
     mx = str(combo.get("maxout", "default"))
     mx_val = 65535 if mx == "default" else (int(mx) if mx.isdigit() else 0)  # "default"=65535；非数字安全跳过（照老项目：不裸 int 转换）
     if mx_val > _pool_now:

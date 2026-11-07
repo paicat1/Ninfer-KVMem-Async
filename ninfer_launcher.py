@@ -205,9 +205,12 @@ MODEL_PATHS = {
         ROOT, "models",
         "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
 
+    # 2026-11-07: q2lynn 改用双头件（MTP + DFlash2 同一文件，靠 --spec 选头）
+    #   --spec mtp     -> weights 12.3 GiB / pool 86,016 READY（与单 MTP 件零差别）
+    #   --spec dflash2 -> weights 13.5 GiB / pool 40,960 READY（DFlash2 头多占 1.2 GiB）
     "q2lynn": os.path.join(
         ROOT, "models",
-        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
+        "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer"),
     "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer"),
 
 }
@@ -262,12 +265,14 @@ CHANNEL_OPTIONS = {
 # 独显通道下的实测上限（均为 dGPU 口径；arith 下的 dGPU 尚未实测，取保守值）
 MODEL_KVCAP_MAX_DGPU = {
     "q2lynn": 58368,        # 2026-10-30 dGPU 实测
+    "q2lynn_dflash2": 32768,  # dGPU + DFlash2 unmeasured; conservative
     "swift": 98304,         # 2026-11-06 dGPU + graph64 实测
     "swift_dflash2": 51200,  # 2026-11-06 dGPU 实测（贴边 free 191 MiB）
 }
 # 核显通道下的实测上限（2026-11-07，现役件 + arith）
 MODEL_KVCAP_MAX_IGPU = {
     "q2lynn": 86016,
+    "q2lynn_dflash2": 40960,  # DFlash2 head of the dual artifact (READY slack 32.8; 51,200 FATAL)
     "swift": 126976,
     "swift_dflash2": 81920,
 }
@@ -974,8 +979,8 @@ def validate(combo, exe=None):
         warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
     # 2026-11-04：DFlash2 护栏（联动之外的第二道门，防 profile 手改）。
     _spec_v = str(combo.get("spec", "k3"))
-    if _spec_v.startswith("d") and combo.get("model") != "swift":
-        warns.append("DFlash2 件只有 SWIFT 有（swift15_dflash2.ninfer，§203）；q2lynn/iq4nl 的 DFlash2 组件不存在"
+    if _spec_v.startswith("d") and combo.get("model") not in ("swift", "q2lynn"):
+        warns.append("DFlash2 头只有 SWIFT（swift15_dflash2.ninfer）与 q2lynn（Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer 双头件）具备；iq4nl 走单 MTP 件无此头（旧注「q2lynn/iq4nl 的 DFlash2 组件不存在」已于 2026-11-07 失效"
                      "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
     # 2026-11-06：超实测上限只告警、不阻止起服（用户要手试上限档，如 102400）
     # 2026-11-07 用户令：显示通道校验（通道不产生旗标，只决定上限与提示）

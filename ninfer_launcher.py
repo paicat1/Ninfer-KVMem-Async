@@ -231,11 +231,16 @@ MODEL_KVCAP_MAX = {
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
     "q2lynn": 58368,   # iq4_nl 头 227.9 MiB：58,368 READY，60,000 差 36.7 MiB
     "q8mtp":  50000,   # q8_0 头 430.4 MiB：50,000 READY，51,000 差 5.6 MiB
-    # 2026-11-06 实测更新（SWIFT-1.5 MTP + rk8v4 + **graph192** + vision overlay，件 11.91 GiB）：
-    #   90,112 free 277MiB / 92,160 free 223MiB / 94,208 free 169MiB / 95,232 free 141MiB 全 READY
-    #   96,256 FATAL(need 3452>3433) / 98,304 FATAL(用户实机差 73MiB) / 102,400 FATAL
-    #   ⇒ graph192 上限 = 95,232；**早期报的 98,304 是 graph64 口径，已作废**
-    "swift":  95232,
+    # 2026-11-06 实测（SWIFT-1.5 MTP + rk8v4 + graph192 + vision overlay，件 11.91 GiB）：
+    #   90,112 free 277MiB / 92,160 223MiB / 94,208 169MiB / 95,232 141MiB 全 READY
+    #   96,256 FATAL(need 3452>3433) / 98,304 FATAL / 102,400 FATAL
+    #   ⇒ graph192 上限 = 95,232（早期 98,304 是 graph64 口径，已作废）
+    # 2026-11-07 实测（build-1208b，核显通道，graph64）：
+    #   无 arith：96K READY(free 61MiB)；100K FATAL(need 3487 > avail 3430)
+    #   开 arith：100K/104K/108K/112K/116K/120K/124K 全 READY；128K FATAL
+    #   ⇒ 天花板 126,976（全卡仅剩 14MiB、cudaMemGetInfo free=0，刀尖档）
+    # 本值用于「超限告警」；两种口径取宽者，实际能否起看 arith 开关与当次余量。
+    "swift": 126976,
 }
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
@@ -417,14 +422,19 @@ KVCAP_OPTIONS = {
     "92k":     ("92K · graph192 READY free 169MiB", ["--kv-capacity", "94208"]),
     "93k":     ("93K ★graph192 上限 free 141MiB", ["--kv-capacity", "95232"]),
     "94k":     ("94K · graph192 FATAL / graph128 可起", ["--kv-capacity", "96256"]),
-    "96k":     ("96K · graph192 FATAL / graph64 可起", ["--kv-capacity", "98304"]),
-    "100k":    ("100K · 全档实测 FATAL（需降 graph 或关 vision）", ["--kv-capacity", "102400"]),
-    "104k":    ("104K · 未测（预期FATAL）", ["--kv-capacity", "106496"]),
-    "108k":    ("108K · 未测（预期FATAL）", ["--kv-capacity", "110592"]),
-    "112k":    ("112K · 未测（预期FATAL）", ["--kv-capacity", "114688"]),
-    "120k":    ("120K · 未测（预期FATAL）", ["--kv-capacity", "122880"]),
-    "124k":    ("124K · 未测（预期FATAL）", ["--kv-capacity", "126976"]),
-    "128k":    ("128K", ["--kv-capacity", "131072"]),
+    # ── 2026-11-07 实测（build-1208b / 核显通道 / graph64 / vision overlay / rk8v4）
+    #    无 arith：96K READY(free 61MiB) / 100K FATAL(need 3487 > avail 3430)
+    #    开 arith：100K~124K 全 READY；124K 时全卡仅剩 14MiB、cudaMemGetInfo free=0
+    #              128K FATAL(need 4245.3 > avail 4217.1) ⇒ 真实天花板 = 126,976
+    "96k":     ("96K · 无arith READY free 61MiB", ["--kv-capacity", "98304"]),
+    "100k":    ("100K · ★需 arith=on（无 arith 则 FATAL）", ["--kv-capacity", "102400"]),
+    "104k":    ("104K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "106496"]),
+    "108k":    ("108K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "110592"]),
+    "112k":    ("112K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "114688"]),
+    "116k":    ("116K · 需 arith=on（实测 READY，全卡剩 16MiB）", ["--kv-capacity", "118784"]),
+    "120k":    ("120K · 需 arith=on（实测 READY，全卡剩 36MiB）", ["--kv-capacity", "122880"]),
+    "124k":    ("124K · ★实测天花板（全卡剩 14MiB·刀尖）", ["--kv-capacity", "126976"]),
+    "128k":    ("128K · 实测 FATAL（need 4245.3 > avail 4217.1）", ["--kv-capacity", "131072"]),
     "150k":    ("150K", ["--kv-capacity", "153600"]),
     "160k":    ("160K", ["--kv-capacity", "163840"]),
     "170k":    ("170K", ["--kv-capacity", "174080"]),
@@ -637,6 +647,17 @@ GRAPH_OPTIONS = {
     "off":  ("off（禁用·最后手段，decode 有损）", ["--no-cuda-graph"]),
     "auto": ("auto（按 profile 自动·大池时或拒启）", []),
 }
+# 2026-11-07：预算算术开关（--wddm-budget-arithmetic-only）
+#   作用：把 KV 预算口径从「权重加载后的 cudaMemGetInfo free」换成
+#        「total − 权重 arena − 512 MiB」，不改任何分配代码，只改纸面预算。
+#   实测（build-1208b / 126,976 上限）：不给此旗标 = 与现役件逐字同行为；
+#        给了以后 102,400 可起（free 0 B），逐档到 126,976 仍 listening，131,072 FATAL。
+#   ⚠ 只有 build-1208b 及以后的新件认识这个旗标；现役件 F814B07A 传了会报 unknown option。
+ARITH_OPTIONS = {
+    "off": ("off（默认·预算取 cudaMemGetInfo free）", []),
+    "on":  ("on（★仅新件·预算取 total−权重−512MiB，可到 100K~124K）",
+            ["--wddm-budget-arithmetic-only"]),
+}
 HEMOSTAT_OPTIONS = {
     "on":     ("开（★定稿 20261010 · 仅防崩，去 growth）", ["--recover-invariant-failures"]),
     # 2026-10-31：legacy（含 growth）已删——深超池把输出砍在 ~4,096 租约窗口，已判死。
@@ -687,6 +708,7 @@ DIMENSIONS = [
     ("anchor", "长前缀锚开关",     ANCHOR_OPTIONS),      # 2026-11-06 用户令
     ("anchorsize", "锚大小",       ANCHOR_SIZE_OPTIONS),  # 2026-11-06 用户令
     ("graph",  "CUDA Graph 预算", GRAPH_OPTIONS),
+    ("arith",  "预算算术(仅新件)", ARITH_OPTIONS),   # 2026-11-07：--wddm-budget-arithmetic-only
     ("hostkv", "主机 KV (MiB)",   HOSTKV_OPTIONS),
     ("prefill","prefill 块",      PREFILL_OPTIONS),
     ("think",  "思考模式",         THINK_OPTIONS),
@@ -733,6 +755,7 @@ DEFAULTS = {
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
     "anchor": "off",       # 2026-11-06：默认关，不改变既有起服行为
     "anchorsize": "auto",  # 2026-11-06：默认按 KV 池推荐
+    "arith": "off",        # 2026-11-07：默认关；开启后预算改为 total−权重−512MiB（仅新件支持）
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -755,6 +778,7 @@ DIM_TIPS = {
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
     "graph":  "CUDA Graph 预算（--cuda-graph-allowance-mib）= decode kernel 图重放的驱动侧显存。★定稿 128（64K 池起服必要条件，decode 101.1 实测零代价）。桌面挤时降 64/32；off 完全禁用（decode 有损，最后手段）。",
+    "arith":  "KV 预算算术（--wddm-budget-arithmetic-only）。off=按权重加载后的 free 算（现役件行为）；on=按 total−权重−512MiB 算，纸面预算约 4217 MiB，可把池推到 100K~124K。⚠ 仅 build-1208b 及以后的新件认识；纸面预算高于真实供给，超卖部分靠 WDDM 吸收，126,976 时全卡仅剩 14 MiB 余量、cudaMemGetInfo free 已为 0，属刀尖档。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
@@ -874,11 +898,10 @@ def validate(combo, exe=None):
     _cur_tok = kvcap_tokens_of(combo)
     if _cap_v and _cur_tok and _cur_tok > int(_cap_v):
         warns.append(f"⚠ KV 池 {_cur_tok} 超过该模型实测上限 {_cap_v}："
-                     "SWIFT-1.5 MTP@rk8v4 + graph192 + vision overlay 实测 ≤95,232 READY、"
-                     "96,256 起即 FATAL（need 3452 MiB > avail 3433 MiB）。"
-                     "可以起服手试；若 FATAL 请降 graph allowance（实测 graph64→96K / "
-                     "graph128→94K / graph192→93K）；vision overlay 借可驱逐权重尾部、"
-                     "不额外占 device 显存，关它无用。")
+                     "2026-11-07 实测（build-1208b）：无 arith 档 96K READY / 100K FATAL；"
+                     "开 arith 档 100K~124K READY / 128K FATAL，天花板 126,976。"
+                     "可以起服手试；arm 到 124K 时全卡仅剩 14MiB、cudaMemGetInfo free=0，属刀尖档。"
+                     "vision overlay 借可驱逐权重尾部、不额外占 device 显存，关它无用。")
     if combo.get("model") == "swift" and _spec_v.startswith("d") and not os.path.exists(SWIFT_DFLASH2_MODEL):
         warns.append(f"未找到 DFlash2 件：{SWIFT_DFLASH2_MODEL}（§203 产物；如被清理请重跑 graft_dflash2.py）。")
     if combo.get("model") == "swift" and _spec_v.startswith("d"):
@@ -1095,6 +1118,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
     argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）
+    argv += _argv_of(ARITH_OPTIONS,   combo.get("arith", "off"),     "off")    # 2026-11-07: 预算算术开关（仅新件；默认 off 行为不变）
     argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk8v4"),      "rk8v4")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
     argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
     argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")

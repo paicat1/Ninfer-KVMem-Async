@@ -231,7 +231,11 @@ MODEL_KVCAP_MAX = {
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
     "q2lynn": 58368,   # iq4_nl 头 227.9 MiB：58,368 READY，60,000 差 36.7 MiB
     "q8mtp":  50000,   # q8_0 头 430.4 MiB：50,000 READY，51,000 差 5.6 MiB
-    "swift":  80000,   # q6_k 头 332.3 MiB：80,000 仍 READY，上限未探到顶
+    # 2026-11-06 实测更新（SWIFT-1.5 MTP + rk8v4 + **graph192** + vision overlay，件 11.91 GiB）：
+    #   90,112 free 277MiB / 92,160 free 223MiB / 94,208 free 169MiB / 95,232 free 141MiB 全 READY
+    #   96,256 FATAL(need 3452>3433) / 98,304 FATAL(用户实机差 73MiB) / 102,400 FATAL
+    #   ⇒ graph192 上限 = 95,232；**早期报的 98,304 是 graph64 口径，已作废**
+    "swift":  95232,
 }
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
@@ -402,6 +406,24 @@ KVCAP_OPTIONS = {
     "16k":     ("16K",  ["--kv-capacity", "16384"]),
     "32k":     ("32K",  ["--kv-capacity", "32768"]),
     "64k":     ("64K ★20261011实测·需净GPU（配 graph128）", ["--kv-capacity", "65536"]),
+    # ── 2026-11-06 实测补档：SWIFT-1.5 MTP + rk8v4 + **graph 192** + vision overlay
+    #    （件 11.91 GiB）。⚠ 必须用 graph 192 的口径：engine_ctl 默认 64 会高估上限约 128 MiB，
+    #    早期误报「98304 上限」就是这么来的。以下 free 为引擎自报。
+    "80k":     ("80K · graph192 未逐档测（graph64 READY free 493MiB，应可起）", ["--kv-capacity", "81920"]),
+    "84k":     ("84K · 同上（graph64 READY free 385MiB）", ["--kv-capacity", "86016"]),
+    # ⚠ 上限随 graph allowance 变：graph64→96K / graph128→94K / graph192→93K（用户实机 + 我方逐档实测）
+    "88k":     ("88K · graph192 READY free 277MiB", ["--kv-capacity", "90112"]),
+    "90k":     ("90K ★graph192 推荐 free 223MiB", ["--kv-capacity", "92160"]),
+    "92k":     ("92K · graph192 READY free 169MiB", ["--kv-capacity", "94208"]),
+    "93k":     ("93K ★graph192 上限 free 141MiB", ["--kv-capacity", "95232"]),
+    "94k":     ("94K · graph192 FATAL / graph128 可起", ["--kv-capacity", "96256"]),
+    "96k":     ("96K · graph192 FATAL / graph64 可起", ["--kv-capacity", "98304"]),
+    "100k":    ("100K · 全档实测 FATAL（需降 graph 或关 vision）", ["--kv-capacity", "102400"]),
+    "104k":    ("104K · 未测（预期FATAL）", ["--kv-capacity", "106496"]),
+    "108k":    ("108K · 未测（预期FATAL）", ["--kv-capacity", "110592"]),
+    "112k":    ("112K · 未测（预期FATAL）", ["--kv-capacity", "114688"]),
+    "120k":    ("120K · 未测（预期FATAL）", ["--kv-capacity", "122880"]),
+    "124k":    ("124K · 未测（预期FATAL）", ["--kv-capacity", "126976"]),
     "128k":    ("128K", ["--kv-capacity", "131072"]),
     "150k":    ("150K", ["--kv-capacity", "153600"]),
     "160k":    ("160K", ["--kv-capacity", "163840"]),
@@ -847,6 +869,16 @@ def validate(combo, exe=None):
     if _spec_v.startswith("d") and combo.get("model") != "swift":
         warns.append("DFlash2 件只有 SWIFT 有（swift15_dflash2.ninfer，§203）；q2lynn/iq4nl 的 DFlash2 组件不存在"
                      "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
+    # 2026-11-06：超实测上限只告警、不阻止起服（用户要手试上限档，如 102400）
+    _cap_v = MODEL_KVCAP_MAX.get(combo.get("model", "iq4nl"))
+    _cur_tok = kvcap_tokens_of(combo)
+    if _cap_v and _cur_tok and _cur_tok > int(_cap_v):
+        warns.append(f"⚠ KV 池 {_cur_tok} 超过该模型实测上限 {_cap_v}："
+                     "SWIFT-1.5 MTP@rk8v4 + graph192 + vision overlay 实测 ≤95,232 READY、"
+                     "96,256 起即 FATAL（need 3452 MiB > avail 3433 MiB）。"
+                     "可以起服手试；若 FATAL 请降 graph allowance（实测 graph64→96K / "
+                     "graph128→94K / graph192→93K）；vision overlay 借可驱逐权重尾部、"
+                     "不额外占 device 显存，关它无用。")
     if combo.get("model") == "swift" and _spec_v.startswith("d") and not os.path.exists(SWIFT_DFLASH2_MODEL):
         warns.append(f"未找到 DFlash2 件：{SWIFT_DFLASH2_MODEL}（§203 产物；如被清理请重跑 graft_dflash2.py）。")
     if combo.get("model") == "swift" and _spec_v.startswith("d"):
@@ -1612,15 +1644,24 @@ class LauncherApp:
         cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
         if not cap:
             return
-        cur = str(self.selection.get("kvcap", ""))
-        try:
-            too_big = int(cur) > int(cap)
-        except ValueError:            # auto / 非数字：不动
-            too_big = False
-        if too_big:
-            self.selection["kvcap"] = cap
-            if "kvcap" in self.var and cap in KVCAP_OPTIONS:
-                self.var["kvcap"].set(KVCAP_OPTIONS[cap][0])      # 同步下拉显示
+        # 2026-11-06 修（用户当场指出）：强制降池只在「模型切换」那一拍做一次。
+        # 原实现每次 _on_change 都跑 —— 用户手选 100k/102400 做上限实验会被立刻拉回，
+        # 且回写的是裸数字（98304）而非档位键（"96k"），下拉显示与 selection 不同步。
+        # 现在：换模型时若超限降一次；之后手选任意档不干预，超限由 validate() 告警。
+        _cap_model_now = self.selection.get("model", "iq4nl")
+        if getattr(self, "_cap_model", None) == _cap_model_now:
+            return
+        self._cap_model = _cap_model_now
+        _cur_tok = kvcap_tokens_of(self.selection)
+        if _cur_tok is not None and _cur_tok > int(cap):
+            _fit_key = None
+            for _k, _v in KVCAP_OPTIONS.items():
+                if _v[1][1] == str(cap):
+                    _fit_key = _k
+                    break
+            self.selection["kvcap"] = _fit_key or str(cap)
+            if "kvcap" in self.var and _fit_key:
+                self.var["kvcap"].set(KVCAP_OPTIONS[_fit_key][0])      # 同步下拉显示
 
     # ---- 投机档两级联动（照老项目）----
     def _update_spec_k_range(self):

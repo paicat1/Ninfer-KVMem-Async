@@ -5430,3 +5430,90 @@ it holds 79 -- short by 5 page(s)
 | 78 | **超池检查点恢复 429 产品化** | ⏸ 证据加强（§218）：FIXA/RC8 两臂均 429，与 binary 无关 |
 | 79 | **`_apply_model_coupling` 套档静默跳过** | ✅ 销账（§218）：收集到 `_bundle_skipped` 并显示在状态区，注入态验证可见 |
 | 80 | **SWIFT+DFlash2 启动失败** | ✅ 已修并推送（§217，`b820e4b`） |
+
+### 219. 【SWIFT-1.5 MTP 池上限按 graph 口径分化；大池锚命中 66.7%；命令面机器门实测出 CLI/IDE 宿主分化】（2026-11-07）
+
+- 阶段：用户令「从 80000 继续扫 SWIFT MTP 池上限，再看大池下锚的作用」→ 逐档起服扫描 → 大池锚 A/B → 用户令补启动器 KV 档到 128K 并手试 102400 → 修正强降池 → 方案2 命令面机器门施工与宿主分化实测 → 本批归档。
+- 原因：§184.5 只记「80000 READY，上限未探到顶」；启动器 swift 档实际带 `--cuda-graph-allowance-mib 192`，而 `engine_ctl.ps1` 默认是 64，两者口径不同，直接导致「我报 96K 可起、用户 96K 起不来」。
+
+#### 一、池上限：graph allowance 是变量，不是一个数
+
+| graph | 逐档结果 | 上限 |
+|---|---|---|
+| **64**（engine_ctl 默认） | 81,920 free 493 MiB / 86,016 free 385 / 90,112 free 277 / 94,208 free 169 / **98,304 free 61** 全 READY；102,400 FATAL | **98,304** |
+| **192**（启动器 swift 档） | 90,112 free 277 / 92,160 free 223 / 94,208 free 169 / **95,232 free 141** READY；96,256 FATAL（need 3452 > avail 3433）、97,280 FATAL、98,304 FATAL、102,400 FATAL | **95,232** |
+| 128（用户实机） | 94K 可起 | 约 94K |
+
+[EVIDENCE] `logs\test_sweep_102400.log`：`requested Engine runtime reservation requires 3656040704 bytes, but only 3599761408 bytes are available`
+[EVIDENCE] `logs\serve_20261106_222931.log`（用户 96K 实机）：`requires 3676619008, only 3599761408`
+[EVIDENCE] `logs\test_sweep_96256_g192.log`：`need 3452.1 MiB > avail 3433 MiB`
+
+规律：graph 每 +64 MiB，池上限少约 1K token。**§216/§217 及早期报的「SWIFT 上限 98,304」是 graph64 口径，对启动器不适用，已作废**。
+
+#### 二、大池下锚：池越大，锚落得越深
+
+同一序列（长 32,819 → 同长换尾问 32,820）、同一引擎、同模型，唯一变量 = 锚旗标，池 90,112：
+
+| 指标 | 关锚 | 开锚 @90,112 | 开锚 @51,200（§216） |
+|---|---|---|---|
+| 变体 `total` | 18.5 s | **6.9 s** | 10.2 s |
+| `cache` | 0 (0.0%) | **21,882 (66.7%, long anchor)** | 16,425 (50.0%) |
+| `TTFT` | 18.2 s | **6.5 s** | 9.8 s |
+
+[EVIDENCE] `logs\test_big_anchor_off.log` `req#3 done | cache 0 (0.0%) | TTFT 18.2s | total 18.5s`
+[EVIDENCE] `logs\test_big_anchor_on.log:2055` `req#6 done | cache 21,882 (66.7%, long anchor) | TTFT 6.5s | total 6.9s`
+
+⇒ 省 11.6 s（62.7%）。池从 51,200 到 90,112，可落锚从 16,425 提到 21,882，命中率 50% → 66.7%。**「池越大锚越有用」得到实测支撑**。
+
+#### 三、三处口径订正（都是我此前说错的）
+
+1. **「关 vision 能省 1–3 GiB device 显存」撤回**：`media | cache 1.00 GiB | live 2.00 GiB` 是 host 侧 MediaCache；`prepare_vision_overlay`（`program.cpp:629-661`）走 `EvictableWeightPool::capture_window_mirror`，借可驱逐权重尾部，不额外申请显存。有效杠杆是**降 graph allowance**。启动器告警文案已按此改写。
+2. **「长→短两轮能接上锚」撤回**：长 31,437 → 短 7,917，短请求 `cache 0`、5.03 s 全量重算、`publish host-backed=0`。锚从 frontier 往回落、永远贴着 prompt 末尾，短前缀够不着。锚的正确用法是**同长、换尾问**。
+3. **「512 MiB 桌面地板 / CUDA context 被硬性预留」撤回**：`kDesktopFloor` 只在 `evictable_budget && rank==0` 分支，默认路径不执行；`current_free_device_bytes()`（`model_instance.cpp:144-149`）就是 `cudaMemGetInfo` 直接返回。96K 起服实测 `used 15476 MiB / free 502 MiB`，账为权重 11571 + KV 3379 + context 526，无隐藏地板。
+
+#### 四、命令面机器门（方案2 第一批）：宿主分化是决定性结果
+
+此前所有门都建在「可事后检查的产物」上（git 提交、起服窗口、删除），shell 任意命令面零覆盖；11-06 编译险情正是发生在这个裸奔面。方案2 第一批经审批、复核、收敛、施工后：
+
+| 宿主 | 实测 |
+|---|---|
+| `codebuddy` CLI | **通过**：`settings.json` 的 `hooks.PreToolUse` 被加载，matcher 评估名实测为 `Bash`，探针写心跳 `1794016404362|j:\ninfer-kvmem|Bash` |
+| CodeBuddy IDE（Craft，日常环境） | **不生效**：新会话重开后 `execute_command` 仍未写心跳 |
+
+[EVIDENCE] 线② 排除 matcher：`TOOL_NAME_CRAFT_TO_CLI={execute_command:"Bash", ...}`，`normalizeToolName()` 返回 `Bash`，而 matcher 四重枚举首项即 `Bash`。
+[EVIDENCE] 线① 结论 A：`setHooks(` 全包 0 处调用；`hooksConfig` 三处与 `resolveHooks` 全是插件包语义（`loadHooksFromExtension({extensionDir, defaultHooksFile:"hooks/hooks.json"})`、`resolveHooks(ir.hooks, ir.installedPath)`、marketplace 特性判定）。**IDE 的 hooks 供给管道是插件包，不消费 `.codebuddy/settings.json` 的 `hooks` 字段**；执行器（`executePreToolUseHooks`、`hookManager.hasHooks`、fail-open）在，喂料口不在。
+[EVIDENCE] `settings.local.json` 虽有 IDE 专用读取函数与 watcher，但 hooks 字段同样进不了 Craft 链，方向 b 判死。
+
+⇒ **同一产品、两个宿主、两套装载源**：CLI 吃 `settings.json`，IDE 只吃插件包 `hooks/hooks.json`。方案2 第一批技术栈端到端实证全通（配置加载/matcher/hook 执行/Windows 路径/心跳落盘），但**只罩 CLI**；IDE 缺口如实入档，待用户裁决（接受 gateless / 检测型兜底 / 远期插件门）。
+[EVIDENCE] `session_gate.ps1` 金丝雀首次实战输出 `门心跳: WARN`（心跳 765 s 未更新），**未假 OK**；`门覆盖: 在门内（cwd=J:\ninfer-kvmem）` 与代码逐字一致，`GATE_EXIT=0`。治理基线 rebuild#20 五件入锁、锚匹配。
+
+#### 五、`ninfer_launcher.py +49/−10` 归属（TELE 多次点名待答）
+
+**全部是我按用户 11-06 晚两次指令改的本地未提交改动**，不是残留、不是他人改动、不是误操作：
+
+| 块 | 内容 | 来源 |
+|---|---|---|
+| `MODEL_KVCAP_MAX["swift"]` 80000 → 95232（+5/−1） | 上限改 graph192 实测口径 | 「为什么我96K也起不来」触发重扫 |
+| `KVCAP_OPTIONS` 补 80K–124K 共 12 档（+18） | 含用户要手试的 102400 | 「把 KV 容量增加起来，包括 102400，一直接到 128K」 |
+| `validate()` 超上限只告警不阻止（+8） | 允许手试上限档 | 同上 |
+| 强降池改为只在模型切换那一拍、且用档位键回写（+9/−9） | 修「我怎么手动设置到 102400？岂不是被你自动降级」 | 用户当场指出 |
+
+本批另修一处已证伪文案（vision 占显存 → 降 graph allowance），改动面更新为 `+51/−10`。
+
+#### 六、Δ 基线与未了
+
+- Δ §218：只有方案与挂账 → 本节给出池上限双口径、大池锚 66.7%、宿主分化实证、+49/−10 归属。
+- 未了：方案2 IDE 覆盖缺口待裁；`cfg_d1208a.bat` 编译险情残留待裁；refs 断链 25>24、logs 超线 1074.6 MiB 均为存量；#77 长→短两轮实测无差异（FIXA 17.244/6.379/0.636 s vs RC8 17.187/6.375/0.639 s，`long anchor=0` 两臂皆然），按「防御性修复、16 GB 卡可起池档内无可测性能收益」销账。
+
+## 四-AI、挂账表增量（2026-11-07，§219 追加后同步）
+
+| 编号 | 状态 | 内容 |
+|---|---|---|
+| #77 | ✅ 销账（口径收窄） | 修法 A 为防御性修复；长→短两轮 A/B 两臂差异 <0.4%，无性能收益可观测窗口 |
+| #78 | ⏸ 保持 | 超池检查点恢复 429 产品化 |
+| #79 | ✅ 已销 | 套档静默跳过可见化（§218） |
+| #80 | ✅ 已销 | SWIFT+DFlash2 启动失败根因（§217） |
+| **#81** | **⏸ 新增** | **方案2 IDE 宿主覆盖缺口**：CLI 实测通过、Craft 不消费 settings hooks；方向 0（接受 gateless）/ 1（检测型兜底，需 rebuild#21）/ P（IDE 插件门，需项目外路径批准）待用户原话裁决 |
+| 归属项 | ✅ 已答 | `ninfer_launcher.py +49/−10` 归属见 §219 第五节，本批随构建史一同提交 |
+| 存量 | ⏸ 保持 | `cfg_d1208a.bat` 残留、refs 断链、logs 超线、心跳文件增长、#68/#73、Strata 口径、报告订正稿 |
+

@@ -47,6 +47,7 @@ struct Options {
     float rope_scaling_factor                   = 1.0F;
     std::uint32_t rope_scaling_original_context = 0;
     bool wddm_evictable_budget = false;
+    bool wddm_budget_arithmetic_only = false;
     bool mlp_a8_decode  = false;
     bool prefill_a8     = true;
     bool prefill_cublas = false;

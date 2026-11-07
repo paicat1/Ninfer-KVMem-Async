@@ -337,6 +337,7 @@ int main(int argc, char** argv) {
         engine_options.structured_output =
             cli.structured_output.kind != ninfer::StructuredOutputKind::None;
         engine_options.wddm_evictable_budget    = cli.wddm_evictable_budget;
+        engine_options.wddm_budget_arithmetic_only = cli.wddm_budget_arithmetic_only;
         engine_options.mlp_a8_decode            = cli.mlp_a8_decode;
         engine_options.prefill_a8               = cli.prefill_a8;
         engine_options.prefill_cublas           = cli.prefill_cublas;

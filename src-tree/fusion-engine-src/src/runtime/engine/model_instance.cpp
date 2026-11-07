@@ -471,7 +471,8 @@ ConstructedModel construct_model(const EngineOptions& requested, DeviceContext& 
         options.stage_layers = models::qwen3_5::default_stage_layers(
             reader, models::load_options(options), sizing, free_bytes);
     }
-    core::set_wddm_residency_lock_enabled(options.wddm_evictable_budget);
+    core::set_wddm_residency_lock_enabled(options.wddm_evictable_budget &&
+                                          !options.wddm_budget_arithmetic_only);
     StartupPhaseScope binding(options.startup_observer, StartupPhase::TargetPlan);
     auto plan = models::qwen3_5::plan_load(reader, models::load_options(options));
     binding.complete();
@@ -494,7 +495,8 @@ ConstructedModel construct_model(const EngineOptions& requested, DeviceContext& 
         instance->parameters, device,
         artifact_scoped_disk_tier(options, instance->model->info().artifact_id));
     const std::vector<std::size_t> free_by_rank =
-        free_bytes_by_rank(device, options.wddm_evictable_budget,
+        free_bytes_by_rank(device, options.wddm_evictable_budget ||
+                                      options.wddm_budget_arithmetic_only,
                            instance->model->storage_stats().device_capacity_bytes);
     auto resolution = resolve_kv_capacity(
         options.kv_capacity, planner.capacity_curve(), free_by_rank.front(),

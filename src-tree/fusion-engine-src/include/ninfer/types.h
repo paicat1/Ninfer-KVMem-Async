@@ -394,6 +394,10 @@ struct EngineOptions {
     // on the grounds that WDDM will evict other allocations. Not for a GPU that drives the
     // desktop, whose allocations are often not evictable.
     bool wddm_evictable_budget         = false;
+    // Budget arithmetic without the D3D12 residency lock: arenas stay on cudaMalloc, so WDDM may
+    // page the engine's own allocations out (including weights). Verify decode speed with an A/B
+    // run before relying on the enlarged capacity; see --wddm-budget-arithmetic-only.
+    bool wddm_budget_arithmetic_only   = false;
     KvCapacityPolicy kv_capacity       = KvCapacityPolicy::explicit_capacity(2048);
     std::uint32_t max_concurrency      = 1;
     std::uint32_t max_pending_requests = 16;

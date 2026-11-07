@@ -372,6 +372,7 @@ ninfer::EngineOptions make_engine_options(const ServeOptions& options) {
     engine_options.cuda_graph_allowance_bytes =
         static_cast<std::size_t>(options.cuda_graph_allowance_mib) << 20;
     engine_options.wddm_evictable_budget    = options.wddm_evictable_budget;
+    engine_options.wddm_budget_arithmetic_only = options.wddm_budget_arithmetic_only;
     engine_options.mlp_a8_decode            = options.mlp_a8_decode;
     engine_options.prefill_a8               = options.prefill_a8;
     engine_options.prefill_cublas           = options.prefill_cublas;

@@ -771,6 +771,7 @@ std::string format_server_start_json(
         {"concurrent_prefill", engine_options.concurrent_prefill},
         {"recover_invariant_failures", engine_options.recover_invariant_failures},
         {"wddm_evictable_budget", engine_options.wddm_evictable_budget},
+        {"wddm_budget_arithmetic_only", engine_options.wddm_budget_arithmetic_only},
         {"mlp_a8_decode", engine_options.mlp_a8_decode},
         {"prefill_a8", engine_options.prefill_a8},
         {"prefix_reuse", options.allow_prefix_reuse},

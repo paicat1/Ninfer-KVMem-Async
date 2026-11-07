@@ -235,6 +235,11 @@ std::string usage_text(const char* argv0) {
            "                                model's native window)\n"
            "  --wddm-evictable-budget       Windows D3D12 builds: budget against dedicated\n"
            "                                memory, holding arenas resident\n"
+           "  --wddm-budget-arithmetic-only budget against dedicated memory less the weights\n"
+           "                                and the 512 MiB desktop floor WITHOUT the D3D12\n"
+           "                                residency lock; arenas stay on cudaMalloc, so WDDM\n"
+           "                                may page the engine's own allocations out -- verify\n"
+           "                                decode speed\n"
            "\n"
            "SAMPLING\n"
            "  --temperature F               0..2\n"
@@ -381,6 +386,8 @@ Options parse_options(int argc, char** argv) {
                 product::parse_rope_scaling_original_context(value(arg));
         } else if (arg == "--wddm-evictable-budget") {
             options.wddm_evictable_budget = true;
+        } else if (arg == "--wddm-budget-arithmetic-only") {
+            options.wddm_budget_arithmetic_only = true;
         } else if (arg == "--mlp-a8-decode") {
             options.mlp_a8_decode = true;
         } else if (arg == "--no-prefill-a8") {

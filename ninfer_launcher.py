@@ -283,6 +283,14 @@ MODEL_BUNDLES = {
     # 2026-11-06 修 BUG：kvcap 必须是 KVCAP_OPTIONS 的**键**（"16k"），不是 token 数。
     # 原写 "16384" 不在键集内 ⇒ 套档循环 _val not in _table 直接 continue，
     # DFlash2 仍带 MTP 的 64k 池起服 ⇒ FATAL（2764170240 > 2458910720）。
+    # q2lynn_dflash2：CODER390 双头件的 DFlash2 头，由 spec=d* 联动套用（2026-11-08）。
+    # 实测（现役件 + arith，核显通道，graph64，双头件 14.02 GiB）：
+    #   40,960 READY（runtime 1.85 GiB / slack 32.8 MiB）/ 51,200 FATAL
+    # DFlash2 头比 MTP 头多占 1.2 GiB（drafter 的 q/k/v 走 BF16），故池必须降到 40K。
+    "q2lynn_dflash2": {"kv": "rk8v4", "kvcap": "40960", "graph": "64", "vision": "overlay",
+                       "note": "CODER390 DFlash2 头（双头件同文件，--spec dflash2）；"
+                               "实测上限 40,960（READY slack 32.8 / 51,200 FATAL）；"
+                               "比 MTP 头多占 1.2 GiB 权重"},
     "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", "graph": "192", "vision": "overlay",
     # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
     #   81,920 READY (runtime 2.97 GiB / slack 89.6) / 86,016 FATAL (need 3146.7 > avail 3133.9)
@@ -434,7 +442,7 @@ KVCAP_OPTIONS = {
     "5376":  ("5376 · 最小合法(84页·KV_SINK 锁)", ["--kv-capacity", "5376"]),
     "55296": ("55296 贴边·需净GPU", ["--kv-capacity", "55296"]),
     "49152": ("49152 · 48K", ["--kv-capacity", "49152"]),
-    "40960": ("40960 · 40K旧档", ["--kv-capacity", "40960"]),
+    "40960": ("40K · Coder390 DFlash2 实测上限（READY slack 32.8；51,200 FATAL）", ["--kv-capacity", "40960"]),
     "20480": ("20480 · 20K省显存", ["--kv-capacity", "20480"]),
     "17920": ("17920 · 官方默认", ["--kv-capacity", "17920"]),
     "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
@@ -986,8 +994,13 @@ def validate(combo, exe=None):
         _chan = resolve_channel(combo)
         _chan_tok = kvcap_tokens_of(combo)
         _model_key = str(combo.get("model", "q2lynn"))
-        _raw_key = "swift_dflash2" if (_model_key == "swift" and
-                                       str(combo.get("spec", "k3")).startswith("d")) else _model_key
+        # 2026-11-08：通用化。原先只认 swift，导致 q2lynn 选 d* 时用 MTP 的 86,016 校验，
+        # 实际 DFlash2 头上限只有 40,960（多占 1.2 GiB 权重）。
+        _df_key = _model_key + "_dflash2"
+        if _spec_v.startswith("d") and _df_key in MODEL_KVCAP_MAX_IGPU:
+            _raw_key = _df_key
+        else:
+            _raw_key = _model_key
         if _chan == "igpu":
             _chan_cap = MODEL_KVCAP_MAX_IGPU.get(_raw_key)
             if _chan_cap and _chan_tok and _chan_tok > _chan_cap:
@@ -1762,13 +1775,16 @@ class LauncherApp:
         #    swift 选 d* -> 套 swift_dflash2 参数集（换件在 build_command 做）；选 k*/k0 -> 套回 MTP 件参数集。
         _spec_now = str(self.selection.get("spec", "k3"))
         _model_cur = self.selection.get("model", "q2lynn")
-        if _spec_now.startswith("d") and _model_cur != "swift":
+        # 2026-11-08：q2lynn 的双头件已含 DFlash2 头（同日 graft），故不再按模型名硬拦，
+        # 改为「该模型是否有 <model>_dflash2 档」判断 —— 有就放行并套档，没有才回退 MTP。
+        _df_bundle_key = _model_cur + "_dflash2"
+        if _spec_now.startswith("d") and _df_bundle_key not in MODEL_BUNDLES:
             self.selection["spec"] = "k3"
             if hasattr(self, "_apply_spec_to_ui"):
                 self._apply_spec_to_ui("k3")     # 同步两级 spec 下拉显示
-            print("[coupling] DFlash2 仅 SWIFT 有件（q2lynn/iq4nl 的 DFlash2 件已删）-> spec 回 MTP K=3")
-        elif _model_cur == "swift":
-            _want = "swift_dflash2" if _spec_now.startswith("d") else "swift"
+            print("[coupling] %s 无 DFlash2 头 -> spec 回 MTP K=3" % _model_cur)
+        elif _spec_now.startswith("d"):
+            _want = _df_bundle_key
             if getattr(self, "_spec_bundle_key", None) != _want:
                 self._spec_bundle_key = _want
                 _sb = MODEL_BUNDLES.get(_want)

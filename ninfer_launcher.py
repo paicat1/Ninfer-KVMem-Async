@@ -245,6 +245,33 @@ MODEL_KVCAP_MAX = {
     # 本值用于「超限告警」；两种口径取宽者，实际能否起看 arith 开关与当次余量。
     "swift": 126976,
 }
+
+# ── 显示通道（2026-11-07 用户令：独显 / 核显通道切换开关）────────────────────
+#   显示输出走哪条路，决定 5080 上有没有 ~1.1 GiB 被桌面吃掉。引擎改不了它，只能检测 + 限制。
+#   igpu = 显示器接核显 → 桌面/浏览器/Overlay 全在核显 → 5080 used ~55-70 MiB（推荐）
+#   dgpu = 显示器接独显 → 桌面占 5080 ~1.0-1.5 GiB → 池只能开小
+#   实测（同一件同一参数，只换通道）：65,536 池的引擎内 free = 927.0 MiB(iGPU) vs 640.5 MiB(dGPU)；
+#   102,400 无 arith 的 available = 3,599,761,408(iGPU) vs 3,335,987,200(dGPU)。
+#   ⚠ arith 口径下纸面预算与通道无关（total − 权重 − 512MiB 恒定），
+#     所以 dGPU 通道 + arith = 纸面够、真实供给少 ~1.1 GiB ⇒ 超卖更狠，风险更高。
+CHANNEL_OPTIONS = {
+    "auto": ("auto（自动检测当前通道·推荐）", []),
+    "igpu": ("核显通道（显示器接核显 · 5080 全给引擎 · 推荐）", []),
+    "dgpu": ("独显通道（显示器接独显 · 桌面占 ~1.1G）", []),
+}
+# 独显通道下的实测上限（均为 dGPU 口径；arith 下的 dGPU 尚未实测，取保守值）
+MODEL_KVCAP_MAX_DGPU = {
+    "q2lynn": 58368,        # 2026-10-30 dGPU 实测
+    "swift": 98304,         # 2026-11-06 dGPU + graph64 实测
+    "swift_dflash2": 51200,  # 2026-11-06 dGPU 实测（贴边 free 191 MiB）
+}
+# 核显通道下的实测上限（2026-11-07，现役件 + arith）
+MODEL_KVCAP_MAX_IGPU = {
+    "q2lynn": 86016,
+    "swift": 126976,
+    "swift_dflash2": 81920,
+}
+
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
@@ -700,6 +727,8 @@ REQLOG_OPTIONS = {
 }
 
 DIMENSIONS = [
+    # 2026-11-07 用户令：显示通道（auto 自动检测；igpu/dgpu 手动声明）——不产生引擎旗标，仅用于上限校验与提示
+    ("channel", "显示通道", CHANNEL_OPTIONS),
     ("model",  "模型",            MODEL_OPTIONS),   # 2026-10-10: 模型是第一选择（iq4nlvis 含视觉组件，2026-10-11 实测）
     ("spec",   "档位 / 投机解码", SPEC_OPTIONS),
     ("adaptivemtp", "投机自适应", ADAPTIVE_MTP_OPTIONS),   # 2026-10-31：--adaptive-mtp（仅 spec=mtp 生效）
@@ -753,6 +782,7 @@ DEFAULTS = {
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
     "model": "q2lynn",   # 2026-10-31：默认档改为现役定稿 Q2LYNN（原 iq4nl 保留为无视觉对照档）
+    "channel": "auto",   # 2026-11-07：默认自动检测显示通道（igpu/dgpu 手动声明）
     "spec": "k3", "kv": "rk8v4",    "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
@@ -772,6 +802,7 @@ LEGACY_VALUE_MAP = {
 }
 
 DIM_TIPS = {
+    "channel": "显示通道（不是引擎旗标，引擎改不了系统显示输出）。auto=读 nvidia-smi 判断；igpu=显示器接核显（5080 used ~60 MiB，桌面不占独显，推荐）；dgpu=显示器接独显（桌面占 ~1.1 GiB，池只能开小）。实测：同件同参数 65,536 池，引擎内 free 927.0 MiB(iGPU) vs 640.5 MiB(dGPU)。⚠ 只有核显通道能把那 ~1.1 GiB 还给引擎；独显通道拿不回来。",
     "anchor": "长前缀锚开关（2026-11-06 用户令）。开 = 下发 --auto-long-anchors + --long-anchor-spacing N + --max-long-anchors-per-continuation 4；关（默认）= 完全不下发锚旗标，起服行为与旧版逐字一致。\n**收益是「让下一轮少做 prefill」，不加速本轮 prefill**。\n⚠ 本仓 --long-anchor-spacing 是私有锚之间的最小间距，不是 tancau 的 32K 绝对步长；右侧信息区会按当前 KV 池给出推荐值与完整计算过程。",
     "anchorsize": "锚大小（--long-anchor-spacing，token）。**自动** = 按当前 KV 池容量算：池页数 − 工作集 256 页 − decode 余量 200 页，取不超过余量的最大 2 次幂（报告 §14.4 门槛 + §14.13 公式法）。也可手选 8K/16K/32K/64K/128K。\n⚠ 256 页工作集来自 tancau 原型推导，本仓未实测；推荐值仅供起步，需实机验证。\n⚠ --long-anchor-spacing 必须配 --auto-long-anchors，启动器开锚时已一并下发。",
     "adaptivemtp": "投机自适应（--adaptive-mtp）：每轮在 3..--draft-tokens 间按 drafts 实测存活率 + 轮成本自动选宽度（贪心输出不变）。**仅 --spec mtp（k1..k15）有效**，k0/DFlash2 不适用。2026-10-31 接入，实测数据待补。",
@@ -869,6 +900,53 @@ def _exe_guard(exe):
     return None
 
 
+_CREATE_NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
+
+
+def _engine_process_running():
+    """True if ninfer-serve.exe is alive (its VRAM pollutes the baseline read)."""
+    try:
+        out = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq ninfer-serve.exe', '/NH'],
+                             capture_output=True, timeout=8,
+                             creationflags=_CREATE_NO_WINDOW).stdout
+        return b'ninfer-serve' in out
+    except Exception:
+        return False
+
+
+def detect_display_channel():
+    """Return 'igpu' / 'dgpu' / 'unknown' from the 5080's idle occupancy.
+
+    Clean read requires the engine to be stopped; otherwise 'unknown' is returned on purpose
+    (a running engine can hold 15 GiB and would look like a heavy desktop).
+    Thresholds come from measured baselines: iGPU 55-61 MiB, dGPU 1145 MiB.
+    """
+    if _engine_process_running():
+        return 'unknown'
+    try:
+        out = subprocess.run(['nvidia-smi', '--query-gpu=memory.used',
+                              '--format=csv,noheader,nounits'],
+                             capture_output=True, text=True, timeout=8,
+                             creationflags=_CREATE_NO_WINDOW).stdout.strip().splitlines()
+        used = int(out[0].strip())
+    except Exception:
+        return 'unknown'
+    if used <= 300:
+        return 'igpu'
+    if used >= 700:
+        return 'dgpu'
+    return 'unknown'
+
+
+def resolve_channel(combo):
+    """Requested channel if explicit, else the detected one (auto)."""
+    want = str(combo.get('channel', 'auto'))
+    if want in ('igpu', 'dgpu'):
+        return want
+    return detect_display_channel()
+
+
+
 def validate(combo, exe=None):
     """返回告警列表（空 = 无告警）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
@@ -900,6 +978,37 @@ def validate(combo, exe=None):
         warns.append("DFlash2 件只有 SWIFT 有（swift15_dflash2.ninfer，§203）；q2lynn/iq4nl 的 DFlash2 组件不存在"
                      "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
     # 2026-11-06：超实测上限只告警、不阻止起服（用户要手试上限档，如 102400）
+    # 2026-11-07 用户令：显示通道校验（通道不产生旗标，只决定上限与提示）
+    try:
+        _chan = resolve_channel(combo)
+        _chan_tok = kvcap_tokens_of(combo)
+        _model_key = str(combo.get("model", "iq4nl"))
+        _raw_key = "swift_dflash2" if (_model_key == "swift" and
+                                       str(combo.get("spec", "k3")).startswith("d")) else _model_key
+        if _chan == "igpu":
+            _chan_cap = MODEL_KVCAP_MAX_IGPU.get(_raw_key)
+            if _chan_cap and _chan_tok and _chan_tok > _chan_cap:
+                warns.append(f"核显通道下 {_raw_key} 的实测上限是 {_chan_cap} token，"
+                             f"当前池 {_chan_tok} 超了。继续起服大概率 FATAL"
+                             f"（need > available），或起服即撞 0 余量。")
+        elif _chan == "dgpu":
+            _dgpu_cap = MODEL_KVCAP_MAX_DGPU.get(_raw_key)
+            if _dgpu_cap and _chan_tok and _chan_tok > _dgpu_cap:
+                warns.append(f"⚠ 当前是独显通道：桌面/浏览器占着 5080 约 1.1 GiB，"
+                             f"{_raw_key} 的独显通道实测上限只有 {_dgpu_cap} token，"
+                             f"当前池 {_chan_tok} 超了 {_chan_tok - _dgpu_cap}。"
+                             f"那 1.1 GiB 在独显通道下拿不回来——要开大池必须把显示器接到核显"
+                             f"（Windows 显示设置 / NVIDIA 控制面板），切到核显通道后上限是 "
+                             f"{MODEL_KVCAP_MAX_IGPU.get(_raw_key, 0)}。"
+                             f"注：arith 旗标下纸面预算与通道无关，但独显通道真实供给少 1.1 GiB，"
+                             f"超卖更狠、更容易被 WDDM 页出。")
+        elif _chan == "unknown":
+            if _chan_tok and _chan_tok > 100000:
+                warns.append("无法判断当前显示通道（引擎在跑或读不到 nvidia-smi）。"
+                             "大池（>100K）只有核显通道能稳；请先停引擎，用「显示通道」维度显式声明 igpu/dgpu。")
+    except Exception as _chan_err:
+        warns.append(f"显示通道检测失败（{_chan_err}）——请显式选 igpu 或 dgpu。")
+
     _cap_v = MODEL_KVCAP_MAX.get(combo.get("model", "iq4nl"))
     _cur_tok = kvcap_tokens_of(combo)
     if _cap_v and _cur_tok and _cur_tok > int(_cap_v):

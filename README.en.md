@@ -41,6 +41,78 @@ Three generations:
 
 ### Key milestones (curated)
 
+> ## ★ 2026-11-07 · VRAM desktop floor released + dual-head artifacts unified + four measured pool ceilings (platform-migration dividend cashed in)
+>
+> **Background (re-checking the platform migration)**: on 2026-10-27/28 the platform moved from an **i5-12600KF + Gigabyte B760M DS3H DDR4** to an **i5-14700K + Gigabyte B760M AORUS ELITE WIFI6E DDR4 GEN5** (the CPU natively supports PCIe 5.0 **and carries an iGPU**). All three consequences have now landed: **① the WHEA storm went to zero** (1857 AER events/minute on the old platform with the same recipe → 0 under full load on the new one); **② the "death valley" slow state has not been encountered in real use since** (its AND-of-three trigger — Gen5 + ≥400 MiB external pressure + razor-thin free VRAM — no longer assembles by itself); **③ the iGPU can drive the display** — at the time this was treated as "one more output port"; today it proved to be a **cashable VRAM dividend**, and this milestone is the cashing-in.
+>
+> **① iGPU-path dividend: a single-variable comparison run by the user (same binary, same flags, only the display output path differs)**
+>
+> | | display on dGPU | display on iGPU | delta |
+> |---|---|---|---|
+> | `nvidia-smi used` with the engine stopped | 1145 MiB | **55 MiB** | **−1090** |
+> | `used / free` after a `65536` pool boots | 15730 / 248 | **14612 / 1366** | **+1118 free** |
+> | `available` reported by the `102400` FATAL | 3,335,987,200 (3180.5 MiB) | **3,599,761,408 (3432.6 MiB)** | **+252.1** |
+>
+> ⇒ Moving the display to the iGPU shifts the desktop / browser / overlay off the dGPU and frees 1118 MiB card-wide, but **the engine's budget only credits 252.1 MiB of it**. The gap exists because the budget is read from `cudaMemGetInfo` **after the weights are loaded** (`model_instance.cpp:144-148` / `:496-501`), by which point the engine's own startup allocations have already been subtracted. **"Free on the card" ≠ "money the engine can build a pool with"** — that is the problem this milestone solves.
+>
+> **② Main breakthrough of the day: releasing the VRAM floor from hard coding (`--wddm-budget-arithmetic-only`)**
+>
+> The only branch in the source that can credit someone else's VRAM back into the budget (`model_instance.cpp:167-175`: `max(free, total − weights − 512MiB)`) was gated by the same switch as the D3D12 resident heap; with `NINFER_D3D12_RESIDENCY=OFF` (the shipping binary's production configuration) enabling that switch throws immediately. **A new independent flag separates "budget arithmetic" from "heap residency lock"**: it only changes the paper budget, arenas stay on `cudaMalloc`, D3D12 is not touched. 9 files `+28/−2`, built in the independent tree `build-1208b`, `cuobjdump` 384/384/0, artifact `496D6070`.
+>
+> The decisive evidence is the `memory ledger` line printed at `--log-level debug`, which settles the accounting in one shot:
+>
+> ```
+> no flag (98304):    after weights 3.35 GiB (measured cudaMemGetInfo)
+> with flag (102400): after weights 4.12 GiB = 16303 − weights 11574 − 512   ← matches the formula MiB for MiB
+> ```
+>
+> ⇒ **H2 confirmed**: `total` is CUDA's 16303 MiB, and everything beyond the `512 MiB` floor (including the constant 325 MiB of driver reservation and the desktop residue) is counted as oversubscribable. Paper budget **3433 → 4217 MiB (+787)**.
+>
+> **Honest boundary**: the +787 is a **paper** budget; what is actually obtainable is only **+56.6 MiB** (`102400`'s `requires 3486.6` just clears the real supply of `3430`, with WDDM absorbing the oversubscription); the `slack 730.4 MiB` is book-keeping only and reads `free 0 B` the moment startup completes. **The flag does not create supply — it removes a constraint; the real ceiling is set by how much oversubscription the system can absorb.**
+>
+> **③ Boundary sweep: 8 tiers, each booted and speed-tested (iGPU path / rk8v4 / graph64 / flag on)**
+>
+> | pool | `runtime` | `slack` | `nvidia used / free` | `decode` | vs baseline |
+> |---|---|---|---|---|---|
+> | 98,304 (baseline, no flag) | 3.30 GiB | 54.7 MiB | 15481 / 497 | 183.8 | 1.0000 |
+> | 102,400 | 3.40 GiB | 730.4 MiB | 15591 / 387 | 183.7 | 0.9995 |
+> | 110,592 | 3.62 GiB | 513.6 MiB | 15810 / 168 | 183.6 | 0.9989 |
+> | 118,784 | 3.83 GiB | 296.9 MiB | 15962 / 16 | 183.7 | 0.9995 |
+> | **126,976 (measured ceiling)** | **4.04 GiB** | **80.1 MiB** | **15964 / 14** | **183.6** | **0.9989** |
+> | 131,072 | — | — | — | **FATAL** | — |
+>
+> The `131072` FATAL closed the last gap: `requires 4,451,516,672 (4245.3 MiB) > available 4,421,911,552 (4217.1 MiB)`, a 28.2 MiB shortfall — matching `16303 − 11574 − 512` for the second time, MiB for MiB. **The paper budget hard-caps at 4217 MiB.**
+>
+> **④ 3-minute soak (126,976 tier)**: **123 requests / 0 failures**; `decode 183.0–183.6` (first five 183.5–183.6 → last five 183.4–183.5, decay <0.15%); `TTFT` 500 ms averaged over both the first and last ten requests; `vram 15660 MiB` with zero drift throughout. ⇒ The 706 MiB of oversubscription **did not trigger paging** under short-run load, but at 126,976 the card has only 14 MiB left and `slack` is 80 MiB, i.e. **no buffer at all — a knife-edge tier, not recommended as a daily setting**. The recommendation is **102,400** (`free 387` / `slack 730`, verified with a 10-minute zero-drift run and A/B 0.9995).
+>
+> **⑤ Dual-head unification: one artifact, two speculative heads, switched by `--spec`**
+>
+> Previously MTP and DFlash2 each kept a separate 12–13 GiB artifact (CODER390 even had MTP only, no DFlash at all). `graft_dflash2.py` **keeps** the MTP head by default (`--drop-mtp` is what discards it), so a dual-head artifact can be produced directly:
+>
+> | model | dual-head artifact | size | MTP-mode weights | DFlash2-mode weights |
+> |---|---|---|---|---|
+> | CODER390 | `Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer` | 14.02 GiB | 12.3 GiB (**identical** to the single-head artifact) | 13.5 GiB |
+> | SWIFT15 | `swift15_iq3s_mtp+dflash2.ninfer` | 13.29 GiB | 11.3 GiB (**identical**) | 12.3 GiB |
+>
+> **MTP mode costs nothing extra** (only the selected head is loaded); DFlash2 mode costs 1.0–1.2 GiB more (the drafter's q/k/v live in BF16). **CODER390 thereby gains DFlash2 capability for the first time.** The model store shrank from 5 artifacts / 51.86 GiB to 2 artifacts / 27.31 GiB; the hashes of the three deleted single-head artifacts are recorded in `work/data/deleted-single-head-20261107.txt` and can be rebuilt from the graft recipe.
+>
+> **⑥ Four pool ceilings and the speed comparison (iGPU / rk8v4 / graph64 / flag on; same prompt, same max_tokens, median of 3 rounds)**
+>
+> | model | head | pool ceiling | boundary | `decode` | acceptance |
+> |---|---|---|---|---|---|
+> | **CODER390** | MTP k3 | **86,016** | 90,112 FATAL (need 3161.5 > avail 3116.7) | **130.3 tok/s** | 56.4% |
+> | **CODER390** | DFlash2 k5 | **40,960** | 51,200 FATAL | **134.8 tok/s** | 39.8% |
+> | **SWIFT15** | MTP k3 | **126,976** | 131,072 FATAL | **114.3 tok/s** | 44.3% |
+> | **SWIFT15** | DFlash2 k5 | **90,112** | 94,208 FATAL (need 3146.7 > avail 3133.9) | **116.0 tok/s** | 28.8% |
+>
+> **DFlash2 is slightly faster than MTP on both models** (CODER390 +3.5%, SWIFT15 +1.5%), at the cost of a 29–52% smaller pool — the DFlash2 head occupies 1.0–1.2 GiB by itself, which converts to roughly 30–45K tokens lost. **Choosing a head is a speed-versus-context trade-off, not a free upgrade.**
+>
+> **⑦ Laying the ground for larger models**: the two things opened up today (reachability of a 4217 MiB paper budget, and the one-artifact-many-heads organisation) directly determine whether the next model tier can run at all — every extra 1 GiB of weights removes about 1 GiB of usable pool, and 126,976 already pushes a 16 GiB card down to 14 MiB of headroom. **The platform-migration and iGPU dividends were fully cashed in on this day, and the 16 GiB physical ceiling was reached at the same time.**
+>
+> **⑧ Governance items shipped alongside**: the single permitted process-spawn entry point `spawn_visible.ps1` was hardened against black-box windows (wrapper ban exit 3 / redirect ban exit 4 / the gate holds its own `serve_tee` with live console forwarding / content-non-empty check 3×2s / records extended with `tee_log` + `engine_pid` + `content_ok`); the day's 18 empty-window instances are all booked in `evidence/audits/VIOLATION_empty_window_20261107.md`; the shipping binary was promoted `F814B07A → 496D6070` (`build-1208b`, `engine-rc1-7e14453-6-g2755b24-dirty`); governance baseline rebuild#22/#23/#24 (anchor `F877965F`).
+>
+> **⑨ Open items**: no source-level localisation of the mechanism behind the gap between the paper slack and the real supply (which layer of CUDA/WDDM absorbs it); the 126,976 tier lacks a long-session plus concurrency stress run; the `thinking:false` field is not recognised by the engine (A/B symmetry holds, but "thinking fully off" does not).
+
 > ## ★ 2026-10-18/19 · Hang attribution closed + valley trigger conditions pinned + arch incident root cause closed (three-binary verdict matrix)
 >
 > **① Hang culprit verdict (build history §136)**: three-binary comparison under identical conditions (Gen5 + external pressure 400 MiB + pool-edge) — **S13 production build (no symbols) = decode 0, 5/5 probes canceled at 30 s timeout (hangs, never returns)**; **sym3 / offi (symbol-linked builds) = 41 / 44.5 tok/s, deep valley but 6/6 all completed**. Across two compiler versions (14.43/14.44), both symbol-linked builds "valley but complete"; the only no-symbol build hangs ⇒ **hang culprit = missing symbol linkage** (`/Zi`+`/DEBUG` changes the linked layout itself — it is not "symbols let us see the hang", it is "adding symbols cured the hang"). **"Hang" and "valley" are two separate problems from here on**: hang = build problem (located, reproducible/avoidable); valley = load × environment phenomenon (not closed).
@@ -244,6 +316,12 @@ MTP.ninfer (orig original, 13.27 GB, the NInfer container of the ModelScope down
             └─ graft_vision.py grafts the vision tower built into the model author's container, byte by byte (333 objects, 282 MiB)
                  → mtp-iq4nl.vision.ninfer (13.57 GB, the vision workhorse)
 ```
+
+**2026-11-07 convergence (dual-head artifacts, replacing the last item above)**: `graft_dflash2.py` **keeps** the MTP head by default (`--drop-mtp` is what discards it), so two speculative heads can live in a single artifact —
+`Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer` (14.02 GiB) replaces `mtp-iq4nl.vision.ninfer` above, and **`--spec mtp` / `--spec dflash2` selects which head is loaded**.
+MTP-mode VRAM usage is **identical** to the trio's last artifact (weights 12.3 GiB, same pool ceiling); only DFlash2 mode costs 1.2 GiB more (the drafter's q/k/v live in BF16).
+The SWIFT line works the same way: `swift15_iq3s_mtp+dflash2.ninfer` (13.29 GiB) replaces both the original single-MTP artifact and the pure-DFlash2 artifact.
+The three superseded single-head artifacts have been deleted; hashes and the rebuild recipe are recorded in `work/data/deleted-single-head-20261107.txt`.
 
 ## Upstream repos
 

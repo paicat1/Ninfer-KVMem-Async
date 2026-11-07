@@ -1,56 +1,62 @@
 [
   {
-    "label": "★★dflash2 · 主线 11-03 编（s6_1208a · DFlash2 实证件）",
-    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
-    "tags": ["最新", "DFlash2 实证", "sm_120a", "源=2336ba3+conv扩展"],
-    "note": "2026-11-03 23:23 编（s6_1208a 管线），sha B93B1791…，exe 1.29GB。DFlash2 唯一起服实证件：swift15_dflash2.ninfer + --spec dflash2 接受率 17-20%、decode 87-93 tok/s（§203）。源 = 2336ba3 + 6 处 conv/draft/startup 扩展（非 Q8 conv 投影 workspace 修正）。【2026-11-04 用户令转正】lineage RC8 封存 + 现役位 self-built-20261008 已部署同 sha（ENGINE_SELF 即此件）；ARCH-GATE 384/384 sm_120a PASS。MTP 场景在 RC8 上未复测（理论超集），有疑用 sym3 对照。",
-    "status": "基线",
-    "added": "2026-11-04",
+    "label": "★★现役 1208b（算术池版 · 126K 天花板）",
+    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "tags": [
+      "现役",
+      "最新",
+      "算术池",
+      "126,976 实测",
+      "双头件",
+      "无卡死缺陷"
+    ],
+    "note": "2026-11-07 编（build-1208b，s6_1208a 管线，D3D12 宏 OFF），2026-11-07 转正到现役位。sha 496D6070…，exe 1.24 GiB。源码 line-coder390@c5f48a8 + 9 文件补丁：新增 --wddm-budget-arithmetic-only，把预算算术从 D3D12 驻留锁里拆出来。实测（核显通道 / rk8v4 / graph64）：96K 无旗标 READY；100K~124K 需开旗标；126,976 为天花板（全卡剩 14 MiB），131,072 FATAL。双头件（MTP+DFlash2）同件切换。3 分钟长稳 123 请求 0 失败、decode 183.0-183.6、vram 零漂移。（历史：本槽位原为 S13 受控件；S13 已废止且原件不在本机，故改标现役件。）",
+    "status": "生产",
+    "added": "2026-11-08",
     "replaced_by": "",
+    "preset": "①②"
+  },
+  {
+    "label": "旧线 1208a（11-05 现役 · 已被取代）",
+    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
+    "tags": [
+      "旧件",
+      "已被取代",
+      "F814B07A"
+    ],
+    "note": "该目录曾被 2026-11-05 的 publish 拷贝覆盖，当前实际 sha 是 F814B07A…（登记时写的 B93B1791 已不符）。11-05 的现役旧件，已被 1208b 取代，仅作 A/B 对照。不支持 --wddm-budget-arithmetic-only。",
+    "status": "已归档",
+    "added": "2026-11-04",
+    "replaced_by": "★★现役 1208b（算术池版 · 126K 天花板）",
     "preset": ""
   },
   {
-    "label": "★★sym3 · 生产件（对外 RC1 · 新构建链 + 符号 · 20261018）",
+    "label": "sym3 存档（对外 RC1 · 新链+符号）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC2.exe",
     "tags": [
-      "生产",
+      "存档",
       "新链",
       "符号",
       "384×sm_120a"
     ],
-    "note": "生产件（对外名 RC1）：2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。与 S13 行为等价（三档 sha 逐字同、速度差 ≤0.6%），带符号件 = 对外分发正身。",
-    "status": "生产",
+    "note": "2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9），登记 sha 9453FFC6…。Gen5+外压400 = 41 谷但完成。注意：该文件名含非 ASCII 字符（os.listdir 原样取得），手输路径会匹配不到。",
+    "status": "已归档",
     "added": "2026-10-18",
     "replaced_by": "",
     "preset": ""
   },
   {
-    "label": "★offi · 官方链 14.44 + 符号（判决件 · 20261019）",
+    "label": "offi 存档（官方链 14.44 + 符号）",
     "path": "J:\\ninfer-kvmem\\engine\\lineage\\ninfer-serve-RC3.exe",
     "tags": [
-      "判决件",
+      "存档",
       "官方链",
       "符号",
       "384×sm_120a"
     ],
-    "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + env /Zi + LINK=/DEBUG（独立目录 build-d1208a）。sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
-    "status": "判决件",
+    "note": "D 项攻关件：官方链 s6_1208a.bat 原样 + /Zi + LINK=/DEBUG，登记 sha 3543AD18…。Gen5+外压400 = 44.5 谷但完成。文件名同样含非 ASCII 字符。",
+    "status": "已归档",
     "added": "2026-10-19",
-    "replaced_by": "",
-    "preset": ""
-  },
-  {
-    "label": "S13 · 历史受控件（原标生产件；Gen5+外压卡死缺陷）",
-    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
-    "tags": [
-      "历史受控件",
-      "官方链",
-      "Gen5+外压卡死缺陷",
-      "仅Gen4/零外压"
-    ],
-    "note": "历史受控件（原标「生产件」，2026-10-28 起废止）：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。**生产件 = sym3（对外 RC1）**，S13 仅 Gen4/零外压可继续用。",
-    "status": "封存",
-    "added": "2026-10-15",
     "replaced_by": "",
     "preset": ""
   }

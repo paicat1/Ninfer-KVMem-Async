@@ -193,7 +193,6 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-MTP+DFlash2.nin
 #   iq4nlvis = Coder390 · iq4_nl + 视觉塔（嫁接件）
 MODEL_OPTIONS = {
     "q2lynn":   ("★★Coder390 · 主Q2LynnStyle-3.89bpw · MTP-iq4_nl · 视觉bf16+gq · 12.3GiB", []),
-    "iq4nl":    ("Coder390 · 主Q2LynnStyle-3.89bpw · MTP-iq4_nl · 视觉关 · 12.3GiB", []),
     "swift":    ("Swift1.5 · 主IQ3_S-GSQ-RCO · MTP-iq3_s系混合 · 视觉bf16+gq · 11.3GiB", []),
     # 2026-10-31：iq4nlvis 已删——与 q2lynn/iq4nl 同文件，DEFAULTS vision=off 让它实际"关视觉"，
     # 名字叫视觉塔却名不副实、且与 iq4nl 完全重复。视觉=q2lynn 已覆盖，无视觉=iq4nl 已覆盖。
@@ -201,9 +200,6 @@ MODEL_OPTIONS = {
     # "orig" 已于 2026-10-30 删除（MTP 头是不支持的 gguf_q4_0）。下拉只留四个可起、有意义的档。
 }
 MODEL_PATHS = {
-    "iq4nl": os.path.join(
-        ROOT, "models",
-        "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer"),   # 2026-11-07 dual-head (iq4nl slot shares it)
 
     # 2026-11-07: q2lynn 改用双头件（MTP + DFlash2 同一文件，靠 --spec 选头）
     #   --spec mtp     -> weights 12.3 GiB / pool 86,016 READY（与单 MTP 件零差别）
@@ -222,7 +218,6 @@ MODEL_PATHS = {
 MODEL_IDS = {
     "swift":    "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
     "q2lynn":   "qwen3.8-27b-coder390",
-    "iq4nl":    "qwen3.8-27b-coder390",
 
 
 }
@@ -236,7 +231,6 @@ MODEL_KVCAP_MAX = {
     #   86,016 READY (runtime 2.98 GiB / slack 63.5) / 90,112 FATAL (need 3161.5 > avail 3116.7)
     #   => arith ceiling 86,016; old 58,368 was non-arith / dGPU-path, historical only
     "q2lynn": 86016,
-    "q8mtp":  50000,   # q8_0 头 430.4 MiB：50,000 READY，51,000 差 5.6 MiB
     # 2026-11-06 实测（SWIFT-1.5 MTP + rk8v4 + graph192 + vision overlay，件 11.91 GiB）：
     #   90,112 free 277MiB / 92,160 223MiB / 94,208 169MiB / 95,232 141MiB 全 READY
     #   96,256 FATAL(need 3452>3433) / 98,304 FATAL / 102,400 FATAL
@@ -281,15 +275,10 @@ MODEL_KVCAP_MAX_IGPU = {
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
-    "q2lynn": {"kv": "rk8v4",    "kvcap": "51200", "graph": "64",  "vision": "overlay",
+    "q2lynn": {"kv": "rk8v4",    "kvcap": "84k",   "graph": "64",  "vision": "overlay",
                "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
-    "swift":  {"kv": "rk8v4",    "kvcap": "64k",    "graph": "192", "vision": "overlay",
+    "swift":  {"kv": "rk8v4",    "kvcap": "124k",   "graph": "64",  "vision": "overlay",
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
-    "q8mtp":  {"kv": "rk8v4",    "kvcap": "50000", "graph": "64",  "vision": "overlay",
-               "note": "Q8 草稿头（430.4 MiB，比 iq4_nl 多 202.5 MiB）；池上限 50,000。"
-                       "2026-10-30 八格实测：decode 每格更慢、接受率无增益 ⇒ 仅作对照档，不作定稿"},
-    "bonsai": {"kv": "rk2v4-e8", "kvcap": "51200", "graph": "64",  "vision": "overlay",
-               "note": "前序线 · 件未下载（仅登记待测试）"},
     # swift_dflash2 非 GUI 模型档，由 spec=d* 联动套用（2026-11-04 §203）：
     # 2026-11-06 修 BUG：kvcap 必须是 KVCAP_OPTIONS 的**键**（"16k"），不是 token 数。
     # 原写 "16384" 不在键集内 ⇒ 套档循环 _val not in _table 直接 continue，
@@ -330,7 +319,10 @@ PYTHON_EXE = sys.executable.replace("pythonw.exe", "python.exe").replace("python
 #   池扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。起服必须带 KV_ENV 六开关（缺 NINFER_KV_WINDOW 直接拒启）。
 #   ⚠️ 池 < 逻辑上下文（--max-context 262144）是**设计如此**：池外的页由 KVMem 环下沉到 host
 #   （--host-kv-mib 16384）；实测 20,203 tokens prompt 检索答案正确（ring retrieve restored=128）。
-KV_POOL_TOKENS = 51200
+# 2026-11-08: 原为硬编码 51200（旧定稿池），会在 maxout 校验里误报"超过池"。
+# 改为按当前选中的 kvcap 档实时取值；解析不出时回退 51200。
+KV_POOL_TOKENS_FALLBACK = 51200
+
 
 # KVMem 六开关：缺一 = 起得来但静默答错（缓存命中率高、中段答错、零报错）。GUI 内固定注入。
 # ⚠️ NINFER_KV_WINDOW 同时是"允许 --kv-capacity < --max-context"的开关（serve_options.cpp:1124-1132）：
@@ -473,13 +465,13 @@ KVCAP_OPTIONS = {
     "120k":    ("120K · 需 arith=on（实测 READY，全卡剩 36MiB）", ["--kv-capacity", "122880"]),
     "124k":    ("124K · ★实测天花板（全卡剩 14MiB·刀尖）", ["--kv-capacity", "126976"]),
     "128k":    ("128K · 实测 FATAL（need 4245.3 > avail 4217.1）", ["--kv-capacity", "131072"]),
-    "150k":    ("150K", ["--kv-capacity", "153600"]),
-    "160k":    ("160K", ["--kv-capacity", "163840"]),
-    "170k":    ("170K", ["--kv-capacity", "174080"]),
-    "180k":    ("180K", ["--kv-capacity", "184320"]),
-    "200k":    ("200K", ["--kv-capacity", "204800"]),
-    "224k":    ("224K", ["--kv-capacity", "229376"]),
-    "256k":    ("256K", ["--kv-capacity", "262144"]),
+    "150k":    ("150K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "153600"]),
+    "160k":    ("160K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "163840"]),
+    "170k":    ("170K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "174080"]),
+    "180k":    ("180K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "184320"]),
+    "200k":    ("200K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "204800"]),
+    "224k":    ("224K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "229376"]),
+    "256k":    ("256K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "262144"]),
 }
 # ── 长前缀锚：按 KV 池推荐锚大小（2026-11-06 用户令）────────────────────────
 # 依据：docs\03-归因与结论\调研-上游对照-Strata与KVMem-v0.19-...md
@@ -518,6 +510,12 @@ def kvcap_tokens_of(combo):
         return int(ent[1][1])
     except (IndexError, TypeError, ValueError):
         return None
+
+
+def kv_pool_tokens_of(combo):
+    """当前选中档位的池 token 数（供 maxout 超池校验用）。"""
+    tok = kvcap_tokens_of(combo)
+    return int(tok) if tok else KV_POOL_TOKENS_FALLBACK
 
 
 def anchor_advice(pool_tokens, policy="conservative"):
@@ -849,25 +847,25 @@ PRESET_PROFILES = {
     #     代价：吞吐明显低于生产档（这是故意的——要的是"能进谷"，不是"跑得快"）。
     #     ⚠ 压力模式不改异步臂（A/B 开关独立）：要对照就自己切"异步页流水(A/B)"那一档。
     # ============================================================
-    "① 生产 · Q2LYNN（定稿 51200 池 · 最快）": dict(
-        DEFAULTS, model="q2lynn", kv="rk8v4",    kvcap="51200", graph="64",
-        vision="overlay", spec="k4", think="high", tb="16000", hemostat="on",
-        reqlog="off", **{"async": "on"}
+    "① 生产 · Coder390（实测 86,016 池 · MTP k3 · arith）": dict(
+        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="84k", graph="64",
+        vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
     ),
-    "② 生产 · SWIFT（定稿 64K 池 · rk8v4）": dict(
-        DEFAULTS, model="swift", kv="rk8v4", kvcap="64k", graph="192",
-        vision="overlay", spec="k4", think="high", tb="16000", hemostat="on",
-        reqlog="off", **{"async": "on"}
+    "② 生产 · SWIFT（实测 126,976 池 · MTP k3 · arith）": dict(
+        DEFAULTS, model="swift", kv="rk8v4", kvcap="124k", graph="64",
+        vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
     ),
-    "③ 压力 · Q2LYNN（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
+    "③ 压力 · Coder390（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
         DEFAULTS, model="q2lynn", kv="rk2v4-e8", kvcap="20480", graph="64",
-        vision="overlay", ctx="256k", spec="k4", think="high", tb="16000",
+        vision="overlay", ctx="256k", spec="k3", think="high", tb="16000",
         hemostat="on", reqlog="on", fp16state="off", **{"async": "on"}
         # fp16state=off：谷实验臂保持历史 FP32 配置（实验连续性——历史谷数据均为该配置）
     ),
     "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
         DEFAULTS, model="swift", kv="rk8v4", kvcap="20480", graph="192",
-        vision="overlay", ctx="256k", spec="k4", think="high", tb="16000",
+        vision="overlay", ctx="256k", spec="k3", think="high", tb="16000",
         hemostat="on", reqlog="on", fp16state="off", **{"async": "on"}
         # fp16state=off：同上（实验连续性）
     ),
@@ -956,20 +954,20 @@ def validate(combo, exe=None):
     """返回告警列表（空 = 无告警）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
     warns = []
-    # 2026-10-20 审核 H3：S13 是无符号生产件，Gen5+外压400 会卡死（§136）；显式告警，场景请选 offi/sym3。
-    if os.path.normcase(os.path.abspath(exe)) == os.path.normcase(os.path.abspath(ENGINE_SELF)):
-        warns.append("S13 是卡死缺陷件（无符号；Gen5+外压400 会 decode 0 卡死，§136）——"
-                     "该场景请选 offi/sym3（registry 现役三件；Gen4/零外压可继续用 S13）。")
+    # 2026-11-08：此事已失效。ENGINE_SELF 已被转正为 build-1208b（496D6070，
+    # engine-rc1-7e14453-6-g2755b24-dirty，无卡死缺陷，支持 --wddm-budget-arithmetic-only）。
+    # 原「S13 卡死缺陷件」硬编码告警与新事实相反，已删除；S13 本体仍单独留在 registry 里标注封存。
+    _pool_now = kv_pool_tokens_of(combo)
     mx = str(combo.get("maxout", "default"))
     mx_val = 65535 if mx == "default" else (int(mx) if mx.isdigit() else 0)  # "default"=65535；非数字安全跳过（照老项目：不裸 int 转换）
-    if mx_val > KV_POOL_TOKENS:
-        warns.append(f"输出上限({mx}) > 池 token 数({KV_POOL_TOKENS})——官方默认如此；"
-                     f"真正的硬约束 = 单请求【prompt_tokens + 输出(max_tokens) ≤ {KV_POOL_TOKENS}】："
+    if mx_val > _pool_now:
+        warns.append(f"输出上限({mx}) > 池 token 数({_pool_now})——官方默认如此；"
+                     f"真正的硬约束 = 单请求【prompt_tokens + 输出(max_tokens) ≤ {_pool_now}】："
                      f"超过会在 prefill 阶段超池——(a)未开止血→worker 崩且不自愈、(b)已开 --kv-lease-growth→"
-                     f"被静默截断(finish_reason=length、内容像正常但只有半截)。发请求时请确保 prompt 长度 + max_tokens ≤ {KV_POOL_TOKENS}。")
+                     f"被静默截断(finish_reason=length、内容像正常但只有半截)。发请求时请确保 prompt 长度 + max_tokens ≤ {_pool_now}。")
     if not os.path.exists(exe):
         warns.append(f"未找到引擎：{exe}")
-    _mp = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)
+    _mp = MODEL_PATHS.get(combo.get("model", "q2lynn"), MODEL)
     if combo.get("model") == "bonsai" and not os.path.exists(_mp):
         warns.append("BONSAI 件未下载（前序线模型 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 不在 models\\）——"
                      "已登记待测试，暂不可起服；测试前请先取得该件。Q2LYNN / SWIFT 1.5 两档可直接用。")
@@ -980,14 +978,14 @@ def validate(combo, exe=None):
     # 2026-11-04：DFlash2 护栏（联动之外的第二道门，防 profile 手改）。
     _spec_v = str(combo.get("spec", "k3"))
     if _spec_v.startswith("d") and combo.get("model") not in ("swift", "q2lynn"):
-        warns.append("DFlash2 头只有 SWIFT（swift15_dflash2.ninfer）与 q2lynn（Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer 双头件）具备；iq4nl 走单 MTP 件无此头（旧注「q2lynn/iq4nl 的 DFlash2 组件不存在」已于 2026-11-07 失效"
+        warns.append("DFlash2 头只有 SWIFT（swift15_iq3s_mtp+dflash2.ninfer）与 q2lynn（Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer 双头件）具备；iq4nl 走单 MTP 件无此头（旧注「q2lynn/iq4nl 的 DFlash2 组件不存在」已于 2026-11-07 失效"
                      "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
     # 2026-11-06：超实测上限只告警、不阻止起服（用户要手试上限档，如 102400）
     # 2026-11-07 用户令：显示通道校验（通道不产生旗标，只决定上限与提示）
     try:
         _chan = resolve_channel(combo)
         _chan_tok = kvcap_tokens_of(combo)
-        _model_key = str(combo.get("model", "iq4nl"))
+        _model_key = str(combo.get("model", "q2lynn"))
         _raw_key = "swift_dflash2" if (_model_key == "swift" and
                                        str(combo.get("spec", "k3")).startswith("d")) else _model_key
         if _chan == "igpu":
@@ -1014,7 +1012,7 @@ def validate(combo, exe=None):
     except Exception as _chan_err:
         warns.append(f"显示通道检测失败（{_chan_err}）——请显式选 igpu 或 dgpu。")
 
-    _cap_v = MODEL_KVCAP_MAX.get(combo.get("model", "iq4nl"))
+    _cap_v = MODEL_KVCAP_MAX.get(combo.get("model", "q2lynn"))
     _cur_tok = kvcap_tokens_of(combo)
     if _cap_v and _cur_tok and _cur_tok > int(_cap_v):
         warns.append(f"⚠ KV 池 {_cur_tok} 超过该模型实测上限 {_cap_v}："
@@ -1048,12 +1046,12 @@ def validate(combo, exe=None):
     # 模型不含 vision 组件却传 --vision* -> 引擎启动即挂
     #   "Qwen3.5 config: missing component vision"（79 us 就失败，即"秒退"）。
     # 这是防该坑的关键告警：此前 GUI 没有 iq4nlvis 档，用户只能选无视觉模型 + 手动开视觉。
-    _model = combo.get("model", "iq4nl")
+    _model = combo.get("model", "q2lynn")
     _vis = str(combo.get("vision", "off"))
     if _vis != "off" and _model not in VISION_CAPABLE_MODELS:
         warns.append(f"模型【{_model}】不含 vision 组件，但你开了视觉（{_vis}）-> 引擎启动即挂："
                      f"Qwen3.5 config: missing component vision。"
-                     f"要识图请选【iq4nlvis】（iq4_nl 骨架 + 视觉塔）或【q8mtp】（官方版）。")
+                     f"要识图请选带视觉塔的档（q2lynn / swift 的双头件均含视觉塔）。")
     if _vis == "off" and _model in VISION_CAPABLE_MODELS:
         warns.append(f"模型【{_model}】带视觉塔但视觉档是关 -> 塔不会被加载（也不占显存）。"
                      f"要识图请开视觉档（推荐 cpu：不占设备视觉显存）。")
@@ -1070,9 +1068,6 @@ def validate(combo, exe=None):
         warns.append("★贴边池（≥55,296）：需桌面空闲到引擎可约 ~1.95 GiB（关浏览器/Overlay 等 ~1 GB 占用），"
                      "否则启动即缺 ~24 MiB 拒启（2026-10-11 实测两次：55,296 当晚成功、次日 +25 MiB 负载即败）。"
                      "日常请用 51200/49152。")
-    if _model == "iq4nlvis" and _kv.isdigit() and int(_kv) > 55296:
-        warns.append("iq4nlvis 的**实测上限是 55,296 池 + 视觉**（2026-10-11 实测成功，free 490.4 MiB）；"
-                     "更高未验证（57,344 起服即失败：差 17.3 MiB）。需干净 GPU。")
     # 挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + on 起服且功能正常，告警移除。
     # growth 已判死（超池撞墙根因），视觉不再需要 legacy 联动。
     if any(ord(c) > 127 for c in ROOT):
@@ -1094,7 +1089,7 @@ VRAM_PAGE_MIB = {
     "k8v4": 1.59, "rk8v4": 1.59, "int8": 2.11, "fp8": 2.11, "bf16": 4.08,
 }
 VRAM_TOKENS_PER_PAGE = 64
-VRAM_WEIGHTS_GIB = {"iq4nl": 12.30, "iq4nlvis": 12.30, "orig": 12.40}
+VRAM_WEIGHTS_GIB = {"orig": 12.40}   # 2026-11-08: iq4nl / iq4nlvis 档已删
 VRAM_RUNTIME_GIB = 1.66          # 运行时/工作区（实测 runtime 行 1.44~1.66，取上界）
 VRAM_VISION_GPU_GIB = 1.40       # vision=on 视觉塔常驻设备；overlay/cpu 走主机/CPU = 0
 HOST_STATE_MIB = {"off": 1177.6, "on": 598.6}   # fp16 循环状态 host pinned（§145 实测：FP32 1.15 GiB / FP16 598.6 MiB）
@@ -1159,7 +1154,7 @@ def _host_mem(max_age=5.0):
 
 def vram_account(combo):
     """按当前选择实时算显存账（设备 GPU + 主机内存两栏，分别返回）。返回 (设备文本, 主机文本, 判定色)；绿=OK，橙=紧张/不够/未知。"""
-    model = str(combo.get("model", "iq4nl"))
+    model = str(combo.get("model", "q2lynn"))
     dtype = str(combo.get("kv", "rk2v4-e8"))
     page = VRAM_PAGE_MIB.get(dtype, 0.83)
     cap = str(combo.get("kvcap", "51200"))
@@ -1227,8 +1222,8 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
     exe=None 时用自编现役（ENGINE_SELF，本线唯一现役引擎）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
-    model_path = MODEL_PATHS.get(combo.get("model", "iq4nl"), MODEL)   # 2026-10-10: 模型档（位置参数）
-    model_id = MODEL_IDS.get(combo.get("model", "iq4nl"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
+    model_path = MODEL_PATHS.get(combo.get("model", "q2lynn"), MODEL)   # 2026-10-10: 模型档（位置参数）
+    model_id = MODEL_IDS.get(combo.get("model", "q2lynn"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
     # 2026-11-04 用户令：SWIFT + DFlash2（spec=d*）⇒ 换 DFlash2 件（与 MTP 件互斥，§203）。
     _spec_key_cmd = str(combo.get("spec", "k3"))
     if combo.get("model") == "swift" and _spec_key_cmd.startswith("d") and _spec_key_cmd != "d0":
@@ -1610,6 +1605,16 @@ class LauncherApp:
         self.preset_cb.bind("<<ComboboxSelected>>", self._apply_preset)
         self.preset_cb.pack(anchor="w", padx=8, pady=6)
 
+        # 分区：显示通道（2026-11-08 用户令：独显/核显切换开关；先定通道再调 KV 池）
+        fc = section("显示通道（独显 / 核显 · 先定通道再调 KV 池）")
+        row(fc, "channel")
+        tk.Label(fc, text="通道不是引擎旗标——引擎改不了系统显示输出，这里只做「检测 + 按通道限制池 + 超限报警」。"
+                          "auto = 读 nvidia-smi 判断（引擎须已停）；igpu = 显示器接核显，桌面/浏览器全在核显，"
+                          "5080 整块留给引擎（实测 used ~55-60 MiB，推荐）；dgpu = 显示器接独显，桌面占 ~1.1 GiB，池只能开小。"
+                          "实测同件同参数 65,536 池：引擎内 free 927.0 MiB(iGPU) vs 640.5 MiB(dGPU)。"
+                          "切换通道本身要在 Windows 显示设置 / NVIDIA 控制面板里做。",
+                 bg=self.bg, fg="#8a6b3a", font=("Microsoft YaHei UI", 8),
+                 wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
         # 分区：模型与推理规格
         f1 = section("模型与推理规格")
         for k in ("model", "spec", "think", "tb", "maxout", "sample", "preserve", "conc"):
@@ -1726,17 +1731,13 @@ class LauncherApp:
            否则引擎 "Qwen3.5 config: missing component vision" 启动即拒（闪退循环，
            logs/serve_20261011_0318*.log 四连）。validate 的同名告警保留（防 profile 手改）。
         """
-        vis = str(self.selection.get("vision", "off"))
-        if vis != "off":
-            if self.selection.get("model", "iq4nl") not in VISION_CAPABLE_MODELS:
-                self.selection["model"] = "iq4nlvis"
-                if "model" in self.var and "iq4nlvis" in MODEL_OPTIONS:
-                    self.var["model"].set(MODEL_OPTIONS["iq4nlvis"][0])   # 同步下拉显示
+        # 2026-11-08：iq4nl 档已删除（双头件统一后无「无视觉件」可选），
+        # 原先「自动切到 iq4nlvis」的分支随之失效并移除；视觉配对改由 validate 告警承担。
         # 挂账 39 已销案（2026-10-11 凌晨）：视觉 + on（无 growth）实测正常，不再强制 legacy
         # （growth 已判死，任何路径不再默认带 --kv-lease-growth）。
         # c) 每模型一套参数（2026-10-14 用户令）：模型变化时一次性套用整套，
         #    之后用户手改单项不被反复覆盖（只在"模型变化"这一拍应用）。
-        _model_now = self.selection.get("model", "iq4nl")
+        _model_now = self.selection.get("model", "q2lynn")
         _bundle = MODEL_BUNDLES.get(_model_now)
         # #79（2026-11-06）：套档被跳过时必须可见。pythonw 无控制台，print 到不了用户，
         # 所以收进列表由 _refresh 显示到状态区——今天 "16384" vs "16k" 就是靠静默 continue 藏住的。
@@ -1785,14 +1786,14 @@ class LauncherApp:
                         if _key in self.var:
                             self.var[_key].set(_table[_val][0])   # 同步下拉显示
                     print("[bundle] spec=" + _spec_now + " -> " + _want + " " + str(_sb))
-        cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "iq4nl"))
+        cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "q2lynn"))
         if not cap:
             return
         # 2026-11-06 修（用户当场指出）：强制降池只在「模型切换」那一拍做一次。
         # 原实现每次 _on_change 都跑 —— 用户手选 100k/102400 做上限实验会被立刻拉回，
         # 且回写的是裸数字（98304）而非档位键（"96k"），下拉显示与 selection 不同步。
         # 现在：换模型时若超限降一次；之后手选任意档不干预，超限由 validate() 告警。
-        _cap_model_now = self.selection.get("model", "iq4nl")
+        _cap_model_now = self.selection.get("model", "q2lynn")
         if getattr(self, "_cap_model", None) == _cap_model_now:
             return
         self._cap_model = _cap_model_now

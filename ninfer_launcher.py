@@ -229,7 +229,10 @@ VISION_CAPABLE_MODELS = frozenset(("q2lynn", "swift"))  # swift 件含视觉塔�
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
-    "q2lynn": 58368,   # iq4_nl 头 227.9 MiB：58,368 READY，60,000 差 36.7 MiB
+    # 2026-11-07 measured (live build + arith, iGPU, graph64, iq4nl MTP head 12.64 GiB):
+    #   86,016 READY (runtime 2.98 GiB / slack 63.5) / 90,112 FATAL (need 3161.5 > avail 3116.7)
+    #   => arith ceiling 86,016; old 58,368 was non-arith / dGPU-path, historical only
+    "q2lynn": 86016,
     "q8mtp":  50000,   # q8_0 头 430.4 MiB：50,000 READY，51,000 差 5.6 MiB
     # 2026-11-06 实测（SWIFT-1.5 MTP + rk8v4 + graph192 + vision overlay，件 11.91 GiB）：
     #   90,112 free 277MiB / 92,160 223MiB / 94,208 169MiB / 95,232 141MiB 全 READY
@@ -247,7 +250,7 @@ MODEL_KVCAP_MAX = {
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
     "q2lynn": {"kv": "rk8v4",    "kvcap": "51200", "graph": "64",  "vision": "overlay",
-               "note": "现役定稿（冻结基准）；2026-10-30 重测 rk8v4 池上限 58,368（60,000 差 36.7 MiB）；旧注 41,664 与 65,536 均为其它 dtype/件口径，已作废"},
+               "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
     "swift":  {"kv": "rk8v4",    "kvcap": "64k",    "graph": "192", "vision": "overlay",
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
     "q8mtp":  {"kv": "rk8v4",    "kvcap": "50000", "graph": "64",  "vision": "overlay",
@@ -260,6 +263,9 @@ MODEL_BUNDLES = {
     # 原写 "16384" 不在键集内 ⇒ 套档循环 _val not in _table 直接 continue，
     # DFlash2 仍带 MTP 的 64k 池起服 ⇒ FATAL（2764170240 > 2458910720）。
     "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", "graph": "192", "vision": "overlay",
+    # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
+    #   81,920 READY (runtime 2.97 GiB / slack 89.6) / 86,016 FATAL (need 3146.7 > avail 3133.9)
+    #   => arith ceiling 81,920; the 11-06 51200/65536 rows below are non-arith, historical only
                       # 2026-11-06 三段实测更正（旧注「rk8v4 池上限 20480」已过时）：
                      #   16384 -> 稳（§205 夜班全档，甜品 d4/d5 121-124 tok/s，k0 基线 66）
                      #   51200 -> 能起，free 仅 191.0 MiB（logs\serve_20261106_075112.log）

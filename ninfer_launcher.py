@@ -165,7 +165,7 @@ def registry_default_display(registry):
 #   代码 184.3 tok/s（接受率 93.8%）；输出语义一致无劣化。
 # 2026-10-30：无 vision 的 mtp-iq4nl 件已删除（实测「本件+--vision off」与「vision 件+--vision off」
 #   显存完全相同 15,515 MiB、池上限完全相同）。默认改指 vision 件，不需要视觉时传 --vision off 即可。
-MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer")
+MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer")   # 2026-11-07 dual-head
 
 # ---------------------------------------------------------------
 # 模型档（2026-10-10 用户裁决新增）
@@ -203,7 +203,7 @@ MODEL_OPTIONS = {
 MODEL_PATHS = {
     "iq4nl": os.path.join(
         ROOT, "models",
-        "Qwen3.8-27B-Coder390-EfficientThink-Q2LynnStyle-MTP.mtp-iq4nl.vision.ninfer"),
+        "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer"),   # 2026-11-07 dual-head (iq4nl slot shares it)
 
     # 2026-11-07: q2lynn 改用双头件（MTP + DFlash2 同一文件，靠 --spec 选头）
     #   --spec mtp     -> weights 12.3 GiB / pool 86,016 READY（与单 MTP 件零差别）
@@ -211,7 +211,7 @@ MODEL_PATHS = {
     "q2lynn": os.path.join(
         ROOT, "models",
         "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer"),
-    "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp.ninfer"),
+    "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp+dflash2.ninfer"),   # 2026-11-07 dual-head
 
 }
 # --model-id 按档映射（2026-10-19 用户撞见 BUG：选 SWIFT1.5 但 model-id 仍是 coder390——
@@ -274,7 +274,7 @@ MODEL_KVCAP_MAX_IGPU = {
     "q2lynn": 86016,
     "q2lynn_dflash2": 40960,  # DFlash2 head of the dual artifact (READY slack 32.8; 51,200 FATAL)
     "swift": 126976,
-    "swift_dflash2": 81920,
+    "swift_dflash2": 90112,  # DFlash2 head, graph64 (90,112 READY slack 13.6 / 94,208 FATAL)
 }
 
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
@@ -308,7 +308,7 @@ MODEL_BUNDLES = {
                               " / 65536 起服即 FATAL（runtime 2.57 GiB > 可用 2.29 GiB）；默认 16k"},
 }
 # SWIFT 按投机类型切的模型件（2026-11-04 用户令：DFlash 与 MTP 互斥 = 换件实现）：
-SWIFT_DFLASH2_MODEL = os.path.join(ROOT, "models", "swift15_dflash2.ninfer")
+SWIFT_DFLASH2_MODEL = os.path.join(ROOT, "models", "swift15_iq3s_mtp+dflash2.ninfer")   # 2026-11-07: dual-head, DFlash2 head lives in the same file
 CONFIG_FILE = os.path.join(ROOT, "ninfer_launcher_profiles.json")
 LOG_DIR = os.path.join(ROOT, "logs")
 TEE_SCRIPT = os.path.join(ROOT, "serve_tee.py")

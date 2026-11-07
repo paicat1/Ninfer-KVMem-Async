@@ -12,9 +12,9 @@
   · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
 
 版本：v1（覆盖起服 + 自检/就绪自测）。
-沿革补：2026-11-04 新增 DFlash2 档位 d1-d15（与 MTP 互斥联动，spec=d* 自动切
-      swift15_dflash2.ninfer 与 16384@rk8v4 参数集；甜品 d4/d5=121-124 tok/s，夜班
-      实测见构建史 §205）；引擎登记册置顶 RC8（status=基线，GUI 默认）。
+沿革补：DFlash2 档位 d1-d15（与 MTP 互斥联动）。2026-11-08 起两模型均为双头件
+      （MTP + DFlash2 同一文件，--spec 选头），spec=d* 自动套 <model>_dflash2 档并强制
+      arith=on：C390-DF2 上限 40,960 / S15-DF2 上限 90,112（graph64 口径）。
 沿革：本文件最初为前序 Bonsai 线所写；2026-10-09（P0）迁移到 Coder390，2026-10-10 按用户裁决
       清除全部 Bonsai 口径（档位 / 脚本 / UI 文本），本线不再保留任何 Bonsai 引用。
 
@@ -294,7 +294,7 @@ MODEL_BUNDLES = {
                        "note": "CODER390 DFlash2 头（双头件同文件，--spec dflash2）；"
                                "实测上限 40,960（READY slack 32.8 / 51,200 FATAL）；"
                                "比 MTP 头多占 1.2 GiB 权重"},
-    "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", "graph": "192", "vision": "overlay",
+    "swift_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
                       "arith": "on",
     # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
     #   81,920 READY (runtime 2.97 GiB / slack 89.6) / 86,016 FATAL (need 3146.7 > avail 3133.9)
@@ -440,50 +440,50 @@ CTX_OPTIONS = {
     "256k": ("256K（★本线定稿 · 模型原生上限）", ["--max-context", "262144"]),
 }
 KVCAP_OPTIONS = {
-    "51200": ("51200 ★定稿·50K稳定", ["--kv-capacity", "51200"]),
-    "58368": ("58368 · iq4_nl@rk8v4 实测上限", ["--kv-capacity", "58368"]),
-    "50000": ("50000 · q8mtp@rk8v4 实测上限", ["--kv-capacity", "50000"]),
-    "5376":  ("5376 · 最小合法(84页·KV_SINK 锁)", ["--kv-capacity", "5376"]),
-    "55296": ("55296 贴边·需净GPU", ["--kv-capacity", "55296"]),
-    "49152": ("49152 · 48K", ["--kv-capacity", "49152"]),
-    "40960": ("40K · Coder390 DFlash2 实测上限（READY slack 32.8；51,200 FATAL）", ["--kv-capacity", "40960"]),
-    "20480": ("20480 · 20K省显存", ["--kv-capacity", "20480"]),
-    "17920": ("17920 · 官方默认", ["--kv-capacity", "17920"]),
-    "auto":  ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
-    "16k":     ("16K",  ["--kv-capacity", "16384"]),
-    "32k":     ("32K",  ["--kv-capacity", "32768"]),
-    "64k":     ("64K ★20261011实测·需净GPU（配 graph128）", ["--kv-capacity", "65536"]),
-    # ── 2026-11-06 实测补档：SWIFT-1.5 MTP + rk8v4 + **graph 192** + vision overlay
-    #    （件 11.91 GiB）。⚠ 必须用 graph 192 的口径：engine_ctl 默认 64 会高估上限约 128 MiB，
-    #    早期误报「98304 上限」就是这么来的。以下 free 为引擎自报。
-    "80k":     ("80K · graph192 未逐档测（graph64 READY free 493MiB，应可起）", ["--kv-capacity", "81920"]),
-    "84k":     ("84K · 同上（graph64 READY free 385MiB）", ["--kv-capacity", "86016"]),
-    # ⚠ 上限随 graph allowance 变：graph64→96K / graph128→94K / graph192→93K（用户实机 + 我方逐档实测）
-    "88k":     ("88K · graph192 READY free 277MiB", ["--kv-capacity", "90112"]),
-    "90k":     ("90K ★graph192 推荐 free 223MiB", ["--kv-capacity", "92160"]),
-    "92k":     ("92K · graph192 READY free 169MiB", ["--kv-capacity", "94208"]),
-    "93k":     ("93K ★graph192 上限 free 141MiB", ["--kv-capacity", "95232"]),
-    "94k":     ("94K · graph192 FATAL / graph128 可起", ["--kv-capacity", "96256"]),
-    # ── 2026-11-07 实测（build-1208b / 核显通道 / graph64 / vision overlay / rk8v4）
-    #    无 arith：96K READY(free 61MiB) / 100K FATAL(need 3487 > avail 3430)
-    #    开 arith：100K~124K 全 READY；124K 时全卡仅剩 14MiB、cudaMemGetInfo free=0
-    #              128K FATAL(need 4245.3 > avail 4217.1) ⇒ 真实天花板 = 126,976
-    "96k":     ("96K · 无arith READY free 61MiB", ["--kv-capacity", "98304"]),
-    "100k":    ("100K · ★需 arith=on（无 arith 则 FATAL）", ["--kv-capacity", "102400"]),
-    "104k":    ("104K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "106496"]),
-    "108k":    ("108K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "110592"]),
-    "112k":    ("112K · 需 arith=on（实测 READY，free 0）", ["--kv-capacity", "114688"]),
-    "116k":    ("116K · 需 arith=on（实测 READY，全卡剩 16MiB）", ["--kv-capacity", "118784"]),
-    "120k":    ("120K · 需 arith=on（实测 READY，全卡剩 36MiB）", ["--kv-capacity", "122880"]),
-    "124k":    ("124K · ★实测天花板（全卡剩 14MiB·刀尖）", ["--kv-capacity", "126976"]),
-    "128k":    ("128K · 实测 FATAL（need 4245.3 > avail 4217.1）", ["--kv-capacity", "131072"]),
-    "150k":    ("150K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "153600"]),
-    "160k":    ("160K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "163840"]),
-    "170k":    ("170K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "174080"]),
-    "180k":    ("180K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "184320"]),
-    "200k":    ("200K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "204800"]),
-    "224k":    ("224K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "229376"]),
-    "256k":    ("256K · ⛔无法使用（超 126,976 天花板，仅作备用档）", ["--kv-capacity", "262144"]),
+    # ── 表述统一规则（2026-11-08 用户令）─────────────────────────────────
+    #   格式：'<token> · <标注>'
+    #   ★ = 某个模型某个投机头的实测量上限，格式 '★<模型>-<头> 上限'
+    #       C390 = CODER390（q2lynn） / S15 = SWIFT15（swift）
+    #       MTP  = MTP 头          / DF2 = DFlash2 头
+    #   需 arith = 只有 arith=on 才能起（无 arith 的 available 约 3433 MiB）
+    #   无 arith 可起 = arith 关也能起
+    #   ⛔ = 超 126,976 天花板，保留作备用档，不可用
+    "auto":   ("auto · 按剩余显存", ["--kv-capacity", "auto"]),
+    "5376":   ("5,376 · 最小合法（84 页 · KV_SINK 锁）", ["--kv-capacity", "5376"]),
+    "16k":    ("16,384 · 保守档", ["--kv-capacity", "16384"]),
+    "17920":  ("17,920 · 官方默认", ["--kv-capacity", "17920"]),
+    "20480":  ("20,480 · 20K 省显存", ["--kv-capacity", "20480"]),
+    "32k":    ("32,768 · 中小池", ["--kv-capacity", "32768"]),
+    "40960":  ("40,960 · ★C390-DF2 上限（slack 32.8 MiB；51,200 FATAL）", ["--kv-capacity", "40960"]),
+    "49152":  ("49,152 · 48K", ["--kv-capacity", "49152"]),
+    "50000":  ("50,000 · 历史档（原 q8mtp 上限，该模型已移除）", ["--kv-capacity", "50000"]),
+    "51200":  ("51,200 · 旧定稿档", ["--kv-capacity", "51200"]),
+    "55296":  ("55,296 · 贴边档（需净 GPU）", ["--kv-capacity", "55296"]),
+    "58368":  ("58,368 · 历史档（原 iq4_nl 上限）", ["--kv-capacity", "58368"]),
+    "64k":    ("65,536 · 无 arith 可起", ["--kv-capacity", "65536"]),
+    "80k":    ("81,920 · 无 arith 可起", ["--kv-capacity", "81920"]),
+    "84k":    ("86,016 · ★C390-MTP 上限（slack 63.5 MiB；90,112 FATAL）", ["--kv-capacity", "86016"]),
+    "88k":    ("90,112 · ★S15-DF2 上限（graph64 slack 13.6 MiB；94,208 FATAL）", ["--kv-capacity", "90112"]),
+    "90k":    ("92,160 · 无 arith 可起", ["--kv-capacity", "92160"]),
+    "92k":    ("94,208 · 无 arith 可起", ["--kv-capacity", "94208"]),
+    "93k":    ("95,232 · 无 arith 可起", ["--kv-capacity", "95232"]),
+    "94k":    ("96,256 · 无 arith（graph192 口径下 FATAL）", ["--kv-capacity", "96256"]),
+    "96k":    ("98,304 · 无 arith 上限（free 61 MiB）", ["--kv-capacity", "98304"]),
+    "100k":   ("102,400 · 需 arith", ["--kv-capacity", "102400"]),
+    "104k":   ("106,496 · 需 arith", ["--kv-capacity", "106496"]),
+    "108k":   ("110,592 · 需 arith", ["--kv-capacity", "110592"]),
+    "112k":   ("114,688 · 需 arith", ["--kv-capacity", "114688"]),
+    "116k":   ("118,784 · 需 arith（全卡剩 16 MiB）", ["--kv-capacity", "118784"]),
+    "120k":   ("122,880 · 需 arith（全卡剩 36 MiB）", ["--kv-capacity", "122880"]),
+    "124k":   ("126,976 · ★S15-MTP 上限（全卡剩 14 MiB · 刀尖）", ["--kv-capacity", "126976"]),
+    "128k":   ("131,072 · ⛔FATAL（need 4245.3 > avail 4217.1）", ["--kv-capacity", "131072"]),
+    "150k":   ("153,600 · ⛔超天花板 · 备用", ["--kv-capacity", "153600"]),
+    "160k":   ("163,840 · ⛔超天花板 · 备用", ["--kv-capacity", "163840"]),
+    "170k":   ("174,080 · ⛔超天花板 · 备用", ["--kv-capacity", "174080"]),
+    "180k":   ("184,320 · ⛔超天花板 · 备用", ["--kv-capacity", "184320"]),
+    "200k":   ("204,800 · ⛔超天花板 · 备用", ["--kv-capacity", "204800"]),
+    "224k":   ("229,376 · ⛔超天花板 · 备用", ["--kv-capacity", "229376"]),
+    "256k":   ("262,144 · ⛔超天花板 · 备用", ["--kv-capacity", "262144"]),
 }
 # ── 长前缀锚：按 KV 池推荐锚大小（2026-11-06 用户令）────────────────────────
 # 依据：docs\03-归因与结论\调研-上游对照-Strata与KVMem-v0.19-...md
@@ -1004,13 +1004,8 @@ def validate(combo, exe=None):
     if not os.path.exists(exe):
         warns.append(f"未找到引擎：{exe}")
     _mp = MODEL_PATHS.get(combo.get("model", "q2lynn"), MODEL)
-    if combo.get("model") == "bonsai" and not os.path.exists(_mp):
-        warns.append("BONSAI 件未下载（前序线模型 Ternary-Bonsai-2-27B-ninfer-v3.ninfer 不在 models\\）——"
-                     "已登记待测试，暂不可起服；测试前请先取得该件。Q2LYNN / SWIFT 1.5 两档可直接用。")
-    elif not os.path.exists(_mp):
+    if not os.path.exists(_mp):
         warns.append(f"未找到模型：{_mp}")
-    if combo.get("model") == "orig" and str(combo.get("spec", "k0")) != "k0":
-        warns.append("原件（-MTP.ninfer）的 MTP 头是引擎不支持的 gguf_q4_0 -> 只能裸解码（档位选 k0）。")
     # 2026-11-04：DFlash2 护栏（联动之外的第二道门，防 profile 手改）。
     _spec_v = str(combo.get("spec", "k3"))
     if _spec_v.startswith("d") and combo.get("model") not in ("swift", "q2lynn"):
@@ -1658,7 +1653,7 @@ class LauncherApp:
                  wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
         # 分区：模型与推理规格
         f1 = section("模型与推理规格")
-        for k in ("model", "spec", "think", "tb", "maxout", "sample", "preserve", "conc"):
+        for k in ("model", "spec", "adaptivemtp", "think", "tb", "maxout", "sample", "preserve", "conc"):
             if k == "spec":
                 fr = tk.Frame(f1, bg=self.bg); fr.pack(fill="x", padx=8, pady=3)
                 tk.Label(fr, text=DIM_LABEL["spec"], bg=self.bg, fg="#2b3a6b", width=16, anchor="w",
@@ -1681,7 +1676,7 @@ class LauncherApp:
 
         # 分区：KV 与显存
         f2 = section("KV 与显存")
-        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "vision", "fp16state"):
+        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "arith", "vision", "fp16state"):
             row(f2, k)
 
         # 分区：长前缀锚（2026-11-06 用户令：开关 + 大小 + 动态 TIP）

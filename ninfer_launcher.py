@@ -276,8 +276,10 @@ MODEL_KVCAP_MAX_IGPU = {
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
     "q2lynn": {"kv": "rk8v4",    "kvcap": "84k",   "graph": "64",  "vision": "overlay",
+               "arith": "on",   # 86,016 的实测口径即 arith=on；无 arith 时上限止步 96,304
                "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
     "swift":  {"kv": "rk8v4",    "kvcap": "124k",   "graph": "64",  "vision": "overlay",
+               "arith": "on",   # 124k 必须 arith：100k 无 arith 实测即 FATAL（3486.6 > 3433）
                "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
     # swift_dflash2 非 GUI 模型档，由 spec=d* 联动套用（2026-11-04 §203）：
     # 2026-11-06 修 BUG：kvcap 必须是 KVCAP_OPTIONS 的**键**（"16k"），不是 token 数。
@@ -288,10 +290,12 @@ MODEL_BUNDLES = {
     #   40,960 READY（runtime 1.85 GiB / slack 32.8 MiB）/ 51,200 FATAL
     # DFlash2 头比 MTP 头多占 1.2 GiB（drafter 的 q/k/v 走 BF16），故池必须降到 40K。
     "q2lynn_dflash2": {"kv": "rk8v4", "kvcap": "40960", "graph": "64", "vision": "overlay",
+                       "arith": "on",
                        "note": "CODER390 DFlash2 头（双头件同文件，--spec dflash2）；"
                                "实测上限 40,960（READY slack 32.8 / 51,200 FATAL）；"
                                "比 MTP 头多占 1.2 GiB 权重"},
     "swift_dflash2": {"kv": "rk8v4", "kvcap": "16k", "graph": "192", "vision": "overlay",
+                      "arith": "on",
     # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
     #   81,920 READY (runtime 2.97 GiB / slack 89.6) / 86,016 FATAL (need 3146.7 > avail 3133.9)
     #   => arith ceiling 81,920; the 11-06 51200/65536 rows below are non-arith, historical only
@@ -970,6 +974,13 @@ def validate(combo, exe=None):
     _pool_now = kv_pool_tokens_of(combo)
     # 2026-11-08：graph 额度与池容量的相容性。实测所有上限都在 graph64 下取得，
     # graph 每多 64 MiB 就从 slack 里扣 64 MiB（86,016 的 slack 只有 63.5）。
+    # 2026-11-08：池 >= 100K 必须开 arith。实测无 arith 的 available 是 3433 MiB（核显），
+    # 而 100,000 就需要 3486.6 MiB —— 必然 FATAL，但此前没有任何提示。
+    if str(combo.get("arith", "off")) != "on" and _pool_now >= 102400:
+        warns.append(
+            f"池 {_pool_now} 必须开 arith：无 arith 时 available 只有约 3433 MiB（核显通道），"
+            f"而 102,400 的 requires 是 3486.6 MiB，起服必 FATAL。"
+            f"请把「预算算术(arith)」设为 on，或把池降到 96K 及以下。")
     try:
         _g = str(combo.get("graph", "64"))
         _g_mib = int(_g) if _g.isdigit() else 0
@@ -1774,7 +1785,7 @@ class LauncherApp:
         self._bundle_skipped = []
         if _bundle and getattr(self, "_bundle_model", None) != _model_now:
             self._bundle_model = _model_now
-            for _key in ("kv", "kvcap", "graph", "vision"):
+            for _key in ("kv", "kvcap", "graph", "vision", "arith"):
                 _val = _bundle.get(_key)
                 _table = DIMENSIONS_MAP.get(_key)
                 if not _val or not _table or _val not in _table:
@@ -1806,7 +1817,7 @@ class LauncherApp:
                 self._spec_bundle_key = _want
                 _sb = MODEL_BUNDLES.get(_want)
                 if _sb:
-                    for _key in ("kv", "kvcap", "graph", "vision"):
+                    for _key in ("kv", "kvcap", "graph", "vision", "arith"):
                         _val = _sb.get(_key)
                         _table = DIMENSIONS_MAP.get(_key)
                         if not _val or not _table or _val not in _table:

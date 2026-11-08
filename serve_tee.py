@@ -13,10 +13,25 @@
     · 同段只留首末：kvmem_score: SELECT / [ninfer] ring retrieve: / [ninfer] kvmem harvest:；
     · 业务行（INFO/WARN/ERROR、decode/prefill/accept 读数）全显。
   full = 全部：不过滤（查错用）。
-**两种模式日志文件都全文落盘**（保 grep 取证）。
+
+日志文件分级采样（环境变量 SERVE_TEE_LOG_MODE，默认 slim）：
+  slim = 分级：ERROR/WARN/FATAL 及其**前 50 行上下文**、生命周期行（engine ready / capacity /
+         memory ledger / listening / loading weights / req#N done）、启动 DEBUG 全留；
+         仪表心跳（[ring] budgets / [ninfer] ensure profile / mask hidden / demote-other /
+         kvmem_score KEPT / 纯数字续行）按「同 pattern 的**极大连续序列**」采样：
+         **段首必留 + 段内每 200 留 1 + 段末补写**。
+  full = 全文落盘（grep 取证 / 时序分析用）。
+强制 full 的四种情形（同步写进 项目硬规则.mdc「日志分级纪律」）：
+  ① 死亡谷探针 / 慢态排查（心跳时序是判据）
+  ② KVMem 判活 / 检索验证（kvmem_score 行是判据本身）
+  ③ 一切预登记实验（判据测前写死，采样版日志违约）
+  ④ 起服命令带 --log-level debug（本脚本自动切 full，不靠人记）
+⚠ 心跳行（[ninfer] ensure profile / [ring] budgets）**没有时间戳前缀**，采样后是孤立点，
+  只能看趋势；任何时序分析必须 full。
 
 colorama 可选：有则启用 Windows ANSI/VT 色码；无则降级无色，不阻断 serve。
 """
+import collections
 import os
 import re
 import subprocess
@@ -88,6 +103,112 @@ def is_harvest_note(line):
     return line.startswith("[ninfer] kvmem harvest:")
 
 
+# ============ 日志分级采样（2026-11-08 用户批准修正版方案）============
+# 实测：单个压测日志 28,049 行里 98.6% 是两类心跳（[ninfer] ensure profile 18,112 +
+# [ring] budgets 9,056），关键行仅 0.5%。四个洞的处置见文件头 docstring。
+SAMPLE_EVERY = 200        # 段内采样间隔
+CONTEXT_LINES = 50        # ERROR/FATAL 命中时向前保留的上下文行数
+
+_LIFECYCLE_MARKS = (
+    "engine ready", "capacity |", "memory ledger", "listening on",
+    "loading weights", "req#", "done |", "serve_tee start", "serve_tee end",
+    "LAUNCH FAILED", "artifact inspected", "device profile",
+)
+_ERROR_RE = re.compile(r"(?:^|\s)(ERROR|FATAL|WARN|WARNING)(?:\s|$)")
+
+
+def classify_line(text):
+    """返回 (kind, pattern)。kind: keep=全留 / sample=按段采样 / plain=全留但非关键。"""
+    if _ERROR_RE.search(text):
+        return "keep", "error"
+    for mark in _LIFECYCLE_MARKS:
+        if mark in text:
+            return "keep", "lifecycle"
+    # 纯仪表噪声统一归一个 pattern：两类心跳每步交替出现，若按类型分 pattern 会碎片化成
+    # 每段 1 行，"段首必留"就等于全留。合并后连续序列才够长，采样才有效。
+    if (text.startswith("[ninfer] ensure profile")
+            or is_kept_noise(text)
+            or is_diag_noise(text)):
+        return "sample", "heartbeat"
+    if is_select(text):
+        return "sample", "select"
+    if is_harvest_note(text):
+        return "sample", "harvest"
+    return "plain", None
+
+
+class LogSampler:
+    """流式分级写入器。
+
+    段 = 同一 pattern 的**极大连续序列**（当前行 pattern 与前一行相同 = 同段延续）。
+    段内规则：第 1 条必留；之后每 SAMPLE_EVERY 条留 1；段结束时若末条未被上述采样点写过则补写。
+    误差容忍：被丢弃的采样行仍进 context 缓冲，ERROR/FATAL/WARN 命中时先 flush 该缓冲，
+    保证报错前因（栈前的诊断行）不会因为采样而失明。
+    """
+
+    def __init__(self, handle):
+        self.log = handle
+        self.context = collections.deque(maxlen=CONTEXT_LINES)
+        self.pattern = None
+        self.count = 0
+        self.last_raw = None
+        self.written = 0
+        self.dropped = 0
+
+    def _write(self, raw):
+        try:
+            self.log.write(raw)
+            self.written += 1
+        except Exception:
+            pass
+
+    def _flush_context(self):
+        while self.context:
+            self._write(self.context.popleft())
+
+    def _close_segment(self):
+        # 只补写段末那一条，绝不动 context —— context 是"错误前因"专用缓冲，
+        # 正常收尾时若把它 flush 出去，等于把采样丢弃的心跳又全写回，采样彻底失效。
+        if (self.pattern and self.count > 1
+                and self.count % SAMPLE_EVERY != 0 and self.last_raw is not None):
+            self._write(self.last_raw)          # 段末补写
+        self.pattern = None
+        self.count = 0
+        self.last_raw = None
+
+    def feed(self, raw, text):
+        kind, pat = classify_line(text)
+        if kind == "keep":
+            self._close_segment()
+            if pat == "error":
+                self._flush_context()           # 洞①：仅报错时补前因（心跳不至于污染正常路径）
+            self._write(raw)
+            return
+        if kind == "plain":
+            self._close_segment()
+            self._write(raw)
+            return
+        # sample
+        if pat != self.pattern:
+            self._close_segment()
+            self.pattern = pat
+            self.count = 0
+        self.count += 1
+        if self.count == 1 or self.count % SAMPLE_EVERY == 0:
+            # 采样点只写本行，**绝不 flush context** —— 否则每 200 条就把前 199 条
+            # 被丢弃的心跳整批写回，采样等于没做（首版实现就栽在这里）。
+            self._write(raw)
+        else:
+            self.context.append(raw)   # 仅作为 ERROR 前因保留（deque 自动淘汰）
+            self.dropped += 1
+        self.last_raw = raw
+
+    def finish(self):
+        # 收尾同样不 flush context：那是被采样丢弃的心跳，写回去等于前功尽弃。
+        # 只有真正发生 ERROR/FATAL 时才算"前因"，而那时 feed() 内部已即时 flush。
+        self._close_segment()
+
+
 def colorize(line):
     """给日志行中的关键数据上色：decode数值(绿)、接受率%(红)、prefill数值(黄)。
     直接输出 ANSI/VT 色码 —— 本终端原生支持，无需 colorama。"""
@@ -115,10 +236,22 @@ def main(argv):
     mode = os.environ.get("SERVE_TEE_MODE", "slim").strip().lower()
     if mode not in ("slim", "full"):
         mode = "slim"
+    # 日志文件模式（2026-11-08）：默认 slim = 分级采样；full = 全文（grep 取证 / 时序分析）
+    log_mode = os.environ.get("SERVE_TEE_LOG_MODE", "slim").strip().lower()
+    if log_mode not in ("slim", "full"):
+        log_mode = "slim"
+    # 洞④：起服命令显式带 --log-level debug 时自动切 full（要细看的人才会开 debug），不靠人记
+    if log_mode != "full" and "--log-level" in cmd:
+        try:
+            if cmd[cmd.index("--log-level") + 1].strip().lower() == "debug":
+                log_mode = "full"
+        except (ValueError, IndexError):
+            pass
     d = os.path.dirname(logfile)
     if d:
         os.makedirs(d, exist_ok=True)
     log = open(logfile, "ab", buffering=0)
+    sampler = LogSampler(log)
     header = ("\n===== serve_tee start {} =====\nCMD: {}\n".format(
         time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd))).encode("utf-8", "replace")
     log.write(header)
@@ -170,12 +303,16 @@ def main(argv):
             else:
                 flush_sel()
                 emit(text)
-        try:
-            log.write(raw)  # 日志文件始终原文全文（不带色，保 grep 取证）
-        except Exception:
-            pass
+        if log_mode == "full":
+            try:
+                log.write(raw)      # 全文模式：原文落盘（grep 取证 / 时序分析）
+            except Exception:
+                pass
+        else:
+            sampler.feed(raw, text)  # 分级模式：按类采样，ERROR 前因完整
     if mode == "slim":
-        flush_sel()  # 收尾最后一段
+        flush_sel()      # 收尾最后一段（窗口）
+    sampler.finish()     # 收尾：补段末 + flush 上下文缓冲
 
     code = proc.wait()
     tail = ("===== serve_tee end (exit={}) {} =====\n".format(

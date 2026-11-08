@@ -194,6 +194,9 @@ MODEL       = os.path.join(ROOT, "models", "Qwen3.8-27B-Coder390-MTP+DFlash2.nin
 MODEL_OPTIONS = {
     "q2lynn":   ("★★Coder390 · 主Q2LynnStyle-3.89bpw · MTP-iq4_nl · 视觉bf16+gq · 12.3GiB", []),
     "swift":    ("Swift1.5 · 主IQ3_S-GSQ-RCO · MTP-iq3_s系混合 · 视觉bf16+gq · 11.3GiB", []),
+    # 2026-11-08：GSQ-RCO IQ3_S 转正。原版底座（无微调），MTP 与主权重同源，
+    # 实测池与速度均优于/持平两个微调件，见 MODEL_BUNDLES 的 note。
+    "gsq":      ("★★GSQ-RCO IQ3_S · 原版底座 · 池124K/88K · DF2 最快 202.6 · MTP 64.3% 接受", []),
     # 2026-10-31：iq4nlvis 已删——与 q2lynn/iq4nl 同文件，DEFAULTS vision=off 让它实际"关视觉"，
     # 名字叫视觉塔却名不副实、且与 iq4nl 完全重复。视觉=q2lynn 已覆盖，无视觉=iq4nl 已覆盖。
     # 2026-10-31 用户令：BONSAI（件未下载）与 q8mtp（三项全负、池上限 50,000）已从下拉移除；
@@ -208,6 +211,9 @@ MODEL_PATHS = {
         ROOT, "models",
         "Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer"),
     "swift":  os.path.join(ROOT, "models", "swift15_iq3s_mtp+dflash2.ninfer"),   # 2026-11-07 dual-head
+    # 2026-11-08：GSQ-RCO IQ3_S 双头件。MTP 与主权重同源（同一 GGUF 的 blk.64.*，转换即带），
+    # DFlash2 头由 graft_dflash2.py 追加。转换 59.9s，零补丁零嫁接。
+    "gsq":    os.path.join(ROOT, "models", "gsq_iq3s_dual.ninfer"),
 
 }
 # --model-id 按档映射（2026-10-19 用户撞见 BUG：选 SWIFT1.5 但 model-id 仍是 coder390——
@@ -218,12 +224,14 @@ MODEL_PATHS = {
 MODEL_IDS = {
     "swift":    "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
     "q2lynn":   "qwen3.8-27b-coder390",
+    "gsq":      "qwen3.8-27b-gsq-iq3s",
 
 
 }
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
-VISION_CAPABLE_MODELS = frozenset(("q2lynn", "swift"))  # swift 件含视觉塔（2026-10-14 实测 overlay 可起）；iq4nlvis 已删（与 iq4nl 重复）
+# 2026-11-08：gsq 件 components = text/vision/mtp/dflash2，视觉塔 282 MiB，实测 overlay 可起
+VISION_CAPABLE_MODELS = frozenset(("q2lynn", "swift", "gsq"))  # 三件均含视觉塔；iq4nlvis 已删
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
@@ -262,6 +270,8 @@ MODEL_KVCAP_MAX_DGPU = {
     "q2lynn_dflash2": 32768,  # dGPU + DFlash2 unmeasured; conservative
     "swift": 98304,         # 2026-11-06 dGPU + graph64 实测
     "swift_dflash2": 51200,  # 2026-11-06 dGPU 实测（贴边 free 191 MiB）
+    "gsq": 98304,            # dGPU 未实测：按 swift 同结构（11.3 GiB）保守取值
+    "gsq_dflash2": 51200,    # dGPU 未实测：按 swift_dflash2 同结构保守取值
 }
 # 核显通道下的实测上限（2026-11-07，现役件 + arith）
 MODEL_KVCAP_MAX_IGPU = {
@@ -269,12 +279,26 @@ MODEL_KVCAP_MAX_IGPU = {
     "q2lynn_dflash2": 40960,  # DFlash2 head of the dual artifact (READY slack 32.8; 51,200 FATAL)
     "swift": 126976,
     "swift_dflash2": 90112,  # DFlash2 head, graph64 (90,112 READY slack 13.6 / 94,208 FATAL)
+    "gsq": 126976,           # 2026-11-08 核显实测（slack 80.1；131,072 FATAL gap 29.6 MiB）
+    "gsq_dflash2": 90112,    # 2026-11-08 核显实测（slack 13.6；94,208 FATAL）
 }
 
 # ── 每模型一套参数（2026-10-14 用户令）：换模型 → 自动切整套（KV/池/Graph/视觉）──
 #   方法与判据（守望者/逐字门/bisect/gpu_probe/窗口 SOP）跨模型通用，一套定稿；
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
+    # 2026-11-08 GSQ-RCO IQ3_S（原版底座）：MTP 头与主权重同源，接受率 64.3%（四件最高）
+    "gsq": {"kv": "rk8v4", "kvcap": "124k", "graph": "64", "vision": "overlay",
+            "arith": "on",
+            "note": "核显通道实测：MTP 126,976 READY（slack 80.1）/ 131,072 FATAL"
+                    "（need 4245.3 > avail 4217.1）；decode 152.7 tok/s"
+                    "（同池独显通道 125.7，核显 +21.5%，页出减少）"},
+    # GSQ 的 DFlash2 头：weights 12.3 GiB（比 MTP 多 1.0），池随之降到 88k
+    "gsq_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
+                    "arith": "on",
+                    "note": "核显通道实测：90,112 READY（slack 13.6）/ 94,208 FATAL"
+                            "（need 3222.1 > avail 3133.9）；decode 202.6 tok/s 为全件最快"
+                            "（同池独显通道 168.1，核显 +20.5%）"},
     "q2lynn": {"kv": "rk8v4",    "kvcap": "84k",   "graph": "64",  "vision": "overlay",
                "arith": "on",   # 86,016 的实测口径即 arith=on；无 arith 时上限止步 96,304
                "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
@@ -1008,7 +1032,8 @@ def validate(combo, exe=None):
         warns.append(f"未找到模型：{_mp}")
     # 2026-11-04：DFlash2 护栏（联动之外的第二道门，防 profile 手改）。
     _spec_v = str(combo.get("spec", "k3"))
-    if _spec_v.startswith("d") and combo.get("model") not in ("swift", "q2lynn"):
+    # 2026-11-08：改为按 <model>_dflash2 bundle 是否存在判断，新增带 DFlash2 头的档无需再改这里
+    if _spec_v.startswith("d") and (str(combo.get("model", "q2lynn")) + "_dflash2") not in MODEL_BUNDLES:
         warns.append("DFlash2 头只有 SWIFT（swift15_iq3s_mtp+dflash2.ninfer）与 q2lynn（Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer 双头件）具备；iq4nl 走单 MTP 件无此头（旧注「q2lynn/iq4nl 的 DFlash2 组件不存在」已于 2026-11-07 失效"
                      "-> 引擎启动即拒（missing component dflash2）。请换 swift 模型或 MTP 档。")
     # 2026-11-06：超实测上限只告警、不阻止起服（用户要手试上限档，如 102400）

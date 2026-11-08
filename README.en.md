@@ -98,20 +98,28 @@ Three generations:
 >
 > **⑥ Four pool ceilings and the speed comparison (iGPU / rk8v4 / graph64 / flag on; same prompt, same max_tokens, median of 3 rounds)**
 >
-> | model | head | pool ceiling | boundary | `decode` | acceptance |
+> | model | head | pool ceiling | boundary | `decode` (dGPU / **iGPU**) | acceptance (dGPU / **iGPU**) |
 > |---|---|---|---|---|---|
-> | **CODER390** | MTP k3 | **86,016** | 90,112 FATAL (need 3161.5 > avail 3116.7) | **130.3 tok/s** | 56.4% |
-> | **CODER390** | DFlash2 k5 | **40,960** | 51,200 FATAL | **134.8 tok/s** | 39.8% |
-> | **SWIFT15** | MTP k3 | **126,976** | 131,072 FATAL | **114.3 tok/s** | 44.3% |
-> | **SWIFT15** | DFlash2 k5 | **90,112** | 94,208 FATAL (need 3146.7 > avail 3133.9) | **116.0 tok/s** | 28.8% |
+> | **CODER390** | MTP k3 | **86,016** | 90,112 FATAL (need 3161.5 > avail 3116.7) | 130.3 / **154.9** tok/s | 56.4% / **64.2%** |
+> | **CODER390** | DFlash2 k5 | **40,960** | 51,200 FATAL | 134.8 / **194.4** tok/s | 39.8% / **62.1%** |
+> | **SWIFT15** | MTP k3 | **126,976** | 131,072 FATAL | 114.3 / **138.1** tok/s | 44.3% / **56.6%** |
+> | **SWIFT15** | DFlash2 k5 | **90,112** | 94,208 FATAL (need 3146.7 > avail 3133.9) | 116.0 / **186.0** tok/s | 28.8% / **57.6%** |
+> | **GSQ-RCO IQ3_S** | MTP k3 | **126,976** | 131,072 FATAL (need 4245.3 > avail 4217.1) | — / **152.7** tok/s | — / **64.3%** |
+> | **GSQ-RCO IQ3_S** | DFlash2 k5 | **90,112** | 94,208 FATAL (need 3222.1 > avail 3133.9) | — / **202.6** tok/s | — / 59.3% |
 >
-> **DFlash2 is slightly faster than MTP on both models** (CODER390 +3.5%, SWIFT15 +1.5%), at the cost of a 29–52% smaller pool — the DFlash2 head occupies 1.0–1.2 GiB by itself, which converts to roughly 30–45K tokens lost. **Choosing a head is a speed-versus-context trade-off, not a free upgrade.**
+> **⚠ Correction of 2026-11-08: the "DFlash2 only +3.5%/+1.5%" figures were an artefact of desktop-channel paging.** After a reboot freed VRAM completely and the display moved to the iGPU, a re-run (bold column) shows 19–60% higher throughput at identical piece and pool, and the **true DFlash2 gain over MTP is +25.5% (Coder390) / +34.7% (SWIFT) / +32.7% (GSQ)**. Pool ceilings are unchanged — the arith paper budget `total − weights − 512` is channel-independent and slack matches to the MiB — only the realised throughput at the same pool moves. **Display channel is the first-order speed variable; it matters more than head selection.**
+>
+> Choosing a head remains a speed-versus-context trade-off: DFlash2 costs 29% of the pool (SWIFT/GSQ) or 52% (Coder390) and returns +25%～+35% throughput.
 >
 > **⑦ Laying the ground for larger models**: the two things opened up today (reachability of a 4217 MiB paper budget, and the one-artifact-many-heads organisation) directly determine whether the next model tier can run at all — every extra 1 GiB of weights removes about 1 GiB of usable pool, and 126,976 already pushes a 16 GiB card down to 14 MiB of headroom. **The platform-migration and iGPU dividends were fully cashed in on this day, and the 16 GiB physical ceiling was reached at the same time.**
 >
 > **⑧ Governance items shipped alongside**: the single permitted process-spawn entry point `spawn_visible.ps1` was hardened against black-box windows (wrapper ban exit 3 / redirect ban exit 4 / the gate holds its own `serve_tee` with live console forwarding / content-non-empty check 3×2s / records extended with `tee_log` + `engine_pid` + `content_ok`); the day's 18 empty-window instances are all booked in `evidence/audits/VIOLATION_empty_window_20261107.md`; the shipping binary was promoted `F814B07A → 496D6070` (`build-1208b`, `engine-rc1-7e14453-6-g2755b24-dirty`); governance baseline rebuild#22/#23/#24 (anchor `F877965F`).
 >
 > **⑨ Open items**: no source-level localisation of the mechanism behind the gap between the paper slack and the real supply (which layer of CUDA/WDDM absorbs it); the 126,976 tier lacks a long-session plus concurrency stress run; the `thinking:false` field is not recognised by the engine (A/B symmetry holds, but "thinking fully off" does not).
+>
+> **⑩ 2026-11-08 addendum: GSQ-RCO IQ3_S promoted to a third tier** (stock base, no fine-tune). Source `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf` (11.29 GB) passed `validate()` outright with `has_mtp=True` (the MTP head lives in the same GGUF under the same quantisation); `tools.convert` produced the single-head artifact in **59.9 s with zero patches and zero grafting**, then `graft_dflash2.py` took 85.0 s to make it dual-head `gsq_iq3s_dual.ninfer` (13.29 GiB). Measured: **MTP 126,976 + 152.7 tok/s + 64.3% acceptance (best of four); DFlash2 90,112 + 202.6 tok/s (fastest overall)**. Three quality probes (thread-safe LRU, train arrival time, GQA-vs-MQA) were answered correctly by all three artifacts — **style differs more than capability** (Coder390 writes a hand-rolled doubly linked list, SWIFT is the most production-shaped, GSQ the most compact).
+>
+> **Counter-example the same day**: unsloth `UD-Q3_K_XL` failing to convert is not a tooling gap — it compresses 96 GDN gate tensors `ssm_alpha/beta` from BF16 down to Q8_0 (the recipe hard-requires BF16 and has **no dequant fallback**), and ships its MTP head as a separate file under a different quantisation policy. With a patch it does convert, but MTP acceptance collapses to **13.7%** (d1 26.9% / d3 13.7% / d5 3.9%). **Conclusion: whether a GGUF converts cleanly depends on the publisher honouring the container's assumptions (norms and gates unquantised, MTP co-located and co-quantised with the main weights), not on tooling.**
 
 > ## ★ 2026-10-18/19 · Hang attribution closed + valley trigger conditions pinned + arch incident root cause closed (three-binary verdict matrix)
 >

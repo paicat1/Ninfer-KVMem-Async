@@ -14,24 +14,28 @@
     · 业务行（INFO/WARN/ERROR、decode/prefill/accept 读数）全显。
   full = 全部：不过滤（查错用）。
 
-日志文件分级采样（环境变量 SERVE_TEE_LOG_MODE，默认 slim）：
-  slim = 分级：ERROR/WARN/FATAL 及其**前 50 行上下文**、生命周期行（engine ready / capacity /
-         memory ledger / listening / loading weights / req#N done）、启动 DEBUG 全留；
-         仪表心跳（[ring] budgets / [ninfer] ensure profile / mask hidden / demote-other /
-         kvmem_score KEPT / 纯数字续行）按「同 pattern 的**极大连续序列**」采样：
-         **段首必留 + 段内每 200 留 1 + 段末补写**。
-  full = 全文落盘（grep 取证 / 时序分析用）。
+日志文件双写（环境变量 SERVE_TEE_LOG_MODE，默认 slim）：
+  slim = 双写：
+    · 明文 `<logfile>`：ERROR/WARN/FATAL 及其**前 50 行上下文**、生命周期行（engine ready /
+      capacity / memory ledger / listening / loading weights / req#N done）、启动 DEBUG
+      —— 体量约 2%，可直接 grep；
+    · gzip `<logfile>.gz`：**全部原始行**，零损失，事后 DEBUG / 时序分析的唯一完整来源
+      —— 体量约 1.4%（心跳行重复度极高，压缩比约 94x）。
+    实测同一份 28,049 行日志：双写合计 3.50%，而"采样丢弃"方案是 7.74% —— 采样用更大
+    的体积换了更少的证据，故弃用。
+  full = 只写明文全量，不生成 .gz（grep 取证 / 时序分析用）。
 强制 full 的四种情形（同步写进 项目硬规则.mdc「日志分级纪律」）：
   ① 死亡谷探针 / 慢态排查（心跳时序是判据）
   ② KVMem 判活 / 检索验证（kvmem_score 行是判据本身）
-  ③ 一切预登记实验（判据测前写死，采样版日志违约）
+  ③ 一切预登记实验（判据测前写死，slim 模式的明文不含心跳，违约）
   ④ 起服命令带 --log-level debug（本脚本自动切 full，不靠人记）
-⚠ 心跳行（[ninfer] ensure profile / [ring] budgets）**没有时间戳前缀**，采样后是孤立点，
-  只能看趋势；任何时序分析必须 full。
+⚠ slim 模式下心跳行（[ninfer] ensure profile / [ring] budgets）只在 .gz 里，明文没有；
+  需要看它们请 `zcat <logfile>.gz | grep ...`，或事前切 full。
 
 colorama 可选：有则启用 Windows ANSI/VT 色码；无则降级无色，不阻断 serve。
 """
 import collections
+import gzip
 import os
 import re
 import subprocess
@@ -103,11 +107,13 @@ def is_harvest_note(line):
     return line.startswith("[ninfer] kvmem harvest:")
 
 
-# ============ 日志分级采样（2026-11-08 用户批准修正版方案）============
+# ============ 日志双写（2026-11-08 用户批准：明文关键行 + gzip 全量）============
 # 实测：单个压测日志 28,049 行里 98.6% 是两类心跳（[ninfer] ensure profile 18,112 +
-# [ring] budgets 9,056），关键行仅 0.5%。四个洞的处置见文件头 docstring。
-SAMPLE_EVERY = 200        # 段内采样间隔
-CONTEXT_LINES = 50        # ERROR/FATAL 命中时向前保留的上下文行数
+# [ring] budgets 9,056），关键行仅 0.5%。
+# 同一份日志三种写法体积：明文采样 7.74% / 全量 gzip 1.06% / 双写合计约 3.2%。
+# gzip 比采样更小且零损失，故弃用采样：明文只留关键行，gzip 收全量。
+CONTEXT_LINES = 50        # ERROR/FATAL 命中时向前保留进明文的上下文行数
+GZ_ROTATE_EVERY = 128     # 每 N 行关闭并重开 gzip 成员（多成员文件），强杀最多丢 N 行
 
 _LIFECYCLE_MARKS = (
     "engine ready", "capacity |", "memory ledger", "listening on",
@@ -118,14 +124,16 @@ _ERROR_RE = re.compile(r"(?:^|\s)(ERROR|FATAL|WARN|WARNING)(?:\s|$)")
 
 
 def classify_line(text):
-    """返回 (kind, pattern)。kind: keep=全留 / sample=按段采样 / plain=全留但非关键。"""
+    """返回 (kind, pattern)。
+
+    kind: keep=进明文（错误/生命周期）/ plain=进明文（其余正常行）/ sample=只进 gzip（仪表噪声）。
+    """
     if _ERROR_RE.search(text):
         return "keep", "error"
     for mark in _LIFECYCLE_MARKS:
         if mark in text:
             return "keep", "lifecycle"
-    # 纯仪表噪声统一归一个 pattern：两类心跳每步交替出现，若按类型分 pattern 会碎片化成
-    # 每段 1 行，"段首必留"就等于全留。合并后连续序列才够长，采样才有效。
+    # 纯仪表噪声：只进 gzip，不进明文（否则明文会被心跳淹没）
     if (text.startswith("[ninfer] ensure profile")
             or is_kept_noise(text)
             or is_diag_noise(text)):
@@ -138,75 +146,87 @@ def classify_line(text):
 
 
 class LogSampler:
-    """流式分级写入器。
+    """双写日志器。
 
-    段 = 同一 pattern 的**极大连续序列**（当前行 pattern 与前一行相同 = 同段延续）。
-    段内规则：第 1 条必留；之后每 SAMPLE_EVERY 条留 1；段结束时若末条未被上述采样点写过则补写。
-    误差容忍：被丢弃的采样行仍进 context 缓冲，ERROR/FATAL/WARN 命中时先 flush 该缓冲，
-    保证报错前因（栈前的诊断行）不会因为采样而失明。
+    明文（<logfile>）：ERROR/WARN/FATAL 及其前 CONTEXT_LINES 行、生命周期行、启动 DEBUG
+                     —— 体量小、可直接 grep。
+    gzip（<logfile>.gz）：全部原始行，零损失，事后 DEBUG 的唯一完整来源。
+
+    为什么不再"采样丢弃"：实测同一份 28,049 行日志，明文采样方案 7.74%、全量 gzip 仅 1.06%
+    —— gzip 反而小 7 倍且一行不丢（心跳行重复度极高，压缩比约 94x）。采样等于用更大的体积
+    换更少的证据。
     """
 
-    def __init__(self, handle):
-        self.log = handle
+    def __init__(self, plain, gz_path):
+        self.plain = plain
+        self.gz_path = gz_path
+        self.gz = None
         self.context = collections.deque(maxlen=CONTEXT_LINES)
-        self.pattern = None
-        self.count = 0
-        self.last_raw = None
-        self.written = 0
-        self.dropped = 0
+        self.plain_lines = 0
+        self.total_lines = 0
+        self._since_rotate = 0
+        if gz_path:
+            self._open_gz()
 
-    def _write(self, raw):
+    def _open_gz(self):
         try:
-            self.log.write(raw)
-            self.written += 1
+            # "ab" 追加新成员：多成员 gzip 文件，zcat / gzip -dc / python gzip 都能顺序读。
+            # 这样 tee 被强杀时最多丢最后一个成员，已写成员各自带完整尾部标记，仍可解压。
+            self.gz = gzip.open(self.gz_path, "ab", compresslevel=6)
+        except Exception:
+            self.gz = None
+
+    def _rotate_gz(self):
+        if self.gz is None:
+            return
+        try:
+            self.gz.close()      # 写完整尾部（CRC32 + ISIZE）
+        except Exception:
+            pass
+        self._open_gz()
+
+    def _w_gz(self, raw):
+        if self.gz is None:
+            return
+        try:
+            self.gz.write(raw)
+            self._since_rotate += 1
+            if self._since_rotate >= GZ_ROTATE_EVERY:
+                self._rotate_gz()
+                self._since_rotate = 0
+        except Exception:
+            pass
+
+    def _w_plain(self, raw):
+        try:
+            self.plain.write(raw)
+            self.plain_lines += 1
         except Exception:
             pass
 
     def _flush_context(self):
         while self.context:
-            self._write(self.context.popleft())
-
-    def _close_segment(self):
-        # 只补写段末那一条，绝不动 context —— context 是"错误前因"专用缓冲，
-        # 正常收尾时若把它 flush 出去，等于把采样丢弃的心跳又全写回，采样彻底失效。
-        if (self.pattern and self.count > 1
-                and self.count % SAMPLE_EVERY != 0 and self.last_raw is not None):
-            self._write(self.last_raw)          # 段末补写
-        self.pattern = None
-        self.count = 0
-        self.last_raw = None
+            self._w_plain(self.context.popleft())
 
     def feed(self, raw, text):
+        self.total_lines += 1
+        self._w_gz(raw)                     # 全量先落 gzip：任何情况下都不丢证据
         kind, pat = classify_line(text)
         if kind == "keep":
-            self._close_segment()
             if pat == "error":
-                self._flush_context()           # 洞①：仅报错时补前因（心跳不至于污染正常路径）
-            self._write(raw)
-            return
-        if kind == "plain":
-            self._close_segment()
-            self._write(raw)
-            return
-        # sample
-        if pat != self.pattern:
-            self._close_segment()
-            self.pattern = pat
-            self.count = 0
-        self.count += 1
-        if self.count == 1 or self.count % SAMPLE_EVERY == 0:
-            # 采样点只写本行，**绝不 flush context** —— 否则每 200 条就把前 199 条
-            # 被丢弃的心跳整批写回，采样等于没做（首版实现就栽在这里）。
-            self._write(raw)
+                self._flush_context()       # 洞①：报错前因一并写进明文
+            self._w_plain(raw)
+        elif kind == "plain":
+            self._w_plain(raw)
         else:
-            self.context.append(raw)   # 仅作为 ERROR 前因保留（deque 自动淘汰）
-            self.dropped += 1
-        self.last_raw = raw
+            self.context.append(raw)        # 心跳只在内存候命当错误前因，gzip 里已有全量
 
     def finish(self):
-        # 收尾同样不 flush context：那是被采样丢弃的心跳，写回去等于前功尽弃。
-        # 只有真正发生 ERROR/FATAL 时才算"前因"，而那时 feed() 内部已即时 flush。
-        self._close_segment()
+        if self.gz is not None:
+            try:
+                self.gz.close()      # 写完整尾部，正常退出时零损失
+            except Exception:
+                pass
 
 
 def colorize(line):
@@ -251,7 +271,8 @@ def main(argv):
     if d:
         os.makedirs(d, exist_ok=True)
     log = open(logfile, "ab", buffering=0)
-    sampler = LogSampler(log)
+    # 双写：明文只留关键行；gzip 收全量（零损失，事后 DEBUG 靠它）。full 模式只写明文。
+    sampler = LogSampler(log, (logfile + ".gz") if log_mode != "full" else None)
     header = ("\n===== serve_tee start {} =====\nCMD: {}\n".format(
         time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd))).encode("utf-8", "replace")
     log.write(header)
@@ -312,17 +333,25 @@ def main(argv):
             sampler.feed(raw, text)  # 分级模式：按类采样，ERROR 前因完整
     if mode == "slim":
         flush_sel()      # 收尾最后一段（窗口）
-    sampler.finish()     # 收尾：补段末 + flush 上下文缓冲
 
     code = proc.wait()
     tail = ("===== serve_tee end (exit={}) {} =====\n".format(
         code, time.strftime("%Y-%m-%d %H:%M:%S"))).encode("utf-8", "replace")
+    # 收尾行走统一路径：同时进明文与 gzip，保证两条时间线都完整
+    if log_mode == "full":
+        try:
+            log.write(tail)
+        except Exception:
+            pass
+    else:
+        sampler.feed(tail, tail.decode("utf-8", "replace"))
+    sampler.finish()     # 关闭 gzip 成员（写完整尾部）
+
     try:
         sys.stdout.buffer.write(tail)
         sys.stdout.buffer.flush()
     except Exception:
         pass
-    log.write(tail)
     log.close()
     return code
 

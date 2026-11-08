@@ -5541,3 +5541,97 @@ gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来
 > 交叉引用：四-AI 表 #81 的「待用户原话裁决」为追加当时的快照，状态以本表条目 3 为准；append-only 约束下原行保留不改。
 
 - 引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+
+### 220. 【普通 GGUF 转 NINFER 双头件全链路打通；GSQ-RCO IQ3_S 转正第三档；日志改为双写 gzip；dGPU 榨干显存致桌面卡死】（2026-11-08）
+
+**一、普通 GGUF → 双头件：本日第一次全流程自建**
+
+此前所有件都来自「下载成品 ninfer + 本地嫁接」，从未自己从 GGUF 转起。本日打通并留下两条对照：
+
+| 源 GGUF | validate | 转换 | MTP 接受率 | 结论 |
+|---|---|---|---|---|
+| unsloth `UD-Q3_K_XL` 12.24 GB | **FAIL**（96 个 ssm_alpha/beta 被压成 Q8_0） | 打补丁后 1151 对象约 1 分钟 | **d1 26.9% / d3 13.7% / d5 3.9%** | 配不齐 |
+| ISTA-DASLab `GSQ-RCO-IQ3_S-mtp` 11.29 GB | **PASS**（96 个保持 BF16，`has_mtp=True`） | **59.9s，零补丁零嫁接** | **d3 64.3%** | 可用 |
+
+根因不是工具能力，而是**发布方是否遵守容器假设**：norm 与 GDN 门控不得量化、MTP 头需与主权重同源同文件。unsloth 两点都破，GSQ-RCO 两点都守。
+
+为此在子仓 `line-coder390@352f27a` 归档两处转换工具改动：`sources/gguf.py` 增加 Q8_0 反量化分支（`read_bf16_words`，值 = fp16_scale × int8 按 bf16 就近舍入）+ `TYPE_Q8_0`；`gguf_blocks.py` 的 `validate` 对 `ssm_alpha/beta` 放宽。**注意 `stored` 对 Q8_0 为真而 `kind` 为 BF16，第二条件会先成立，`tolerated` 必须短路整条判断，否则补丁无效**（首版就写错在这里）。
+
+**二、GSQ-RCO IQ3_S 转正为第三档**
+
+链路：`tools.convert`（59.9s，1183 对象，11.91 GiB）→ `graft_dflash2.py`（85.0s，+1.383 GiB）→ `gsq_iq3s_dual.ninfer` **13.29 GiB**，`components=[text,vision,mtp,dflash2]`，mtp 绑定 16 / dflash2 绑定 91 / 总绑定 1513。
+
+启动器改动（`5e365a5`，+55/−14）：新增 `gsq` 档与 `gsq`/`gsq_dflash2` 两个 bundle；`VISION_CAPABLE_MODELS` 补 `gsq`（否则新档开视觉被误报"不含视觉组件"）；**DFlash2 护栏从 `model in ("swift","q2lynn")` 改为按 `<model>_dflash2` bundle 是否存在判断**，新增带 DFlash2 头的档无需再改代码。
+
+**三、池上限与通道效应（本日最大认知修正）**
+
+| 件 | 头 | 核显上限 | 核显 decode | dGPU 上限 | dGPU decode |
+|---|---|---|---|---|---|
+| CODER390 | MTP k3 | 86,016 | 154.9 | — | — |
+| CODER390 | DF2 k5 | 40,960 | 194.4 | — | — |
+| SWIFT15 | MTP k3 | 126,976 | 138.1 | — | — |
+| SWIFT15 | DF2 k5 | 90,112 | 186.0 | — | — |
+| **GSQ** | MTP k3 | **126,976**（slack 80.1 / 131,072 FATAL） | **152.7** | 126,976 能起（87.3）/ 98,304（96.7，free 30.8） | — |
+| **GSQ** | DF2 k5 | **90,112**（slack 13.6 / 94,208 FATAL） | **202.6** | 未实测（保守 51,200） | — |
+
+**修正**：此前"DFlash2 只比 MTP 快 3.5%/1.5%"的结论是**独显通道页出造成的假象**。核显通道同件同池复测，速度整体高 19–60%，DFlash2 相对 MTP 的真实收益为 +25.5%（Coder390）/ +34.7%（SWIFT）/ +32.7%（GSQ）。**池上限不变**（arith 纸面预算 `total − weights − 512` 与通道无关，slack 逐 MiB 相同），变的只是同一池下的吞吐。**通道是速度的第一变量，比选头影响更大。**
+
+**四、日志治理：弃用采样，改双写 gzip**
+
+实测单日志 28,049 行里 98.6% 是两类心跳（`[ninfer] ensure profile` 18,112 + `[ring] budgets` 9,056），关键行仅 0.5%。同一份 3.01 MB 日志三种写法实测：
+
+| 方案 | 体积 | 占比 | 信息 |
+|---|---|---|---|
+| 明文采样（首版实现） | 0.233 MB | **7.74%** | 丢心跳细节 |
+| 全量 gzip-6 | 0.032 MB | **1.06%** | 零损失 |
+| **双写（明文关键行 + gzip 全量）** | **0.106 MB** | **3.50%** | **零损失且明文可 grep** |
+
+**结论：采样用更大的体积换了更少的证据，弃用。** 落地为 `serve_tee.py` 的 `LogSampler(plain, gz_path)`：明文只留 ERROR/WARN/FATAL（含前 50 行上下文）、生命周期行、启动 DEBUG；gzip 收全量。`--log-level debug` 自动切 full；`SERVE_TEE_LOG_MODE=full` 手动逃生。
+
+**实现踩过三个坑，均已在代码注释里写明**：
+1. 段结束/收尾 `flush_context` → 把丢弃的心跳全写回，`written 37,105 > total 28,049`（130% 膨胀）；
+2. 采样点也 `flush_context` → 每 200 条写回前 199 条，压缩率只到 43%；
+3. **tee 被强杀时 gzip 尾部标记未写，`gzip.read` 报 `EOFError`** → 改为**多成员 gzip**（每 128 行 close 重开），截断只损失最后一个成员。
+
+规则同步：`项目硬规则.mdc` 新增 §11「日志分级纪律」（127 → 151 行），含四个强制 full 触发器与"新增高频打印源必须同步加采样表"。
+
+**五、质量对照（两轮共 5 题，三件零差异）**
+
+| 题 | GSQ（无微调底座） | CODER390 | SWIFT15 |
+|---|---|---|---|
+| 火车到达时刻（12:27） | ✅ | ✅ | ✅ |
+| 火车+水管的 9/7 小时题 | ✅ 逐字一致 | ✅ | ✅ |
+| 线程安全 LRU | ✅ OrderedDict+Lock+Generic | ✅ 手写双向链表（最长） | ✅ 带 default 参数（最工程化） |
+| 三向切分快排 | ✅ 正确 | ✅ 正确 + 独立 `_quicksort` 封装 | ✅ 正确 |
+| GQA vs MQA（中文） | ✅ 简洁 | ✅ 准确 | ✅ 最详细 |
+
+**能力持平，差异只在风格。GSQ 唯一短板是话多**：同一段快排用 2301 token，CODER390 只用 826（2.8 倍）。
+
+**六、事故：dGPU 通道榨干显存，桌面卡死**
+
+用户切独显通道后，本机在 `gsq DFlash2 @ 90,112` 起服时 `free 0 B`，Windows 桌面合成器（dwm/explorer）拿不到显存开始反复换页，**整机卡到无法打字**。关闭引擎后立刻恢复（`used 762 MiB / free 15,216`，compute-apps 仅剩 ShellExperienceHost / TextInputHost / NVIDIA Overlay ×2）。
+
+**三条纪律**：
+1. dGPU 通道下起服后先查 `nvidia-smi free`，**低于 1 GiB 立即降池**，不得继续压测；
+2. `MODEL_KVCAP_MAX_DGPU` 要按"不页出"填，不是按"纸面能起"填（`gsq 98,304` 只剩 30.8 MiB 也不安全，应继续下调）；
+3. 大池压测只在核显通道做。
+
+**七、当日清单**
+
+| 项 | 结果 |
+|---|---|
+| 提交 | `5e365a5`（GSQ 转正）、`f907ab7`（日志双写 + 配方文档）、子仓 `352f27a`（转换工具） |
+| 推送 | `aac0530..f907ab7`，`ahead 0/0`、`dirty=0` |
+| 门禁 | `refs 9 断链（基线 24）`、`logs 280.1 MiB（红线 1000）`、`subrepo dirty=0`，`GATES=0` |
+| 超期日志 | 438 文件 806 MB → `archive\logs_20261009-20261021.tar.gz` 59.1 MB（条目校验 438/438），原文件已删 |
+| 断链清理 | 7 个一次性脚本备份后删除，`refs` 25 → 9 |
+| 新增文档 | `docs/06-设计与规范/GGUF转NINFER双头件-完整配方.md`（369 行，九章） |
+| 删除 | `ud_q3kxl.ninfer` 12.64 GiB、`ud_q3kxl_mtp.ninfer` 12.89 GiB、`UD-Q3_K_XL.gguf` 12.24 GB、`mtp-...Q4_0.gguf` 1.28 GB |
+
+**八、未了**
+
+- `MODEL_KVCAP_MAX_DGPU['gsq']=98,304` / `['gsq_dflash2']=51,200` 未按"不页出"实测，需下调后补测；
+- GSQ DFlash2 的 dGPU 上限未测（因榨干显存致卡死，主动放弃）；
+- unsloth 件已删，若要复现其 13.7% 接受率需重下 12.24 GB；
+- 质量对照仅 5 题，未覆盖长上下文与复杂推理。
+

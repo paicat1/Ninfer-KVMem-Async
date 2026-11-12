@@ -46,7 +46,7 @@
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
-**❗ 第七层结论（§十五）**：**投机深度的瓶颈不是「验证策略」而是「草稿质量」**——验证策略（adaptive / dynamic）只能止损（5–15%），真正解锁 d8–d15 要靠深位接受率。**而 `--adaptive-mtp` 已全链实现、本仓从未跑过、§205 的显存判死已被 §208 翻案**——第一步是一晚零改码实验，不是写代码。
+**❗ 第八层结论（§十六）**：**Basalt 是 Strata 的 MoE 特化 fork（我们 dense 用不了），但它的 benchmark 台账格式可直接抄**——分项记 `decode_{conv,struct,prose}` / `accept_{conv,struct,prose}` / `draft_len_*` / `pcie` / `h2d_gbps` / `engine_args`，去重键 = 件+量化+硬件，CI 校验。**这正是「580 vs 182」「参数不一致」两个老问题的现成解法。**\n\n**❗ 第七层结论（§十五）**：**投机深度的瓶颈不是「验证策略」而是「草稿质量」**——验证策略（adaptive / dynamic）只能止损（5–15%），真正解锁 d8–d15 要靠深位接受率。**而 `--adaptive-mtp` 已全链实现、本仓从未跑过、§205 的显存判死已被 §208 翻案**——第一步是一晚零改码实验，不是写代码。
 
 **❗ 第六层结论（§十四）**：**长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」**——门槛 = 锚页数 + 256 页工作集 + 余量 ≤ 池；收益线性（0.033 秒/页），最优 = 池允许的最深锚。**家里第一步零成本可做**：用 §206 的 63,989 prompt + 51,200 池，看现役件 `capture install` 是否 0→>0。
 
@@ -2322,3 +2322,231 @@ git show origin/engine-main:src-tree/fusion-engine-src/src/models/qwen3_5/progra
 | §208 翻案 | 构建史 L4891-4892 |
 | 甜点与深位接受率 | 构建史 L4820（DFlash2：d4=121.1/36.2%、d5=124.4/32.2%、d7=99.2 **接受率未记录**、d8–d15→93.0/11.5%；MTP 段 m7–m15→68.0/14.0%） |
 | 上游 +7.88% | `调研-上游对照-…CB-TELE-LUMMY-20261103.md` L1202（表格）；机制实现见 `refs/strata/src/spec/draft_policy.cpp` |
+
+---
+
+## 十六 Basalt 台账格式：可直接抄的 benchmark 记录规范（2026-11-12）
+
+> 起因：用户给出 `jesdga95/basalt`（称「比 Strata 更快」）。核实后：**它是 Strata 的 fork，只支持 MoE（Flash-Next / DeepSeek-V4.1-Flash），我们 dense 27B 用不了。**
+> **但它的 benchmark 台账格式是现成的，正好治我们「参数不一致、负载不可比」的老毛病。**
+
+### 16.1 Basalt 的定位（先止损：别指望它的代码）
+
+**README Credits 第一条原文：**
+
+```markdown
+- [Strata](https://github.com/Niko1221/Strata): **the project Basalt forks** (MIT).
+```
+
+**支持范围（`docs/models/index.md`）：**
+
+| 模型 | Architecture id | 层 / 专家 |
+|---|---|---|
+| Qwen3.8-Flash-Next | `qwen4exp` | 48 层（36 GDN + 12 QSA）；**512 experts/layer，top-10** |
+| DeepSeek-V4.1-Flash | `deepseek41` | 40 层；**384 experts/layer，top-6 + 1 shared** |
+
+**核心机制（README 原文）：**
+
+> with the **experts that do not fit in VRAM in system RAM** (and optionally on more GPUs)
+
+**⇒ 它分层的是「权重（experts）」，我们分层的是「KV 页」——两套东西。**
+
+**⇒ 结论：代码不可借；**方法论可借**。**
+
+### 16.2 台账字段（这是唯一真正值得抄的东西）
+
+**`docs/community.md` 规定 `basalt-bench --community` 必须记录：**
+
+#### A. 吞吐分项（按负载类型拆）
+
+| 字段 | 含义 |
+|---|---|
+| `decode_tps` | 三类 fixture 的 tokens 总和 ÷ 时间总和（**token 加权，不是三者均值**） |
+| `decode_conv_tps` | 对话类 |
+| `decode_struct_tps` | 结构化类（代码/JSON） |
+| `decode_prose_tps` | 散文类 |
+
+**⚠ 原文特别强调：**
+
+> `decode_tps` stays the sum of the three fixtures' tokens over the sum of their decode times (**token-weighted, not the mean of these three**)
+
+**⇒ 这治的正是我们「拿单一 384 tok 请求代表全部」的毛病。**
+
+#### B. 投机分项（接受率 + 草稿长度，按负载拆）
+
+| 字段 | 含义 |
+|---|---|
+| `accept_conv_pct` / `accept_struct_pct` / `accept_prose_pct` | 接受的 draft ÷ 提供的 draft（%） |
+| `draft_len_conv` / `draft_len_struct` / `draft_len_prose` | 每轮平均提供几个 draft |
+
+**⚠ 原文：**
+
+> Both are left out for a fixture the model did not draft in.
+
+**⇒ 这治的正是我们「§205 只记 d7=99.2 没记接受率」那个坑。**
+
+#### C. 硬件实测（不是抄规格书）
+
+| 字段 | 测法 |
+|---|---|
+| `cpu` | 「型号 + 物理核数」，如 `"AMD Ryzen 9 9950X, 16 cores"` |
+| `ram_gbps` | 每物理核一线程流式读 2 GiB 缓冲，多次取最好 |
+| `pcie` | 驱动报告的链路，如 `"5.0 x16"`（**最大代际 + 当前宽度**，因为空闲时会降代） |
+| `h2d_gbps` | pinned host→device，多次 256 MiB 拷贝取最好 |
+
+**⇒ 这治的正是我们「带宽参数靠猜（1024 GB/s）」那个坑。**
+
+#### D. 起服参数
+
+| 字段 | 限制 |
+|---|---|
+| `engine_args` | 预设传给引擎的参数（**不含模型路径，≤300 字符**） |
+
+**⇒ 这治的正是我们「忘了打什么补丁/用了哪个件」那个坑。**
+
+### 16.3 去重规则（一行一 setup）
+
+**原文：**
+
+> One row per setup: the checker refuses a row whose **submitter** (ASCII letters compared without case), **model**, **quant**, **every GPU** (name, VRAM, power limit, in that order), **CPU**, **RAM size** and **system** all match an earlier row.
+> A field one of the two rows lacks counts as matching.
+> **The KV format is not compared.**
+> To change a run, update the earlier row; **do not add another**.
+
+**⇒ 关键设计：**
+
+```
+① 去重键是「硬件 + 件 + 量化」的组合，不是「时间戳」
+② 缺字段按「匹配」处理 ⇒ 老行不会被新字段挤掉
+③ 要改就改老行，不新增
+④ KV 格式不参与去重（因为同一 setup 可以试不同 KV）
+```
+
+### 16.4 CI 校验（格式错就 fail）
+
+**原文：**
+
+> After a hand edit, run `python3 tools/check_benchmarks.py --fix docs/community/benchmarks.json`; it rewrites the file in the house format and validates it.
+> **CI runs the same checker without `--fix` and fails on any other format.**
+> A benchmark-only pull request **skips the full build**.
+
+**⇒ 三个设计点：**
+
+```
+① 手改后用 --fix 自动整理格式
+② CI 只校验不修（人工必须先 fix）
+③ benchmark-only PR 不跑全量编译（省 CI 时间）
+```
+
+### 16.5 我们的适配版（家里可直接用）
+
+#### 建议的 JSONL 行格式
+
+```json
+{
+  "date": "2026-11-12",
+  "operator": "cb",
+  "model": "swift15_dflash2.ninfer",
+  "model_sha": "a1b2c3d4",
+  "spec": "dflash2",
+  "draft_tokens": 7,
+  "kv_dtype": "rk8v4",
+  "pool_tokens": 51200,
+  "engine_exe": "ninfer-serve.exe",
+  "engine_sha": "F814B07A",
+  "engine_args": "--kv-capacity 51200 --kv-dtype rk8v4 --cuda-graph-allowance-mib 192 ...",
+  "gpu": "RTX 5080 16GB",
+  "gpu_used_mib": 14600,
+  "channel": "igpu",
+  "graph_allowance_mib": 192,
+  "host_kv_mib": 16384,
+  "prompt_tokens": 63989,
+  "output_tokens": 384,
+  "ttft_s": 13.5,
+  "prefill_tps": 1920,
+  "decode_tps": 182.1,
+  "decode_conv_tps": null,
+  "decode_struct_tps": null,
+  "decode_prose_tps": null,
+  "accept_pct": 59.5,
+  "accept_conv_pct": null,
+  "accept_struct_pct": null,
+  "accept_prose_pct": null,
+  "draft_len_conv": null,
+  "draft_len_struct": null,
+  "draft_len_prose": null,
+  "anchor_install": 0,
+  "anchor_hit_pct": null,
+  "page_drift_hidden_max": 334,
+  "notes": "长上下文 mixed speculation"
+}
+```
+
+#### 三条必守规则
+
+| # | 规则 | 治什么 |
+|---|---|---|
+| **1** | **去重键 = `model_sha + engine_sha + spec + draft_tokens + kv_dtype + pool_tokens + gpu`** | 同一 setup 不重复登记，要改改老行 |
+| **2** | **`accept_pct` 为空时必须写 `null`，不能省略** | 防「没记就是 0」的误读 |
+| **3** | **`engine_args` 必填且 ≤300 字符** | 防「忘了参数」 |
+
+#### 建议的三类负载 fixture（对应 basalt 的 conv/struct/prose）
+
+```
+conv    = 多轮对话（短问短答，模拟 DSH 日常）
+struct  = 代码/JSON 生成（模拟写代码、写配置）
+prose   = 长文生成（模拟动画/文档）
+```
+
+**⇒ 每个 fixture 单独记 `decode_tps` 与 `accept_pct`——这正是「580 vs 182」那个矛盾的解法：**
+
+```
+182 = mixed speculation + 长上下文 + 59.5% 接受率（§206）
+580 = d7 + 实际任务 + 高接受率（用户观察，未复现）
+⇒ 两条不是矛盾，是不同 fixture
+⇒ 台账里分开记，就不会再混
+```
+
+### 16.6 AGENTS.md 的六条规则（顺带抄）
+
+**Basalt 的 `AGENTS.md` 原文：**
+
+```markdown
+- **Design the end state first.** Before writing code, design the architecture properly and read similar code.
+  If a model already implements the feature, reuse that logic or make it shared.
+  Do not propose features or improvements before testing them and checking the architecture.
+- **Flag odd numbers.** Sanity-check every result before reporting it (size against speed, run-to-run spread,
+  earlier numbers) and report anything odd with its suspected cause.
+- **Read before answering.** Check the code, docs and existing results before stating a fact about Basalt.
+- **No amends, no force-pushes.** Always make new commits.
+- **Don't push or publish anywhere** (GitHub, HF, any remote) without the user's approval.
+- **Don't write tools nobody asked for.**
+```
+
+**⇒ 其中两条正是本轮讨论中反复出现的错误模式：**
+
+| 规则 | 对应的实际错误 |
+|---|---|
+| **`Flag odd numbers`**（size against speed 自检） | 我用 1024 GB/s 让 580 自洽——**没做 size-against-speed 检查** |
+| **`Read before answering`**（先查代码/文档/已有结果） | 我三次拿旧判据说话（§205 已被 §208 翻案 / L5341 截断误判 / adaptive 说成没接上） |
+
+### 16.7 边界与结论
+
+| 项 | 判定 |
+|---|---|
+| Basalt 代码 | ❌ **不可借**（MoE 专属：expert tiering / NVFP4 experts / qwen4exp+deepseek41 适配） |
+| Basalt 是 Strata 竞品吗 | ❌ **是 fork**（Credits 第一条） |
+| 「比 Strata 快」 | ⚠ **MoE 场景快**（experts 分层放 RAM），**不是通用提速** |
+| **台账格式** | ✅ **可抄，且正好治我们的老毛病** |
+| **AGENTS.md 六条** | ✅ **可抄，两条正对今天的错误** |
+
+### 16.8 引用
+
+| 内容 | 出处 |
+|---|---|
+| Basalt 是 Strata 的 fork | `refs/basalt/README.md` Credits 第一条 |
+| 支持范围与架构 id | `refs/basalt/docs/models/index.md` |
+| 台账字段与去重规则 | `refs/basalt/docs/community.md`（31 行全文） |
+| CI 校验器 | `refs/basalt/tools/check_benchmarks.py` |
+| AGENTS.md 六条 | `refs/basalt/AGENTS.md`（15 行） |
+| repo 元数据 | GitHub API `jesdga95/basalt`（936 star / 125 fork / MIT / 2026-10-06 建仓 / 11-12 在推） |

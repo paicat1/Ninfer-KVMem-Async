@@ -46,6 +46,8 @@
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
+**❗ 第七层结论（§十五）**：**投机深度的瓶颈不是「验证策略」而是「草稿质量」**——验证策略（adaptive / dynamic）只能止损（5–15%），真正解锁 d8–d15 要靠深位接受率。**而 `--adaptive-mtp` 已全链实现、本仓从未跑过、§205 的显存判死已被 §208 翻案**——第一步是一晚零改码实验，不是写代码。
+
 **❗ 第六层结论（§十四）**：**长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」**——门槛 = 锚页数 + 256 页工作集 + 余量 ≤ 池；收益线性（0.033 秒/页），最优 = 池允许的最深锚。**家里第一步零成本可做**：用 §206 的 63,989 prompt + 51,200 池，看现役件 `capture install` 是否 0→>0。
 
 **❗ 本轮第五层结论（§十二）**：**DFlash2 的「无法加载」是 10 月算式错误**（把互斥的 MTP 加了进去）——引擎早已实现，Bonsai 线已有 `dflash2` 独立档（kvcap 17,920），Q4_K_M 转容器约 1.4~1.6 GiB，**可行**，缺的只是一次转码 + 一晚实测。
@@ -2013,3 +2015,310 @@ enum class AnchorPolicy { Conservative, Balanced, Aggressive };
 | Coder390 57,344（65,536 不可用） | 构建史 L5199 / L5212 |
 | §206 现成场景（63,989 prompt + 51,200 池） | 构建史 L4832 |
 | prefill 1.92k tok/s | 构建史 L4832 |
+
+---
+
+## 十五 投机深度路线：先跑 adaptive-mtp，再谈 DSpine 移植（2026-11-12）
+
+> 起因：用户给出 ModelScope 的 `tencent-community/Qwen3.8-27B-DSpine-b16` 预测头，问与现用 MTP/DFlash 相比有无速度与显存价值。
+> 结论：**头本身用不了（SGLang 专用），但它证明「16 块 + 动态验证」可行——而我们的引擎已有 `--adaptive-mtp` 全链实现，只是从未跑过。**
+
+### 15.1 DSpine-b16 是什么
+
+ModelScope API 元数据：
+
+```yaml
+Architectures: ["DFlashDraftModel"]      # DFlash 系，不是新架构
+base_model:    Qwen/Qwen3.8-27B          # 与我们同底模
+tags:          dspine, speculative-decoding, draft-model, sglang
+tensor_type:   ["BF16"]
+model.safetensors: 4,051,831,880 B = 3.77 GiB
+Downloads:     38
+```
+
+README 原文：
+
+> DSpine generates draft tokens **in parallel**. Each layer passes predicted predecessor features to adjacent positions.
+> five-layer draft model for Qwen3.8-27B, with **block size 16** and an **8,192-token sliding window**.
+
+| 项 | DSpine-b16 | 我们的 DFlash2 |
+|---|---|---|
+| 架构 | `DFlashDraftModel` | `DFlash2`（同族） |
+| **块大小** | **16** | **8** |
+| 层数 | 5 | 5 |
+| 窗口 | 8,192 | 2,048 |
+| 精度/体积 | **BF16 3.77 GiB** | Q4_K_M 1.03 GiB |
+| 量化后（估） | ≈ 0.95–1.1 GiB | 1.03 GiB |
+| **target 特征层** | **[1,16,31,46,61]** | **[5,19,33,47,61]** |
+| **桥接 rank** | **512** | **256** |
+
+**⇒ 显存上量化后与 DFlash2 持平，不构成优势。**
+
+**⚠ 权重不可互换**：两者虽然同属 `DFlashDraftModel` 族、`mask_token_id` 相同（248070），
+但 **target 特征层选择不同（[1,16,31,46,61] vs [5,19,33,47,61]）、桥接 rank 不同（512 vs 256）**。
+**⇒ 将来若做 DSpine 转换，必须按它自己的 config 走转换器，不能套 DFlash2 的 graft 脚本。**
+
+**⚠ 块大小口径**：表中 DFlash2 的「8」是**官方默认**；本仓实际长期跑 d7（§203/§205 的甜点区在 d4/d5，长生成用 d7）。
+
+### 15.2 三个硬阻碍（为什么现在用不了）
+
+README 的评估与启动条件原文：
+
+> Runtime: **SGLang 0.5.22**, BF16, FlashAttention 3, **concurrency 8**
+> DSpine inference: **dynamic verification referencing DSpark**, with **ReplaySSM** enabled
+
+```bash
+sglang serve \
+  --speculative-algorithm DSPINE \
+  --enable-linear-replayssm-spec \
+  --mamba-ssm-dtype float32 \
+  --speculative-num-draft-tokens 16
+```
+
+| # | 依赖 | 我们的状态 |
+|---|---|---|
+| 1 | `--speculative-algorithm DSPINE` | ❌ 引擎只支持 `mtp` / `dflash` / `dflash2`（`serve_options.cpp:265`） |
+| 2 | `ReplaySSM`（linear attention state 重放） | ❌ 未实现 |
+| 3 | `DSpark` dynamic verification | ❌ 未实现 |
+
+**⇒ 所以 README 的 3 倍（SWE-bench Pro 241→713、τ²-bench 301→964）是「SGLang + BF16 + concurrency 8」的数字，不能外推。**
+
+**⇒ 而且它的基线是「无投机」，我们的基线是「DFlash2 已在跑」。**
+
+### 15.3 我们自己的验证策略在哪（`decode.cpp:1091-1098`）
+
+```cpp
+const std::uint32_t max_by_budget = budgets[row].generated_tokens_remaining > 1
+                                        ? budgets[row].generated_tokens_remaining - 1U
+                                        : 0U;
+const std::uint32_t proposed = !matches[row].tokens.empty()
+                                   ? static_cast<std::uint32_t>(matches[row].tokens.size())
+                                   : (drafter_runs ? draft_window : 0U);
+const std::uint32_t extent =
+    std::min({proposed, max_by_budget, capacity - sequence.execution_frontier - 1U});
+```
+
+**⇒ 宽度 = `min(草案数, 预算, 剩余容量)`，一次算死，然后验证。**
+
+**唯一的「动态」只有二档切换**（`decode.cpp:1038-1043`）：
+
+```cpp
+const std::vector<NgramProposer::Match> matches = propose_ngram(lanes, budgets);
+const bool copy_round = std::any_of(...);
+const std::uint32_t verify_drafts = copy_round ? ngram_draft_window : draft_window;
+```
+
+**⇒ 所以「dynamic verification」的改动点确实是这里，但见 15.5 的收益定性。**
+
+### 15.4 关键纠正：`--adaptive-mtp` 不是「没接上」，是「从未跑过」
+
+`serve_options.cpp:268-270` 帮助文本原文：
+
+```
+--adaptive-mtp                each MTP round verifies 3..--draft-tokens
+                              drafts, the width the drafts' measured survival
+                              and round cost favor; greedy output is unchanged
+```
+
+`serve_options.cpp:611-612`：
+
+```cpp
+} else if (arg == "--adaptive-mtp") {
+    options.speculative.mtp_policy = MtpDraftPolicy::Adaptive;
+```
+
+**⇒ 参数已解析、机制已实现（`speculative/mtp_adaptive.h` + `tests/.../test_mtp_adaptive.cpp`）、launcher 已接入（默认 off）。**
+
+**⇒ 但本仓从未实测过。**
+
+#### §205 的「adaptive 判死」已被 §208 翻案
+
+**§205（11-04）原文：**
+
+> `--adaptive-mtp` 预留 5.06-5.29 GiB（池无关部分主导），16 GB 卡即使 8192 池也装不下（avail 3.6 GiB）。
+
+**§208（11-05）原文：**
+
+> **5 GiB 构成**：`startup.cpp:1446-1448` 表明它是 CUDA Graph driver-state 的 **planning allowance（保守上界）**，非实测占用。
+> **放大源 = 宽度数 × 拓扑类数 × 12/82 MiB 常量**，与真实图大小无关。
+> **`--cuda-graph-allowance-mib N` 无条件覆盖整个计算值 ⇒ 无需改引擎、无需立项。**
+> 本仓实证：L43（64K 池 + 128，decode 101.1 零代价）、L1300（压 128 → 25 秒 READY）。
+> **挂账 #65 销账措辞：「构成已查清 = 保守上界，一行启动参数已可压到 128–192 MiB 且本仓长期使用」**
+
+**⇒ 显存墙不存在。§205 的判据已过时。**
+
+### 15.5 收益定性：验证策略是「止损」不是「提产」
+
+```
+深位接受率（§205，DFlash2 段）：d1=62.3% → d4=36.2% → d5=32.2% → d6=26.3%
+                                → d8–d15 递减至 11.5%
+                                （d7=99.2 tok/s，原文未记录其接受率）
+⇒ d8–d15 的产出端被草稿质量钉死（1.2–1.7 token/步）
+⇒ 验证策略只能省「成本端的 verify 计算」
+⇒ 上限 = 回到甜点区 + 吃负载异质性，量级 5–15%（上游 +7.88% 佐证）
+```
+
+**⚠ 一处易错（本轮已修正）**：§205 原文 `m7-m15 单调递减至 68.0(14.0%)` 里的 **14.0% 是 MTP m15 的终值，不是 DFlash2 d7 的**。
+DFlash2 的 d7 原文只记了 `99.2 tok/s`，没有接受率；DFlash2 的深位终点是 `d15=93.0(11.5%)`。
+
+**⇒ 真正「解锁深块」需要**深位草稿质量**上去——那是 DSpine 相邻因果注入的贡献区（深位 ~32% vs 我们 11.5%）。**
+
+#### 一个科学性问题：全局 EMA 截断 ≈ 静态最优宽度
+
+```
+§205 已手扫出甜点 d4/d5 = 121–124 tok/s
+⇒ 若信号是全局统计，EMA 截断的边际收益 ≈ 0
+⇒ mtp_adaptive 的真实价值在「逐请求滞后自适应」——吃负载异质性
+```
+
+**⇒ §205 是单一负载（384 tok 贪心），§203 长生成场景用 d7——DSH agent 会话长短混合，正是自适应该吃的场景。**
+
+### 15.6 硬约束：adaptive 与 MTP 后端硬绑定
+
+```
+speculative_options.h:72  throw std::invalid_argument("--adaptive-mtp requires --spec mtp");
+speculative_options.h:85  同
+speculative_options.h:93  同
+```
+
+**⇒ 接进 DFlash 要：① 解除算法绑定 ② 适配 `dflash_graph_profiles`（与 `mtp_graph_profiles` 是两套图集，`graphs.cpp:343/379` 分开 capture）③ `extent` 接线。**
+
+**⇒ 改动面比「接个信号」大一档。**
+
+### 15.6b 头号嫌疑：GDN/SSM 状态回放缺失（读码即可判别，零机时）
+
+> 本节由 TELE 在收敛审核中提出，优先级**高于 adaptive 实测**——若证实，三条投机路线（MTP / DFlash2 / 未来的 DSpine）全部受益。
+
+#### 证据链（三条独立指向同一结论）
+
+**① DSpine 把 ReplaySSM 列为**必要部署条件**（不是可选优化）：**
+
+```bash
+sglang serve \
+  --speculative-algorithm DSPINE \
+  --enable-linear-replayssm-spec \      # ← 官方生态没有它都不行
+  --mamba-ssm-dtype float32
+```
+
+**⇒ 腾讯实测踩过的坑：不做 SSM 状态回放，投机验证就是错的。**
+
+**② §205 的曲线形态正是「误差随深度累积」：**
+
+```
+DFlash2：d1=62.3% → d4=36.2% → d5=32.2% → d6=26.3% → d8–d15→11.5%
+         ↑ 起点不低                                    ↑ 深位崩
+
+如果是「底模整体分布偏移」，d1 也应该明显低
+⇒ d1 正常而深位崩 = 累积型误差
+```
+
+**③ 机理（SSM 是递归状态）：**
+
+```
+GDN/SSM 层：state_t = f(state_{t-1}, x_t)   ← 递归
+验证 K 个 token ⇒ 状态连续推进 K 步
+若验证拒绝后没有「快照/回滚」：
+    被拒绝 token 产生的状态污染会留在 state 里
+    拒绝概率随深度上升 ⇒ 污染累积 ⇒ 深位崩得最狠
+⇒ 与 §205 的曲线形状完全吻合
+```
+
+**④ 与「greedy 同配置完全可复现」（构建史 L4825）相容：**
+
+> 污染是**确定性**的（同样的输入 → 同样的污染 → 同样可复现），不是随机噪声。
+
+#### 判别动作（零机时，读码）
+
+```bash
+# 读 decode_dflash_batch 的拒绝路径，看 GDN/SSM 状态是否做了快照/回滚
+git show origin/engine-main:src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+#   搜：跟 draft 拒绝后的 state 处理有关的函数
+#   对照 SGLang 的 replayssm 实现（refs 或 GitHub sgl-project/sglang）
+```
+
+**判据：**
+
+| 读码结果 | 结论 |
+|---|---|
+| **拒绝后无快照/回滚** | ✅ **证实是根因 ⇒ 修复收益 = 直接抬接受率曲线，上限远高于 adaptive 的 5–15%** |
+| 已有快照/回滚 | ❌ 排除 ⇒ 回到「头与底模错配」假设（挂账 #②） |
+
+#### 若证实，行动序要重排
+
+```
+现序：adaptive 实测（5-15% 止损）→ 接受率判别 → DFlash 推广
+重排：GDN/SSM 状态回放读码（零机时）→ 修复（若缺失）→ adaptive 实测
+```
+
+**⇒ 因为「抬接受率」和「省 verify 计算」不是一个量级。**
+
+### 15.7 行动序（成本-信息增益排序）
+
+| 序 | 动作 | 机时 | 判据 |
+|---|---|---|---|
+| **1** | **跑 `--adaptive-mtp` 实测**（k3 定稿 vs 自适应 3..15，ABBA 各 2 轮 + **混合负载臂**） | **零改码，一晚** | **≥8% ⇒ 值得推广到 DFlash；<5% ⇒ 推广方案判死** |
+| 2 | 并行：判别接受率异常（<b>先读码，后梯度</b>） | 零机时 + 一次起服 | ① **读 GDN/SSM 拒绝路径有无快照（15.6b，首选）** ② **曲线形状分析**（d1=62.3% 不低 + 深位陡降 ⇒ 指向累积问题，非底模整体偏移） ③ **IQ2_S（8.8 GiB）vs IQ3_S（11.9 GiB）梯度对照**（测「量化精度→接受率」方向）<br>⚠ **官方 BF16 对照在 16 GB 卡不可行**（BF16 ≈ 54 GiB、Q8 ≈ 27 GiB 都装不下）——此路作废 |
+| 3 | adaptive 达标后才做 DFlash 推广 | 中等改动 | 解绑 + graph_profiles 适配 + extent 接线 |
+| 4 | 等待线：DeepSpec 源码侦察（`deepseek-ai/DeepSpec` 公开仓） | 零成本 | 把「dynamic verification」从推断变成证据 |
+
+**⚠ 序 1 必须加一臂「混合负载」——否则这晚实验信息量为零**：
+
+```
+问题：单一负载（§205 的 384 tok 贪心）的甜点已被手扫出（d4/d5 = 121-124 tok/s）
+      ⇒ 逐请求自适应在该负载上的最优解就是甜点宽度
+      ⇒ 两臂差异只能落在噪声区 ⇒ "≥8%/<5%" 判据永不触发
+
+补法（不改机时预算）：
+  增加一臂「混合负载序列」= 短问答 ↔ 长生成交替（模拟 DSH agent 会话形态）
+  对比「全局固定 d5」vs「adaptive」在这一臂的差
+  ⇒ 这才是 15.5 说的"该吃的场景"，也是 ≥8% 判据唯一可能触发的场景
+```
+
+**实验设计出处**：ABBA 各 2 轮、k3 定稿 vs 自适应 3..15 的原始计划见
+`调研-对照-上游报告在本仓的落地核验-CB-20261103.md` L85（2026-11-03 排定，零改码）。
+
+**这一晚还自带三份免费副产物（设计时留好观测列）：**
+
+| 观测列 | 用途 | 注意 |
+|---|---|---|
+| `mask hidden` / 页漂移行为 | 给 **#77**（修法 A 验证）提供旁证数据 | **判据正交**：adaptive 是「同件比策略」，#77 是「同策略比件」——不能合并，但日志可共享 |
+| **ngram 命中率** | `decode.cpp:1038-1042` 的 `copy_round` 切换在 agent 场景（代码模板/重复文本）的命中数据目前空白 | 加一列观测免费拿到 |
+| **长输出稳定性（1K+）** | 混合负载臂的长生成分段正好覆盖 | **顺手销挂账②**（"d4/d5 在更长输出与并发下的稳定性未测"） |
+
+### 15.8 关于「等社区适配」
+
+**适配质量是双峰分布：**
+
+```
+完整移植（照 SGLang 参考实现）⇒ 连 dynamic verification + ReplaySSM 一起带
+简化移植（llama.cpp 风格常见）⇒ 只有静态验证
+```
+
+**⇒ 对我们真正相关的「社区」是上游 NInfer（5090 线）——它对 DFlash 谱系已有完整工程投入（`decode_dflash_batch` / `dflash_graph_profiles` 都是现成的），DSpine 同族跟进门槛低，但周期不可控。**
+
+**⇒ 所以「等适配」是合理路线之一，收益取决于适配完整度；而「自己改验证策略」与等待正交，不冲突。**
+
+### 15.9 本轮认账（三处）
+
+| # | 我说的 | 实际 |
+|---|---|---|
+| 1 | 「adaptive 素材有但没接上」 | ❌ **全链已实现**（`serve_options.cpp:611` + `mtp_adaptive.h` + 单测），只是**从未跑过** |
+| 2 | 引 §205 的「adaptive 装不下」 | ❌ **已被 §208 翻案**（5 GiB 是保守上界，`--cuda-graph-allowance-mib` 一行压到 128–192 MiB） |
+| 3 | 「改验证策略能解锁 d8–d15」 | ❌ **只能止损**（深位接受率 11.5% 钉死产出端），解锁要靠草稿质量 |
+
+**⇒ 根因：拿旧判据（§205）说新话，且把「已有实现」说成「素材欠缺」。**
+
+### 15.10 引用
+
+| 内容 | 出处 |
+|---|---|
+| DSpine 元数据与 README | ModelScope API `tencent-community/Qwen3.8-27B-DSpine-b16` |
+| 我们的验证宽度计算 | `decode.cpp:1091-1098`（`origin/engine-main`） |
+| ngram 二档切换 | `decode.cpp:1038-1043` |
+| `--adaptive-mtp` 帮助与解析 | `serve/serve_options.cpp:268-270` / `:611-612` |
+| adaptive 硬绑定 | `product/speculative_options.h:72/85/93` |
+| adaptive 实现与单测 | `program/speculative/mtp_adaptive.h` / `tests/.../test_mtp_adaptive.cpp` |
+| §205 判死 | 构建史 L4822 |
+| §208 翻案 | 构建史 L4891-4892 |
+| 甜点与深位接受率 | 构建史 L4820（DFlash2：d4=121.1/36.2%、d5=124.4/32.2%、d7=99.2 **接受率未记录**、d8–d15→93.0/11.5%；MTP 段 m7–m15→68.0/14.0%） |
+| 上游 +7.88% | `调研-上游对照-…CB-TELE-LUMMY-20261103.md` L1202（表格）；机制实现见 `refs/strata/src/spec/draft_policy.cpp` |

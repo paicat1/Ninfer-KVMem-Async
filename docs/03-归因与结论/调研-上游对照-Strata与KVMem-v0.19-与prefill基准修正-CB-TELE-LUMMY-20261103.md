@@ -46,7 +46,29 @@
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
-**❗ 第六层结论（§十四）**：**长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」**——门槛 = 锚页数 + 256 页工作集 + 余量 ≤ 池；收益线性（0.033 秒/页），最优 = 池允许的最深锚。**家里第一步零成本可做**：用 §206 的 63,989 prompt + 51,200 池，看现役件 `capture install` 是否 0→>0。
+**❗ 第十层结论（§十八）**：**decode 速度没有统一口径，但业界有标准（llama-bench 的 pp/tg、MLPerf 的 TTFT/TPOT P90、Basalt 的分负载台账）**——我们缺的不是标准，是**六字段标注**（prompt/生成/并发/量化/通道/采样）。补齐后历史 8 个数字立刻可比。
+
+**❗ 第九层结论（§十七）**：**项目「比较成熟」成立，但边界是「机制 + 工程」，不含「文档」**——技术高 / 工程高 / 产品中 / **文档中偏弱**（5 处过时结论仍以肯定语气存在，今日 3 处当场误导）。**补齐只需半小时：给旧结论加 `superseded by §xxx` 标记**（append-only 纪律不变，只加标记）。
+
+**❗ 第八层结论（§十六）**：**Basalt 是 Strata 的 MoE 特化 fork（我们 dense 用不了），但它的 benchmark 台账格式可直接抄**——分项记 `decode_{conv,struct,prose}` / `accept_{conv,struct,prose}` / `draft_len_*` / `pcie` / `h2d_gbps` / `engine_args`，去重键 = 件+量化+硬件，CI 校验。**这正是「580 vs 182」「参数不一致」两个老问题的现成解法。**
+
+**❗ 第七层结论（§十五）**：**投机深度的瓶颈是「草稿质量」不是「验证策略」**——验证策略（adaptive / dynamic）只能**止损**（5–15%），真正解锁 d8–d15 要靠**深位接受率**（§205：d1=62.3% → d8–d15→11.5%，衰减形态指向累积误差而非头质量）。**而 `--adaptive-mtp` 已全链实现、本仓从未跑过、§205 的显存判死已被 §208 翻案**（5 GiB 是 CUDA Graph 的保守上界，`--cuda-graph-allowance-mib` 一行压到 128–192 MiB）——**第一步是一晚零改码实验，不是写代码。**
+
+**⚠ 2026-11-13 补**：§十五 的 15.6b 提出「GDN/SSM 状态回放缺失」是深位崩的头号嫌疑（DSpine 把 ReplaySSM 列为必要部署条件 + 我们 d1 不低而深位陡降的累积形态 + greedy 可复现的确定性污染）——**判别只需读 `decode_dflash_batch` 的拒绝路径，零机时**。若证实，优先级排在 adaptive 实测之前。
+
+**❗ 第六层结论（§十四）**：**长前缀锚不是「提速 prefill」，是「让下一轮少做 prefill」**——门槛 = 锚页数 + 256 页工作集 + 余量 ≤ 池；收益线性（0.033 秒/页），最优 = 池允许的最深锚。
+
+**⚠ 2026-11-13 更新（本节原文已过时）**：原文写的「家里第一步：看 `capture install` 是否 0→>0」**已经做完了**——
+
+| 项 | 实测结果 | 出处 |
+|---|---|---|
+| 锚命中（51,200 池） | **50.0% `long anchor`**（`cache 16,425`） | §218 L5393 |
+| 锚命中（90,112 池） | **66.7%**（`cache 21,882`），变体 total 18.5s→6.9s（**省 62.7%**） | §219 L5460-5464 |
+| **修法 A 效果** | **< 0.4%（17.244/6.379/0.636 vs 17.187/6.375/0.639），销账为「防御性修复」** | §219 L5506 / L5512 |
+
+**⇒ 两项都已实测，§14.8 的「第一步」不再存在。** 而 §218 那次 24K 池 A/B 两臂均 429（`need 513 > usable 384`）是**设计无效**（锚放不下），不是修法 A 无效。
+
+**⚠ 另注意**：「长→短两轮」方向已被 §219 实测撤回（长 31,437 → 短 7,917，短请求 `cache 0`、`publish host-backed=0`；锚永远贴 prompt 末尾，短前缀够不着）——**锚的正确用法是「同长、换尾问」**。
 
 **❗ 本轮第五层结论（§十二）**：**DFlash2 的「无法加载」是 10 月算式错误**（把互斥的 MTP 加了进去）——引擎早已实现，Bonsai 线已有 `dflash2` 独立档（kvcap 17,920），Q4_K_M 转容器约 1.4~1.6 GiB，**可行**，缺的只是一次转码 + 一晚实测。
 
@@ -1567,6 +1589,72 @@ Ninfer-KVMem 与 Ninfer-KVMem-Async 的 sha 完全相同 ⇒ 同一仓库的旧�
 
 ---
 
+
+### 13.9 「引擎树发布机械化」复核：主体闭合，留两个尾巴（2026-11-13）
+
+> 背景：`engine-main` 的 `8f77c13` 把修法 A 的源码（`spare_prefix_pages`）携入版本控制，**§13.7 的主体缺口（源码未资产化）已闭合**。
+> 但 TELE 复核指出：闭合的是「源码」，不是「机制」——两个尾巴仍在。
+
+#### 尾巴 a：发布脚本未入库（机制不可复现）
+
+**核实结果：**
+
+```
+git ls-tree -r origin/main | grep '\.ps1$' 且含 engine：
+
+  deploy_engine.ps1                    ← exe 换装（备份→停引擎→部署→重启），不是快照发布
+  scripts/check_engine_versions.ps1
+  scripts/engine_assets.ps1
+  scripts/engine_ctl.ps1               ← 起停控制
+  scripts/start_engine_default.ps1
+
+publish_engine.ps1  ⇒ 全树 NOT FOUND
+```
+
+**但 `engine/lineage/MANIFEST.md` 里两次提到它：**
+
+```
+L146  引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+L147  引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+```
+
+**⇒ 脚本存在（家里机器上），执行过两次，但**不在版本控制里**。**
+
+**⇒ 后果：换机器/重装后，「怎么把 engine-src 快照携入 engine-main」这一步只能靠读 MANIFEST 的文字重写。**
+
+**⇒ 建议：`scripts/publish_engine.ps1` 入库（含 lineage MANIFEST 追加逻辑）。**
+
+#### 尾巴 b：快照 ↔ 二进制 的对账缺一环
+
+**已有什么：**
+
+```
+MANIFEST L146-147：源码版本 ↔ 快照          ✅ 有（2755b24 → engine-main，c5f48a8 → engine-main）
+MANIFEST L100-102：exe 名 ↔ sha256          ✅ 有（RC8=B93B1791、FIXA=F814B07A）
+```
+
+**缺什么：**
+
+```
+「哪个 src-tree 快照 对应 哪个 exe」
+⇒ 例如：F814B07A（修法 A）应该对应 c5f48a8 之前的哪个快照？
+⇒ 现在只能靠人记「修法 A 是在 2755b24 之后、c5f48a8 之前编的」
+```
+
+**⇒ 建议：MANIFEST 加一列 `src_snapshot`，或在快照提交消息里写明「对应 exe sha16」。**
+
+#### 结论表
+
+| 项 | 状态 |
+|---|---|
+| 修法 A 源码入库 | ✅ **已闭合**（`8f77c13`，快照方式优于 patch） |
+| 发布脚本入库 | ❌ **尾巴 a**（`publish_engine.ps1` 全树无） |
+| 快照 ↔ 二进制对账 | ⚠ **尾巴 b**（源码↔快照有，快照↔exe 无） |
+
+**⇒ `deploy_engine.ps1` 不是 `publish_engine.ps1`，两者不要混：前者换 exe，后者发布源码树。**
+
+---
+
 ## 十四 长前缀锚（PrivateLongAnchor）：机制、门槛与落地指导
 
 > 2026-11-05 追加。本节把「多轮讨论 + TELE 六轮交叉复核」综合成可直接执行的形态。
@@ -2013,3 +2101,815 @@ enum class AnchorPolicy { Conservative, Balanced, Aggressive };
 | Coder390 57,344（65,536 不可用） | 构建史 L5199 / L5212 |
 | §206 现成场景（63,989 prompt + 51,200 池） | 构建史 L4832 |
 | prefill 1.92k tok/s | 构建史 L4832 |
+
+---
+
+## 十五 投机深度路线：先跑 adaptive-mtp，再谈 DSpine 移植（2026-11-12）
+
+> 起因：用户给出 ModelScope 的 `tencent-community/Qwen3.8-27B-DSpine-b16` 预测头，问与现用 MTP/DFlash 相比有无速度与显存价值。
+> 结论：**头本身用不了（SGLang 专用），但它证明「16 块 + 动态验证」可行——而我们的引擎已有 `--adaptive-mtp` 全链实现，只是从未跑过。**
+
+### 15.1 DSpine-b16 是什么
+
+ModelScope API 元数据：
+
+```yaml
+Architectures: ["DFlashDraftModel"]      # DFlash 系，不是新架构
+base_model:    Qwen/Qwen3.8-27B          # 与我们同底模
+tags:          dspine, speculative-decoding, draft-model, sglang
+tensor_type:   ["BF16"]
+model.safetensors: 4,051,831,880 B = 3.77 GiB
+Downloads:     38
+```
+
+README 原文：
+
+> DSpine generates draft tokens **in parallel**. Each layer passes predicted predecessor features to adjacent positions.
+> five-layer draft model for Qwen3.8-27B, with **block size 16** and an **8,192-token sliding window**.
+
+| 项 | DSpine-b16 | 我们的 DFlash2 |
+|---|---|---|
+| 架构 | `DFlashDraftModel` | `DFlash2`（同族） |
+| **块大小** | **16** | **8** |
+| 层数 | 5 | 5 |
+| 窗口 | 8,192 | 2,048 |
+| 精度/体积 | **BF16 3.77 GiB** | Q4_K_M 1.03 GiB |
+| 量化后（估） | ≈ 0.95–1.1 GiB | 1.03 GiB |
+| **target 特征层** | **[1,16,31,46,61]** | **[5,19,33,47,61]** |
+| **桥接 rank** | **512** | **256** |
+
+**⇒ 显存上量化后与 DFlash2 持平，不构成优势。**
+
+**⚠ 权重不可互换**：两者虽然同属 `DFlashDraftModel` 族、`mask_token_id` 相同（248070），
+但 **target 特征层选择不同（[1,16,31,46,61] vs [5,19,33,47,61]）、桥接 rank 不同（512 vs 256）**。
+**⇒ 将来若做 DSpine 转换，必须按它自己的 config 走转换器，不能套 DFlash2 的 graft 脚本。**
+
+**⚠ 块大小口径**：表中 DFlash2 的「8」是**官方默认**；本仓实际长期跑 d7（§203/§205 的甜点区在 d4/d5，长生成用 d7）。
+
+### 15.2 三个硬阻碍（为什么现在用不了）
+
+README 的评估与启动条件原文：
+
+> Runtime: **SGLang 0.5.22**, BF16, FlashAttention 3, **concurrency 8**
+> DSpine inference: **dynamic verification referencing DSpark**, with **ReplaySSM** enabled
+
+```bash
+sglang serve \
+  --speculative-algorithm DSPINE \
+  --enable-linear-replayssm-spec \
+  --mamba-ssm-dtype float32 \
+  --speculative-num-draft-tokens 16
+```
+
+| # | 依赖 | 我们的状态 |
+|---|---|---|
+| 1 | `--speculative-algorithm DSPINE` | ❌ 引擎只支持 `mtp` / `dflash` / `dflash2`（`serve_options.cpp:265`） |
+| 2 | `ReplaySSM`（linear attention state 重放） | ❌ 未实现 |
+| 3 | `DSpark` dynamic verification | ❌ 未实现 |
+
+**⇒ 所以 README 的 3 倍（SWE-bench Pro 241→713、τ²-bench 301→964）是「SGLang + BF16 + concurrency 8」的数字，不能外推。**
+
+**⇒ 而且它的基线是「无投机」，我们的基线是「DFlash2 已在跑」。**
+
+### 15.3 我们自己的验证策略在哪（`decode.cpp:1091-1098`）
+
+```cpp
+const std::uint32_t max_by_budget = budgets[row].generated_tokens_remaining > 1
+                                        ? budgets[row].generated_tokens_remaining - 1U
+                                        : 0U;
+const std::uint32_t proposed = !matches[row].tokens.empty()
+                                   ? static_cast<std::uint32_t>(matches[row].tokens.size())
+                                   : (drafter_runs ? draft_window : 0U);
+const std::uint32_t extent =
+    std::min({proposed, max_by_budget, capacity - sequence.execution_frontier - 1U});
+```
+
+**⇒ 宽度 = `min(草案数, 预算, 剩余容量)`，一次算死，然后验证。**
+
+**唯一的「动态」只有二档切换**（`decode.cpp:1038-1043`）：
+
+```cpp
+const std::vector<NgramProposer::Match> matches = propose_ngram(lanes, budgets);
+const bool copy_round = std::any_of(...);
+const std::uint32_t verify_drafts = copy_round ? ngram_draft_window : draft_window;
+```
+
+**⇒ 所以「dynamic verification」的改动点确实是这里，但见 15.5 的收益定性。**
+
+### 15.4 关键纠正：`--adaptive-mtp` 不是「没接上」，是「从未跑过」
+
+`serve_options.cpp:268-270` 帮助文本原文：
+
+```
+--adaptive-mtp                each MTP round verifies 3..--draft-tokens
+                              drafts, the width the drafts' measured survival
+                              and round cost favor; greedy output is unchanged
+```
+
+`serve_options.cpp:611-612`：
+
+```cpp
+} else if (arg == "--adaptive-mtp") {
+    options.speculative.mtp_policy = MtpDraftPolicy::Adaptive;
+```
+
+**⇒ 参数已解析、机制已实现（`speculative/mtp_adaptive.h` + `tests/.../test_mtp_adaptive.cpp`）、launcher 已接入（默认 off）。**
+
+**⇒ 但本仓从未实测过。**
+
+#### §205 的「adaptive 判死」已被 §208 翻案
+
+**§205（11-04）原文：**
+
+> `--adaptive-mtp` 预留 5.06-5.29 GiB（池无关部分主导），16 GB 卡即使 8192 池也装不下（avail 3.6 GiB）。
+
+**§208（11-05）原文：**
+
+> **5 GiB 构成**：`startup.cpp:1446-1448` 表明它是 CUDA Graph driver-state 的 **planning allowance（保守上界）**，非实测占用。
+> **放大源 = 宽度数 × 拓扑类数 × 12/82 MiB 常量**，与真实图大小无关。
+> **`--cuda-graph-allowance-mib N` 无条件覆盖整个计算值 ⇒ 无需改引擎、无需立项。**
+> 本仓实证：L43（64K 池 + 128，decode 101.1 零代价）、L1300（压 128 → 25 秒 READY）。
+> **挂账 #65 销账措辞：「构成已查清 = 保守上界，一行启动参数已可压到 128–192 MiB 且本仓长期使用」**
+
+**⇒ 显存墙不存在。§205 的判据已过时。**
+
+### 15.5 收益定性：验证策略是「止损」不是「提产」
+
+```
+深位接受率（§205，DFlash2 段）：d1=62.3% → d4=36.2% → d5=32.2% → d6=26.3%
+                                → d8–d15 递减至 11.5%
+                                （d7=99.2 tok/s，原文未记录其接受率）
+⇒ d8–d15 的产出端被草稿质量钉死（1.2–1.7 token/步）
+⇒ 验证策略只能省「成本端的 verify 计算」
+⇒ 上限 = 回到甜点区 + 吃负载异质性，量级 5–15%（上游 +7.88% 佐证）
+```
+
+**⚠ 一处易错（本轮已修正）**：§205 原文 `m7-m15 单调递减至 68.0(14.0%)` 里的 **14.0% 是 MTP m15 的终值，不是 DFlash2 d7 的**。
+DFlash2 的 d7 原文只记了 `99.2 tok/s`，没有接受率；DFlash2 的深位终点是 `d15=93.0(11.5%)`。
+
+**⇒ 真正「解锁深块」需要**深位草稿质量**上去——那是 DSpine 相邻因果注入的贡献区（深位 ~32% vs 我们 11.5%）。**
+
+#### 一个科学性问题：全局 EMA 截断 ≈ 静态最优宽度
+
+```
+§205 已手扫出甜点 d4/d5 = 121–124 tok/s
+⇒ 若信号是全局统计，EMA 截断的边际收益 ≈ 0
+⇒ mtp_adaptive 的真实价值在「逐请求滞后自适应」——吃负载异质性
+```
+
+**⇒ §205 是单一负载（384 tok 贪心），§203 长生成场景用 d7——DSH agent 会话长短混合，正是自适应该吃的场景。**
+
+### 15.6 硬约束：adaptive 与 MTP 后端硬绑定
+
+```
+speculative_options.h:72  throw std::invalid_argument("--adaptive-mtp requires --spec mtp");
+speculative_options.h:85  同
+speculative_options.h:93  同
+```
+
+**⇒ 接进 DFlash 要：① 解除算法绑定 ② 适配 `dflash_graph_profiles`（与 `mtp_graph_profiles` 是两套图集，`graphs.cpp:343/379` 分开 capture）③ `extent` 接线。**
+
+**⇒ 改动面比「接个信号」大一档。**
+
+### 15.6b 头号嫌疑：GDN/SSM 状态回放缺失（读码即可判别，零机时）
+
+> 本节由 TELE 在收敛审核中提出，优先级**高于 adaptive 实测**——若证实，三条投机路线（MTP / DFlash2 / 未来的 DSpine）全部受益。
+
+#### 证据链（三条独立指向同一结论）
+
+**① DSpine 把 ReplaySSM 列为**必要部署条件**（不是可选优化）：**
+
+```bash
+sglang serve \
+  --speculative-algorithm DSPINE \
+  --enable-linear-replayssm-spec \      # ← 官方生态没有它都不行
+  --mamba-ssm-dtype float32
+```
+
+**⇒ 腾讯实测踩过的坑：不做 SSM 状态回放，投机验证就是错的。**
+
+**② §205 的曲线形态正是「误差随深度累积」：**
+
+```
+DFlash2：d1=62.3% → d4=36.2% → d5=32.2% → d6=26.3% → d8–d15→11.5%
+         ↑ 起点不低                                    ↑ 深位崩
+
+如果是「底模整体分布偏移」，d1 也应该明显低
+⇒ d1 正常而深位崩 = 累积型误差
+```
+
+**③ 机理（SSM 是递归状态）：**
+
+```
+GDN/SSM 层：state_t = f(state_{t-1}, x_t)   ← 递归
+验证 K 个 token ⇒ 状态连续推进 K 步
+若验证拒绝后没有「快照/回滚」：
+    被拒绝 token 产生的状态污染会留在 state 里
+    拒绝概率随深度上升 ⇒ 污染累积 ⇒ 深位崩得最狠
+⇒ 与 §205 的曲线形状完全吻合
+```
+
+**④ 与「greedy 同配置完全可复现」（构建史 L4825）相容：**
+
+> 污染是**确定性**的（同样的输入 → 同样的污染 → 同样可复现），不是随机噪声。
+
+#### 判别动作（零机时，读码）
+
+```bash
+# 读 decode_dflash_batch 的拒绝路径，看 GDN/SSM 状态是否做了快照/回滚
+git show origin/engine-main:src-tree/fusion-engine-src/src/models/qwen3_5/program/decode.cpp
+#   搜：跟 draft 拒绝后的 state 处理有关的函数
+#   对照 SGLang 的 replayssm 实现（refs 或 GitHub sgl-project/sglang）
+```
+
+**判据：**
+
+| 读码结果 | 结论 |
+|---|---|
+| **拒绝后无快照/回滚** | ✅ **证实是根因 ⇒ 修复收益 = 直接抬接受率曲线，上限远高于 adaptive 的 5–15%** |
+| 已有快照/回滚 | ❌ 排除 ⇒ 回到「头与底模错配」假设（挂账 #②） |
+
+#### 若证实，行动序要重排
+
+```
+现序：adaptive 实测（5-15% 止损）→ 接受率判别 → DFlash 推广
+重排：GDN/SSM 状态回放读码（零机时）→ 修复（若缺失）→ adaptive 实测
+```
+
+**⇒ 因为「抬接受率」和「省 verify 计算」不是一个量级。**
+
+### 15.7 行动序（成本-信息增益排序）
+
+| 序 | 动作 | 机时 | 判据 |
+|---|---|---|---|
+| **1** | **跑 `--adaptive-mtp` 实测**（k3 定稿 vs 自适应 3..15，ABBA 各 2 轮 + **混合负载臂**） | **零改码，一晚** | **≥8% ⇒ 值得推广到 DFlash；<5% ⇒ 推广方案判死** |
+| 2 | 并行：判别接受率异常（<b>先读码，后梯度</b>） | 零机时 + 一次起服 | ① **读 GDN/SSM 拒绝路径有无快照（15.6b，首选）** ② **曲线形状分析**（d1=62.3% 不低 + 深位陡降 ⇒ 指向累积问题，非底模整体偏移） ③ **IQ2_S（8.8 GiB）vs IQ3_S（11.9 GiB）梯度对照**（测「量化精度→接受率」方向）<br>⚠ **官方 BF16 对照在 16 GB 卡不可行**（BF16 ≈ 54 GiB、Q8 ≈ 27 GiB 都装不下）——此路作废 |
+| 3 | adaptive 达标后才做 DFlash 推广 | 中等改动 | 解绑 + graph_profiles 适配 + extent 接线 |
+| 4 | 等待线：DeepSpec 源码侦察（`deepseek-ai/DeepSpec` 公开仓） | 零成本 | 把「dynamic verification」从推断变成证据 |
+
+**⚠ 序 1 必须加一臂「混合负载」——否则这晚实验信息量为零**：
+
+```
+问题：单一负载（§205 的 384 tok 贪心）的甜点已被手扫出（d4/d5 = 121-124 tok/s）
+      ⇒ 逐请求自适应在该负载上的最优解就是甜点宽度
+      ⇒ 两臂差异只能落在噪声区 ⇒ "≥8%/<5%" 判据永不触发
+
+补法（不改机时预算）：
+  增加一臂「混合负载序列」= 短问答 ↔ 长生成交替（模拟 DSH agent 会话形态）
+  对比「全局固定 d5」vs「adaptive」在这一臂的差
+  ⇒ 这才是 15.5 说的"该吃的场景"，也是 ≥8% 判据唯一可能触发的场景
+```
+
+**实验设计出处**：ABBA 各 2 轮、k3 定稿 vs 自适应 3..15 的原始计划见
+`调研-对照-上游报告在本仓的落地核验-CB-20261103.md` L85（2026-11-03 排定，零改码）。
+
+**这一晚还自带三份免费副产物（设计时留好观测列）：**
+
+| 观测列 | 用途 | 注意 |
+|---|---|---|
+| `mask hidden` / 页漂移行为 | 给 **#77**（修法 A 验证）提供旁证数据 | **判据正交**：adaptive 是「同件比策略」，#77 是「同策略比件」——不能合并，但日志可共享 |
+| **ngram 命中率** | `decode.cpp:1038-1042` 的 `copy_round` 切换在 agent 场景（代码模板/重复文本）的命中数据目前空白 | 加一列观测免费拿到 |
+| **长输出稳定性（1K+）** | 混合负载臂的长生成分段正好覆盖 | **顺手销挂账②**（"d4/d5 在更长输出与并发下的稳定性未测"） |
+
+### 15.8 关于「等社区适配」
+
+**适配质量是双峰分布：**
+
+```
+完整移植（照 SGLang 参考实现）⇒ 连 dynamic verification + ReplaySSM 一起带
+简化移植（llama.cpp 风格常见）⇒ 只有静态验证
+```
+
+**⇒ 对我们真正相关的「社区」是上游 NInfer（5090 线）——它对 DFlash 谱系已有完整工程投入（`decode_dflash_batch` / `dflash_graph_profiles` 都是现成的），DSpine 同族跟进门槛低，但周期不可控。**
+
+**⇒ 所以「等适配」是合理路线之一，收益取决于适配完整度；而「自己改验证策略」与等待正交，不冲突。**
+
+### 15.9 本轮认账（三处）
+
+| # | 我说的 | 实际 |
+|---|---|---|
+| 1 | 「adaptive 素材有但没接上」 | ❌ **全链已实现**（`serve_options.cpp:611` + `mtp_adaptive.h` + 单测），只是**从未跑过** |
+| 2 | 引 §205 的「adaptive 装不下」 | ❌ **已被 §208 翻案**（5 GiB 是保守上界，`--cuda-graph-allowance-mib` 一行压到 128–192 MiB） |
+| 3 | 「改验证策略能解锁 d8–d15」 | ❌ **只能止损**（深位接受率 11.5% 钉死产出端），解锁要靠草稿质量 |
+
+**⇒ 根因：拿旧判据（§205）说新话，且把「已有实现」说成「素材欠缺」。**
+
+### 15.10 引用
+
+| 内容 | 出处 |
+|---|---|
+| DSpine 元数据与 README | ModelScope API `tencent-community/Qwen3.8-27B-DSpine-b16` |
+| 我们的验证宽度计算 | `decode.cpp:1091-1098`（`origin/engine-main`） |
+| ngram 二档切换 | `decode.cpp:1038-1043` |
+| `--adaptive-mtp` 帮助与解析 | `serve/serve_options.cpp:268-270` / `:611-612` |
+| adaptive 硬绑定 | `product/speculative_options.h:72/85/93` |
+| adaptive 实现与单测 | `program/speculative/mtp_adaptive.h` / `tests/.../test_mtp_adaptive.cpp` |
+| §205 判死 | 构建史 L4822 |
+| §208 翻案 | 构建史 L4891-4892 |
+| 甜点与深位接受率 | 构建史 L4820（DFlash2：d4=121.1/36.2%、d5=124.4/32.2%、d7=99.2 **接受率未记录**、d8–d15→93.0/11.5%；MTP 段 m7–m15→68.0/14.0%） |
+| 上游 +7.88% | `调研-上游对照-…CB-TELE-LUMMY-20261103.md` L1202（表格）；机制实现见 `refs/strata/src/spec/draft_policy.cpp` |
+
+---
+
+## 十六 Basalt 台账格式：可直接抄的 benchmark 记录规范（2026-11-12）
+
+> 起因：用户给出 `jesdga95/basalt`（称「比 Strata 更快」）。核实后：**它是 Strata 的 fork，只支持 MoE（Flash-Next / DeepSeek-V4.1-Flash），我们 dense 27B 用不了。**
+> **但它的 benchmark 台账格式是现成的，正好治我们「参数不一致、负载不可比」的老毛病。**
+
+### 16.1 Basalt 的定位（先止损：别指望它的代码）
+
+**README Credits 第一条原文：**
+
+```markdown
+- [Strata](https://github.com/Niko1221/Strata): **the project Basalt forks** (MIT).
+```
+
+**支持范围（`docs/models/index.md`）：**
+
+| 模型 | Architecture id | 层 / 专家 |
+|---|---|---|
+| Qwen3.8-Flash-Next | `qwen4exp` | 48 层（36 GDN + 12 QSA）；**512 experts/layer，top-10** |
+| DeepSeek-V4.1-Flash | `deepseek41` | 40 层；**384 experts/layer，top-6 + 1 shared** |
+
+**核心机制（README 原文）：**
+
+> with the **experts that do not fit in VRAM in system RAM** (and optionally on more GPUs)
+
+**⇒ 它分层的是「权重（experts）」，我们分层的是「KV 页」——两套东西。**
+
+**⇒ 结论：代码不可借；**方法论可借**。**
+
+### 16.2 台账字段（这是唯一真正值得抄的东西）
+
+**`docs/community.md` 规定 `basalt-bench --community` 必须记录：**
+
+#### A. 吞吐分项（按负载类型拆）
+
+| 字段 | 含义 |
+|---|---|
+| `decode_tps` | 三类 fixture 的 tokens 总和 ÷ 时间总和（**token 加权，不是三者均值**） |
+| `decode_conv_tps` | 对话类 |
+| `decode_struct_tps` | 结构化类（代码/JSON） |
+| `decode_prose_tps` | 散文类 |
+
+**⚠ 原文特别强调：**
+
+> `decode_tps` stays the sum of the three fixtures' tokens over the sum of their decode times (**token-weighted, not the mean of these three**)
+
+**⇒ 这治的正是我们「拿单一 384 tok 请求代表全部」的毛病。**
+
+#### B. 投机分项（接受率 + 草稿长度，按负载拆）
+
+| 字段 | 含义 |
+|---|---|
+| `accept_conv_pct` / `accept_struct_pct` / `accept_prose_pct` | 接受的 draft ÷ 提供的 draft（%） |
+| `draft_len_conv` / `draft_len_struct` / `draft_len_prose` | 每轮平均提供几个 draft |
+
+**⚠ 原文：**
+
+> Both are left out for a fixture the model did not draft in.
+
+**⇒ 这治的正是我们「§205 只记 d7=99.2 没记接受率」那个坑。**
+
+#### C. 硬件实测（不是抄规格书）
+
+| 字段 | 测法 |
+|---|---|
+| `cpu` | 「型号 + 物理核数」，如 `"AMD Ryzen 9 9950X, 16 cores"` |
+| `ram_gbps` | 每物理核一线程流式读 2 GiB 缓冲，多次取最好 |
+| `pcie` | 驱动报告的链路，如 `"5.0 x16"`（**最大代际 + 当前宽度**，因为空闲时会降代） |
+| `h2d_gbps` | pinned host→device，多次 256 MiB 拷贝取最好 |
+
+**⇒ 这治的正是我们「带宽参数靠猜（1024 GB/s）」那个坑。**
+
+#### D. 起服参数
+
+| 字段 | 限制 |
+|---|---|
+| `engine_args` | 预设传给引擎的参数（**不含模型路径，≤300 字符**） |
+
+**⇒ 这治的正是我们「忘了打什么补丁/用了哪个件」那个坑。**
+
+### 16.3 去重规则（一行一 setup）
+
+**原文：**
+
+> One row per setup: the checker refuses a row whose **submitter** (ASCII letters compared without case), **model**, **quant**, **every GPU** (name, VRAM, power limit, in that order), **CPU**, **RAM size** and **system** all match an earlier row.
+> A field one of the two rows lacks counts as matching.
+> **The KV format is not compared.**
+> To change a run, update the earlier row; **do not add another**.
+
+**⇒ 关键设计：**
+
+```
+① 去重键是「硬件 + 件 + 量化」的组合，不是「时间戳」
+② 缺字段按「匹配」处理 ⇒ 老行不会被新字段挤掉
+③ 要改就改老行，不新增
+④ KV 格式不参与去重（因为同一 setup 可以试不同 KV）
+```
+
+### 16.4 CI 校验（格式错就 fail）
+
+**原文：**
+
+> After a hand edit, run `python3 tools/check_benchmarks.py --fix docs/community/benchmarks.json`; it rewrites the file in the house format and validates it.
+> **CI runs the same checker without `--fix` and fails on any other format.**
+> A benchmark-only pull request **skips the full build**.
+
+**⇒ 三个设计点：**
+
+```
+① 手改后用 --fix 自动整理格式
+② CI 只校验不修（人工必须先 fix）
+③ benchmark-only PR 不跑全量编译（省 CI 时间）
+```
+
+### 16.5 我们的适配版（家里可直接用）
+
+#### 建议的 JSONL 行格式
+
+```json
+{
+  "date": "2026-11-12",
+  "operator": "cb",
+  "model": "swift15_dflash2.ninfer",
+  "model_sha": "a1b2c3d4",
+  "spec": "dflash2",
+  "draft_tokens": 7,
+  "kv_dtype": "rk8v4",
+  "pool_tokens": 51200,
+  "engine_exe": "ninfer-serve.exe",
+  "engine_sha": "F814B07A",
+  "engine_args": "--kv-capacity 51200 --kv-dtype rk8v4 --cuda-graph-allowance-mib 192 ...",
+  "gpu": "RTX 5080 16GB",
+  "gpu_used_mib": 14600,
+  "channel": "igpu",
+  "graph_allowance_mib": 192,
+  "host_kv_mib": 16384,
+  "prompt_tokens": 63989,
+  "output_tokens": 384,
+  "ttft_s": 13.5,
+  "prefill_tps": 1920,
+  "decode_tps": 182.1,
+  "decode_conv_tps": null,
+  "decode_struct_tps": null,
+  "decode_prose_tps": null,
+  "accept_pct": 59.5,
+  "accept_conv_pct": null,
+  "accept_struct_pct": null,
+  "accept_prose_pct": null,
+  "draft_len_conv": null,
+  "draft_len_struct": null,
+  "draft_len_prose": null,
+  "anchor_install": 0,
+  "anchor_hit_pct": null,
+  "page_drift_hidden_max": 334,
+  "notes": "长上下文 mixed speculation"
+}
+```
+
+#### 三条必守规则
+
+| # | 规则 | 治什么 |
+|---|---|---|
+| **1** | **去重键 = `model_sha + engine_sha + spec + draft_tokens + kv_dtype + pool_tokens + gpu`** | 同一 setup 不重复登记，要改改老行 |
+| **2** | **`accept_pct` 为空时必须写 `null`，不能省略** | 防「没记就是 0」的误读 |
+| **3** | **`engine_args` 必填且 ≤300 字符** | 防「忘了参数」 |
+
+#### 建议的三类负载 fixture（对应 basalt 的 conv/struct/prose）
+
+```
+conv    = 多轮对话（短问短答，模拟 DSH 日常）
+struct  = 代码/JSON 生成（模拟写代码、写配置）
+prose   = 长文生成（模拟动画/文档）
+```
+
+**⇒ 每个 fixture 单独记 `decode_tps` 与 `accept_pct`——这正是「580 vs 182」那个矛盾的解法：**
+
+```
+182 = mixed speculation + 长上下文 + 59.5% 接受率（§206）
+580 = d7 + 实际任务 + 高接受率（用户观察，未复现）
+⇒ 两条不是矛盾，是不同 fixture
+⇒ 台账里分开记，就不会再混
+```
+
+### 16.6 AGENTS.md 的六条规则（顺带抄）
+
+**Basalt 的 `AGENTS.md` 原文：**
+
+```markdown
+- **Design the end state first.** Before writing code, design the architecture properly and read similar code.
+  If a model already implements the feature, reuse that logic or make it shared.
+  Do not propose features or improvements before testing them and checking the architecture.
+- **Flag odd numbers.** Sanity-check every result before reporting it (size against speed, run-to-run spread,
+  earlier numbers) and report anything odd with its suspected cause.
+- **Read before answering.** Check the code, docs and existing results before stating a fact about Basalt.
+- **No amends, no force-pushes.** Always make new commits.
+- **Don't push or publish anywhere** (GitHub, HF, any remote) without the user's approval.
+- **Don't write tools nobody asked for.**
+```
+
+**⇒ 其中两条正是本轮讨论中反复出现的错误模式：**
+
+| 规则 | 对应的实际错误 |
+|---|---|
+| **`Flag odd numbers`**（size against speed 自检） | 我用 1024 GB/s 让 580 自洽——**没做 size-against-speed 检查** |
+| **`Read before answering`**（先查代码/文档/已有结果） | 我三次拿旧判据说话（§205 已被 §208 翻案 / L5341 截断误判 / adaptive 说成没接上） |
+
+### 16.7 边界与结论
+
+| 项 | 判定 |
+|---|---|
+| Basalt 代码 | ❌ **不可借**（MoE 专属：expert tiering / NVFP4 experts / qwen4exp+deepseek41 适配） |
+| Basalt 是 Strata 竞品吗 | ❌ **是 fork**（Credits 第一条） |
+| 「比 Strata 快」 | ⚠ **MoE 场景快**（experts 分层放 RAM），**不是通用提速** |
+| **台账格式** | ✅ **可抄，且正好治我们的老毛病** |
+| **AGENTS.md 六条** | ✅ **可抄，两条正对今天的错误** |
+
+### 16.8 引用
+
+| 内容 | 出处 |
+|---|---|
+| Basalt 是 Strata 的 fork | `refs/basalt/README.md` Credits 第一条 |
+| 支持范围与架构 id | `refs/basalt/docs/models/index.md` |
+| 台账字段与去重规则 | `refs/basalt/docs/community.md`（31 行全文） |
+| CI 校验器 | `refs/basalt/tools/check_benchmarks.py` |
+| AGENTS.md 六条 | `refs/basalt/AGENTS.md`（15 行） |
+| repo 元数据 | GitHub API `jesdga95/basalt`（936 star / 125 fork / MIT / 2026-10-06 建仓 / 11-12 在推） |
+
+---
+
+## 十七 项目成熟度四层判定 + 文档时效缺口（2026-11-13）
+
+> 起因：LUMMY 给出「技术高 / 工程高 / 产品中」三层判定，结论「比较成熟」。
+> 本轮交叉审核：**框架认同，但缺第四层——文档时效性，而这一层正是今天唯一还在持续产生错误的地方。**
+
+### 17.1 四层判定
+
+| 层 | 判据 | 判定 | 依据 |
+|---|---|---|---|
+| **技术**（机制是否定案） | 五件套：定案 + 负对照 + 机制链 + 预登记判据 + 可复现 | ✅ **高** | 异步 +32.4% ABBA 四臂 / 2.17x 甲-0b 步级定案 / DFlash2 三 bug / restore 同构性 —— 均无「推测」态 |
+| **工程**（治理/发布/测试） | 物理层 + 信息层 + 四方交叉 + 发布链闭合 | ✅ **高** | `.temp DENY` 实证生效 / structure.json 562 行 / RC1 二进制↔源码闭环 |
+| **产品**（生态/多会话/桌面） | 面向大众的可用性 | ⚠ **中** | RC1 已发，但单路硬约束、无桌面 app、生态为零 |
+| **文档**（结论时效性） | 过时结论是否被标记 | ⚠ **中偏弱** | **见 17.2：5 处过时结论仍以肯定语气存在** |
+
+**⇒ 准确表述：技术上成熟、工程上成熟、产品上早期、**文档上需要一次「作废标注」收尾**。**
+
+### 17.2 五处过时结论清单（今日实证）
+
+| # | 过时结论 | 位置 | 已被谁推翻 | 今日是否误导过 |
+|---|---|---|---|---|
+| 1 | 「第一步：看 `capture install` 是否 0→>0」 | 本报告 §〇 第六层 | §218（50%）/ §219（66.7%） | ✅ 我误写过 |
+| 2 | 「#77 改判为**长→短两轮 A/B**」 | 构建史 **L5429** | **L5471 撤回**（短前缀够不着）+ **L5512 销账**（<0.4%） | ✅ TELE 撞过 |
+| 3 | 「`--adaptive-mtp` 预留 5.06 GiB，16 GB 装不下」 | 构建史 **L4822**（§205） | **§208 翻案**（保守上界，`--cuda-graph-allowance-mib` 一行压到 128–192 MiB） | ✅ 我引过 |
+| 4 | 「SWIFT MTP 池上限 80,000，**未探到顶**」 | 构建史 **L4464**（§184.5） | **§219**：graph192 = **95,232** / graph64 = 98,304 | ✅ 我引过 |
+| 5 | 「DFlash2 头 1.97 GiB ⇒ **推算池上限为负、无法加载**」 | 构建史 **L4466** | **§206**：实测 51,200 池起服成功 | ✅ 我引过 |
+| **6** | 「#81 方案2 IDE 宿主缺口 **⏸ 待用户裁决**」 | 构建史 **L5516**（四-AI 表，追加当时的快照） | **L5535 / L5541**：已裁决「接受 gateless 为覆盖边界」，且 L5541 明写「状态以本表条目 3 为准」 | ✅ **我自己刚犯**（写 17.6 时引了快照态） |
+
+**共同特征：**
+
+```
+① 旧结论仍在原文位置、以肯定语气陈述
+② 没有被标注「已被 §xxx 推翻」
+③ 家里的读法是「按关键字 grep」，不是「按时间线通读」
+⇒ 必然撞上过时结论
+```
+
+**⇒ 这不是「不成熟」，是 **append-only 构建史的固有代价**——只追加不改旧文（纪律正确），代价是旧新结论平权存在。**
+
+**⇒ 在多智能体并行读同一份文档时被放大：每个智能体只 grep 自己关心的段落，各撞各的。**
+
+**⚠ 第 6 处是本报告作者自己刚犯的**：写 17.6 时引了 L5516 的快照态（"⏸ 待用户裁决"），而 L5541 早已写明"状态以 L5535 条目 3 为准"。**⇒ 这说明即使知道这个陷阱，只要 grep 到就停，还是会踩。**
+
+**⇒ 唯一有效的防线是「grep 命中后，搜一次 `状态以` / `以本表` / `已被 §` 这类交叉引用词」。**
+
+### 17.3 解法：双向 superseded 标记（不改原文，只加标记）
+
+**最小改动，不影响 append-only：**
+
+```
+方向 1（旧节 → 新节）：在旧结论所在段落末尾加一行
+  > ⚠ 本节结论已被 §219 更新：[哪一条变了]
+
+方向 2（新节 → 旧节）：在新节开头声明
+  > 本节推翻 §184.5 的「80,000 未探顶」与 §205 的「adaptive 装不下」
+```
+
+**⇒ **构建史**现状是**只有方向 2**（新节偶尔写「对上个基线」），**没有方向 1**（旧节不知道自己已失效）。**
+
+**⇒ 而方向 1 才是防误引的关键**——因为读者是从 grep 命中的那一行开始读的。
+
+**建议的执行方式（半小时）：**
+
+```powershell
+# 对 17.2 表的 5 处，在构建史对应行后追加一行标记
+# 格式统一为：
+# > ⚠ 已被 §xxx 更新：<一句话说明变了什么>
+```
+
+### 17.4 三步收尾（从「成熟」到「完备」）
+
+| 序 | 步 | 机时 | 为什么 |
+|---|---|---|---|
+| **1** | **B 线修复验证**（SCORE=0 正确性 + classify_repeat + restore 分段） | 1 晚 | LUMMY 提的，技术地基 |
+| **2** | **低精度档边界实验**（四维度 × 两精度） | 1 晚 | LUMMY 提的，决定配对表宽度 |
+| **3** | **清理 5 处过时结论 + 加 superseded 标记** | **半小时** | **零机时，但能防止下一次「拿旧判据说新话」** |
+
+**⇒ 第 3 步成本最低、收益最直接：今天我就因此在三轮推演里浪费了时间。**
+
+### 17.5 本轮认账（两处）
+
+| # | 我说的 | 实际 |
+|---|---|---|
+| 1 | 「§14.8 第一步须按此重新设计」 | ❌ **#77 已销账**（§219 L5512）：修法 A <0.4%，判定「防御性修复，16 GB 卡可起池档内无可测性能收益」 |
+| 2 | 「修法 A 能省 17 秒」 | ❌ **修法 A 不提速**，它防的是「落袋被降级破坏」；17 秒是**锚命中**的收益，不是修法 A 的 |
+
+**⇒ 根因：把「锚的效果」和「修法 A 的效果」混为一谈。前者已实测（50%/66.7%，省 6.7–11.6 秒），后者接近零（<0.4%）。**
+
+### 17.6 真正剩下的挂账
+
+| # | 事项 | 状态 |
+|---|---|---|
+| **#78** | 超池检查点恢复应**退全量 prefill 而非 429** | ⏸ **唯一还开着的产品化问题**（两臂皆然，与修法 A/B 无关） |
+| **#81** | 方案2 IDE 宿主覆盖缺口（CLI 有门、Craft 无门） | ✅ **已裁决：接受 gateless 为覆盖边界**（构建史 L5535 / L5541：四-AI 表 #81 的"待裁决"是**追加当时的快照**，状态以 L5535 条目 3 为准） |
+| #77 | 修法 A 效果验证 | ✅ **已销账**（<0.4%，防御性修复） |
+| #68 | hidden 绝对阈值跨场景不可用 | ⏸ 需受控序列 |
+| #53 | 复读归因 | ✅ **闭环（有条件）**：复读 = copy 轮的文本表现；**与评分选择的关系待判别**（§200 挂账③：B 线修复后复测 OFF 臂） |
+
+### 17.7 引用
+
+| 内容 | 出处 |
+|---|---|
+| 锚命中 50% | 构建史 §218 L5393（`cache 16,425 (50.0%, long anchor)`） |
+| 锚命中 66.7% + 省 62.7% | 构建史 §219 L5460-5464（`18.5s → 6.9s`） |
+| 修法 A <0.4% 销账 | 构建史 §219 L5506 / L5512 |
+| 长→短撤回 | 构建史 §219 L5471（`短请求 cache 0`） |
+| adaptive 翻案 | 构建史 §208 L4891-4892 |
+| #77 改判旧文本 | 构建史 §218 L5429（**应标作废**） |
+| MTP 池上限 | 构建史 §219 L5443-5444（graph64=98,304 / graph192=95,232） |
+| DFlash2 池上限 | 构建史 §206 L4831（51,200） |
+
+---
+
+## 十八 decode 速度的统一口径与基准规范（2026-11-13，待立规则）
+
+> 起因：用户提问「解码速度一直没有统一口径和基准，一会高一会低，业界有统一标准吗」。
+> 结论：**业界有标准，我们缺的不是标准，是**字段标注**——那些数字没有一个错，只是没说自己在什么条件下测的。**
+
+### 18.1 现有 decode 数字为何互相矛盾（8 个实测全对，但无一可比）
+
+| 数字（tok/s） | 出处 | 实际口径 | 不可比的原因 |
+|---|---|---|---|
+| **748.6** | 仓二峰值 | 请求级 · 真实负载 · 短输出 | 不同模型、不同仓 |
+| **463.9** | 10-13 峰值 | **5s 窗口峰值** | 峰值 ≠ 均值 |
+| **388** | §178 | 请求级 · Coder390+MTP · 短请求 | **独显通道** |
+| **239** | §206 | **5s 窗口峰值** · 64K 上下文 | 峰值 |
+| **182.1** | §206 | **请求级** · 38K 输出 · 59.5% 接受率 | 长输出 + 混合投机 |
+| **154.9 / 186.0 / 202.6** | §220 | 请求级 · **384 tok 输出** · 核显通道 | 短输出 + 核显 |
+| **580** | 用户观察 | **口径不明（未复现）** | 未复现 |
+| **3** | 页漂移现场 | 请求级 · 超池 + 漂移 | 病态态 |
+
+**⇒ 差异来源有六个维度，任一维度不同就不可比：**
+
+```
+① 请求级 vs 5s 窗口（均值 vs 峰值）
+② prompt 长度（384 / 32K / 64K / 199K）
+③ 生成长度（384 / 38K）
+④ 显示通道（igpu / dgpu，差 19–60%）
+⑤ 并发数（1 / N）
+⑥ 采样方式（greedy / temperature）
+```
+
+### 18.2 业界三大标准口径
+
+#### ① llama.cpp `llama-bench`（事实标准）
+
+```bash
+llama-bench -m model.gguf -p 512 -n 128
+```
+
+| 指标 | 含义 |
+|---|---|
+| **pp512** | prompt processing，512 token 的 prefill 速度 |
+| **tg128** | text generation，128 token 的生成速度 |
+| 报告 | **多次运行取 平均值 ± 标准差** |
+
+**⇒ 关键约定：prompt 与生成长度**固定**，才有可比性。**
+
+#### ② vLLM / MLPerf 的 TTFT + TPOT
+
+```
+TTFT  = Time To First Token      （= prefill 时间）
+TPOT  = Time Per Output Token    （= 1000 / decode tok/s，ms/token）
+ITL   = Inter-Token Latency      （≈ TPOT，逐 token 延迟）
+```
+
+**MLPerf Inference Single-Stream 场景要求：**
+
+> 报告 **TTFT 与 TPOT 的 90th percentile（P90）**，不是平均值。
+
+**⇒ 为什么用 P90：平均值被"快的那几次"拉高，P90 才反映用户实际感受到的慢。**
+
+#### ③ 分负载类型（Basalt 台账做法，见 §十六）
+
+```
+decode_conv_tps  / decode_struct_tps  / decode_prose_tps
+accept_conv_pct  / accept_struct_pct  / accept_prose_pct
+draft_len_conv   / draft_len_struct   / draft_len_prose
+```
+
+**⇒ 因为「对话 / 代码 / 长文」三种负载的可预测性差 3–5 倍，混在一起平均没有意义。**
+
+**⇒ 这正是「580 vs 182」矛盾的解：不是矛盾，是不同负载。**
+
+### 18.3 我们的三层缺口
+
+| # | 缺口 | 后果 |
+|---|---|---|
+| **1** | **未标 prompt 长度与生成长度** | 384 tok 的 154.9 与 38K 输出的 182.1 被当成同一件事 |
+| **2** | **混用「请求级」与「5s 窗口」** | 239（峰值）与 182（均值）并列，差 31% |
+| **3** | **未标显示通道** | 独显 105–233 vs 核显 154.9–202.6，差 19–60% |
+
+### 18.4 建议的三层基准（成本从低到高）
+
+#### 第一层：短基准（llama-bench 兼容，~5 分钟）
+
+```
+prompt: 512 token（固定文本）
+output: 128 token
+采样:   greedy
+重复:   3 次
+报告:   tg128 = mean ± std
+```
+
+**⇒ 价值：可与 llama.cpp / vLLM 的数字**同口径直接对比**。**
+
+#### 第二层：长基准（TTFT + TPOT，~10 分钟）
+
+```
+prompt: 32,768 token（正好一个锚的 frontier）
+output: 512 token
+采样:   greedy
+重复:   3 次
+报告:   TTFT (s) + TPOT (ms/token) + **P90**
+```
+
+**⇒ 价值：测出「池内 vs 超池」「核显 vs 独显」「接受率高低」的差异。**
+
+#### 第三层：分负载（conv / struct / prose，~30 分钟）
+
+```
+三类各 3 次，分别记录：
+  decode_tps + accept_pct + draft_len
+```
+
+**⇒ 价值：回答「这个档适合什么任务」——这是「选头」与「选模型」的唯一依据。**
+
+### 18.5 必标六字段（比数字本身更重要）
+
+**每次给出任何速度数字，必须同时标注：**
+
+```
+① prompt 长度（token）
+② 生成长度（token）
+③ 并发数（1 / N）
+④ 量化档（rk8v4 / rk2v4-e8 / int8 / ...）
+⑤ 显示通道（igpu / dgpu）
+⑥ 采样方式（greedy / temperature + 具体参数）
+```
+
+**⇒ 缺任一字段的数字，一律标注「未标口径，不可横向比较」。**
+
+### 18.6 与 §十六 台账格式的关系
+
+**§十六（Basalt 台账）的字段清单刚好覆盖上述六项：**
+
+| 必标字段 | §十六 对应字段 |
+|---|---|
+| prompt 长度 | `prompt_tokens` |
+| 生成长度 | `output_tokens` |
+| 并发数 | 隐含（`preset` / 单路） |
+| 量化档 | `quant` + `kv` |
+| 显示通道 | `gpu` + `channel` |
+| 采样 | `engine_args`（含 `temperature`） |
+
+**⇒ 所以 §十八 不需要新造格式，**直接采纳 §十六 的 JSONL 台账 + 本节的三层基准**即可。**
+
+### 18.7 建议的落地方式（回家后立规则）
+
+| 步 | 动作 | 成本 |
+|---|---|---|
+| **1** | **立规则**：任何 speed 数字必须带 18.5 的六字段，缺一不算「结论」 | 写进 `项目硬规则.mdc` |
+| 2 | **建三层基准脚本**：`bench_l1_short.sh` / `bench_l2_long.sh` / `bench_l3_bytask.sh` | 半天 |
+| 3 | **首次基线**：三档模型 × 两头 × 三层，各跑一次入库 | 1 晚 |
+| 4 | **之后所有实验必须跑 L2（TTFT+TPOT）**，不得只报「decode tok/s」 | 纪律 |
+
+### 18.8 引用
+
+| 内容 | 出处 |
+|---|---|
+| llama-bench 的 pp/tg 口径 | llama.cpp `llama-bench` 工具（`-p` / `-n` 参数） |
+| MLPerf Single-Stream 的 P90 要求 | MLPerf Inference benchmark rules（Single-Stream scenario） |
+| vLLM TTFT/TPOT 定义 | vLLM `benchmark_latency.py` / `benchmark_throughput.py` |
+| 分负载台账 | 本报告 §十六（Basalt `docs/community.md`） |
+| 我们的 8 个历史数字 | 见 18.1 各出处 |

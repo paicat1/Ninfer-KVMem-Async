@@ -1,6 +1,6 @@
 # Ninfer-KVMem-Async
 
-**Running a bigger model (Qwen3.8-27B-Coder390, 27B) on an architecture proven across two prior generations of engineering.**
+**Running 27B-class models (three tiers: Coder390 / SWIFT-1.5 / GSQ-RCO IQ3_S) on an architecture proven across two prior generations of engineering — 16 GB consumer cards, long-context Agent sessions.**
 
 > This is the full English edition, translated section-by-section from the Chinese README.
 > **中文完整版 → [README.md](README.md)** — the authoritative project record (build history, per-decision evidence chains) is in Chinese.
@@ -11,7 +11,7 @@
 Run a **27B model** on a **16 GB consumer GPU** for **long-context Agent sessions** — it does not fit natively (a million-token KV ≈ 32 GiB). **KVMem virtualization** (tiered KV storage + on-demand recall) makes it *"fit"*; this repo's core increment is the **Async Page Pipeline**: page movement and decode computation run **pipelined in parallel** (movement never waits for decode, decode never waits for pages), so "over-pool" no longer means "slower". It ships with the correctness engineering (in-pool vs over-pool outputs **byte-identical**) and a full set of measured calibrations (pool / KV precision tier / speculation tier).
 
 - **Where it came from**: three generations of engineering in relay — Bonsai-27B-NInfer (engine & quantization) → Bonsai-27B-NInfer-kvmem (KVMem ring) → this repo (async page pipeline); see the three-generation table below.
-- **Current status**: **production-usable in a declared domain (single-stream long context, exclusive VRAM, PCIe Gen4)**; two known open issues = ① the transient slow state (the "Death Valley": trigger pinned to three AND conditions = Gen5 + external pressure ≥400 MiB + pool-edge; line-level root cause pending) ② **C12 — the first request after a long idle may hang permanently** (never reproduced) — additionally: **the "hang" attribution is closed = missing symbol linkage** (symbol-linked builds are immune; see ★2026-10-18/19).
+- **Current status (2026-11-13)**: **multi-tier production-usable** — three model tiers (Coder390 / SWIFT-1.5 / GSQ-RCO IQ3_S), each with **both MTP and DFlash2 heads in one artifact** (`--spec` switch); **iGPU display channel is the #1 speed variable** (19–60% faster than dGPU at the same pool); pool ceilings **40,960–126,976** depending on artifact and head, the top tier hitting the 16 GB physical limit; two known open issues = ① the transient slow state (the "Death Valley": trigger pinned to three AND conditions = Gen5 + external pressure ≥400 MiB + pool-edge; line-level root cause pending) ② **C12 — the first request after a long idle may hang permanently** (never reproduced) — additionally: **the "hang" attribution is closed = missing symbol linkage** (symbol-linked builds are immune; see ★2026-10-18/19).
 - **How to read this repo**: below are the key milestones and the complete campaign list (curated); the round-by-round full record (with the evidence chain behind every decision) is in the [Build History](docs/ninfer-kvmem-项目构建史.md) (Chinese);
 - **Want it running**: three steps — build engine / download model / serve — in [Quick start](docs/00-入口与说明/快速上手-自助路径.md).
 
@@ -33,13 +33,44 @@ Three generations:
 
 | Weapon | From | Role in this repo |
 |---|---|---|
-| **Hybrid speculation (dflash2 + MTP + ngram) & tuning methodology** | Repo 2: K=7 sweet spot, collapse at K≥10, **acceptance rate is a strongly corpus-dependent metric** (synthetic text won't do), real-workload 748.6 peak | This repo's MTP K4 + ngram tiers and the acceptance/speed statistics of `test_ab_arm1.py` are all accepted in this pattern |
+| **Hybrid speculation (dflash2 + MTP + ngram) & tuning methodology** | Repo 2: K=7 sweet spot, collapse at K≥10, **acceptance rate is a strongly corpus-dependent metric** (synthetic text won't do), real-workload 748.6 peak | This repo's MTP k3 / DFlash2 K5 + ngram tiers and the acceptance/speed statistics of `test_ab_arm1.py` are all accepted in this pattern |
 | **KVMem ring (active-retrieval KV offload)** | Repo 2: small VRAM pool + host offload, content-scored SELECT, five switches (this repo adds sink → six; missing any one silently answers wrong), needle-embedding liveness methodology (question in an independent turn, MAXQ=256) | The foundation of the 256K depth; this repo's recall probes (`probe_recall*.py`) and KV_ENV injection inherit it directly |
 | **Self-built engine methodology** | Repos 1+2: MSVC compile-compat patches, dual branches (project layer/engine layer), artifact hash ledger, reproduction guide | This repo's W1-W4 patch and build/deployment follow the same pattern (`patches/` + artifact reconciliation + `.bak` rollback anchors) |
 | **Thinking budget (Design C)** | Repo 2: the self-built serve honors `--default-thinking-budget` vs the distributed prebuilt exe not parsing that field | The precursor of this line's tb fuse — what W1-W4 fixed were exactly its three linked defects (`==` failing / out-of-bounds abort / handover refusal) |
 | **GUI launcher + serve_tee** | Self-built in repo 2 (the author's package only had bat files) | Simplified in this repo to **4 scene presets (2 modes × 2 models)** + validation warnings + KV_ENV injection |
 
 ### Key milestones (curated)
+
+> 📌 **Conclusion freshness & maturity reviews** (the six superseded-conclusion list, the four-layer maturity verdict, the cross-review convergence trail) are governance retrospectives and no longer occupy README space — see the research report §十七:
+> [`docs/03-归因与结论/调研-上游对照-Strata与KVMem-v0.19-与prefill基准修正-CB-TELE-LUMMY-20261103.md`](docs/03-归因与结论/调研-上游对照-Strata与KVMem-v0.19-与prefill基准修正-CB-TELE-LUMMY-20261103.md)
+
+> ## ★ 2026-11-06/07 · Long-prefix anchors: from "doesn't fit" to 50% / 66.7% measured hit rate
+>
+> **Mechanism**: `PrivateLongAnchor` — at every 32K multiple of the prompt (`frontend.cpp:575-582`, hard-coded 32,768 stride) it offers "this position is worth keeping a KV snapshot"; once banked, the next turn's prefix match skips that prefill span.
+>
+> **Key distinction**: it does **not speed up prefill — it makes the next turn do less prefill**; gain is linear (0.033 s/page), optimum = the deepest anchor the pool allows.
+>
+> | Scenario | Pool | Hit | Effect |
+> |---|---|---|---|
+> | Multi-session anchor (DFlash2) | 51,200 | **50.0% `long anchor`** | TTFT 9.8s / total 10.2s (saves 6.7s) |
+> | Large-pool anchor (SWIFT) | 90,112 | **66.7%** | variant total **18.5s → 6.9s (saves 62.7%)** |
+>
+> **Three measured boundaries**:
+> 1. **Over-pool anchors must be rejected**: a 65K anchor needs 1,021 pages, pool has 800 ⇒ `adopt host-backed: need=1021 usable=800` ⇒ **HTTP 429** (both arms alike, unrelated to fix A; see item #78)
+> 2. **`turn closure` masquerades as an anchor hit**: a verbatim repeat shows `cache 100.0%` with no anchor involved ⇒ **the verdict must read the hit-type field** (`long anchor` vs `turn closure`)
+> 3. **Anchors only pay off for "same prefix, different tail question"**: a one-shot long document has no next turn; "long→short two-round" was measured and retracted (short request shows `cache 0`; the anchor always hugs the prompt tail)
+>
+> **Two fixes** (`spare_prefix_pages` = fix A / `NINFER_KV_HOST_ANCHORS` = fix B): fix A landed and was promoted on 11-05 (`F814B07A`); **on 11-07 it was measured and judged a "defensive fix" — arms differ <0.4%, no observable performance gain**; fix B is still unimplemented.
+>
+> ## ★ 2026-11-05 · Fix A `spare_prefix_pages`: the cheap cure for page drift
+>
+> **Problem**: after 34 rounds, ~330 early-context pages linger in host ⇒ every token pays a host round-trip ⇒ **decode collapses to 3 tok/s** (a 99.9% hit rate doesn't help — that 0.1% is exactly the head every step must attend to).
+>
+> **Mechanism**: not triggered by "prompt > pool" but by **"session round count"** — each round's cache replay remaps history pages and pushes the earliest ones out of the device pool.
+>
+> **Fix A**: `demote_kv_pages_to_host` gains `spare_prefix_pages` — the first demotion pass **skips `[0, deepest pending capture)`** (the second pass still yields them, guaranteeing room is freed). Value = `kv_pages_for_frontier(capture_groups.back().frontier)`, identically 0 when no capture is pending ⇒ **zero decode cost**.
+>
+> **Measured**: <0.4% difference, judged "defensive fix" — **it prevents "banking broken by demotion", it does not speed anything up**.
 
 > ## ★ 2026-11-07 · VRAM desktop floor released + dual-head artifacts unified + four measured pool ceilings (platform-migration dividend cashed in)
 >
@@ -118,7 +149,7 @@ Three generations:
 > **⑨ Open items**: no source-level localisation of the mechanism behind the gap between the paper slack and the real supply (which layer of CUDA/WDDM absorbs it); the 126,976 tier lacks a long-session plus concurrency stress run; the `thinking:false` field is not recognised by the engine (A/B symmetry holds, but "thinking fully off" does not).
 >
 > **⑩ 2026-11-08 addendum: GSQ-RCO IQ3_S promoted to a third tier** (stock base, no fine-tune). Source `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf` (11.29 GB) passed `validate()` outright with `has_mtp=True` (the MTP head lives in the same GGUF under the same quantisation); `tools.convert` produced the single-head artifact in **59.9 s with zero patches and zero grafting**, then `graft_dflash2.py` took 85.0 s to make it dual-head `gsq_iq3s_dual.ninfer` (13.29 GiB). Measured: **MTP 126,976 + 152.7 tok/s + 64.3% acceptance (best of four); DFlash2 90,112 + 202.6 tok/s (fastest overall)**. Three quality probes (thread-safe LRU, train arrival time, GQA-vs-MQA) were answered correctly by all three artifacts — **style differs more than capability** (Coder390 writes a hand-rolled doubly linked list, SWIFT is the most production-shaped, GSQ the most compact).
-> **⑪ 2026-11-08 dGPU measurements (single instance after reboot, desktop holds 1.16 GiB, graph64+arith)**: GSQ MTP **65,536 = 143.1 tok/s** (288 MiB physical headroom, **sweet spot**) / 81,920 = 134.0 (105 MiB, slower despite larger pool) / 126,976 = 87.3 (0 B, desktop squeezed); GSQ DFlash2 **40,960 = 172.5 tok/s** (144 MiB, **sweet spot**) / 90,112 drives physical headroom to 0 B. **Physical headroom runs ~400 MiB below the engine's paper `free` on the dGPU path — always judge ceilings by `nvidia-smi`, not by the log line**; `MODEL_KVCAP_MAX_DGPU` was corrected to 65,536 / 40,960. On the logging side, sampling was dropped for **dual-write**: plain-text essentials 2.08% + full gzip 1.42% = **3.50%** (the sampling scheme was 7.74% *and* lost evidence), with multi-member gzip so a hard kill only truncates the last member instead of raising `EOFError`.
+> **⑪ 2026-11-08 dGPU measurements (single instance after reboot, desktop holds 1.16 GiB, graph64+arith)**: GSQ MTP **65,536 = 143.1 tok/s** (288 MiB physical headroom, **sweet spot**) / 81,920 = 134.0 (105 MiB, slower despite a larger pool) / 126,976 = 87.3 (0 B); GSQ DFlash2 **40,960 = 172.5 tok/s** (144 MiB, **sweet spot**) / 90,112 drives physical headroom to 0 B. **Physical headroom runs ~400 MiB below the engine's paper `free` on the dGPU path — always judge ceilings by `nvidia-smi`**; `MODEL_KVCAP_MAX_DGPU` was corrected to 65,536 / 40,960 accordingly. On the logging side, sampling was dropped for **dual-write**: plain-text essentials 2.08% + full gzip 1.42% = **3.50%** (the sampling scheme was 7.74% *and* lost evidence), with multi-member gzip so a hard kill only truncates the last member instead of raising `EOFError`.
 >
 > **Counter-example the same day**: unsloth `UD-Q3_K_XL` failing to convert is not a tooling gap — it compresses 96 GDN gate tensors `ssm_alpha/beta` from BF16 down to Q8_0 (the recipe hard-requires BF16 and has **no dequant fallback**), and ships its MTP head as a separate file under a different quantisation policy. With a patch it does convert, but MTP acceptance collapses to **13.7%** (d1 26.9% / d3 13.7% / d5 3.9%). **Conclusion: whether a GGUF converts cleanly depends on the publisher honouring the container's assumptions (norms and gates unquantised, MTP co-located and co-quantised with the main weights), not on tooling.**
 
@@ -235,30 +266,40 @@ Three generations:
 
 ---
 
-## Current production setup (updated 2026-10-19): **six model tiers × three active engines × 4 scene presets**
+## Current production setup (updated 2026-11-13): **three model tiers × dual-head artifacts × display channel**
 
-The launcher's "model" dimension now has **six tiers** (switching a model brings its whole parameter set, `MODEL_BUNDLES`: KV / pool / CUDA-Graph budget / vision switch together); the "engine" dimension is an **independent orthogonal** dropdown (which binary runs, decoupled from scene parameters) = **three active binaries**; scene presets = **4** (2 modes × 2 models: production / stress). Per-parameter explanations: **[`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md)** (Chinese).
+### Three tiers × two speculative heads (dual-head artifact, switched by `--spec`)
 
-| Active engine binary | Identity | One-line character |
-|---|---|---|
-| **S13 · historical controlled build** (formerly labelled "production build") (`engine\lineage\ninfer-serve-RC1.exe`, sha `322A972D`) | official chain 14.44, **no symbols** | former daily production build — **label retired**; **Gen5 + external pressure 400 = hangs, never returns** (known weakness; avoid that combination) |
-| **offi · official chain 14.44 + symbols** (`engine\lineage\ninfer-serve-RC3.exe`, sha `3543AD18`) | item-D verdict binary | Gen5 + external pressure 400 = **44.5, valley but completes** — hang did not reproduce |
-| **sym3 · new build chain + symbols** (`engine\lineage\ninfer-serve-RC2.exe`, sha `9453FFC6`) | same-recipe rebuild verdict binary | Gen5 + external pressure 400 = **41, valley but completes** |
+**One artifact carries both MTP and DFlash2 heads** (`graft_dflash2.py` keeps MTP by default; `--drop-mtp` discards it): MTP mode costs nothing (only the selected head loads), DFlash2 mode costs 1.0–1.2 GiB more.
 
-> **Current runtime binary (measured 2026-10-31)**: what the launcher actually loads is `engine\self-built-20261008\ninfer-serve.exe` = `engine\lineage\ninfer-serve-RC6.exe` (sha `35D9E6B1`; mainline s6-1208a-release, symbol-linked, arch 384/384 sm_120a, listen@57344, inference 838 ms). **The three binaries in the table above are candidates / verdict builds.** Also note: the public name "RC1" = sym3 = local `lineage\ninfer-serve-RC2.exe` (`9453FFC6`) — a different file from local filename RC1 (= S13, `322A972D`); **identify a build by sha, not by code name**.
+| Tier | Dual-head artifact | Size | **MTP pool / decode / acceptance** | **DFlash2 pool / decode / acceptance** |
+|---|---|---|---|---|
+| **Coder390** | `Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer` | 14.02 GiB | **86,016** / 154.9 tok/s / 64.2% | **40,960** / **194.4** tok/s / 62.1% |
+| **SWIFT-1.5** | `swift15_iq3s_mtp+dflash2.ninfer` | 13.29 GiB | **126,976** / 138.1 / 56.6% | **90,112** / **186.0** / 57.6% |
+| **GSQ-RCO IQ3_S** | `gsq_iq3s_dual.ninfer` | 13.29 GiB | **126,976** / 152.7 / **64.3%** (highest) | **90,112** / **202.6** (fastest overall) / 59.3% |
 
-> **Hang culprit verdict (§136)**: the only variable across the three binaries = symbol linkage — **for production/external-pressure scenarios, prefer a symbol-linked build** (offi/sym3); the hang form no longer reproduces. The valley (slow but completes) still exists in all three — a load × environment phenomenon; see "Known limitations".
+> All measured on the **iGPU display channel** (same table, ★2026-11-07 ⑥). dGPU channel is 19–60% slower at the same artifact and pool — **the channel is the first variable**.
+> Head trade-off: **DFlash2 gives up 29% pool (SWIFT/GSQ) or 52% (Coder390) for +25%～+35% throughput.**
 
-| Tier | Model file | KV | Pool | Graph | Key measurements |
-|---|---|---|---|---|---|
-| **SWIFT 1.5 (current production)** | `swift15_iq3s_mtp.ninfer` (11.3 GiB on card) | **`rk8v4`** (calibrated on the machine) | **65,536** (pool ≥ working set is hard discipline) / int8 ceiling 57,344–61,440 | **192** (hard requirement; 64 warns) | deep 60K decode 143.7 tok/s / acceptance 64%; load ~9 s; 65,536@rk8v4 leaves 727.9 MiB free |
-| **Q2LYNN (finalized baseline)** | `…Q2LynnStyle-MTP.mtp-iq4nl.ninfer` (+`…vision` grafted file) | `rk2v4-e8` | 51,200 (stable) / 65,536 (measured) | 64 | all historical measurements ran on it; baselines **frozen** at [`baselines/q2lynn/`](baselines/q2lynn/) |
-| BONSAI | prior-line file (**not downloaded**) | — | — | — | registered only, pending test (launcher warns if selected) |
-| iq4nl / iq4nlvis / orig | self-converted MTP head (no vision) + vision-grafted file / pure baseline original | — | — | — | three states of the internal processing chain; see the models trio below |
+### Engine & channel
 
-- Engine binaries: **three catalogued candidates** (see table above) + **current runtime = RC6** (`engine\lineage\ninfer-serve-RC6.exe`, sha `35D9E6B1`) — the historical S13 build (formerly labelled "production build") = `engine\lineage\ninfer-serve-RC1.exe` (sha256 `322A972D…`; = upstream fusion engine + full I3b patch chain (p2/s2–s11) + ledger42×3/44/46×2/47 + W1-W4; instrumentation gate `NINFER_STEP_PROFILE` default off, zero behavior change); symbol verdict binaries = `engine\lineage\ninfer-serve-RC2.exe` (sym3) / `engine\lineage\ninfer-serve-RC3.exe` (offi), with symbol files in `engine\pdb_archive\`. **2026-10-19 new conclusion: under Gen5 + external pressure the production build hangs while symbol-linked builds "valley but complete" ⇒ choose offi/sym3 for that scenario** (§136 three-binary matrix).
-- Context 256K logical (262,144); over-pool KV auto-sinks to a 16 GiB host arena; speculation **MTP K4**; thinking high + budget 16000; hemostat `--recover-invariant-failures` (**no growth**); vision overlay/off; concurrency **1** (ring hard constraint)
-- **Pool ≥ working set is hard discipline** (over-pool ⇒ retrieval subset intervenes ⇒ content may change; see "Key engineering conclusions")
+| Dimension | Current value |
+|---|---|
+| **Active binary** | `496D6070` (`build-1208b`, `engine-rc1-7e14453-6-g2755b24-dirty`, carries `--wddm-budget-arithmetic-only`) |
+| Promotion order | `9453FFC6` (sym3/RC1) → `B93B1791` (RC8) → `F814B07A` (fix A) → **`496D6070`** (paper budget) |
+| **Channel** | **`igpu` recommended** (display on iGPU ⇒ 5080 idle `used ~55 MiB`, engine gains **+1118 MiB free**); `dgpu` desktop holds ~1145 MiB; `auto` reads `nvidia-smi` |
+| Launcher | channel is an **independent dimension** (emits no engine flag; used only for ceiling validation and hints) |
+
+### Historical setups (archive note)
+
+The 2026-10-19 and earlier engine/model tables (three candidate binaries S13 / offi / sym3, the RC6 runtime slot, six model tiers and 4 presets) are fully archived: **the active setup is `496D6070` + three dual-head artifacts** (see the section above). Pool ceilings, decode figures and `--model-id` semantics in those old tables are stale — copying them either fails to boot or misreads performance.
+
+Full history (per-binary sha, verdict experiments, equivalence measurements, reasons for archiving) in [`docs/ninfer-kvmem-项目构建史.md`](docs/ninfer-kvmem-项目构建史.md) §130–§139 / §176–§178 and [`docs/01-构建与发布/引擎构建物版本台账-CB-20261026.md`](docs/01-构建与发布/引擎构建物版本台账-CB-20261026.md) (Chinese).
+
+**Current shared parameters & discipline** (these belong with the three tiers above, not to the archive):
+
+- Context 256K logical (262,144); over-pool KV auto-sinks to a 16 GiB host arena; speculation **DFlash2 K5 (sweet spot) or MTP k3**, switched by `--spec`, plus hybrid speculation (dflash2 + ngram, 59.5% acceptance); thinking high + budget 16000; hemostat `--recover-invariant-failures` (**no growth**); vision overlay/off; concurrency **1** (ring hard constraint)
+- **Pool ≥ working set is the lower edge of the sweet spot, not a hard rule** (over-pool ⇒ retrieval subset intervenes ⇒ content may change; see "Key engineering conclusions")
 - Per-tier baselines & measurements in `baselines/<tier>/` (frozen sets are append-only; golden SHA comparable only within the same tier)
 
 ## Quick start (when engine & model are already in place)
@@ -267,9 +308,9 @@ The launcher's "model" dimension now has **six tiers** (switching a model brings
 启动器.bat            # the single GUI entry; 4 scene presets (2 modes × 2 models)
 ```
 
-Pick the preset **★定稿 51200稳定（无growth）** → serve → `http://127.0.0.1:8094/v1` (OpenAI-compatible).
+Pick the preset **① 生产 · Coder390 (86,016 pool · MTP k3 · arith)** or **② 生产 · SWIFT (126,976 pool)** → serve → `http://127.0.0.1:8094/v1` (OpenAI-compatible).
 
-Command-line equivalent (⚠️ **all six KV_ENV switches are mandatory**: missing `NINFER_KV_WINDOW` the engine refuses to start; missing any other it "starts but silently answers wrong"; `NINFER_KV_SINK=5120` = attention-sink skeleton pages, added 2026-10-11 benchmarking the official D-01; banner `skeleton=80` is the effectiveness criterion):
+The environment-variable half of the command line (⚠️ **all six KV_ENV switches are mandatory**: missing `NINFER_KV_WINDOW` the engine refuses to start; missing any other it "starts but silently answers wrong"; `NINFER_KV_SINK=5120` = attention-sink skeleton pages, added 2026-10-11 benchmarking the official D-01; banner `skeleton=80` is the effectiveness criterion):
 
 ```bat
 set NINFER_KV_WINDOW=32768
@@ -279,15 +320,11 @@ set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
 set NINFER_KV_REUSE_HOSTBACKED=1
 > The launcher (`ninfer_launcher.py`) injects the six switches above + the async page pipeline **A/B switch × depth tier (1/2/3/4 batches in flight, default 2)** (`NINFER_ASYNC_DEMOTE` / `NINFER_ASYNC_DEMOTE_DEPTH`) — measured basis: single-shot over-pool r=1.13 (tie), deep multi-turn r=0.801 (net gain holds, deepest segment ≈2×); shallow-load three-tier comparison D2 187.1 > D0 183.6 > D1 182.6 ⇒ async value emerges with working-set depth. For A/B flip only that switch and nothing else; changing tiers requires a serve restart.
-engine\lineage\I3b_step13_fourlayer_20261015.exe models\swift15_iq3s_mtp.ninfer ^
-  --host 127.0.0.1 --port 8094 --model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s ^
-  --max-context 262144 --kv-capacity 65536 --cuda-graph-allowance-mib 192 --kv-dtype rk8v4 ^
-  --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 ^
-  --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 ^
-  --max-concurrency 1 --recover-invariant-failures
 ```
 
-> `--model-id` is the **service display name** (the API `model` field) and may differ from the real weight name: `engine_ctl` now switches automatically by weight file (swift / Bonsai / default coder390), and tools read it from `/v1/models` (`scripts/_modelid.py`) — **no manual editing**. For the Q2LYNN tier, switch KV back to `rk2v4-e8`, pool 51,200, Graph 64 (or just use a launcher preset).
+**Do not hand-copy the engine command line**: the active binary, artifact, pool / graph / KV tier all follow the three-tier dual-head bundles (`MODEL_BUNDLES`), and hand-copied lines tend to carry historical values (old exe, single-head artifact, 65,536 pool, graph 192 are all stale). Pick a preset in the launcher and copy the command it generates, or check each flag against [`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md) (Chinese).
+
+> `--model-id` is the **service display name** (the API `model` field) and may differ from the real weight name: the launcher switches it automatically by weight file (swift / gsq / default coder390), and tools read it from `/v1/models` (`scripts/_modelid.py`) — **no manual editing**. To change tiers, use the launcher's model dropdown (it brings the whole KV / pool / graph / vision set); do not hand-assemble the flags.
 
 Clients: any OpenAI-compatible tool; for DSH integration see `docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md` (Chinese) and the build history (provider config includes `streamIdleTimeoutMs: 3600000`).
 

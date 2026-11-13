@@ -270,8 +270,14 @@ MODEL_KVCAP_MAX_DGPU = {
     "q2lynn_dflash2": 32768,  # dGPU + DFlash2 unmeasured; conservative
     "swift": 98304,         # 2026-11-06 dGPU + graph64 实测
     "swift_dflash2": 51200,  # 2026-11-06 dGPU 实测（贴边 free 191 MiB）
-    "gsq": 98304,            # dGPU 未实测：按 swift 同结构（11.3 GiB）保守取值
-    "gsq_dflash2": 51200,    # dGPU 未实测：按 swift_dflash2 同结构保守取值
+    # 2026-11-08 dGPU 实测（桌面占 1,157 MiB / graph64 / arith / 单实例，物理余量取自 nvidia-smi）：
+    #   gsq MTP  65,536 -> 143.1 tok/s（余 288 MiB）  ← 甜点
+    #            81,920 -> 134.0 tok/s（余 105 MiB）  ← 余量已危险，速度反降
+    #           126,976 ->  87.3 tok/s（余 0 B）      ← 桌面合成器被挤，会卡整机
+    #   gsq DF2  40,960 -> 172.5 tok/s（余 144 MiB）  ← 甜点；90,112 会打到物理 0 B
+    # 注意：dGPU 的物理余量比引擎纸面 free 少约 400 MiB，判上限一律以 nvidia-smi 为准。
+    "gsq": 65536,            # dGPU 甜点 65,536；再往上转页出，速度反降
+    "gsq_dflash2": 40960,    # dGPU 甜点 40,960
 }
 # 核显通道下的实测上限（2026-11-07，现役件 + arith）
 MODEL_KVCAP_MAX_IGPU = {

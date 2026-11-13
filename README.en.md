@@ -33,7 +33,7 @@ Three generations:
 
 | Weapon | From | Role in this repo |
 |---|---|---|
-| **Hybrid speculation (dflash2 + MTP + ngram) & tuning methodology** | Repo 2: K=7 sweet spot, collapse at K≥10, **acceptance rate is a strongly corpus-dependent metric** (synthetic text won't do), real-workload 748.6 peak | This repo's MTP K4 + ngram tiers and the acceptance/speed statistics of `test_ab_arm1.py` are all accepted in this pattern |
+| **Hybrid speculation (dflash2 + MTP + ngram) & tuning methodology** | Repo 2: K=7 sweet spot, collapse at K≥10, **acceptance rate is a strongly corpus-dependent metric** (synthetic text won't do), real-workload 748.6 peak | This repo's MTP k3 / DFlash2 K5 + ngram tiers and the acceptance/speed statistics of `test_ab_arm1.py` are all accepted in this pattern |
 | **KVMem ring (active-retrieval KV offload)** | Repo 2: small VRAM pool + host offload, content-scored SELECT, five switches (this repo adds sink → six; missing any one silently answers wrong), needle-embedding liveness methodology (question in an independent turn, MAXQ=256) | The foundation of the 256K depth; this repo's recall probes (`probe_recall*.py`) and KV_ENV injection inherit it directly |
 | **Self-built engine methodology** | Repos 1+2: MSVC compile-compat patches, dual branches (project layer/engine layer), artifact hash ledger, reproduction guide | This repo's W1-W4 patch and build/deployment follow the same pattern (`patches/` + artifact reconciliation + `.bak` rollback anchors) |
 | **Thinking budget (Design C)** | Repo 2: the self-built serve honors `--default-thinking-budget` vs the distributed prebuilt exe not parsing that field | The precursor of this line's tb fuse — what W1-W4 fixed were exactly its three linked defects (`==` failing / out-of-bounds abort / handover refusal) |
@@ -41,22 +41,8 @@ Three generations:
 
 ### Key milestones (curated)
 
-> ## ★ 2026-11-13 · Documentation staleness audit: six superseded conclusions
->
-> After thirteen cross-review rounds, a self-audit of **conclusion freshness** found the inherent cost of an append-only build history: **old conclusions stay in place in affirmative tone, never marked "superseded by §xxx"**, and multiple agents reading by keyword grep each hit different stale entries.
->
-> | # | Stale conclusion | Location | Superseded by |
-> |---|---|---|---|
-> | 1 | "Step one: watch `capture install` 0→>0" | report §〇 | §218 (50%) / §219 (66.7%) |
-> | 2 | "#77 = long→short two-round A/B" | build history L5429 | L5471 retraction + L5512 closure |
-> | 3 | "`--adaptive-mtp` reserves 5.06 GiB, won't fit" | L4822 (§205) | **§208 overturns it** (conservative upper bound; `--cuda-graph-allowance-mib` cuts it to 128–192 MiB) |
-> | 4 | "SWIFT MTP ceiling 80,000, not probed to top" | L4464 | §219: graph192=**95,232** / graph64=98,304 |
-> | 5 | "DFlash2 computed pool ceiling is negative" | L4466 | §206: 51,200 pool serves successfully |
-> | 6 | "#81 awaiting user verdict" | L5516 (snapshot) | L5535/L5541 already decided |
->
-> **Fix (half an hour, zero machine time)**: add bidirectional superseded markers — append `> ⚠ Superseded by §xxx: <what changed>` at the old section's end. **The build history only has direction 2 (new section declares what it overturns), missing direction 1 (old section doesn't know it's dead)** — and direction 1 is what prevents mis-citation.
->
-> **Four-layer maturity**: technology **high** (all five-part criteria met) · engineering **high** (governance/release/testing) · product **medium** (RC1 shipped, ecosystem early) · **documentation medium-weak**.
+> 📌 **Conclusion freshness & maturity reviews** (the six superseded-conclusion list, the four-layer maturity verdict, the cross-review convergence trail) are governance retrospectives and no longer occupy README space — see the research report §十七:
+> [`docs/03-归因与结论/调研-上游对照-Strata与KVMem-v0.19-与prefill基准修正-CB-TELE-LUMMY-20261103.md`](docs/03-归因与结论/调研-上游对照-Strata与KVMem-v0.19-与prefill基准修正-CB-TELE-LUMMY-20261103.md)
 
 > ## ★ 2026-11-06/07 · Long-prefix anchors: from "doesn't fit" to 50% / 66.7% measured hit rate
 >
@@ -304,32 +290,16 @@ Three generations:
 | **Channel** | **`igpu` recommended** (display on iGPU ⇒ 5080 idle `used ~55 MiB`, engine gains **+1118 MiB free**); `dgpu` desktop holds ~1145 MiB; `auto` reads `nvidia-smi` |
 | Launcher | channel is an **independent dimension** (emits no engine flag; used only for ceiling validation and hints) |
 
-### Historical setup (2026-10-19, kept for reference)
+### Historical setups (archive note)
 
-**six model tiers × three active engines × 4 scene presets**
+The 2026-10-19 and earlier engine/model tables (three candidate binaries S13 / offi / sym3, the RC6 runtime slot, six model tiers and 4 presets) are fully archived: **the active setup is `496D6070` + three dual-head artifacts** (see the section above). Pool ceilings, decode figures and `--model-id` semantics in those old tables are stale — copying them either fails to boot or misreads performance.
 
-The launcher's "model" dimension now has **six tiers** (switching a model brings its whole parameter set, `MODEL_BUNDLES`: KV / pool / CUDA-Graph budget / vision switch together); the "engine" dimension is an **independent orthogonal** dropdown (which binary runs, decoupled from scene parameters) = **three active binaries**; scene presets = **4** (2 modes × 2 models: production / stress). Per-parameter explanations: **[`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md)** (Chinese).
+Full history (per-binary sha, verdict experiments, equivalence measurements, reasons for archiving) in [`docs/ninfer-kvmem-项目构建史.md`](docs/ninfer-kvmem-项目构建史.md) §130–§139 / §176–§178 and [`docs/01-构建与发布/引擎构建物版本台账-CB-20261026.md`](docs/01-构建与发布/引擎构建物版本台账-CB-20261026.md) (Chinese).
 
-| Active engine binary | Identity | One-line character |
-|---|---|---|
-| **S13 · historical controlled build** (formerly labelled "production build") (`engine\lineage\ninfer-serve-RC1.exe`, sha `322A972D`) | official chain 14.44, **no symbols** | former daily production build — **label retired**; **Gen5 + external pressure 400 = hangs, never returns** (known weakness; avoid that combination) |
-| **offi · official chain 14.44 + symbols** (`engine\lineage\ninfer-serve-RC3.exe`, sha `3543AD18`) | item-D verdict binary | Gen5 + external pressure 400 = **44.5, valley but completes** — hang did not reproduce |
-| **sym3 · new build chain + symbols** (`engine\lineage\ninfer-serve-RC2.exe`, sha `9453FFC6`) | same-recipe rebuild verdict binary | Gen5 + external pressure 400 = **41, valley but completes** |
+**Current shared parameters & discipline** (these belong with the three tiers above, not to the archive):
 
-> **Current runtime binary (measured 2026-10-31)**: what the launcher actually loads is `engine\self-built-20261008\ninfer-serve.exe` = `engine\lineage\ninfer-serve-RC6.exe` (sha `35D9E6B1`; mainline s6-1208a-release, symbol-linked, arch 384/384 sm_120a, listen@57344, inference 838 ms). **The three binaries in the table above are candidates / verdict builds.** Also note: the public name "RC1" = sym3 = local `lineage\ninfer-serve-RC2.exe` (`9453FFC6`) — a different file from local filename RC1 (= S13, `322A972D`); **identify a build by sha, not by code name**.
-
-> **Hang culprit verdict (§136)**: the only variable across the three binaries = symbol linkage — **for production/external-pressure scenarios, prefer a symbol-linked build** (offi/sym3); the hang form no longer reproduces. The valley (slow but completes) still exists in all three — a load × environment phenomenon; see "Known limitations".
-
-| Tier | Model file | KV | Pool | Graph | Key measurements |
-|---|---|---|---|---|---|
-| **SWIFT 1.5** (⚠ 2026-11-13: pool ceiling in this row is stale, see the new table above) | `swift15_iq3s_mtp.ninfer` (11.3 GiB on card) | **`rk8v4`** (calibrated on the machine) | ~~65,536~~ → **126,976** / int8 ceiling 57,344–61,440 | **192** (hard requirement; 64 warns) | deep 60K decode 143.7 tok/s / acceptance 64%; load ~9 s; 65,536@rk8v4 leaves 727.9 MiB free |
-| **Q2LYNN (finalized baseline)** | `…Q2LynnStyle-MTP.mtp-iq4nl.ninfer` (+`…vision` grafted file) | `rk2v4-e8` | 51,200 (stable) / 65,536 (measured) | 64 | all historical measurements ran on it; baselines **frozen** at [`baselines/q2lynn/`](baselines/q2lynn/) |
-| BONSAI | prior-line file (**not downloaded**) | — | — | — | registered only, pending test (launcher warns if selected) |
-| iq4nl / iq4nlvis / orig | self-converted MTP head (no vision) + vision-grafted file / pure baseline original | — | — | — | three states of the internal processing chain; see the models trio below |
-
-- Engine binaries: **three catalogued candidates** (see table above) + **current runtime = RC6** (`engine\lineage\ninfer-serve-RC6.exe`, sha `35D9E6B1`) — the historical S13 build (formerly labelled "production build") = `engine\lineage\ninfer-serve-RC1.exe` (sha256 `322A972D…`; = upstream fusion engine + full I3b patch chain (p2/s2–s11) + ledger42×3/44/46×2/47 + W1-W4; instrumentation gate `NINFER_STEP_PROFILE` default off, zero behavior change); symbol verdict binaries = `engine\lineage\ninfer-serve-RC2.exe` (sym3) / `engine\lineage\ninfer-serve-RC3.exe` (offi), with symbol files in `engine\pdb_archive\`. **2026-10-19 new conclusion: under Gen5 + external pressure the production build hangs while symbol-linked builds "valley but complete" ⇒ choose offi/sym3 for that scenario** (§136 three-binary matrix).
-- Context 256K logical (262,144); over-pool KV auto-sinks to a 16 GiB host arena; speculation **MTP K4**; thinking high + budget 16000; hemostat `--recover-invariant-failures` (**no growth**); vision overlay/off; concurrency **1** (ring hard constraint)
-- **Pool ≥ working set is hard discipline** (over-pool ⇒ retrieval subset intervenes ⇒ content may change; see "Key engineering conclusions")
+- Context 256K logical (262,144); over-pool KV auto-sinks to a 16 GiB host arena; speculation **DFlash2 K5 (sweet spot) or MTP k3**, switched by `--spec`, plus hybrid speculation (dflash2 + ngram, 59.5% acceptance); thinking high + budget 16000; hemostat `--recover-invariant-failures` (**no growth**); vision overlay/off; concurrency **1** (ring hard constraint)
+- **Pool ≥ working set is the lower edge of the sweet spot, not a hard rule** (over-pool ⇒ retrieval subset intervenes ⇒ content may change; see "Key engineering conclusions")
 - Per-tier baselines & measurements in `baselines/<tier>/` (frozen sets are append-only; golden SHA comparable only within the same tier)
 
 ## Quick start (when engine & model are already in place)
@@ -338,9 +308,9 @@ The launcher's "model" dimension now has **six tiers** (switching a model brings
 启动器.bat            # the single GUI entry; 4 scene presets (2 modes × 2 models)
 ```
 
-Pick the preset **★定稿 51200稳定（无growth）** → serve → `http://127.0.0.1:8094/v1` (OpenAI-compatible).
+Pick the preset **① 生产 · Coder390 (86,016 pool · MTP k3 · arith)** or **② 生产 · SWIFT (126,976 pool)** → serve → `http://127.0.0.1:8094/v1` (OpenAI-compatible).
 
-Command-line equivalent (⚠️ **all six KV_ENV switches are mandatory**: missing `NINFER_KV_WINDOW` the engine refuses to start; missing any other it "starts but silently answers wrong"; `NINFER_KV_SINK=5120` = attention-sink skeleton pages, added 2026-10-11 benchmarking the official D-01; banner `skeleton=80` is the effectiveness criterion):
+The environment-variable half of the command line (⚠️ **all six KV_ENV switches are mandatory**: missing `NINFER_KV_WINDOW` the engine refuses to start; missing any other it "starts but silently answers wrong"; `NINFER_KV_SINK=5120` = attention-sink skeleton pages, added 2026-10-11 benchmarking the official D-01; banner `skeleton=80` is the effectiveness criterion):
 
 ```bat
 set NINFER_KV_WINDOW=32768
@@ -350,15 +320,11 @@ set NINFER_KV_RING=1
 set NINFER_HOST_PAGEABLE=1
 set NINFER_KV_REUSE_HOSTBACKED=1
 > The launcher (`ninfer_launcher.py`) injects the six switches above + the async page pipeline **A/B switch × depth tier (1/2/3/4 batches in flight, default 2)** (`NINFER_ASYNC_DEMOTE` / `NINFER_ASYNC_DEMOTE_DEPTH`) — measured basis: single-shot over-pool r=1.13 (tie), deep multi-turn r=0.801 (net gain holds, deepest segment ≈2×); shallow-load three-tier comparison D2 187.1 > D0 183.6 > D1 182.6 ⇒ async value emerges with working-set depth. For A/B flip only that switch and nothing else; changing tiers requires a serve restart.
-engine\lineage\I3b_step13_fourlayer_20261015.exe models\swift15_iq3s_mtp.ninfer ^
-  --host 127.0.0.1 --port 8094 --model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s ^
-  --max-context 262144 --kv-capacity 65536 --cuda-graph-allowance-mib 192 --kv-dtype rk8v4 ^
-  --host-kv-mib 16384 --prefill-chunk 512 --spec mtp --draft-tokens 4 ^
-  --default-max-tokens 32768 --default-reasoning-effort high --default-thinking-budget 16000 ^
-  --max-concurrency 1 --recover-invariant-failures
 ```
 
-> `--model-id` is the **service display name** (the API `model` field) and may differ from the real weight name: `engine_ctl` now switches automatically by weight file (swift / Bonsai / default coder390), and tools read it from `/v1/models` (`scripts/_modelid.py`) — **no manual editing**. For the Q2LYNN tier, switch KV back to `rk2v4-e8`, pool 51,200, Graph 64 (or just use a launcher preset).
+**Do not hand-copy the engine command line**: the active binary, artifact, pool / graph / KV tier all follow the three-tier dual-head bundles (`MODEL_BUNDLES`), and hand-copied lines tend to carry historical values (old exe, single-head artifact, 65,536 pool, graph 192 are all stale). Pick a preset in the launcher and copy the command it generates, or check each flag against [`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md) (Chinese).
+
+> `--model-id` is the **service display name** (the API `model` field) and may differ from the real weight name: the launcher switches it automatically by weight file (swift / gsq / default coder390), and tools read it from `/v1/models` (`scripts/_modelid.py`) — **no manual editing**. To change tiers, use the launcher's model dropdown (it brings the whole KV / pool / graph / vision set); do not hand-assemble the flags.
 
 Clients: any OpenAI-compatible tool; for DSH integration see `docs/00-入口与说明/教程-KVMem与短测-给agent与使用者.md` (Chinese) and the build history (provider config includes `streamIdleTimeoutMs: 3600000`).
 

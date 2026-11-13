@@ -4462,8 +4462,10 @@ it holds 79 -- short by 5 page(s)
 #### 184.5 未测（如实）
 
 - `swift15_iq3s_mtp` 的 rk8v4 池上限：已测到 **80,000 全部 READY**，**没有探到顶**。
+> ⚠ 已被 §219 更新：SWIFT MTP 池上限实测 **126,976（graph64）/ 95,232（graph192）**，80,000 不是顶。
 - Swift 换 Q8 头：**无该件**（现役 `q6_k` 332.3 MiB，换 Q8 只 +98.1 MiB，推算池 ≈76,300，未实测）。
 - DFlash2 头：**无该件**。按 `dflash2_inventory.py` 逐张量算得 **2,118,708,560 B ≈1.97 GiB**（比 MTP iq4_nl 多 1.75 GiB）⇒ 推算池上限为负（12.6+1.97=14.6 GiB 已超可用），**无法加载**。
+> ⚠ 已被 §206 更新：DFlash2 头实测 **51,200 池可起服**，"推算池上限为负 / 无法加载" 结论作废。
 - 每格只有 1 轮 ⇒ 按判据纪律（P3-2）**不得作为结论的强证据**，只能作方向性对比。
 
 ### 185. 【SDA 公开面清退执行 + 物理层治理主体落地】（2026-10-30 19:18–20:2x）
@@ -4820,6 +4822,7 @@ it holds 79 -- short by 5 page(s)
 - **数字（decode tok/s / 接受率）**：k0 裸基线 66.1；MTP：m1=104.4(77.3%)、**m2=115.0(57.3%)**、m3=114.5(43.6%)、m4=104.2、m5=110.0、m6=104.8、m7-m15 单调递减至 68.0(14.0%)；DFlash2：d1=89.6(62.3%)、d2=100.4、d3=101.2、**d4=121.1(36.2%)、d5=124.4(32.2%)**、d6=114.5(26.3%)、d7=99.2、d8-d15 递减至 93.0(11.5%)。甜品复测 ×3 轮一致（bestm2=115.5、bestd4=123.8、bestd5=123.2）。**结论：DFlash2 甜品 K=4-5（+85-88% vs 裸基线），K≥4 全域胜 MTP；MTP 在 K=1-3 更优（m2 +74%）；两者 K 上限后均单调劣化（草案过长反噬）。**
 - **池上限标定（DFlash2 件 13.29 GiB）**：rk8v4=**20480**（24576 差 24 MiB 拒启）；rk2v4-e8=**32768**（49152 差 62 MiB 拒启）；rk2v4-e8@32768+d7=102.4 tok/s——精度换池：同速度下池容量 ×2。
 - **adaptive 判死**：--adaptive-mtp 预留 5.06-5.29 GiB（池无关部分主导），16 GB 卡即使 8192 池也装不下（avail 3.6 GiB）。除非引擎改预留策略，SWIFT 场景不可用。
+> ⚠ 已被 §208 更新：预留可用 `--cuda-graph-allowance-mib` 压到 128–192 MiB，16 GB 卡可跑；"判死" 作废。
 - **启动器同步**：甜品标注 d7→d4/d5；swift_dflash2 参数集升级 8192@rk2v4-e8→16384@rk8v4（留余量口径）；回归冒烟 12/12 PASS。
 - **窗口纪律执行**：单可见标题窗跑全程（40 臂+1 重试），引擎同窗附着，跑完自关，零残留、零人工干预；夜班驱动 work\draft\bench_night.py（45min 墙钟预算+finally 兜底杀）。
 - **新发现**：①MTP K=1 接受率 77.3%（极高）但增益平平——接受率高≠吞吐高，短草案校验开销占比小；②DFlash 在中段 K 耐受性显著优于 MTP（同为 +3 递进，d 系列衰减平缓）；③greedy 下同配置轮次完全可复现（bestd 系列与 phase1 数字一致）。
@@ -5427,6 +5430,7 @@ it holds 79 -- short by 5 page(s)
 | 73 | **B 类唯一副本** | ⏸ 保持严禁：实体未动 |
 | 76 | **`rotate -Apply` 剩余误删风险** | ✅ 保持销账（§214） |
 | 77 | **修法 A 效果验证** | ⏸ **改判为「长→短两轮 A/B」**：§218 的 24K 池 + 33K prompt 设计两臂均 429（need 513 > usable 384），无判决力；须改为「第一轮 33K 超池落 8K 锚 → 第二轮 8K 前缀 + 新问题」 |
+> ⚠ 已被 L5471 撤回 + L5512 销账更新：长→短两轮实测短前缀够不着锚（cache 0 / 全量重算），两臂差异 <0.4%，该改判作废。
 | 78 | **超池检查点恢复 429 产品化** | ⏸ 证据加强（§218）：FIXA/RC8 两臂均 429，与 binary 无关 |
 | 79 | **`_apply_model_coupling` 套档静默跳过** | ✅ 销账（§218）：收集到 `_bundle_skipped` 并显示在状态区，注入态验证可见 |
 | 80 | **SWIFT+DFlash2 启动失败** | ✅ 已修并推送（§217，`b820e4b`） |
@@ -5514,6 +5518,7 @@ it holds 79 -- short by 5 page(s)
 | #79 | ✅ 已销 | 套档静默跳过可见化（§218） |
 | #80 | ✅ 已销 | SWIFT+DFlash2 启动失败根因（§217） |
 | **#81** | **⏸ 新增** | **方案2 IDE 宿主覆盖缺口**：CLI 实测通过、Craft 不消费 settings hooks；方向 0（接受 gateless）/ 1（检测型兜底，需 rebuild#21）/ P（IDE 插件门，需项目外路径批准）待用户原话裁决 |
+> ⚠ 已被「四-AJ 条目 3」更新：#81 已裁决为「接受 gateless 为覆盖边界」，不再待裁决。
 | 归属项 | ✅ 已答 | `ninfer_launcher.py +49/−10` 归属见 §219 第五节，本批随构建史一同提交 |
 | 存量 | ⏸ 保持 | `cfg_d1208a.bat` 残留、refs 断链、logs 超线、心跳文件增长、#68/#73、Strata 口径、报告订正稿 |
 
@@ -5634,4 +5639,55 @@ gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来
 - GSQ DFlash2 的 dGPU 上限未测（因榨干显存致卡死，主动放弃）；
 - unsloth 件已删，若要复现其 13.7% 接受率需重下 12.24 GB；
 - 质量对照仅 5 题，未覆盖长上下文与复杂推理。
+
+
+### 221. 【§15.6b 头号嫌疑判别：GDN/SSM 状态回放已存在，"缺失"假设排除】（2026-11-13）
+
+调研报告（`调研-上游对照-...-CB-TELE-LUMMY-20261103.md` §15.6b）把「GDN/SSM 状态回放缺失」列为投机路线的**头号嫌疑**，并称"优先级高于 adaptive 实测、若证实三条路线全部受益"。本节为该假设的读码判别结论：**排除**。
+
+**证据链（四层，全部可在源码中复现）**
+
+1. **枚举里就有回放动作** —— `src/models/qwen3_5/execution/text.h:31`
+   ```cpp
+   enum class GdnStateAction : std::uint8_t {
+       UpdateInPlace,
+       RecordForReplay,
+   };
+   ```
+
+2. **投机验证路径把回放存储列为必要条件** —— `program/speculative/target_verification.cpp:12-15`
+   ```cpp
+   if (frame.replay_records == nullptr) {
+       throw std::logic_error("speculative target verify has no ReplaySSM record storage");
+   }
+   card.set_gdn_state_action(GdnStateAction::RecordForReplay, frame.replay_records);
+   ```
+   没有 `replay_records` 直接抛异常 ⇒ 回放记录不是可选优化。
+
+3. **逐位置记录 + 按接受位置取出** —— `text.cpp:1055-1069`（卷积态）与 `1114-1122`（recurrent state）
+   ```cpp
+   if (gdn_state_action_ == GdnStateAction::RecordForReplay) {
+       gdn_projection_record(... conv_states, valid, *active_linear_state_source_slots_,
+                             records.conv, ...);           // 记录每个候选位置
+   } else {
+       gdn_projection_snapshot(... source_slots, *destination_slots, ...);
+   }
+   ...
+   ops::gated_delta_net_replay_record(... records.key, records.value, records.gate, ...);
+   ```
+   接受后由 `target_verify_accept` 的 `ops::scatter(selected_hidden, state_destination_slots, ...)` 只取被接受位置的状态。
+
+4. **引入时间早于嫌疑提出** —— `git log -S 'RecordForReplay'` → `81e62db`（2026-10-04，源码树初始导入即存在）。
+
+**结论与影响**
+
+- §15.6b 的「拒绝后无快照/回滚 ⇒ 深位崩」机制**不成立**；`GdnStateAction` 虽有 `UpdateInPlace`，但投机路径强制走 `RecordForReplay`。
+- 接受率天花板（GSQ 64.3% / Coder390 56.4% / SWIFT 44.3%）**回到「头与底模错配」假设**（挂账 #②），不再指向 GDN 状态。
+- §15.6b 里「若证实则行动序要重排」一条**不需要执行**；`--adaptive-mtp` 实测（§15.4）仍是下一项有信息量的动作。
+
+**同日配套（文档侧，未提交部分见工作树）**
+
+- 构建史 5 处过时结论加 superseded 标记（L4465 / L4468 / L4825 / L5433 / L5521），按调研 §17.3「方向 1」格式，不改原文字句；
+- 新增 `docs/06-设计与规范/基准台账与decode速度口径.md`（六字段必标 + 三层基准 + Basalt 台账字段 + JSONL 模板）；
+- 新增 `bench/results/2026-11-13-dgpu-gsq.jsonl`（4 行 dGPU 实测样例：MTP 65,536=143.1 / 81,920=134.0 / 126,976=87.3，DFlash2 40,960=172.5）。
 

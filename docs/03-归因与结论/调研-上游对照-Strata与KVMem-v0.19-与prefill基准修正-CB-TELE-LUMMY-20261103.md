@@ -46,6 +46,8 @@
 
 **⇒ 上游 KVMem 更值得学（同谱系、同模型、同配置、有实测）；Strata 是镜子与补充。**
 
+**❗ 第十层结论（§十八）**：**decode 速度没有统一口径，但业界有标准（llama-bench 的 pp/tg、MLPerf 的 TTFT/TPOT P90、Basalt 的分负载台账）**——我们缺的不是标准，是**六字段标注**（prompt/生成/并发/量化/通道/采样）。补齐后历史 8 个数字立刻可比。
+
 **❗ 第九层结论（§十七）**：**项目「比较成熟」成立，但边界是「机制 + 工程」，不含「文档」**——技术高 / 工程高 / 产品中 / **文档中偏弱**（5 处过时结论仍以肯定语气存在，今日 3 处当场误导）。**补齐只需半小时：给旧结论加 `superseded by §xxx` 标记**（append-only 纪律不变，只加标记）。
 
 **❗ 第八层结论（§十六）**：**Basalt 是 Strata 的 MoE 特化 fork（我们 dense 用不了），但它的 benchmark 台账格式可直接抄**——分项记 `decode_{conv,struct,prose}` / `accept_{conv,struct,prose}` / `draft_len_*` / `pcie` / `h2d_gbps` / `engine_args`，去重键 = 件+量化+硬件，CI 校验。**这正是「580 vs 182」「参数不一致」两个老问题的现成解法。**
@@ -2746,3 +2748,168 @@ prose   = 长文生成（模拟动画/文档）
 | #77 改判旧文本 | 构建史 §218 L5429（**应标作废**） |
 | MTP 池上限 | 构建史 §219 L5443-5444（graph64=98,304 / graph192=95,232） |
 | DFlash2 池上限 | 构建史 §206 L4831（51,200） |
+
+---
+
+## 十八 decode 速度的统一口径与基准规范（2026-11-13，待立规则）
+
+> 起因：用户提问「解码速度一直没有统一口径和基准，一会高一会低，业界有统一标准吗」。
+> 结论：**业界有标准，我们缺的不是标准，是**字段标注**——那些数字没有一个错，只是没说自己在什么条件下测的。**
+
+### 18.1 现有 decode 数字为何互相矛盾（8 个实测全对，但无一可比）
+
+| 数字（tok/s） | 出处 | 实际口径 | 不可比的原因 |
+|---|---|---|---|
+| **748.6** | 仓二峰值 | 请求级 · 真实负载 · 短输出 | 不同模型、不同仓 |
+| **463.9** | 10-13 峰值 | **5s 窗口峰值** | 峰值 ≠ 均值 |
+| **388** | §178 | 请求级 · Coder390+MTP · 短请求 | **独显通道** |
+| **239** | §206 | **5s 窗口峰值** · 64K 上下文 | 峰值 |
+| **182.1** | §206 | **请求级** · 38K 输出 · 59.5% 接受率 | 长输出 + 混合投机 |
+| **154.9 / 186.0 / 202.6** | §220 | 请求级 · **384 tok 输出** · 核显通道 | 短输出 + 核显 |
+| **580** | 用户观察 | **口径不明（未复现）** | 未复现 |
+| **3** | 页漂移现场 | 请求级 · 超池 + 漂移 | 病态态 |
+
+**⇒ 差异来源有六个维度，任一维度不同就不可比：**
+
+```
+① 请求级 vs 5s 窗口（均值 vs 峰值）
+② prompt 长度（384 / 32K / 64K / 199K）
+③ 生成长度（384 / 38K）
+④ 显示通道（igpu / dgpu，差 19–60%）
+⑤ 并发数（1 / N）
+⑥ 采样方式（greedy / temperature）
+```
+
+### 18.2 业界三大标准口径
+
+#### ① llama.cpp `llama-bench`（事实标准）
+
+```bash
+llama-bench -m model.gguf -p 512 -n 128
+```
+
+| 指标 | 含义 |
+|---|---|
+| **pp512** | prompt processing，512 token 的 prefill 速度 |
+| **tg128** | text generation，128 token 的生成速度 |
+| 报告 | **多次运行取 平均值 ± 标准差** |
+
+**⇒ 关键约定：prompt 与生成长度**固定**，才有可比性。**
+
+#### ② vLLM / MLPerf 的 TTFT + TPOT
+
+```
+TTFT  = Time To First Token      （= prefill 时间）
+TPOT  = Time Per Output Token    （= 1000 / decode tok/s，ms/token）
+ITL   = Inter-Token Latency      （≈ TPOT，逐 token 延迟）
+```
+
+**MLPerf Inference Single-Stream 场景要求：**
+
+> 报告 **TTFT 与 TPOT 的 90th percentile（P90）**，不是平均值。
+
+**⇒ 为什么用 P90：平均值被"快的那几次"拉高，P90 才反映用户实际感受到的慢。**
+
+#### ③ 分负载类型（Basalt 台账做法，见 §十六）
+
+```
+decode_conv_tps  / decode_struct_tps  / decode_prose_tps
+accept_conv_pct  / accept_struct_pct  / accept_prose_pct
+draft_len_conv   / draft_len_struct   / draft_len_prose
+```
+
+**⇒ 因为「对话 / 代码 / 长文」三种负载的可预测性差 3–5 倍，混在一起平均没有意义。**
+
+**⇒ 这正是「580 vs 182」矛盾的解：不是矛盾，是不同负载。**
+
+### 18.3 我们的三层缺口
+
+| # | 缺口 | 后果 |
+|---|---|---|
+| **1** | **未标 prompt 长度与生成长度** | 384 tok 的 154.9 与 38K 输出的 182.1 被当成同一件事 |
+| **2** | **混用「请求级」与「5s 窗口」** | 239（峰值）与 182（均值）并列，差 31% |
+| **3** | **未标显示通道** | 独显 105–233 vs 核显 154.9–202.6，差 19–60% |
+
+### 18.4 建议的三层基准（成本从低到高）
+
+#### 第一层：短基准（llama-bench 兼容，~5 分钟）
+
+```
+prompt: 512 token（固定文本）
+output: 128 token
+采样:   greedy
+重复:   3 次
+报告:   tg128 = mean ± std
+```
+
+**⇒ 价值：可与 llama.cpp / vLLM 的数字**同口径直接对比**。**
+
+#### 第二层：长基准（TTFT + TPOT，~10 分钟）
+
+```
+prompt: 32,768 token（正好一个锚的 frontier）
+output: 512 token
+采样:   greedy
+重复:   3 次
+报告:   TTFT (s) + TPOT (ms/token) + **P90**
+```
+
+**⇒ 价值：测出「池内 vs 超池」「核显 vs 独显」「接受率高低」的差异。**
+
+#### 第三层：分负载（conv / struct / prose，~30 分钟）
+
+```
+三类各 3 次，分别记录：
+  decode_tps + accept_pct + draft_len
+```
+
+**⇒ 价值：回答「这个档适合什么任务」——这是「选头」与「选模型」的唯一依据。**
+
+### 18.5 必标六字段（比数字本身更重要）
+
+**每次给出任何速度数字，必须同时标注：**
+
+```
+① prompt 长度（token）
+② 生成长度（token）
+③ 并发数（1 / N）
+④ 量化档（rk8v4 / rk2v4-e8 / int8 / ...）
+⑤ 显示通道（igpu / dgpu）
+⑥ 采样方式（greedy / temperature + 具体参数）
+```
+
+**⇒ 缺任一字段的数字，一律标注「未标口径，不可横向比较」。**
+
+### 18.6 与 §十六 台账格式的关系
+
+**§十六（Basalt 台账）的字段清单刚好覆盖上述六项：**
+
+| 必标字段 | §十六 对应字段 |
+|---|---|
+| prompt 长度 | `prompt_tokens` |
+| 生成长度 | `output_tokens` |
+| 并发数 | 隐含（`preset` / 单路） |
+| 量化档 | `quant` + `kv` |
+| 显示通道 | `gpu` + `channel` |
+| 采样 | `engine_args`（含 `temperature`） |
+
+**⇒ 所以 §十八 不需要新造格式，**直接采纳 §十六 的 JSONL 台账 + 本节的三层基准**即可。**
+
+### 18.7 建议的落地方式（回家后立规则）
+
+| 步 | 动作 | 成本 |
+|---|---|---|
+| **1** | **立规则**：任何 speed 数字必须带 18.5 的六字段，缺一不算「结论」 | 写进 `项目硬规则.mdc` |
+| 2 | **建三层基准脚本**：`bench_l1_short.sh` / `bench_l2_long.sh` / `bench_l3_bytask.sh` | 半天 |
+| 3 | **首次基线**：三档模型 × 两头 × 三层，各跑一次入库 | 1 晚 |
+| 4 | **之后所有实验必须跑 L2（TTFT+TPOT）**，不得只报「decode tok/s」 | 纪律 |
+
+### 18.8 引用
+
+| 内容 | 出处 |
+|---|---|
+| llama-bench 的 pp/tg 口径 | llama.cpp `llama-bench` 工具（`-p` / `-n` 参数） |
+| MLPerf Single-Stream 的 P90 要求 | MLPerf Inference benchmark rules（Single-Stream scenario） |
+| vLLM TTFT/TPOT 定义 | vLLM `benchmark_latency.py` / `benchmark_throughput.py` |
+| 分负载台账 | 本报告 §十六（Basalt `docs/community.md`） |
+| 我们的 8 个历史数字 | 见 18.1 各出处 |

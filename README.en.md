@@ -1,6 +1,6 @@
 # Ninfer-KVMem-Async
 
-**Running a bigger model (Qwen3.8-27B-Coder390, 27B) on an architecture proven across two prior generations of engineering.**
+**Running 27B-class models (three tiers: Coder390 / SWIFT-1.5 / GSQ-RCO IQ3_S) on an architecture proven across two prior generations of engineering — 16 GB consumer cards, long-context Agent sessions.**
 
 > This is the full English edition, translated section-by-section from the Chinese README.
 > **中文完整版 → [README.md](README.md)** — the authoritative project record (build history, per-decision evidence chains) is in Chinese.
@@ -11,7 +11,7 @@
 Run a **27B model** on a **16 GB consumer GPU** for **long-context Agent sessions** — it does not fit natively (a million-token KV ≈ 32 GiB). **KVMem virtualization** (tiered KV storage + on-demand recall) makes it *"fit"*; this repo's core increment is the **Async Page Pipeline**: page movement and decode computation run **pipelined in parallel** (movement never waits for decode, decode never waits for pages), so "over-pool" no longer means "slower". It ships with the correctness engineering (in-pool vs over-pool outputs **byte-identical**) and a full set of measured calibrations (pool / KV precision tier / speculation tier).
 
 - **Where it came from**: three generations of engineering in relay — Bonsai-27B-NInfer (engine & quantization) → Bonsai-27B-NInfer-kvmem (KVMem ring) → this repo (async page pipeline); see the three-generation table below.
-- **Current status**: **production-usable in a declared domain (single-stream long context, exclusive VRAM, PCIe Gen4)**; two known open issues = ① the transient slow state (the "Death Valley": trigger pinned to three AND conditions = Gen5 + external pressure ≥400 MiB + pool-edge; line-level root cause pending) ② **C12 — the first request after a long idle may hang permanently** (never reproduced) — additionally: **the "hang" attribution is closed = missing symbol linkage** (symbol-linked builds are immune; see ★2026-10-18/19).
+- **Current status (2026-11-13)**: **multi-tier production-usable** — three model tiers (Coder390 / SWIFT-1.5 / GSQ-RCO IQ3_S), each with **both MTP and DFlash2 heads in one artifact** (`--spec` switch); **iGPU display channel is the #1 speed variable** (19–60% faster than dGPU at the same pool); pool ceilings **40,960–126,976** depending on artifact and head, the top tier hitting the 16 GB physical limit; two known open issues = ① the transient slow state (the "Death Valley": trigger pinned to three AND conditions = Gen5 + external pressure ≥400 MiB + pool-edge; line-level root cause pending) ② **C12 — the first request after a long idle may hang permanently** (never reproduced) — additionally: **the "hang" attribution is closed = missing symbol linkage** (symbol-linked builds are immune; see ★2026-10-18/19).
 - **How to read this repo**: below are the key milestones and the complete campaign list (curated); the round-by-round full record (with the evidence chain behind every decision) is in the [Build History](docs/ninfer-kvmem-项目构建史.md) (Chinese);
 - **Want it running**: three steps — build engine / download model / serve — in [Quick start](docs/00-入口与说明/快速上手-自助路径.md).
 
@@ -40,6 +40,51 @@ Three generations:
 | **GUI launcher + serve_tee** | Self-built in repo 2 (the author's package only had bat files) | Simplified in this repo to **4 scene presets (2 modes × 2 models)** + validation warnings + KV_ENV injection |
 
 ### Key milestones (curated)
+
+> ## ★ 2026-11-13 · Documentation staleness audit: six superseded conclusions
+>
+> After thirteen cross-review rounds, a self-audit of **conclusion freshness** found the inherent cost of an append-only build history: **old conclusions stay in place in affirmative tone, never marked "superseded by §xxx"**, and multiple agents reading by keyword grep each hit different stale entries.
+>
+> | # | Stale conclusion | Location | Superseded by |
+> |---|---|---|---|
+> | 1 | "Step one: watch `capture install` 0→>0" | report §〇 | §218 (50%) / §219 (66.7%) |
+> | 2 | "#77 = long→short two-round A/B" | build history L5429 | L5471 retraction + L5512 closure |
+> | 3 | "`--adaptive-mtp` reserves 5.06 GiB, won't fit" | L4822 (§205) | **§208 overturns it** (conservative upper bound; `--cuda-graph-allowance-mib` cuts it to 128–192 MiB) |
+> | 4 | "SWIFT MTP ceiling 80,000, not probed to top" | L4464 | §219: graph192=**95,232** / graph64=98,304 |
+> | 5 | "DFlash2 computed pool ceiling is negative" | L4466 | §206: 51,200 pool serves successfully |
+> | 6 | "#81 awaiting user verdict" | L5516 (snapshot) | L5535/L5541 already decided |
+>
+> **Fix (half an hour, zero machine time)**: add bidirectional superseded markers — append `> ⚠ Superseded by §xxx: <what changed>` at the old section's end. **The build history only has direction 2 (new section declares what it overturns), missing direction 1 (old section doesn't know it's dead)** — and direction 1 is what prevents mis-citation.
+>
+> **Four-layer maturity**: technology **high** (all five-part criteria met) · engineering **high** (governance/release/testing) · product **medium** (RC1 shipped, ecosystem early) · **documentation medium-weak**.
+
+> ## ★ 2026-11-06/07 · Long-prefix anchors: from "doesn't fit" to 50% / 66.7% measured hit rate
+>
+> **Mechanism**: `PrivateLongAnchor` — at every 32K multiple of the prompt (`frontend.cpp:575-582`, hard-coded 32,768 stride) it offers "this position is worth keeping a KV snapshot"; once banked, the next turn's prefix match skips that prefill span.
+>
+> **Key distinction**: it does **not speed up prefill — it makes the next turn do less prefill**; gain is linear (0.033 s/page), optimum = the deepest anchor the pool allows.
+>
+> | Scenario | Pool | Hit | Effect |
+> |---|---|---|---|
+> | Multi-session anchor (DFlash2) | 51,200 | **50.0% `long anchor`** | TTFT 9.8s / total 10.2s (saves 6.7s) |
+> | Large-pool anchor (SWIFT) | 90,112 | **66.7%** | variant total **18.5s → 6.9s (saves 62.7%)** |
+>
+> **Three measured boundaries**:
+> 1. **Over-pool anchors must be rejected**: a 65K anchor needs 1,021 pages, pool has 800 ⇒ `adopt host-backed: need=1021 usable=800` ⇒ **HTTP 429** (both arms alike, unrelated to fix A; see item #78)
+> 2. **`turn closure` masquerades as an anchor hit**: a verbatim repeat shows `cache 100.0%` with no anchor involved ⇒ **the verdict must read the hit-type field** (`long anchor` vs `turn closure`)
+> 3. **Anchors only pay off for "same prefix, different tail question"**: a one-shot long document has no next turn; "long→short two-round" was measured and retracted (short request shows `cache 0`; the anchor always hugs the prompt tail)
+>
+> **Two fixes** (`spare_prefix_pages` = fix A / `NINFER_KV_HOST_ANCHORS` = fix B): fix A landed and was promoted on 11-05 (`F814B07A`); **on 11-07 it was measured and judged a "defensive fix" — arms differ <0.4%, no observable performance gain**; fix B is still unimplemented.
+>
+> ## ★ 2026-11-05 · Fix A `spare_prefix_pages`: the cheap cure for page drift
+>
+> **Problem**: after 34 rounds, ~330 early-context pages linger in host ⇒ every token pays a host round-trip ⇒ **decode collapses to 3 tok/s** (a 99.9% hit rate doesn't help — that 0.1% is exactly the head every step must attend to).
+>
+> **Mechanism**: not triggered by "prompt > pool" but by **"session round count"** — each round's cache replay remaps history pages and pushes the earliest ones out of the device pool.
+>
+> **Fix A**: `demote_kv_pages_to_host` gains `spare_prefix_pages` — the first demotion pass **skips `[0, deepest pending capture)`** (the second pass still yields them, guaranteeing room is freed). Value = `kv_pages_for_frontier(capture_groups.back().frontier)`, identically 0 when no capture is pending ⇒ **zero decode cost**.
+>
+> **Measured**: <0.4% difference, judged "defensive fix" — **it prevents "banking broken by demotion", it does not speed anything up**.
 
 > ## ★ 2026-11-07 · VRAM desktop floor released + dual-head artifacts unified + four measured pool ceilings (platform-migration dividend cashed in)
 >
@@ -235,7 +280,33 @@ Three generations:
 
 ---
 
-## Current production setup (updated 2026-10-19): **six model tiers × three active engines × 4 scene presets**
+## Current production setup (updated 2026-11-13): **three model tiers × dual-head artifacts × display channel**
+
+### Three tiers × two speculative heads (dual-head artifact, switched by `--spec`)
+
+**One artifact carries both MTP and DFlash2 heads** (`graft_dflash2.py` keeps MTP by default; `--drop-mtp` discards it): MTP mode costs nothing (only the selected head loads), DFlash2 mode costs 1.0–1.2 GiB more.
+
+| Tier | Dual-head artifact | Size | **MTP pool / decode / acceptance** | **DFlash2 pool / decode / acceptance** |
+|---|---|---|---|---|
+| **Coder390** | `Qwen3.8-27B-Coder390-MTP+DFlash2.ninfer` | 14.02 GiB | **86,016** / 154.9 tok/s / 64.2% | **40,960** / **194.4** tok/s / 62.1% |
+| **SWIFT-1.5** | `swift15_iq3s_mtp+dflash2.ninfer` | 13.29 GiB | **126,976** / 138.1 / 56.6% | **90,112** / **186.0** / 57.6% |
+| **GSQ-RCO IQ3_S** | `gsq_iq3s_dual.ninfer` | 13.29 GiB | **126,976** / 152.7 / **64.3%** (highest) | **90,112** / **202.6** (fastest overall) / 59.3% |
+
+> All measured on the **iGPU display channel** (same table, ★2026-11-07 ⑥). dGPU channel is 19–60% slower at the same artifact and pool — **the channel is the first variable**.
+> Head trade-off: **DFlash2 gives up 29% pool (SWIFT/GSQ) or 52% (Coder390) for +25%～+35% throughput.**
+
+### Engine & channel
+
+| Dimension | Current value |
+|---|---|
+| **Active binary** | `496D6070` (`build-1208b`, `engine-rc1-7e14453-6-g2755b24-dirty`, carries `--wddm-budget-arithmetic-only`) |
+| Promotion order | `9453FFC6` (sym3/RC1) → `B93B1791` (RC8) → `F814B07A` (fix A) → **`496D6070`** (paper budget) |
+| **Channel** | **`igpu` recommended** (display on iGPU ⇒ 5080 idle `used ~55 MiB`, engine gains **+1118 MiB free**); `dgpu` desktop holds ~1145 MiB; `auto` reads `nvidia-smi` |
+| Launcher | channel is an **independent dimension** (emits no engine flag; used only for ceiling validation and hints) |
+
+### Historical setup (2026-10-19, kept for reference)
+
+**six model tiers × three active engines × 4 scene presets**
 
 The launcher's "model" dimension now has **six tiers** (switching a model brings its whole parameter set, `MODEL_BUNDLES`: KV / pool / CUDA-Graph budget / vision switch together); the "engine" dimension is an **independent orthogonal** dropdown (which binary runs, decoupled from scene parameters) = **three active binaries**; scene presets = **4** (2 modes × 2 models: production / stress). Per-parameter explanations: **[`docs/01-构建与发布/引擎启动参数与配置档-20261014.md`](docs/01-构建与发布/引擎启动参数与配置档-20261014.md)** (Chinese).
 
@@ -251,7 +322,7 @@ The launcher's "model" dimension now has **six tiers** (switching a model brings
 
 | Tier | Model file | KV | Pool | Graph | Key measurements |
 |---|---|---|---|---|---|
-| **SWIFT 1.5 (current production)** | `swift15_iq3s_mtp.ninfer` (11.3 GiB on card) | **`rk8v4`** (calibrated on the machine) | **65,536** (pool ≥ working set is hard discipline) / int8 ceiling 57,344–61,440 | **192** (hard requirement; 64 warns) | deep 60K decode 143.7 tok/s / acceptance 64%; load ~9 s; 65,536@rk8v4 leaves 727.9 MiB free |
+| **SWIFT 1.5** (⚠ 2026-11-13: pool ceiling in this row is stale, see the new table above) | `swift15_iq3s_mtp.ninfer` (11.3 GiB on card) | **`rk8v4`** (calibrated on the machine) | ~~65,536~~ → **126,976** / int8 ceiling 57,344–61,440 | **192** (hard requirement; 64 warns) | deep 60K decode 143.7 tok/s / acceptance 64%; load ~9 s; 65,536@rk8v4 leaves 727.9 MiB free |
 | **Q2LYNN (finalized baseline)** | `…Q2LynnStyle-MTP.mtp-iq4nl.ninfer` (+`…vision` grafted file) | `rk2v4-e8` | 51,200 (stable) / 65,536 (measured) | 64 | all historical measurements ran on it; baselines **frozen** at [`baselines/q2lynn/`](baselines/q2lynn/) |
 | BONSAI | prior-line file (**not downloaded**) | — | — | — | registered only, pending test (launcher warns if selected) |
 | iq4nl / iq4nlvis / orig | self-converted MTP head (no vision) + vision-grafted file / pure baseline original | — | — | — | three states of the internal processing chain; see the models trio below |

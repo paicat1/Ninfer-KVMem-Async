@@ -294,7 +294,7 @@ MODEL_KVCAP_MAX_IGPU = {
 #   参数与基准每模型一套：Q2LYNN 集=冻结（baselines/q2lynn），SWIFT 集=现行（baselines/swift15_iq3s）。
 MODEL_BUNDLES = {
     # 2026-11-08 GSQ-RCO IQ3_S（原版底座）：MTP 头与主权重同源，接受率 64.3%（四件最高）
-    "gsq": {"kv": "rk8v4", "kvcap": "124k", "graph": "64", "vision": "overlay",
+    "gsq": {"kv": "rk8v4", "kvcap": "120k", "graph": "64", "vision": "overlay",
             "arith": "on",
             "note": "核显实测：MTP 126,976 READY（slack 80.1）/ 131,072 FATAL"
                     "（need 4245.3 > avail 4217.1）；**512-token prompt 同口径**（4 类负载 × 3 次，"
@@ -308,10 +308,10 @@ MODEL_BUNDLES = {
                             "prose 137.7 / conv 131.5 tok/s（接受率 57 / — / 38%）。"
                             "注意：SWIFT DF2 同池 90,112 的 struct 是 196.7，本档并非最快；"
                             "旧 66-token 单题的 202.6 不可横比。"},
-    "q2lynn": {"kv": "rk8v4",    "kvcap": "84k",   "graph": "64",  "vision": "overlay",
+    "q2lynn": {"kv": "rk8v4",    "kvcap": "80k",   "graph": "64",  "vision": "overlay",
                "arith": "on",   # 86,016 的实测口径即 arith=on；无 arith 时上限止步 96,304
                "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
-    "swift":  {"kv": "rk8v4",    "kvcap": "124k",   "graph": "64",  "vision": "overlay",
+    "swift":  {"kv": "rk8v4",    "kvcap": "120k",   "graph": "64",  "vision": "overlay",
                "arith": "on",   # 124k 必须 arith：100k 无 arith 实测即 FATAL（3486.6 > 3433）
                "note": "核显实测：126,976 READY，graph 64 可用（旧注『必须 192』2026-11-14 复测作废）；"
                        "512-token 同口径：struct 161.4（接受率 73%，六臂最高）/ prose 121.6 / conv 118.2 tok/s；"
@@ -448,7 +448,7 @@ KV_OPTIONS = {
     "rk8v4":    ("rk8v4",           ["--kv-dtype", "rk8v4"]),
     "rk4v4":    ("rk4v4",           ["--kv-dtype", "rk4v4"]),
     "rk4v4-e8": ("rk4v4-e8",        ["--kv-dtype", "rk4v4-e8"]),
-    "rk2v4-e8": ("rk2v4-e8（★本线定稿 · 5080 最省）", ["--kv-dtype", "rk2v4-e8"]),
+    "rk2v4-e8": ("rk2v4-e8（最省显存 · 2bit key · 精度最低；旧「定稿」说法已过时）", ["--kv-dtype", "rk2v4-e8"]),
     "nvfp4":    ("nvfp4",           ["--kv-dtype", "nvfp4"]),
     "fp8":      ("fp8",             ["--kv-dtype", "fp8"]),
     "int8":     ("int8",            ["--kv-dtype", "int8"]),
@@ -470,6 +470,9 @@ FP16STATE_OPTIONS = {
 CTX_OPTIONS = {
     "32k":  ("32K",   ["--max-context", "32768"]),
     "64k":  ("64K",   ["--max-context", "65536"]),
+    # 2026-11-14 补：与六档池容量对齐，用户才能把上下文设进池内（否则必然超池走 host 往返）
+    "80k":  ("80K（对齐 DFlash2 80k 池）", ["--max-context", "81920"]),
+    "120k": ("120K（对齐 MTP 120k 池）",   ["--max-context", "122880"]),
     "128k": ("128K",  ["--max-context", "131072"]),
     "150k": ("150K",  ["--max-context", "153600"]),
     "160k": ("160K",  ["--max-context", "163840"]),
@@ -728,7 +731,7 @@ SAMPLE_OPTIONS = {
 #   64/32 = 桌面挤时递降（32 = 视觉+64K+桌面 1.4GiB 极限档，2026-10-11 12:18 实测）；
 #   off = --no-cuda-graph 完全禁用（省全部 graph 预算，decode 有损，最后手段）。
 GRAPH_OPTIONS = {
-    "192":  ("192 MiB（★SWIFT 档硬要求 · 2026-10-14 实测：64 会告警 CUDA graphs used 236.8 > 64.0）", ["--cuda-graph-allowance-mib", "192"]),
+    "192":  ("192 MiB（旧注称 SWIFT 硬要求，2026-11-14 复测作废：graph64 下六臂池上限全部起服成功）", ["--cuda-graph-allowance-mib", "192"]),
     "128":  ("128 MiB（★定稿·64K池实测零代价）", ["--cuda-graph-allowance-mib", "128"]),
     "64":   ("64 MiB（紧凑）",                   ["--cuda-graph-allowance-mib", "64"]),
     "32":   ("32 MiB（极限·桌面挤时）",           ["--cuda-graph-allowance-mib", "32"]),
@@ -871,18 +874,49 @@ DIM_TIPS = {
     "async": "异步页流水 A/B 开关（NINFER_ASYNC_DEMOTE）。**开**=默认（搬运与计算重叠，本线核心改进）；**关**=同步批回退（OFF 对照臂）。实测：单发超池打平（r=1.13）、深轮重载净收益成立（r=0.801，最深段≈2×）。改档需重启 serve；做 A/B 时只切这一项、其余不动。",
     "asyncdepth": "异步页流水深度（NINFER_ASYNC_DEMOTE_DEPTH）= 同时 in-flight 的 demote 批数，配合上面的 A/B 开关使用（开关关=同步回退，此时深度无效）。浅载三档实测（2026-10-19）：2 批 avg 187.1 > 同步 183.6 > 1 批 182.6——2 批最优、1 批半流水反而最差；**深载分档（3/4 批）尚未实测**，保守默认 2。",
     "fp16state": "GDN 循环状态存储精度（--gdn-state-fp16）。**开**=状态以 FP16 存储（recurrence 仍 FP32 计算，仅轮间存储取整）；**关**=FP32（历史配置）。2026-10-20 IQ3_S 过门实测（构建史 §145）：收益=host state pinned **1.15 GiB→598.6 MiB（减半，≈550 MiB 池/上下文余量）**；质量=**agent 红线域 5/5 逐字全过**（代码/JSON/逐字复述/shell）+ **reasoning 8/8 全等**，开放式解释 prompt 6/8 条件档（p6/p7 各一处同义改写，如“图对象/图结构”）⇒ **默认 FP32（关）；fp16 按需 opt-in 开启**（用户 2026-10-20 后令：默认应 FP32，开关保留）；要绝对逐字复现的旧工作流请关。压力预设（抓谷）显式关=实验连续性。三件（sym3 生产 / offi 判决 / S13 历史受控件）均实证支持该旗标。",
-    "spec":   "投机解码（只加速解码）。k0=无；k1..k15=MTP（K 越大猜得越多；引擎上限 15）。改档需重启 serve。**★定稿 k3（2026-10-21 A 组实测）**：K=3 decode 282.4 tok/s、接受率 93.7%，比 K=4（199.9/73.5%）**快 +41%**；曲线非单调 3>2>5>1>4（**K=4 反而全档最慢**，反常原因见挂账 #52）。逐字门 **5/8 条件档**（2 处散文同义改写 + 1 处代码风格差异，语义等价；reasoning 8/8 全等）⇒ **改档会改输出**，以旧档为基准的逐字/golden 基线需重标。",
-    "model":  "模型档（第一选择；换档自动带整套 KV/池/Graph/视觉参数）。★★Coder390 Q2LynnStyle 3.89bpw + 视觉=默认·现役定稿（51200 池、最快）；Coder390 iq4_nl=无视觉对照档（vision off）；Swift 1.5 IQ3_S=11.3 GiB 高精度档（64K 池 + graph 192）；Coder390 iq4_nl+视觉塔=嫁接件。",
-    "kv":     "KV 缓存精度。★本线定稿 rk2v4-e8（2bit key + 4bit value，最省；5080 实测可用，输出与 k8v4 语义一致）。官方默认 k8v4；异常时换一档试。",
+    "spec":   "投机解码（只加速解码），两种头互斥、换头必须换件。"
+              "k0=无投机；k1..k15=MTP（K 越大猜得越多，引擎上限 15）；d1..d15=DFlash2（同理）。"
+              "**2026-11-14 六臂同口径实测（512-token prompt / 四负载 / cache 0）**："
+              "DFlash2 的 struct 甜点是 **d5**（GSQ 197.5 tok/s / 接受率 59.3%；d4 190.7 但接受率 69.8% 最高；"
+              "**d6 180.3、d7 163.3 明确变慢**，深位接受率虽仍有 50%/45%，验证成本增长快于收益）；"
+              "MTP 甜点是 **k3**（GSQ struct 141.6 / 63%）。"
+              "⚠ 旧注的「k3 = 282.4 tok/s、接受率 93.7%、K=4 最慢」来自 2026-10-21 独显+旧件，"
+              "2026-10-26 已降级为 D 级（臂内方差 2.4×），**不要引用那两个数字**。"
+              "⇒ 改档会改输出，以旧档为基准的逐字/golden 基线需重标。",
+    "model":  "模型档（第一选择；换档自动带整套 KV/池/Graph/视觉参数）。"
+              "**2026-11-14 起默认 SWIFT（Swift-1.5 微调，13.29 GiB 双头）+ DFlash2 d5 @80k** —— "
+              "六臂同口径 struct 196.7 tok/s，为六臂最高。"
+              "三件各自两个头，共 6 个甜点档（见上方场景预设）："
+              "SWIFT（struct 161.4 MTP / 196.7 DF2）、GSQ-RCO IQ3_S（141.6 / 183.7，无微调底座+社区量化）、"
+              "Coder390 Q2LynnStyle（149.5 / 140.6，代码特化但权重 14.02 GiB 使 DF2 池只有 40,960）。"
+              "⚠ 旧注的「Coder390 = 默认·现役定稿」「Swift = 64K 池 + graph 192」均已作废。",
+    "kv":     "KV 缓存精度。★当前定稿 rk8v4（8bit key + 4bit value）—— 六臂同口径基准（构建史 §222）"
+              "全部在 rk8v4 下取得，默认档也用它，换精度后速度/池都不可与那张表直接比。"
+              "rk2v4-e8 最省显存（2bit key），但精度最低，旧注称「本线定稿」是 rk2v4-e8 时代的说法，已过时；"
+              "显存紧到装不下时可下探它。k8v4 为官方默认。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
-    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即\"全速区间\"）。★定稿 51200（2026-10-11 用户裁决：55,296 为贴边上限——当晚可起、次日桌面负载 +25 MiB 即拒启，不可复现；稳定档 51200/49152）。扩容极便宜（rk2v4-e8 下 ≈0.83 MB/页）。auto = 按剩余显存最大化。",
-    "graph":  "CUDA Graph 预算（--cuda-graph-allowance-mib）= decode kernel 图重放的驱动侧显存。★定稿 128（64K 池起服必要条件，decode 101.1 实测零代价）。桌面挤时降 64/32；off 完全禁用（decode 有损，最后手段）。",
+    "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即「全速区间」）。"
+              "**2026-11-14 实测的六档甜点（每档都已扣掉视觉塔与两个投机头）：**"
+              "MTP 头 → SWIFT/GSQ **124k**（上限 126,976，131,072 FATAL）、Coder390 **84k**（上限 86,016）；"
+              "DFlash2 头 → SWIFT/GSQ **80k**（上限 90,112，94,208 FATAL）、Coder390 **40,960**（上限 40,960）。"
+              "⚠ 上限值是「能起服」的边界，不是该用的值：90,112 只剩 13.6 MiB slack，80k 有 217.6 MiB。"
+              "⚠ 池 < 上下文时超池部分走 host 往返（更慢），见 ctx 的匹配提示。"
+              "旧注的「★定稿 51200」是 Coder390 小池时代的说法，已作废。auto = 按剩余显存最大化。",
+    "graph":  "CUDA Graph 预算（--cuda-graph-allowance-mib）= decode kernel 图重放的驱动侧显存。"
+              "★定稿 **64**：2026-11-14 六臂同口径的全部池上限（126,976 / 90,112 / 86,016 / 40,960）"
+              "都是在 graph64 下取得的，SWIFT 档不再需要 192（旧注「必须 192」实测作废）。"
+              "128 会多吃 64 MiB，把 Coder390 86,016 的 63.5 MiB slack 吃光 → FATAL。"
+              "桌面显存紧时降 32；off 完全禁用（decode 有损，最后手段）。",
     "arith":  "KV 预算算术（--wddm-budget-arithmetic-only）。off=按权重加载后的 free 算（现役件行为）；on=按 total−权重−512MiB 算，纸面预算约 4217 MiB，可把池推到 100K~124K。⚠ 仅 build-1208b 及以后的新件认识；纸面预算高于真实供给，超卖部分靠 WDDM 吸收，126,976 时全卡仅剩 14 MiB 余量、cudaMemGetInfo free 已为 0，属刀尖档。",
     "hostkv": "Host 侧 KV 预算（MiB，--host-kv-mib）。官方默认 16384。",
     "prefill":"文本 prefill 分块（--prefill-chunk，128 的倍数）。官方默认 1024。",
     "think":  "思考模式。官方默认 none（关思考）。启用思考后注意 §4.2 的“思考完空正文”已知问题。",
     "tb":     "思考预算上限（--default-thinking-budget，每回合最多思考 token）。治“思考墙死循环”：xhigh 思考烧光输出预算→空正文。越小越省时，审核/批量建议小；长逻辑建议大。20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。",
-    "maxout": "服务端默认输出上限（--default-max-tokens）。⚠ 定稿池 = 40960 tokens；单请求【prompt_tokens + 输出】留在池内可避免 host 往返；开了 --kv-lease-growth 时超池会被静默截断(finish_reason=length)。⚠ growth 已判死（深超池下输出被砍在 ~4,096 租约窗口 = DSH 撞墙根因，20261010 定案），hemostat 定稿档已移除之。",
+    "maxout": "服务端默认输出上限（--default-max-tokens）。"
+              "单请求【prompt_tokens + 输出】留在池内可避免 host 往返；"
+              "当前六档池为 40,960 / 80,960 / 86,016 / 126,976（旧注「定稿池 = 40960」只适用 Coder390 DF2 档）。"
+              "⚠ --kv-lease-growth 已判死（深超池下输出被砍在 ~4,096 租约窗口 = DSH 撞墙根因，20261010 定案），"
+              "hemostat 定稿档已移除之，故超池不会再被静默截断成 finish_reason=length。",
     "vision": "视觉（多模态）。GPU 编码器=默认，视觉塔常驻显存(~1.4G)；overlay=视觉塔驻 pinned 主机内存、仍走 GPU 算（折中，需可驱逐尾部支撑）；cpu=视觉塔走 CPU 线程、无设备视觉显存（引擎自动把 --vision-max-merged 压到 256，每图慢）。显存紧：优先 overlay，其次 cpu；不用视觉就关。",
     "sample": "采样预设。默认 = 官方值 0.7/0.9/20、presence 0。",
     "conc":   "并发请求数（--max-concurrency）。多请求吞吐用大值；单会话保持 1（确定性）。",
@@ -913,8 +947,8 @@ PRESET_PROFILES = {
         vision="overlay", spec="d5", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
-    "② SWIFT · MTP k3（大池 124k · struct 161.4）": dict(
-        DEFAULTS, model="swift", kv="rk8v4", kvcap="124k", graph="64",
+    "② SWIFT · MTP k3（大池 120k · struct 161.4）": dict(
+        DEFAULTS, model="swift", kv="rk8v4", kvcap="120k", graph="64",
         vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
@@ -923,13 +957,13 @@ PRESET_PROFILES = {
         vision="overlay", spec="d5", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
-    "④ GSQ · MTP k3（大池 124k · struct 141.6）": dict(
-        DEFAULTS, model="gsq", kv="rk8v4", kvcap="124k", graph="64",
+    "④ GSQ · MTP k3（大池 120k · struct 141.6）": dict(
+        DEFAULTS, model="gsq", kv="rk8v4", kvcap="120k", graph="64",
         vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
-    "⑤ Coder390 · MTP k3（84k · struct 149.5）": dict(
-        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="84k", graph="64",
+    "⑤ Coder390 · MTP k3（80k · struct 149.5）": dict(
+        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="80k", graph="64",
         vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
@@ -954,10 +988,10 @@ PRESET_ENV = {
     # 六档统一：v2.1 多批 in-flight 深度（挂账 46，实测 10+ 轮零降速）。
     # 预设名必须与 PRESET_PROFILES 的键逐字一致（下拉按名匹配）。
     "① SWIFT · DFlash2 d5（默认主力 · 80k · struct 196.7）": {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
-    "② SWIFT · MTP k3（大池 124k · struct 161.4）":          {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "② SWIFT · MTP k3（大池 120k · struct 161.4）":          {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
     "③ GSQ · DFlash2 d5（80k · struct 183.7）":              {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
-    "④ GSQ · MTP k3（大池 124k · struct 141.6）":            {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
-    "⑤ Coder390 · MTP k3（84k · struct 149.5）":             {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "④ GSQ · MTP k3（大池 120k · struct 141.6）":            {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "⑤ Coder390 · MTP k3（80k · struct 149.5）":             {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
     "⑥ Coder390 · DFlash2 d5（池仅 40k · struct 140.6）":    {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
     # 2026-10-19 注：DEPTH 已是 GUI 独立维度（"异步深度(批)"，默认 2）。经 env_for_launch 时 combo
     # 后于本表注入 ⇒ GUI 选择覆盖上表；本表仅在"不经 GUI 的 preset 直载路径"上兜底为 2。
@@ -1124,10 +1158,9 @@ def validate(combo, exe=None):
         _dflash_cap = kvcap_tokens_of(combo)
         if _dflash_cap is None:      # auto 池：起服前无法判断，交给引擎
             _dflash_cap = 0
+        # 超上限由通道护栏统一报（见下方 _cap_max 段），此处只保留贴边提示，避免同一件事报两条。
         if _dflash_cap > 90112:
-            warns.append(f"⚠ DFlash2 件 + 池 {_dflash_cap} 超核显实测上限 90,112"
-                         "（94,208 实测 FATAL：need 3222.1 > avail 3133.9 MiB）。"
-                         "请降到 88k（90112）或以下。")
+            pass
         elif _dflash_cap > 81920:
             warns.append(f"△ DFlash2 件 + 池 {_dflash_cap}：可起服但 slack 仅 13.6 MiB（90,112 实测），"
                          "桌面/浏览器显存上涨可能拒启；建议 80k（81920，slack 217.6 MiB）。")
@@ -1153,10 +1186,48 @@ def validate(combo, exe=None):
                          "本卡不可行）——并发与 256K 深度/检索互斥，保持 1。")
     except ValueError:
         pass
-    if _kv.isdigit() and int(_kv) >= 55296:
-        warns.append("★贴边池（≥55,296）：需桌面空闲到引擎可约 ~1.95 GiB（关浏览器/Overlay 等 ~1 GB 占用），"
-                     "否则启动即缺 ~24 MiB 拒启（2026-10-11 实测两次：55,296 当晚成功、次日 +25 MiB 负载即败）。"
-                     "日常请用 51200/49152。")
+    # 2026-11-14：旧「≥55,296 即贴边」是 Coder390 小池时代（51200 定稿）的阈值；现在常态池
+    # 80k/124k，55,296 根本不贴边。改为按"该档实测上限"判定，上限表见 MODEL_KVCAP_MAX_*。
+    _spec_for_cap = str(combo.get("spec", "k3"))
+    _cap_key = _model + ("_dflash2" if _spec_for_cap.startswith("d") else "")
+    _cap_table = MODEL_KVCAP_MAX_DGPU if combo.get("channel") == "dgpu" else MODEL_KVCAP_MAX_IGPU
+    _cap_max = _cap_table.get(_cap_key) or _cap_table.get(_model)
+    _cap_now = kvcap_tokens_of(combo) or 0
+    if _cap_max and _cap_now:
+        # "超上限"已由上面的通道护栏（核显/独显各一条）报出，这里不重复；
+        # 只补"贴边"这一档。判定按"距上限不足 2,048 token"（≈70 MiB slack），
+        # 不用百分比——0.95× 的宽度会让 120k(122,880) 和 80k(81,920) 这种留了余量的档也误报。
+        if _cap_now <= _cap_max and (_cap_max - _cap_now) < 2048:
+            warns.append(f"△ 池 {_cap_now:,} 距该档实测上限 {_cap_max:,} 不足 2,048 token"
+                         f"（上限档 slack 仅 13–80 MiB），桌面/浏览器显存一涨就可能拒启；建议退一档留余量。")
+
+    # ---- 2026-11-14：通道与上下文的「非致命提醒」合并成一条，避免一次弹三条黄字 ----
+    # 两条都不是错误：auto 档按核显表校验，但切独显会 FATAL；上下文超池是 KVMem 环的正常工作模式
+    # （超池部分下沉 host），只是会慢。合并后仍保留信息量。
+    _notes = []
+    if str(combo.get("channel", "auto")) == "auto" and _cap_now:
+        _dmax = MODEL_KVCAP_MAX_DGPU.get(_cap_key) or MODEL_KVCAP_MAX_DGPU.get(_model)
+        if _dmax and _cap_now > _dmax:
+            _notes.append(f"池 {_cap_now:,} 仅核显通道可行（独显上限 {_dmax:,}，接独显会 FATAL）")
+    try:
+        _ctx_tokens = int(CTX_OPTIONS.get(str(combo.get("ctx", "256k")), ("", ["--max-context", "0"]))[1][1])
+    except Exception:
+        _ctx_tokens = 0
+    if _ctx_tokens and _cap_now and _ctx_tokens >= _cap_now * 1.5:
+        _notes.append(f"上下文 {_ctx_tokens:,} = 池的 {_ctx_tokens / float(_cap_now):.1f}×，超池部分走 host 往返"
+                      f"（32k prompt 实测 TTFT 165.7 s / prefill 855 tok/s；池内短请求 500–2000 tok/s）")
+        if not str(combo.get("spec", "")).startswith("d"):
+            _notes.append("长上下文可换 MTP 头 124k 档")
+    if _notes:
+        # 前缀用 ℹ（信息）而非 △（警告）：这两条不是错误，是当前档的固有代价。
+        warns.append("ℹ " + "；".join(_notes) + "。")
+
+    # ---- 2026-11-14：--adaptive-mtp 在代码层面只覆盖 MTP（mtp_adaptive.h / MtpAdaptiveBatchController /
+    # mtp_signal 全为 mtp_ 前缀），DFlash2 头没有对应实现，开了是空转。----
+    if str(combo.get("adaptivemtp", "off")) == "on" and _spec_for_cap.startswith("d"):
+        warns.append("⚠ --adaptive-mtp 只对 MTP 头生效，当前 spec 是 DFlash2 档，此开关不起作用"
+                     "（实测 adaptive 在 MTP struct 上 +5.5%、prose −12.8%，对 DFlash2 从未生效）。"
+                     "要自适应请切 MTP 头（k3）。")
     # 挂账 39 已销案（2026-10-11 凌晨 CodeBuddy 实测）：视觉 + on 起服且功能正常，告警移除。
     # growth 已判死（超池撞墙根因），视觉不再需要 legacy 联动。
     if any(ord(c) > 127 for c in ROOT):

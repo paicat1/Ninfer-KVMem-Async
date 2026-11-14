@@ -330,7 +330,7 @@ MODEL_BUNDLES = {
                                "实测上限 40,960（READY slack 32.8 / 51,200 FATAL）；"
                                "512-token 同口径：struct 140.6 / prose 94.7 / conv 102.0 tok/s"
                                "（六臂最低，主因是权重 14.02 GiB 换来池只有别件 45%，不是头质量差）"},
-    "swift_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
+    "swift_dflash2": {"kv": "rk8v4", "kvcap": "80k", "graph": "64", "vision": "overlay",
                       "arith": "on",
     # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
     #   81,920 READY (runtime 2.97 GiB / slack 89.6) / 86,016 FATAL (need 3146.7 > avail 3133.9)
@@ -836,10 +836,14 @@ DEFAULTS = {
     #                      ⚠️ **思考不额外占显存**（只是多生成 token），关思考既不省显存也没好处。
     #   tb      16000    = 思考预算上限，防"思考墙死循环"（思考烧光输出预算 → 空正文）。
     #                      20261008 引擎 S3 起 OpenAI 端点已解析请求里的 thinking_budget（请求值优先于服务端默认）。
-    "model": "q2lynn",   # 2026-10-31：默认档改为现役定稿 Q2LYNN（原 iq4nl 保留为无视觉对照档）
+    # 2026-11-14：默认主力档改为 SWIFT + DFlash2 d5 @88k（六臂同口径实测 struct 196.7 为最高，
+    #   见构建史 §222）。依据：512-token prompt、四类负载、每格 3 次、cache 0、核显通道。
+    #   旧默认 q2lynn + k3 + 51200 + arith off 的两个问题：①k3 那组 282.4 tok/s 是 2026-10-21
+    #   独显+旧件的数据，2026-10-26 已被降级为 D 级；②CODER390 的 DFlash2 池只有 40,960。
+    "model": "swift",
     "channel": "auto",   # 2026-11-07：默认自动检测显示通道（igpu/dgpu 手动声明）
-    "spec": "k3", "kv": "rk8v4",    "ctx": "256k", "kvcap": "51200", "hostkv": "16384",
-    "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "off",
+    "spec": "d5", "kv": "rk8v4",    "ctx": "256k", "kvcap": "80k", "hostkv": "16384",
+    "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "overlay",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "64",      # 2026-11-08：所有实测上限都在 graph64 下取得；128 会多吃 64 MiB，
                         # 把 CODER390 86,016 的 63.5 MiB slack 吃光 -> FATAL
@@ -848,7 +852,8 @@ DEFAULTS = {
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
     "anchor": "off",       # 2026-11-06：默认关，不改变既有起服行为
     "anchorsize": "auto",  # 2026-11-06：默认按 KV 池推荐
-    "arith": "off",        # 2026-11-07：默认关；开启后预算改为 total−权重−512MiB（仅新件支持）
+    "arith": "on",         # 2026-11-14：默认主力档（SWIFT+m88k）必须 arith：非 arith 下 88k 池起不来；
+                           # 旧默认 off 是 CODER390 32-51k 小池时代的设定
 }
 
 # v1 旧档位值 -> 新档位值 迁移表：旧 profile 的 spec 存的是 "dflash2"/"mtp"，
@@ -1100,25 +1105,20 @@ def validate(combo, exe=None):
     if combo.get("model") == "swift" and _spec_v.startswith("d") and not os.path.exists(SWIFT_DFLASH2_MODEL):
         warns.append(f"未找到 DFlash2 件：{SWIFT_DFLASH2_MODEL}（§203 产物；如被清理请重跑 graft_dflash2.py）。")
     if combo.get("model") == "swift" and _spec_v.startswith("d"):
-        warns.append("★DFlash2 件（13.29 GiB）实测池上限未标定：目前仅 8192@rk2v4-e8 起服实证"
-                     "（接受率 17-20%、decode 2.2x，§203）；抬高 KV 容量前请先实测。")
-        # 2026-11-06 三段实测（不是照抄 bundle 注释）：
-        #   16384 -> 起服稳（夜班 §205 全档扫描）
-        #   51200 -> 能起，但 `capacity | KV 51,200 ... runtime 2.23 GiB | free 191.0 MiB`
-        #            （logs\serve_20261106_075112.log）——贴边，桌面负载一涨就可能拒启
-        #   65536 -> FATAL「runtime reservation requires 2764170240 > available 2458910720」
-        #            （logs\serve_20261106_074534.log / 074603.log）
+        # 2026-11-14 复测（核显 + arith + graph64，覆盖 §205/§203 的独显旧结论）：
+        #   16,384 / 51,200 / 65,536 / 90,112 全部 READY；90,112 slack 13.6 MiB，
+        #   且连续 5 个真实请求（229-token 输出）全成功；94,208 FATAL（need 3222.1 > avail 3133.9）。
+        #   ⇒ 旧的「8192 未标定」「>=65,536 即 FATAL」两条均为独显+非 arith 时代，已删。
         _dflash_cap = kvcap_tokens_of(combo)
         if _dflash_cap is None:      # auto 池：起服前无法判断，交给引擎
             _dflash_cap = 0
-        if _dflash_cap >= 65536:
-            warns.append(f"⚠ DFlash2 件 + 池 {_dflash_cap} 实测起服即 FATAL"
-                         "（runtime 需 2.57 GiB、只剩 2.29 GiB；13.29 GiB 权重比 MTP 多 1.38 GiB）。"
-                         "请降到 16k（16384；夜班定稿）或 51200（能起但仅余 191 MiB）。")
-        elif _dflash_cap > 20480:
-            warns.append(f"△ DFlash2 件 + 池 {_dflash_cap}：实测可起但余量很薄"
-                         "（51200 时 free 仅 191.0 MiB），桌面负载上涨可能拒启；"
-                         "16k（16384）是夜班 §205 的全档定稿档。")
+        if _dflash_cap > 90112:
+            warns.append(f"⚠ DFlash2 件 + 池 {_dflash_cap} 超核显实测上限 90,112"
+                         "（94,208 实测 FATAL：need 3222.1 > avail 3133.9 MiB）。"
+                         "请降到 88k（90112）或以下。")
+        elif _dflash_cap > 81920:
+            warns.append(f"△ DFlash2 件 + 池 {_dflash_cap}：可起服但 slack 仅 13.6 MiB（90,112 实测），"
+                         "桌面/浏览器显存上涨可能拒启；建议 80k（81920，slack 217.6 MiB）。")
     # ---- 2026-10-10 实测踩坑（日志 serve_20261010_025432）：模型与视觉必须配对 ----
     # 模型不含 vision 组件却传 --vision* -> 引擎启动即挂
     #   "Qwen3.5 config: missing component vision"（79 us 就失败，即"秒退"）。

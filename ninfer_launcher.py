@@ -1599,9 +1599,47 @@ class ToolTip:
 # 图形界面
 # ---------------------------------------------------------------
 class LauncherApp:
+    def _install_exception_hook(self):
+        """§12 第 8 条：接管 Tk 的 report_callback_exception。
+
+        Tkinter 会把回调里的未捕获异常交给 report_callback_exception，
+        默认实现只 print 到 stderr —— 而启动器用 pythonw 运行、没有控制台，
+        等于全部丢弃（2026-11-14 场景预设联动失效就是这么被藏了几轮）。
+        这里改为：落盘 logs/launcher_errors.log + 状态栏可见 + stderr 兜底。
+        """
+        import datetime
+        import traceback
+
+        def _hook(exc_type, exc_val, exc_tb):
+            tb = "".join(traceback.format_exception(exc_type, exc_val, exc_tb))
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            path = os.path.join(ROOT, "logs", "launcher_errors.log")
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write("\n===== %s =====\n%s\n" % (ts, tb))
+            except Exception:
+                pass
+            # 状态栏（不弹窗，避免打断操作流）；__init__ 早期 status 还不存在，故用 hasattr
+            try:
+                if hasattr(self, "status"):
+                    self.status.config(
+                        text="回调异常：%s: %s（详见 logs\\launcher_errors.log）"
+                             % (exc_type.__name__, str(exc_val)[:120]),
+                        fg="#a33a3a")
+            except Exception:
+                pass
+            try:
+                print(tb, file=sys.stderr)
+            except Exception:
+                pass
+
+        self.root.report_callback_exception = _hook
+
     def __init__(self, root):
         self.root = root
         self.root.title("Ninfer-KVMem-Async · 启动器")   # 2026-10-17: 正式库名（原为 Coder390 · NInfer 启动器）
+        self._install_exception_hook()   # §12.8：先装钩子，后续任何回调抛异常都能落盘
         self.root.geometry("1180x820")
         self.root.minsize(1020, 740)
         self.bg, self.fg = "#f4f8ff", "#1a3a6b"
@@ -2047,6 +2085,17 @@ class LauncherApp:
         另一处加固：循环内**直接写 self.selection[key] = val**，不再依赖 _on_change 的
           label→key 反查兜底（反查在标签不匹配时会静默回退旧值）。
         """
+        try:
+            self._apply_preset_impl()
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            self.status.config(
+                text="应用预设失败：%s: %s（详见 logs\\launcher_errors.log）"
+                     % (type(exc).__name__, str(exc)[:120]),
+                fg="#a33a3a")
+
+    def _apply_preset_impl(self):
         name = self.preset_var.get()
         preset = PRESET_PROFILES.get(name) or {}
         # 用与 row() 相同的口径建表：DIMENSIONS + async 补位（L1707-1708 的 DIM_TABLE 是局部变量，此处重建）

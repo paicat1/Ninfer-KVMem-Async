@@ -1,0 +1,4 @@
+{"run": 1, "elapsed": 167.41410946846008, "prompt": 32758, "output": 213, "mode": "non-stream", "ttft_ms": null, "prefill_tps": 867.4, "decode_tps": 144.2, "cache_pct": 0.0, "tag": "gsq-igpu-124k-long", "target_tokens": 32768, "chars": 162483}
+{"run": 2, "elapsed": 167.743408203125, "prompt": 32758, "output": 285, "mode": "non-stream", "ttft_ms": null, "prefill_tps": 857.7, "decode_tps": 112.2, "cache_pct": 0.0, "tag": "gsq-igpu-124k-long", "target_tokens": 32768, "chars": 162483}
+{"run": 3, "elapsed": 167.47476506233215, "prompt": 32758, "output": 219, "mode": "non-stream", "ttft_ms": null, "prefill_tps": 852.7, "decode_tps": 127.1, "cache_pct": 0.0, "tag": "gsq-igpu-124k-long", "target_tokens": 32768, "chars": 162483}
+{"elapsed": 167.13597917556763, "ttft_s": 165.72456121444702, "chunks": 66, "output": null, "tpot_ms": 21.000385284423828, "p90_ms": 22.00007438659668, "tag": "gsq-igpu-124k-long", "target_tokens": 32768, "chars": 162483, "run": "stream"}

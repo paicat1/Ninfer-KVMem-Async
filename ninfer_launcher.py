@@ -296,21 +296,26 @@ MODEL_BUNDLES = {
     # 2026-11-08 GSQ-RCO IQ3_S（原版底座）：MTP 头与主权重同源，接受率 64.3%（四件最高）
     "gsq": {"kv": "rk8v4", "kvcap": "124k", "graph": "64", "vision": "overlay",
             "arith": "on",
-            "note": "核显通道实测：MTP 126,976 READY（slack 80.1）/ 131,072 FATAL"
-                    "（need 4245.3 > avail 4217.1）；decode 152.7 tok/s"
-                    "（同池独显通道 125.7，核显 +21.5%，页出减少）"},
+            "note": "核显实测：MTP 126,976 READY（slack 80.1）/ 131,072 FATAL"
+                    "（need 4245.3 > avail 4217.1）；**512-token prompt 同口径**（4 类负载 × 3 次，"
+                    "唯一 user 保证 cache=0）：struct 141.6 / prose 125.5 / conv 110.2 tok/s"
+                    "（接受率 61 / 50 / 41%）。旧 66-token 单题报的 152.7 与其他件口径不同，不可直接横比。"},
     # GSQ 的 DFlash2 头：weights 12.3 GiB（比 MTP 多 1.0），池随之降到 88k
     "gsq_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
                     "arith": "on",
-                    "note": "核显通道实测：90,112 READY（slack 13.6）/ 94,208 FATAL"
-                            "（need 3222.1 > avail 3133.9）；decode 202.6 tok/s 为全件最快"
-                            "（同池独显通道 168.1，核显 +20.5%）"},
+                    "note": "核显实测：90,112 READY（slack 13.6）/ 94,208 FATAL"
+                            "（need 3222.1 > avail 3133.9）；**512-token 同口径**：struct 183.7 / "
+                            "prose 137.7 / conv 131.5 tok/s（接受率 57 / — / 38%）。"
+                            "注意：SWIFT DF2 同池 90,112 的 struct 是 196.7，本档并非最快；"
+                            "旧 66-token 单题的 202.6 不可横比。"},
     "q2lynn": {"kv": "rk8v4",    "kvcap": "84k",   "graph": "64",  "vision": "overlay",
                "arith": "on",   # 86,016 的实测口径即 arith=on；无 arith 时上限止步 96,304
                "note": "现役定稿（冻结基准）；2026-11-07 现行口径：arith=on 上限 86,016（实测 READY slack 63.5；90,112 FATAL）；无 arith 的旧上限 58,368（2026-10-30 独显口径）仅作历史参考"},
     "swift":  {"kv": "rk8v4",    "kvcap": "124k",   "graph": "64",  "vision": "overlay",
                "arith": "on",   # 124k 必须 arith：100k 无 arith 实测即 FATAL（3486.6 > 3433）
-               "note": "实测 65,536@rk8v4 free 727.9 MiB；Graph 必须 192（64 会告警）；int8 档池取 57,344–61,440"},
+               "note": "核显实测：126,976 READY，graph 64 可用（旧注『必须 192』2026-11-14 复测作废）；"
+                       "512-token 同口径：struct 161.4（接受率 73%，六臂最高）/ prose 121.6 / conv 118.2 tok/s；"
+                       "int8 档池取 57,344–61,440"},
     # swift_dflash2 非 GUI 模型档，由 spec=d* 联动套用（2026-11-04 §203）：
     # 2026-11-06 修 BUG：kvcap 必须是 KVCAP_OPTIONS 的**键**（"16k"），不是 token 数。
     # 原写 "16384" 不在键集内 ⇒ 套档循环 _val not in _table 直接 continue，
@@ -323,7 +328,8 @@ MODEL_BUNDLES = {
                        "arith": "on",
                        "note": "CODER390 DFlash2 头（双头件同文件，--spec dflash2）；"
                                "实测上限 40,960（READY slack 32.8 / 51,200 FATAL）；"
-                               "比 MTP 头多占 1.2 GiB 权重"},
+                               "512-token 同口径：struct 140.6 / prose 94.7 / conv 102.0 tok/s"
+                               "（六臂最低，主因是权重 14.02 GiB 换来池只有别件 45%，不是头质量差）"},
     "swift_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
                       "arith": "on",
     # 2026-11-07 measured (live build + arith, iGPU path, graph192, DFlash2 13.29 GiB):
@@ -333,10 +339,14 @@ MODEL_BUNDLES = {
                      #   16384 -> 稳（§205 夜班全档，甜品 d4/d5 121-124 tok/s，k0 基线 66）
                      #   51200 -> 能起，free 仅 191.0 MiB（logs\serve_20261106_075112.log）
                      #   65536 -> FATAL（runtime 需 2.57 GiB > 剩 2.29 GiB，074534/074603）
-                     "note": "DFlash2 件 13.29 GiB（MTP 头换 DFlash2 头，§203）；"
-                              "夜班实测（§205）：rk8v4@16384 全档扫描，甜品 d4/d5=121-124 tok/s（k0 基线 66）；"
-                              "2026-11-06 实测三段：16384 稳 / 51200 可起但 free 仅 191 MiB（贴边）"
-                              " / 65536 起服即 FATAL（runtime 2.57 GiB > 可用 2.29 GiB）；默认 16k"},
+                     # 2026-11-14 复测（核显 + arith + graph64 + 512-token 口径）：
+                     #   90,112 READY (slack 13.6) / 94,208 FATAL；连续 5 个真实请求全成功
+                     #   => 上面 L334-340 的「81,920 READY / 65,536 FATAL」「甜品 121-124」全是
+                     #      独显 + 非 arith 时代的旧口径，已作废（当时权重/配置均不同）
+                     "note": "核显实测 2026-11-14：90,112 READY（94,208 FATAL），graph64 + arith；"
+                              "**512-token 同口径**：struct 196.7（**六臂最快**）/ prose 142.7 / "
+                              "conv 129.1 tok/s（接受率 53% / 41%）。"
+                              "旧注「甜品 d4/d5=121-124、65536 即 FATAL」为独显+16k 池旧口径，已作废。"},
 }
 # SWIFT 按投机类型切的模型件（2026-11-04 用户令：DFlash 与 MTP 互斥 = 换件实现）：
 SWIFT_DFLASH2_MODEL = os.path.join(ROOT, "models", "swift15_iq3s_mtp+dflash2.ninfer")   # 2026-11-07: dual-head, DFlash2 head lives in the same file

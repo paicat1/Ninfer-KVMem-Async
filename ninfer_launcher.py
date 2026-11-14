@@ -2423,26 +2423,36 @@ class LauncherApp:
             self.status.config(text="未选择或找不到组合", fg="#b03030")
             return
         combo = self.profiles[name]
-        valid_keys = {d[0] for d in DIMENSIONS} | {"async"}   # async 不在 DIMENSIONS（顶部星窗），但预设/组合也要能切 A/B 臂
-        applied = 0
+        # 2026-11-14 修（与 _apply_preset 同构的第二个副本）：原实现用
+        #   next(d[2] for d in DIMENSIONS if d[0] == key) 取表，而 async 不在 DIMENSIONS
+        #   （它在顶部星窗单独一行，DIM_TABLE 才是运行时补位）⇒ 抛 StopIteration 中断循环，
+        #   末尾 _on_change() 不执行，组合加载完全失效。
+        #   而 _save_profile 存的是 dict(self.selection)，selection 必含 async ⇒ 保存过任何组合即必现。
+        #   改为与控件构造同口径建表，并在循环内直接写 selection。
+        _dt = {d[0]: d[2] for d in DIMENSIONS}
+        _dt["async"] = ASYNC_OPTIONS
+        applied, skipped = 0, []
         for key, val in combo.items():
-            if key not in valid_keys:
+            opts = _dt.get(key)
+            if not opts:
+                skipped.append(f"{key}（无选项表）")
                 continue
             val = LEGACY_VALUE_MAP.get((key, val), val)     # 旧值迁移
-            opts = next(d[2] for d in DIMENSIONS if d[0] == key)
             if val not in opts:
+                skipped.append(f"{key}={val}（不在选项表）")
                 continue
             if key == "spec":
                 self._apply_spec_to_ui(val)                 # 反设投机档两级下拉
             else:
                 self.var[key].set(opts[val][0])             # 内部值 -> 显示名
+            self.selection[key] = val                       # 内部值同步写，不依赖反查
             applied += 1
         self._on_change()
         miss = len(combo) - applied
-        msg = f"已加载组合 '{name}'"
+        msg = f"已加载组合 '{name}'（{applied} 项）"
         if miss > 0:
-            msg += f"（{miss} 项无法识别，已跳过）"
-        self.status.config(text=msg, fg="#4a6b4a")
+            msg += f"（{miss} 项跳过：" + "、".join(skipped[:3]) + "）"
+        self.status.config(text=msg, fg="#4a6b4a" if miss == 0 else "#8a5a2a")
 
     def _save_profile(self):
         name = simpledialog.askstring("保存组合", "输入组合名称：")

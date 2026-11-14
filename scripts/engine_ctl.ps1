@@ -369,6 +369,8 @@ if ($Score -eq 0) { $env:NINFER_TERNARY_KVMEM_SCORE = '0'; Write-Output 'knob: c
 
 $env:PATH = (Join-Path $root 'engine') + ';' + (Join-Path $root 'engine\self-built-20261008') + ';' + $env:PATH
 foreach ($kv in $Env) { if ($kv -match '^([^=]+)=(.*)$') { Set-Item -Path ('Env:' + $matches[1]) -Value $matches[2] } }
+# 2026-11-14：打印实际生效的 KV 窗口。此前 -Env 覆盖未生效却无任何输出，只能靠日志里的 budget_blocks 反推。
+Write-Output ("env check: NINFER_KV_WINDOW=" + $env:NINFER_KV_WINDOW + "  (from -Env: " + $Env.Count + " pair(s))")
 # 应用 -Env（2026-10-17：trace 开关等；单变量纪律用）
 
 

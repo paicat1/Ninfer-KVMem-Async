@@ -397,15 +397,22 @@ if ($Extra -and $Extra.Trim() -ne '') {
 
 # 招牌名（API model 字段）随权重件自动切换（2026-10-14 用户令：招牌名不得与真身打架）
 
-$modelId = switch -Wildcard ($Model) {
-
-    '*swift*'  { 'swift-1.5-qwen3.8-27b-gsq-rco-iq3s' }
-
-    '*Bonsai*' { 'ternary-bonsai-2-27b' }
-
-    default    { 'qwen3.8-27b-coder390' }
-
+# model-id 单一真源：model_ids.json（2026-11-14 统一）
+#   此前本脚本与启动器各写一份，同一模型两个 id，客户端按另一边起的名字请求就 404。
+#   另修既有 bug：原 switch 无 gsq 分支，gsq_iq3s_dual.ninfer 会落 default 被判成 coder390 的 id。
+$idsFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'model_ids.json'
+if (-not (Test-Path -LiteralPath $idsFile)) {
+    Write-Output ('FAILED: model_ids.json 缺失 -> ' + $idsFile)
+    exit 1
 }
+$ids = Get-Content -LiteralPath $idsFile -Raw -Encoding UTF8 | ConvertFrom-Json
+$modelId = switch -Wildcard ($Model) {
+    '*swift*'  { $ids.swift }
+    '*gsq*'    { $ids.gsq }
+    '*Bonsai*' { $ids.ternary }
+    default    { $ids.q2lynn }
+}
+if (-not $modelId) { Write-Output ('FAILED: model_ids.json 无匹配 id, Model=' + $Model); exit 1 }
 
 $cliArgs = @(
 

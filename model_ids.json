@@ -1,0 +1,8 @@
+{
+  "_doc": "model-id 单一真源。2026-11-14 立：此前 engine_ctl.ps1、ninfer_launcher.py、bench.py、parlast.py 各自硬编码一份，同一模型出现 swift-1.5 / swift-1.5-qwen3.8-27b-gsq-rco-iq3s / swift-1.5-iq3_xxs 三个 id，客户端按某个名字请求时另一起服通道起的服务直接 404。任何起服途径都必须读本文件，禁止再硬编码。",
+  "_changed": "2026-11-14",
+  "swift": "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
+  "gsq": "qwen3.8-27b-gsq-iq3s",
+  "q2lynn": "qwen3.8-27b-coder390",
+  "ternary": "ternary-bonsai-2-27b"
+}

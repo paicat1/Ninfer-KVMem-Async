@@ -33,6 +33,7 @@
 """
 
 import json
+import io
 import os
 import queue
 import subprocess
@@ -221,12 +222,19 @@ MODEL_PATHS = {
 #   swift = 日志实证名（"engine ready | swift-1.5-qwen3.8-27b-gsq-rco-iq3s"，2026-10-19 20:47）；
 #   Coder390 系（q2lynn/iq4nl/iq4nlvis/orig）共用 coder390（同骨架同命名域，原值正确）；
 #   bonsai = 件未下载的按文件名合理默认——起服后以 engine ready 行校正（预登记，勿当实证）。
+# model-id 单一真源：仓库根 model_ids.json（2026-11-14 统一）
+#   此前本文件与 scripts/engine_ctl.ps1 各写一份，同一模型两个 id；
+#   另 bench.py / parlast.py 又写了第三个 swift-1.5-iq3_xxs。现全部以本文件为准。
+_ids_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model_ids.json")
+try:
+    with io.open(_ids_path, encoding="utf-8") as _f:
+        _IDS = json.load(_f)
+except Exception as _e:
+    raise SystemExit("model_ids.json 缺失或损坏: %s (%r)" % (_ids_path, _e))
 MODEL_IDS = {
-    "swift":    "swift-1.5",   # 2026-11-14 统一：双头件（MTP/DFlash2 同一文件）共用一个 ID；原 MTP 长名与 DFlash2 短名并存，客户端须按 spec 改名才能请求
-    "q2lynn":   "qwen3.8-27b-coder390",
-    "gsq":      "qwen3.8-27b-gsq-iq3s",
-
-
+    "swift":    _IDS["swift"],
+    "q2lynn":   _IDS["q2lynn"],
+    "gsq":      _IDS["gsq"],
 }
 # 含 vision 组件的模型档 —— validate() 用它做「模型 ↔ 视觉」配对校验。
 # （q8mtp 已随模型文件移除，2026-10-11：iq4nlvis 全面取代。）
@@ -234,6 +242,10 @@ MODEL_IDS = {
 VISION_CAPABLE_MODELS = frozenset(("q2lynn", "swift", "gsq"))  # 三件均含视觉塔；iq4nlvis 已删
 # 模型 -> 池上限的强制联动表（_apply_model_coupling 用）。q8mtp 移除后暂空；将来按实测加。
 MODEL_KVCAP_MAX = {
+    # 2026-11-14 注（A6）：本表已降级为「通道判定不出时」的兜底。
+    #   强制降池（_apply_model_coupling）已改为按通道查 MODEL_KVCAP_MAX_IGPU / _DGPU，
+    #   与 validate() 的告警同源；本表少键不再导致某档裸奔。
+    #   保留仅为向后兼容与人类查阅。
     # 2026-10-30 实测（sym3 / rk8v4 / 单并发 / fresh 起服，构建史 §184）
     # 2026-11-07 measured (live build + arith, iGPU, graph64, iq4nl MTP head 12.64 GiB):
     #   86,016 READY (runtime 2.98 GiB / slack 63.5) / 90,112 FATAL (need 3161.5 > avail 3116.7)
@@ -385,13 +397,29 @@ KV_POOL_TOKENS_FALLBACK = 51200
 #    context.cpp:1946/2033）。引擎默认 4 页=256 token ⇒ 老页毫无保护，多轮 replay 逐轮挤出早期上下文
 #    （页漂移，122K 会话 hidden 931 页）。官方实测 sink 0→10240 把"深层埋针取回" 221.66s => 1.4s；
 #    官方 agent 表面实测需求 2,808 token=44 页（context.cpp:2466 注释）。取 5120（80 页，RC2 同款默认）。
+# 2026-11-14 修：以下三项经 7 次实测（evidence/repro/kv_window_matrix_28k_80k.md）确认有误
+#   WINDOW 32768 → 工作窗口只有 512 块；RETRIEVE 8192 → 52K prompt prefill 只剩 141；
+#   SCORE_BUDGET 此前根本没注入，引擎自带 32768 默认，同样锁在 512 块。
+#   现在 WINDOW 由 kvwindow 维度覆盖（auto = 池容量），SCORE_BUDGET 恒 ≥ 131072，RETRIEVE 32768。
 KV_ENV = {
-    "NINFER_KV_WINDOW":          "32768",
+    "NINFER_KV_WINDOW":          "32768",     # 会被 kvwindow 维度覆盖
     "NINFER_KV_SINK":            "5120",
-    "NINFER_KV_RETRIEVE":        "8192",
+    "NINFER_KV_RETRIEVE":        "32768",     # 原 8192：每 chunk 只捞 128 块
+    "NINFER_TERNARY_KVMEM_SCORE_BUDGET": "131072",   # 原缺省（引擎默认 32768 → 512 块）
     "NINFER_KV_RING":            "1",   # 已空转（B30 后源码零 getenv）；保留仅作历史兼容
     "NINFER_HOST_PAGEABLE":      "1",
     "NINFER_KV_REUSE_HOSTBACKED": "1",
+}
+
+# KV 工作窗口（2026-11-14 新增维度）：决定 ring 环一次能容纳多少 token 而不换页，
+#   同时是"允许 --kv-capacity < --max-context"的开关。auto = 跟随当前 KV 池容量。
+#   32k 保留作回退/对照（42K prompt 起就会丢块）。env 由 _kvwindow_env() 展开三件套。
+KVWINDOW_OPTIONS = {
+    "auto":  ("窗口：自动 = 池容量（推荐）", []),
+    "32k":   ("窗口：32,768（旧默认 · 42K 起丢块 · 仅对照）", []),
+    "64k":   ("窗口：65,536", []),
+    "80k":   ("窗口：81,920（= 80k 池上限）", []),
+    "128k":  ("窗口：131,072（需 ≥120k 池）", []),
 }
 
 # 异步页流水主开关（2026-10-17 用户要求：AB 测试直接入口）。
@@ -800,6 +828,7 @@ DIMENSIONS = [
     ("fp16state", "GDN 状态精度",  FP16STATE_OPTIONS),   # 2026-10-20：FP32/FP16 recurrent state（#37/#47 过门实验）
     ("ctx",    "上下文",          CTX_OPTIONS),
     ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
+    ("kvwindow", "KV 工作窗口",      KVWINDOW_OPTIONS),
     ("anchor", "长前缀锚开关",     ANCHOR_OPTIONS),      # 2026-11-06 用户令
     ("anchorsize", "锚大小",       ANCHOR_SIZE_OPTIONS),  # 2026-11-06 用户令
     ("graph",  "CUDA Graph 预算", GRAPH_OPTIONS),
@@ -848,6 +877,7 @@ DEFAULTS = {
     "model": "swift",
     "channel": "auto",   # 2026-11-07：默认自动检测显示通道（igpu/dgpu 手动声明）
     "spec": "d5", "kv": "rk8v4",    "ctx": "256k", "kvcap": "80k", "hostkv": "16384",
+    "kvwindow": "auto",   # 2026-11-14：窗口跟随池容量，不再固定 32,768
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "overlay",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "64",      # 2026-11-08：所有实测上限都在 graph64 下取得；128 会多吃 64 MiB，
@@ -897,6 +927,15 @@ DIM_TIPS = {
               "rk2v4-e8 最省显存（2bit key），但精度最低，旧注称「本线定稿」是 rk2v4-e8 时代的说法，已过时；"
               "显存紧到装不下时可下探它。k8v4 为官方默认。",
     "ctx":    "上下文长度（--max-context，**逻辑上限**）。★定稿 256K = 262144（模型原生上限）。注意：池外的页由 KVMem 环下沉到 host，实测 20K prompt 检索仍正确且不慢。",
+    "kvwindow": "KV 工作窗口（NINFER_KV_WINDOW）= ring 环一次能容纳多少 token 而不换页。"
+                "**它同时决定三件事**：①环的显存预留页数（window/64 页）；②引擎是否允许 "
+                "--kv-capacity < --max-context（不设它引擎强制要求池 ≥ 上下文并拒启）；"
+                "③预算变量 NINFER_TERNARY_KVMEM_SCORE_BUDGET 的生效上限。"
+                "**自动（推荐）= 跟随当前池容量**：池有多大窗口就多大，池外才换页。"
+                "**32K = 旧默认，仅作对照**：2026-11-14 实测 42,276 的 prompt 在 32K 窗口下丢 149 块"
+                "（9,536 token），扩到池容量后 skip 归零、prefill 53.3s→TTFT 砍半。"
+                "（依据 evidence/repro/kv_window_matrix_28k_80k.md，7 次运行）"
+                "⚠ 手选大于池的档（如 40k 池选 128k）会预留超过池页数的环空间，可能起服即 FATAL。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即「全速区间」）。"
               "**2026-11-14 实测的六档甜点（每档都已扣掉视觉塔与两个投机头）：**"
               "MTP 头 → SWIFT/GSQ **124k**（上限 126,976，131,072 FATAL）、Coder390 **84k**（上限 86,016）；"
@@ -1251,7 +1290,26 @@ VRAM_PAGE_MIB = {
     "k8v4": 1.59, "rk8v4": 1.59, "int8": 2.11, "fp8": 2.11, "bf16": 4.08,
 }
 VRAM_TOKENS_PER_PAGE = 64
-VRAM_WEIGHTS_GIB = {"orig": 12.40}   # 2026-11-08: iq4nl / iq4nlvis 档已删
+# 每档权重（GiB）。**来源分三档，逐条标注**（2026-11-14 TELE 审核 §十二 要求：不许把推导写成实测）：
+#   [实测] 起服日志 `loading weights` 行
+#   [注释] 构建史/MODEL_BUNDLES 里记载的实测值，本表未独立复测
+#   [推导] 由 [注释] 的差值关系推出，**无独立观测**
+#   [未核] 只出现在显示标签里，无实测出处
+#   带 "_dflash2" 后缀的键供 spec=d* 使用（vram_account 按 spec 选键）。
+VRAM_WEIGHTS_GIB = {
+    # [实测] test_win65k_42k.log「loading weights | 12.3 GiB」，双头件跑 dflash2 头
+    "swift": 12.30, "swift_dflash2": 12.30,
+    # [推导] MODEL_BUNDLES["gsq_dflash2"].note 称「DFlash2 头 12.3 GiB，比 MTP 多 1.0」
+    #        ⇒ MTP = 12.30 − 1.00 = 11.30。**未独立实测**，gsq MTP 起服后应按日志校正。
+    "gsq": 11.30, "gsq_dflash2": 12.30,
+    # [未核] q2lynn MTP 的 12.30 只来自 MODEL_OPTIONS 显示标签「12.3GiB」，无日志出处。
+    # [注释] q2lynn_dflash2 = 14.02，出自 MODEL_BUNDLES["q2lynn_dflash2"].note。
+    # ⚠ 未解矛盾（不掩盖）：14.02 − 12.30 = 1.72，而同处注释另称「DFlash2 头比 MTP 头多占 1.2 GiB」。
+    #   两种可能：① 1.2 是旧件版本的差值，当前件已变；② 14.02/12.30 有一个不是同基准。
+    #   **未定位前不得把 14.02 当精确值用于池上限判断**，只作显存账的保守上界。
+    "q2lynn": 12.30, "q2lynn_dflash2": 14.02,
+    "orig": 12.40,
+}
 VRAM_RUNTIME_GIB = 1.66          # 运行时/工作区（实测 runtime 行 1.44~1.66，取上界）
 VRAM_VISION_GPU_GIB = 1.40       # vision=on 视觉塔常驻设备；overlay/cpu 走主机/CPU = 0
 HOST_STATE_MIB = {"off": 1177.6, "on": 598.6}   # fp16 循环状态 host pinned（§145 实测：FP32 1.15 GiB / FP16 598.6 MiB）
@@ -1316,17 +1374,22 @@ def _host_mem(max_age=5.0):
 
 def vram_account(combo):
     """按当前选择实时算显存账（设备 GPU + 主机内存两栏，分别返回）。返回 (设备文本, 主机文本, 判定色)；绿=OK，橙=紧张/不够/未知。"""
-    model = str(combo.get("model", "q2lynn"))
-    dtype = str(combo.get("kv", "rk2v4-e8"))
-    page = VRAM_PAGE_MIB.get(dtype, 0.83)
-    cap = str(combo.get("kvcap", "51200"))
+    # 2026-11-14 修 A3/A4：fallback 全部改引用 DEFAULTS，权重按 spec 选键。
+    _c = dict(DEFAULTS)
+    _c.update({k: v for k, v in (combo or {}).items() if v is not None})
+    model = str(_c["model"])
+    dtype = str(_c["kv"])
+    page = VRAM_PAGE_MIB.get(dtype, 1.59)
+    cap = str(_c["kvcap"])
     # 池值必须经 KVCAP_OPTIONS 取真实 token 数：档位键有 "64k"/"32k" 这类写法，本身不是数字
     # （真实值在 argv 里 = ["--kv-capacity", "65536"]）。2026-10-12 实测抓到该 bug。
-    _cap_argv = _argv_of(KVCAP_OPTIONS, cap, "51200")
+    _cap_argv = _argv_of(KVCAP_OPTIONS, cap, DEFAULTS["kvcap"])
     cap_num = _cap_argv[1] if len(_cap_argv) >= 2 and _cap_argv[1].isdigit() else None
-    weights = VRAM_WEIGHTS_GIB.get(model, 12.30)
-    vis_gib = VRAM_VISION_GPU_GIB if str(combo.get("vision", "off")) == "on" else 0.0
-    g = str(combo.get("graph", "128"))
+    # DFlash2 头比 MTP 头多占显存，权重表按 spec 选键（A4）
+    _wkey = model + "_dflash2" if str(_c["spec"]).startswith("d") else model
+    weights = VRAM_WEIGHTS_GIB.get(_wkey) or VRAM_WEIGHTS_GIB.get(model) or 12.30
+    vis_gib = VRAM_VISION_GPU_GIB if str(_c["vision"]) == "on" else 0.0
+    g = str(_c["graph"])
     graph_gib = 0.0 if g == "off" else (int(g) if g.isdigit() else 64) / 1024.0
     if cap_num is not None:
         pages = int(cap_num) / float(VRAM_TOKENS_PER_PAGE)
@@ -1341,9 +1404,9 @@ def vram_account(combo):
         parts += " + 视觉塔 %.2f" % vis_gib
     parts += " + %s + 运行时 %.2f + graph %.2f" % (pool_txt, VRAM_RUNTIME_GIB, graph_gib)
     # ---- 主机内存账（host KV 预算 + fp16 循环状态；fp16 省的就是这块，不是 GPU 显存）----
-    _hk = _argv_of(HOSTKV_OPTIONS, str(combo.get("hostkv", "16384")), "16384")
+    _hk = _argv_of(HOSTKV_OPTIONS, str(_c["hostkv"]), DEFAULTS["hostkv"])
     hostkv_mib = int(_hk[1]) if len(_hk) >= 2 and _hk[1].isdigit() else 16384
-    state_mib = HOST_STATE_MIB.get(str(combo.get("fp16state", "off")), HOST_STATE_MIB["off"])
+    state_mib = HOST_STATE_MIB.get(str(_c["fp16state"]), HOST_STATE_MIB["off"])
     host_need_gib = (hostkv_mib + state_mib) / 1024.0
     _htot, _hav = _host_mem()
     _hmargin = None
@@ -1384,60 +1447,92 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     取值一律经 _argv_of() 回退（照老项目 D8），profile 含旧/未知键值也不 KeyError。
     exe=None 时用自编现役（ENGINE_SELF，本线唯一现役引擎）。"""
     exe = exe or ENGINE_SELF     # 2026-10-10: 与"下拉只留自编现役"一致（原为官方件）
-    model_path = MODEL_PATHS.get(combo.get("model", "q2lynn"), MODEL)   # 2026-10-10: 模型档（位置参数）
-    model_id = MODEL_IDS.get(combo.get("model", "q2lynn"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
+    # 2026-11-14 修 A1/A2/A3（TELE 审核 §十一）：
+    #   ① 原先每个维度都自带一个历史 fallback（kvcap→51200 / graph→128 / arith→off /
+    #      spec→k3 / vision→off / think→none / tb→none / model→q2lynn），而 DEFAULTS 早已是
+    #      80k/64/on/d5/overlay/high/16000/swift。旧 profile 缺键时会拼出一条 2026-10 的历史命令。
+    #      ⇒ 现在统一以 DEFAULTS 为唯一兜底，combo 只负责覆盖。
+    #   ② spec 的旧值（"dflash2"/"mtp"）原先不过 LEGACY_VALUE_MAP，_argv_of 会把它当成
+    #      "不在表里" 而回退 fallback —— 于是 "dflash2" 变成 MTP k3。_load_profile 有迁移、
+    #      build_command 没有，这是第二个副本遗漏。现在两条路径共用同一张迁移表。
+    _c = dict(DEFAULTS)
+    _c.update({k: v for k, v in (combo or {}).items() if v is not None})
+    _c["spec"] = LEGACY_VALUE_MAP.get(("spec", _c.get("spec")), _c.get("spec"))
+    model_path = MODEL_PATHS.get(_c["model"], MODEL)   # 2026-10-10: 模型档（位置参数）
+    model_id = MODEL_IDS.get(_c["model"], "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
     # 2026-11-04 用户令：SWIFT + DFlash2（spec=d*）⇒ 换 DFlash2 件（与 MTP 件互斥，§203）。
-    _spec_key_cmd = str(combo.get("spec", "k3"))
+    _spec_key_cmd = str(_c["spec"])
     # 2026-11-14：双头件已合并（MODEL_PATHS["swift"] 与 SWIFT_DFLASH2_MODEL 是同一文件），
     #   原先在此把 model_id 覆盖成 "swift-1.5-dflash2"，导致同一件出现两个 ID
     #   （spec=d* 用短名、spec=mtp 用长 MTP 名），客户端必须按 spec 改名才能请求。
     #   现统一走 MODEL_IDS，本段只保留 path 防御（万一将来件名再变）。
-    if combo.get("model") == "swift" and _spec_key_cmd.startswith("d") and _spec_key_cmd != "d0":
+    if _c.get("model") == "swift" and _spec_key_cmd.startswith("d") and _spec_key_cmd != "d0":
         model_path = SWIFT_DFLASH2_MODEL
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", model_id]
-    argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
-    argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
-    argv += _argv_of(GRAPH_OPTIONS,   combo.get("graph", "128"),     "128")    # 2026-10-11: CUDA Graph 预算档（64K 池必要条件；定稿 128）
-    argv += _argv_of(ARITH_OPTIONS,   combo.get("arith", "off"),     "off")    # 2026-11-07: 预算算术开关（仅新件；默认 off 行为不变）
-    argv += _argv_of(KV_OPTIONS,      combo.get("kv", "rk8v4"),      "rk8v4")  # P1b: 回退对齐 DEFAULTS（原 "k8v4"）
-    argv += _argv_of(FP16STATE_OPTIONS, combo.get("fp16state", "off"), "off")     # 2026-10-20：#47 条件档接入——默认 off（FP32；用户后令）；老组合 fallback off 保历史配置
-    argv += _argv_of(HOSTKV_OPTIONS,  combo.get("hostkv", "16384"),  "16384")
-    argv += _argv_of(PREFILL_OPTIONS, combo.get("prefill", "512"),   "512")    # P1b: 回退对齐 DEFAULTS（原 "1024"）
-    argv += _argv_of(SPEC_OPTIONS,    combo.get("spec", "k3"),       "k3")     # P1b: 回退对齐 DEFAULTS（k3 定稿；K 可选 1..15）
+    argv += _argv_of(CTX_OPTIONS,     _c["ctx"],      DEFAULTS["ctx"])
+    argv += _argv_of(KVCAP_OPTIONS,   _c["kvcap"],    DEFAULTS["kvcap"])
+    argv += _argv_of(GRAPH_OPTIONS,   _c["graph"],    DEFAULTS["graph"])
+    argv += _argv_of(ARITH_OPTIONS,   _c["arith"],    DEFAULTS["arith"])
+    argv += _argv_of(KV_OPTIONS,      _c["kv"],       DEFAULTS["kv"])
+    argv += _argv_of(FP16STATE_OPTIONS, _c["fp16state"], DEFAULTS["fp16state"])
+    argv += _argv_of(HOSTKV_OPTIONS,  _c["hostkv"],   DEFAULTS["hostkv"])
+    argv += _argv_of(PREFILL_OPTIONS, _c["prefill"],  DEFAULTS["prefill"])
+    argv += _argv_of(SPEC_OPTIONS,    _c["spec"],     DEFAULTS["spec"])
     # 2026-10-31：投机自适应只对 --spec mtp（k1..k15）生效；k0/dflash2 加 --adaptive-mtp 会被引擎拒启
-    _spec_key = str(combo.get("spec", "k3"))
-    if combo.get("adaptivemtp", "off") == "on" and _spec_key.startswith("k") and _spec_key != "k0":
-        argv += _argv_of(ADAPTIVE_MTP_OPTIONS, "on", "off")
-    argv += _argv_of(VISION_OPTIONS,  combo.get("vision", "off"),    "off")    # P0: 回退与 DEFAULTS 对齐（原为 "on"，Coder390 无 vision 组件会启动失败）
-    argv += _argv_of(MAXOUT_OPTIONS,  combo.get("maxout", "32768"),  "32768")
-    argv += _argv_of(THINK_OPTIONS,   combo.get("think", "none"),    "none")
-    argv += _argv_of(TB_OPTIONS,      combo.get("tb", "none"),       "none")
-    argv += _argv_of(CONC_OPTIONS,    combo.get("conc", "1"),        "1")
+    _spec_key = str(_c["spec"])
+    if _c.get("adaptivemtp") == "on" and _spec_key.startswith("k") and _spec_key != "k0":
+        argv += _argv_of(ADAPTIVE_MTP_OPTIONS, "on", DEFAULTS["adaptivemtp"])
+    argv += _argv_of(VISION_OPTIONS,  _c["vision"],   DEFAULTS["vision"])
+    argv += _argv_of(MAXOUT_OPTIONS,  _c["maxout"],   DEFAULTS["maxout"])
+    argv += _argv_of(THINK_OPTIONS,   _c["think"],    DEFAULTS["think"])
+    argv += _argv_of(TB_OPTIONS,      _c["tb"],       DEFAULTS["tb"])
+    argv += _argv_of(CONC_OPTIONS,    _c["conc"],     DEFAULTS["conc"])
     # 挂账 #43 守护（2026-10-20）：host 状态镜像槽按 3× 并发给余量。
     #   zxz v33 实测：n16 时 16 槽耗尽 ⇒ 逐路串行驱逐 ⇒ TTFT 47ms→3.9s；16→48（3×）认证 1125 轮 0 退化。
     #   我方 C=1 ⇒ 3×1=3 < 引擎默认 8 ⇒ 不追加旗标（保证与定稿命令逐字一致）；
     #   C≥4 才显式抬到 3×C（如 C=4→12）。注：KVMem 环架构下 C>1 本就会被引擎拒启，
     #   此处为"关环/未来多路"预留守护，不改变当前生产行为。
     try:
-        _conc = int(str(combo.get("conc", "1")))
+        _conc = int(str(_c["conc"]))
     except Exception:
         _conc = 1
     _state_slots = max(8, 3 * _conc)
     if _state_slots > 8:
         argv += ["--host-state-slots", str(_state_slots)]
-    argv += _argv_of(PRESERVE_OPTIONS, combo.get("preserve", "off"), "off")
+    argv += _argv_of(PRESERVE_OPTIONS, _c["preserve"], DEFAULTS["preserve"])
     # 2026-11-06 用户令：长前缀锚开关 + 大小（自动档按 KV 池算推荐值）
-    if combo.get("anchor", "off") == "on":
+    if _c.get("anchor") == "on":
         argv += ["--auto-long-anchors",
-                 "--long-anchor-spacing", str(anchor_effective_spacing(combo)),
+                 "--long-anchor-spacing", str(anchor_effective_spacing(_c)),
                  "--max-long-anchors-per-continuation", "4"]
-    if combo.get("reqlog", "off") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
+    if _c.get("reqlog") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
         argv += ["--request-log-jsonl", os.path.join("work", "data", "reqlog_serve_%s.jsonl" % port),
                  "--request-log-max-mib", "256", "--request-log-keep", "2"]
     argv += ["--max-shared-prefixes", "0"]   # 铁律：防打砖
-    argv += _argv_of(SAMPLE_OPTIONS,  combo.get("sample", "shipped"), "shipped")
-    argv += _argv_of(HEMOSTAT_OPTIONS, combo.get("hemostat", "on"),  "on")   # B01 止血（E5 决定：默认开）
+    argv += _argv_of(SAMPLE_OPTIONS,  _c["sample"],   DEFAULTS["sample"])
+    argv += _argv_of(HEMOSTAT_OPTIONS, _c["hemostat"], DEFAULTS["hemostat"])   # B01 止血（E5 决定：默认开）
     return exe, argv
+
+
+def _kvwindow_env(combo):
+    """按 kvwindow 维度推导 window / score_budget / retrieve 三件套（2026-11-14）。
+
+    auto = 池容量（上限 131072）；显式档 = 该档值。
+    score_budget 恒 >= 131072（预算大于窗口无害，实际受池页数限制）。
+    retrieve = min(32768, max(8192, win//2))，实测 52K prompt 下 32768 比 8192 快 63%。
+    """
+    key = str((combo or {}).get("kvwindow", "auto"))
+    if key not in KVWINDOW_OPTIONS:
+        key = "auto"
+    if key == "auto":
+        win = int(min(kv_pool_tokens_of(combo or {}), 131072))
+    else:
+        win = {"32k": 32768, "64k": 65536, "80k": 81920, "128k": 131072}[key]
+    return {
+        "NINFER_KV_WINDOW": win,
+        "NINFER_TERNARY_KVMEM_SCORE_BUDGET": max(win, 131072),
+        "NINFER_KV_RETRIEVE": int(min(32768, max(8192, win // 2))),
+    }
 
 
 def env_for_launch(exe=None, profile=None, combo=None):
@@ -1449,6 +1544,8 @@ def env_for_launch(exe=None, profile=None, combo=None):
     if profile:
         env.update(PRESET_ENV.get(profile, {}))
     if combo:
+        # 2026-11-14：KV 工作窗口三件套（window / score_budget / retrieve）
+        env.update({k: str(v) for k, v in _kvwindow_env(combo).items()})
         env.update(ASYNC_OPTIONS.get(combo.get("async", "on"), ASYNC_OPTIONS["on"])[1])
         # 2026-10-19：异步深度（几批在飞）独立注入；combo 后于 PRESET_ENV ⇒ 覆盖预设写死的 DEPTH，
         # 以 GUI 用户显式选择为准。开关关（同步回退）时深度由引擎视为无效（不删，保留选择态）。
@@ -1523,8 +1620,12 @@ def env_check():
     return lines
 
 
-def readiness_test(port=PORT_DEFAULT):
-    """S2：/v1/models + 真发一条请求。返回 [ (标题, 结果, 摘要) ]。"""
+def readiness_test(port=PORT_DEFAULT, model_id=None):
+    """S2：/v1/models + 真发一条请求。返回 [ (标题, 结果, 摘要) ]。
+
+    model_id（2026-11-14 修 A5）：调用方应传当前选择档的 id（MODEL_IDS[selection["model"]]）。
+      不传时退回 DEFAULTS 主力档的 id——绝不再硬编码不属于 model_ids.json 的名字。
+    """
     res = []
     base = f"http://127.0.0.1:{port}"
     # 1) /v1/models
@@ -1535,8 +1636,14 @@ def readiness_test(port=PORT_DEFAULT):
     except Exception as e:
         res.append(("GET /v1/models", "ERR", str(e)))
     # 2) 真发请求（判活必须真发；max_tokens 取安全小值）
+    # 2026-11-14 修 A5（TELE 审核 §十一）：原先硬编码 "qwen3.8-27b"，而 model_ids.json
+    #   四个真源 id 里根本没有这个名字 ⇒ 就绪自测永远 404、自检信号永久失真。
+    #   这正是"单一真源"方案里唯一漏网的地方：起服走 MODEL_IDS，自测却不走。
+    #   DEFAULTS["model"] 对应的 id 就是默认主力档，与起服命令保持一致。
+    _probe_model = model_id or MODEL_IDS.get(str(DEFAULTS.get("model", "swift"))) \
+        or next(iter(MODEL_IDS.values()), "swift")
     payload = json.dumps({
-        "model": "qwen3.8-27b",
+        "model": _probe_model,
         "messages": [{"role": "user", "content": "用一句话回答：1+1 等于几？"}],
         "max_tokens": 64, "temperature": 0,
     }).encode("utf-8")
@@ -1660,6 +1767,10 @@ class LauncherApp:
             print("[bundle] 默认档套用失败（回退 DEFAULTS）：" + str(_exc))
         self.var = {}
         self._label2key = {}
+        # 2026-11-14：面板渲染自检。面板不是遍历 DIMENSIONS，而是按各分区手工元组逐个 row() 构造，
+        #   只加 DIMENSIONS 不加元组 ⇒ 数据层有、界面层没有（kvwindow 与 §226 的 async 同族）。
+        #   这里登记每个真正渲染出来的 key，构造结束后与 DIM_TABLE 对账，缺项直接报出来。
+        self._panel_keys = set()
         self.port_var = tk.StringVar(value=str(PORT_DEFAULT))
         self.logmode_var = tk.StringVar(value="精简")
         # P0b (2026-10-09): 默认引擎 = 「自编·现役」；2026-10-13 起默认取登记册里 status=基线 的条目。
@@ -1766,6 +1877,7 @@ class LauncherApp:
         def row(parent, key):
             """标签在左（固定宽度）、下拉在右（统一宽度）——不会截断。"""
             table = DIM_TABLE[key]
+            self._panel_keys.add(key)   # 2026-11-14：登记已渲染项，供构造后自检对账
             self._label2key[key] = {lbl: val for val, (lbl, _a) in table.items()}
             self.var[key] = tk.StringVar(value=table[self.selection.get(key, DEFAULTS[key])][0])
             fr = tk.Frame(parent, bg=self.bg)
@@ -1828,6 +1940,7 @@ class LauncherApp:
                 fr = tk.Frame(f1, bg=self.bg); fr.pack(fill="x", padx=8, pady=3)
                 tk.Label(fr, text=DIM_LABEL["spec"], bg=self.bg, fg="#2b3a6b", width=16, anchor="w",
                          font=("Microsoft YaHei UI", 9)).pack(side="left")
+                self._panel_keys.add("spec")   # spec 走自定义控件（类型 + K 两级），不经过 row()
                 self._label2key["spec"] = {lbl: val for val, (lbl, _a) in SPEC_OPTIONS.items()}
                 self.var["spec"] = tk.StringVar(value=SPEC_OPTIONS[self.selection.get("spec", DEFAULTS["spec"])][0])
                 self.combo_spec_type = ttk.Combobox(fr, state="readonly", width=10,
@@ -1846,7 +1959,9 @@ class LauncherApp:
 
         # 分区：KV 与显存
         f2 = section("KV 与显存")
-        for k in ("kv", "ctx", "kvcap", "hostkv", "graph", "arith", "vision", "fp16state"):
+        # 2026-11-14：kvwindow 必须在此元组里才会渲染到面板——此前只加了 DIMENSIONS，
+        #   面板靠这份手工清单逐行构造（不是遍历 DIMENSIONS），漏加即"数据层有、界面层没有"。
+        for k in ("kv", "ctx", "kvcap", "kvwindow", "hostkv", "graph", "arith", "vision", "fp16state"):
             row(f2, k)
 
         # 分区：长前缀锚（2026-11-06 用户令：开关 + 大小 + 动态 TIP）
@@ -1862,6 +1977,9 @@ class LauncherApp:
         f3 = section("仪器与稳定性")
         for k in ("reqlog", "hemostat", "prefill"):
             row(f3, k)
+
+        # 2026-11-14：面板渲染自检占位——具体对账放到 self.status 建好之后（见下）
+        self._panel_render_check_pending = True
 
         # ---- 右侧：预览 + 状态 + 操作 ----
         right = tk.Frame(body, bg=self.bg)
@@ -1893,6 +2011,36 @@ class LauncherApp:
         self.status = tk.Label(right, text="", bg=self.bg, fg="#4a6b4a",
                                font=("Microsoft YaHei UI", 9), justify="left", anchor="w", wraplength=430)
         self.status.pack(anchor="w", pady=(6, 0))
+
+        # 2026-11-14：面板渲染自检（放在 status 建好之后，否则状态栏那步会被异常吞掉）。
+        #   DIM_TABLE 里每个维度都必须真的落到界面上；缺项时三种信号同时发出：
+        #   弹窗 + 状态栏红字 + logs/launcher_errors.log。
+        #   针对的正是"只加 DIMENSIONS、忘了加进分区元组 ⇒ 面板静默少一行"。
+        if getattr(self, "_panel_render_check_pending", False):
+            self._panel_render_check_pending = False
+            _miss_render = sorted(set(DIM_TABLE) - self._panel_keys)
+            self._panel_render_report = "维度已渲染 %d/%d" % (
+                len(self._panel_keys & set(DIM_TABLE)), len(DIM_TABLE))
+            if not _miss_render:
+                try:
+                    self.status.config(text=self._panel_render_report, fg="#4a6b4a")
+                except Exception:
+                    pass
+            if _miss_render:
+                _msg = "面板渲染自检失败：以下维度未渲染 -> " + ", ".join(_miss_render)
+                try:
+                    with io.open(os.path.join(LOG_DIR, "launcher_errors.log"), "a", encoding="utf-8") as _f:
+                        _f.write("[%s] %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), _msg))
+                except Exception:
+                    pass
+                try:
+                    self.status.config(text=_msg, fg="#b00020")
+                except Exception:
+                    pass
+                try:
+                    messagebox.showwarning("面板渲染自检", _msg)
+                except Exception:
+                    pass
 
         btns = tk.Frame(right, bg=self.bg)
         btns.pack(fill="x", pady=(10, 4))
@@ -1995,17 +2143,27 @@ class LauncherApp:
                         if _key in self.var:
                             self.var[_key].set(_table[_val][0])   # 同步下拉显示
                     print("[bundle] spec=" + _spec_now + " -> " + _want + " " + str(_sb))
-        cap = MODEL_KVCAP_MAX.get(self.selection.get("model", "q2lynn"))
+        # 2026-11-14 修 A6（TELE 审核 §十一）：原查 MODEL_KVCAP_MAX，该表只有 q2lynn/swift，
+        #   gsq 取到 None 直接 return ⇒ gsq 档换模型时完全没有强制降池。
+        #   （注：超限"告警"走 validate()，它查的是 IGPU/DGPU 两张表，那两张**已含
+        #     gsq / gsq_dflash2**，所以 TELE 说的"告警也没有"不成立——缺的只是强制降池。）
+        #   现在改为按当前通道取表，与 validate() 同源；通道判定不出时用 DGPU（保守）表。
+        #   这样新增模型只要进了 IGPU/DGPU 表就自动获得降池保护，不必再维护第三张表。
+        _cap_model_now = str(self.selection.get("model", DEFAULTS["model"]))
+        _cap_spec_now = str(self.selection.get("spec", DEFAULTS["spec"]))
+        _cap_key = _cap_model_now + "_dflash2" if _cap_spec_now.startswith("d") else _cap_model_now
+        _cap_chan = resolve_channel(self.selection)
+        _cap_tbl = MODEL_KVCAP_MAX_IGPU if _cap_chan == "igpu" else MODEL_KVCAP_MAX_DGPU
+        cap = _cap_tbl.get(_cap_key) or _cap_tbl.get(_cap_model_now) or MODEL_KVCAP_MAX.get(_cap_model_now)
         if not cap:
             return
         # 2026-11-06 修（用户当场指出）：强制降池只在「模型切换」那一拍做一次。
         # 原实现每次 _on_change 都跑 —— 用户手选 100k/102400 做上限实验会被立刻拉回，
         # 且回写的是裸数字（98304）而非档位键（"96k"），下拉显示与 selection 不同步。
         # 现在：换模型时若超限降一次；之后手选任意档不干预，超限由 validate() 告警。
-        _cap_model_now = self.selection.get("model", "q2lynn")
-        if getattr(self, "_cap_model", None) == _cap_model_now:
+        if getattr(self, "_cap_model", None) == _cap_key:
             return
-        self._cap_model = _cap_model_now
+        self._cap_model = _cap_key
         _cur_tok = kvcap_tokens_of(self.selection)
         if _cur_tok is not None and _cur_tok > int(cap):
             _fit_key = None
@@ -2337,7 +2495,9 @@ class LauncherApp:
             self.status.config(text=("✓ 就绪自测完成" if ok else "⚠ 就绪自测有问题（见弹窗）"),
                                fg=("#4a6b4a" if ok else "#b03030"))
 
-        self._run_async(lambda: readiness_test(self._port()), done)
+        # 2026-11-14 修 A5：把当前档的 model-id 传下去（否则选 gsq/coder390 时自测必 404）
+        _mid = MODEL_IDS.get(str(self.selection.get("model", "swift")))
+        self._run_async(lambda: readiness_test(self._port(), _mid), done)
 
     # ---- 启动 ----
     def _launch(self):

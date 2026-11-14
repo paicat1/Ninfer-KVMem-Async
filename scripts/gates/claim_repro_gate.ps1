@@ -56,9 +56,10 @@ function Get-TargetFiles {
     return $names | ForEach-Object { Join-Path $root ($_ -replace '/', '\') } | Where-Object { Test-Path -LiteralPath $_ }
 }
 
-# 审计件（evidence\audits）排除：它是对既有结论的复核，本身不产出归因，
-# 强制其自证复现会阻碍审计（2026-11-14 首次接入 gates 时由 tech-audit-20261114.md 触发）。
-$files = @(Get-TargetFiles) | Where-Object { $_ -notmatch '\\evidence\\audits\\' }
+# 排除两类自身即证据的文件：
+#   ① evidence\audits  —— 对既有结论的复核，本身不产出归因（2026-11-14 由 tech-audit 触发）
+#   ② evidence\repro   —— 复现记录本身就是证据源，要求它引用自己会无限递归
+$files = @(Get-TargetFiles) | Where-Object { $_ -notmatch '\\evidence\\audits\\' -and $_ -notmatch '\\evidence\\repro\\' }
 if ($files.Count -eq 0) { Write-Output 'PASS[claim-repro]: 无待检落盘件'; exit 0 }
 
 $fail = @()

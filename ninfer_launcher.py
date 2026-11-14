@@ -1751,13 +1751,16 @@ class LauncherApp:
                  wraplength=500, justify="left").pack(anchor="w", padx=8, pady=(0, 6))
 
         # 场景预设
-        pf = section("场景预设（只 4 个：2 模式 × 2 模型）",
-                     "**场景预设 = 参数档**（模型/池/KV精度/压力模式等运行参数），与顶部工具栏的**引擎下拉相互独立**——"
-                     "引擎决定\"跑哪个二进制\"，场景决定\"用什么参数跑\"；两个下拉任意组合（例：offi 引擎 + ④压力场景 = 新件跑压力参数）。\n"
-                     "【生产】= 本卡实测定稿档（精度×池×上下文 的最优组合，**不是**精度最高）；"
-                     "【压力】= 把池压到 20K（逻辑 256K ⇒ 12.8× 超池）强制大量 host 往返，并开 reqlog 仪器；"
-                     "代价是吞吐明显低于生产档。两种模式都不改异步臂（A/B 开关+深度在顶部独立切）。"
-                     "其余参数请在下方维度区自行设置。")
+        pf = section("场景预设（6 个：3 模型 × 2 投机头 · 每档都是同口径甜点）",
+                    "**场景预设 = 参数档**（模型/池/KV精度/投机头等运行参数），与顶部工具栏的**引擎下拉相互独立**——"
+                    "引擎决定\"跑哪个二进制\"，场景决定\"用什么参数跑\"；两个下拉任意组合。\n"
+                    "**六档依据 2026-11-14 六臂同口径基准**（512-token prompt / 四类负载 / 每格 3 次 / cache 0 / "
+                    "核显通道 / graph64+arith），括号里是 struct（代码/JSON）负载的 decode：\n"
+                    "① SWIFT+DFlash2 d5 @80k = 196.7（**默认主力**，六臂最快）；② SWIFT+MTP k3 @120k = 161.4（大池）；\n"
+                    "③ GSQ+DFlash2 d5 @80k = 183.7；④ GSQ+MTP k3 @120k = 141.6；\n"
+                    "⑤ Coder390+MTP k3 @80k = 149.5；⑥ Coder390+DFlash2 d5 @40,960 = 140.6。\n"
+                    "**同一模型的两个头是取舍不是升级**：DFlash2 多占 1.38 GiB，池少 30–50%，但快 20–35%。\n"
+                    "其余参数请在下方维度区自行设置。")
         self.preset_var = tk.StringVar()
         self.preset_cb = ttk.Combobox(pf, state="readonly", textvariable=self.preset_var,
                                       width=CBW, values=list(PRESET_PROFILES.keys()),

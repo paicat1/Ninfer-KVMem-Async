@@ -27,6 +27,9 @@ from tools.artifact.formats import GGUF_FORMATS_BY_TYPE
 from .methods import AuxiliaryValue, cast_direct, grouped_absmax, import_encoded
 from .official_recipes import Q4, Q5, Q6, Q8
 from .sources.gguf import GGUFFile
+
+# 2026-11-08: GDN 门控张量可接受的已量化格式（读取时反量化回 BF16）
+USABLE_Q8 = frozenset((8,))
 from .sources.logical import EncodedRows, LogicalSource, array_source
 from .ternary import (
     ATTENTION_HEAD_DIM,
@@ -157,9 +160,18 @@ def validate(gguf: GGUFFile) -> None:
     for name, (shape, kind) in expected.items():
         info = gguf.tensors[name]
         stored = info.type_id in GGUF_FORMATS_BY_TYPE
-        if info.shape != shape or (kind == "blocks") != stored or (
-            kind != "blocks" and info.type_name != kind
-        ):
+        # 2026-11-08: unsloth Dynamic 量化把 GDN 的 ssm_alpha/beta 从 BF16 压成 Q8_0。
+        # read_bf16_words 已支持 Q8_0 反量化，因此这两个张量允许以 Q8_0 存储。
+        gdn_gate = kind == "BF16" and name.endswith(("ssm_alpha.weight", "ssm_beta.weight"))
+        tolerated = gdn_gate and info.type_id in USABLE_Q8
+        # tolerated 时只校验 shape：这些张量被量化过，store/type_name 两项必然不符，
+        # 由 read_bf16_words 在读取时反量化补偿。
+        bad = (info.shape != shape) if tolerated else (
+            info.shape != shape
+            or (kind == "blocks") != stored
+            or (kind != "blocks" and info.type_name != kind)
+        )
+        if bad:
             raise ValueError(f"{gguf.path}: {name} is {info.type_name} {info.shape}")
     end = max(info.offset + info.nbytes for info in gguf.tensors.values())
     if gguf.data_bytes_available < end:

@@ -32,6 +32,7 @@ DEFAULT_ALIGNMENT = 32
 TYPE_F32 = 0
 TYPE_F16 = 1
 TYPE_BF16 = 30
+TYPE_Q8_0 = 8
 TYPE_PQ2_0 = 142
 TYPE_PTQ1_0 = 143
 
@@ -273,6 +274,18 @@ class GGUFFile:
 
     def read_bf16_words(self, name: str) -> np.ndarray:
         info = self.info(name)
+        # 2026-11-08: unsloth Dynamic 量化把 GDN 的 ssm_alpha/beta 从 BF16 压成了 Q8_0。
+        # Q8_0 是 fp16 标量 x int8，反量化成 BF16 只是乘法，无损还原到 Q8 能表示的精度。
+        if info.type_id == TYPE_Q8_0:
+            flat = np.frombuffer(self.tensor_bytes(name), dtype=np.uint8)
+            total = int(np.prod(info.shape))
+            blocks = total // 32
+            view = flat[: blocks * 34].reshape(blocks, 34)
+            scale = view[:, :2].copy().view(np.float16).astype(np.float32).reshape(blocks, 1)
+            quants = view[:, 2:].copy().view(np.int8).astype(np.float32)
+            values = (scale * quants).reshape(-1)[:total]
+            nearest = (values.astype(np.float32).view(np.uint32) + 0x8000) >> 16
+            return np.ascontiguousarray(nearest.astype(np.uint16).reshape(info.shape))
         if info.type_id != TYPE_BF16:
             raise ValueError(f"{name}: expected BF16, got {info.type_name}")
         return np.ascontiguousarray(

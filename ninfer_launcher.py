@@ -895,42 +895,54 @@ DIM_TIPS = {
 # 命名组合预置（首次运行若无配置文件则落盘）
 PRESET_PROFILES = {
     # ============================================================
-    # 只有 4 个预设：**2 种模式 × 2 个模型**。其余参数请在下方维度区自行设置。
+    # 6 个预设 = **3 个模型 × 2 个投机头**，每个都是该组合在同口径下的甜点档。
+    # 依据：构建史 §222 六臂同口径基准（512-token prompt / 四类负载 / 每格 3 次 / cache 0 /
+    #   核显通道 / graph64+arith）。数字为 struct（代码/JSON）负载的 decode tok/s。
     #
-    # 【生产模式】= 本卡实测定稿档：精度 × 池 × 上下文 三者的最优组合（不是"精度越高越好"）。
-    #   ⚠ 关键取舍：KV 精度每升一档，每 token 显存就变贵 ⇒ 同样的 16 GB 能放的池就变小
-    #     ⇒ 长上下文更多走 host 往返 ⇒ 反而更慢。所以"生产"取的是**实测最快的组合**，
-    #     不是精度最高的组合（要更高精度：KV 类型那一档自己往上选，代价见显存账）。
-    # 【压力模式】= 抓"死亡谷"用：把池压到 20K（逻辑上下文 256K ⇒ 12.8× 超池），
-    #     强制大量 host 往返（谷的栖息地），并**打开 reqlog 仪器**以便事后取证。
-    #     代价：吞吐明显低于生产档（这是故意的——要的是"能进谷"，不是"跑得快"）。
-    #     ⚠ 压力模式不改异步臂（A/B 开关独立）：要对照就自己切"异步页流水(A/B)"那一档。
+    # 【为什么每个模型两个档】MTP 头权重小 ⇒ 池可到 124k，适合长上下文；DFlash2 头多占
+    #   1.38 GiB ⇒ 池掉到 80k，但同池速度快 20-35%。所以「同模型两个头」= 大池 vs 快，
+    #   不是「新旧替代」。
+    #
+    # 【池档为什么不是上限】上限值是「能起服」的边界（如 SWIFT DF2 90,112 只剩 13.6 MiB
+    #   slack），默认取低一档留余量：80k slack 217.6 MiB。要顶上限请手动选 88k。
+    #
+    # 【为什么全开 arith】这些池档在非 arith 下根本起不来（预算按 total−权重−512 算）。
     # ============================================================
-    "① 生产 · Coder390（实测 86,016 池 · MTP k3 · arith）": dict(
-        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="84k", graph="64",
-        vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
+    "① SWIFT · DFlash2 d5（默认主力 · 80k · struct 196.7）": dict(
+        DEFAULTS, model="swift", kv="rk8v4", kvcap="80k", graph="64",
+        vision="overlay", spec="d5", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
-    "② 生产 · SWIFT（实测 126,976 池 · MTP k3 · arith）": dict(
+    "② SWIFT · MTP k3（大池 124k · struct 161.4）": dict(
         DEFAULTS, model="swift", kv="rk8v4", kvcap="124k", graph="64",
         vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
         reqlog="off", arith="on", **{"async": "on"}
     ),
-    "③ 压力 · Coder390（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
-        DEFAULTS, model="q2lynn", kv="rk2v4-e8", kvcap="20480", graph="64",
-        vision="overlay", ctx="256k", spec="k3", think="high", tb="16000",
-        hemostat="on", reqlog="on", fp16state="off", **{"async": "on"}
-        # fp16state=off：谷实验臂保持历史 FP32 配置（实验连续性——历史谷数据均为该配置）
+    "③ GSQ · DFlash2 d5（80k · struct 183.7）": dict(
+        DEFAULTS, model="gsq", kv="rk8v4", kvcap="80k", graph="64",
+        vision="overlay", spec="d5", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
     ),
-    "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": dict(
-        DEFAULTS, model="swift", kv="rk8v4", kvcap="20480", graph="192",
-        vision="overlay", ctx="256k", spec="k3", think="high", tb="16000",
-        hemostat="on", reqlog="on", fp16state="off", **{"async": "on"}
-        # fp16state=off：同上（实验连续性）
+    "④ GSQ · MTP k3（大池 124k · struct 141.6）": dict(
+        DEFAULTS, model="gsq", kv="rk8v4", kvcap="124k", graph="64",
+        vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
     ),
-    # 2026-10-17 简化（用户令）：原先 13 个预设（大池64K/视觉×4/思考档/对照k0/贴边55296…）
-    #   外部读者分不清用途 ⇒ 全部撤下。它们的**参数与实测记录仍在**：构建史（§4.4、三·十六、
-    #   §三·十九）+ git 历史；需要用哪个配置，在下方维度区照抄即可。
+    "⑤ Coder390 · MTP k3（84k · struct 149.5）": dict(
+        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="84k", graph="64",
+        vision="overlay", spec="k3", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
+    ),
+    "⑥ Coder390 · DFlash2 d5（池仅 40k · struct 140.6）": dict(
+        DEFAULTS, model="q2lynn", kv="rk8v4", kvcap="40960", graph="64",
+        vision="overlay", spec="d5", think="high", tb="16000", hemostat="on",
+        reqlog="off", arith="on", **{"async": "on"}
+        # 权重 14.02 GiB 最大 ⇒ DFlash2 池只有别件 45%，速度是池的代价不是头差
+    ),
+    # 2026-10-17 撤下的 13 个旧预设（大池64K/视觉×4/思考档/对照k0/贴边55296…）参数仍在
+    #   构建史（§4.4、三·十六、§三·十九）+ git 历史；需要在下方维度区照抄即可。
+    # 2026-11-14 移除两个「压力 · 20K 小池抓深谷」预设：与六臂甜点档冲突，且其参数
+    #   （kvcap=20480 / graph192 / reqlog on）在维度区仍可手动复现。
 }
 
 # ---------------------------------------------------------------
@@ -939,14 +951,14 @@ PRESET_PROFILES = {
 #     NINFER_ASYNC_DEMOTE_DEPTH=2 = 挂账 46 v2.1 多批 in-flight 深度（实测 10+ 轮零降速）；
 #     NINFER_DEMOTE_PROFILE=1     = demote 批级 profile 日志（纯诊断，不需要可删这一行）。
 PRESET_ENV = {
-    # 生产档：v2.1 多批 in-flight 深度（挂账 46，实测 10+ 轮零降速）
-    "① 生产 · Q2LYNN（定稿 51200 池 · 最快）":        {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
-    "② 生产 · SWIFT（定稿 64K 池 · rk8v4）":         {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
-    # 压力档：再加 demote 批级 profile 日志（纯诊断，抓谷后做差分归因用）
-    "③ 压力 · Q2LYNN（20K 小池 · 强制 host 往返 · 抓深谷）": {
-        "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
-    "④ 压力 · SWIFT（20K 小池 · 强制 host 往返 · 抓深谷）": {
-        "NINFER_ASYNC_DEMOTE_DEPTH": "2", "NINFER_DEMOTE_PROFILE": "1"},
+    # 六档统一：v2.1 多批 in-flight 深度（挂账 46，实测 10+ 轮零降速）。
+    # 预设名必须与 PRESET_PROFILES 的键逐字一致（下拉按名匹配）。
+    "① SWIFT · DFlash2 d5（默认主力 · 80k · struct 196.7）": {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "② SWIFT · MTP k3（大池 124k · struct 161.4）":          {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "③ GSQ · DFlash2 d5（80k · struct 183.7）":              {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "④ GSQ · MTP k3（大池 124k · struct 141.6）":            {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "⑤ Coder390 · MTP k3（84k · struct 149.5）":             {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
+    "⑥ Coder390 · DFlash2 d5（池仅 40k · struct 140.6）":    {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
     # 2026-10-19 注：DEPTH 已是 GUI 独立维度（"异步深度(批)"，默认 2）。经 env_for_launch 时 combo
     # 后于本表注入 ⇒ GUI 选择覆盖上表；本表仅在"不经 GUI 的 preset 直载路径"上兜底为 2。
 }

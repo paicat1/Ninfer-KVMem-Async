@@ -747,7 +747,7 @@ GRAPH_OPTIONS = {
 #        给了以后 102,400 可起（free 0 B），逐档到 126,976 仍 listening，131,072 FATAL。
 #   ⚠ 只有 build-1208b 及以后的新件认识这个旗标；现役件 F814B07A 传了会报 unknown option。
 ARITH_OPTIONS = {
-    "off": ("off（默认·预算取 cudaMemGetInfo free）", []),
+    "off": ("off（预算取 cudaMemGetInfo free · ≤96k 池可起）", []),
     "on":  ("on（★仅新件·预算取 total−权重−512MiB，可到 100K~124K）",
             ["--wddm-budget-arithmetic-only"]),
 }

@@ -6095,3 +6095,72 @@ prompt 原文与判分脚本在 `work/data/local-model-test/`（不入库）：`
 
 **仍未覆盖**：跨数小时的多轮长会话、超 20 万 token 的纯上下文检索（受工具环境阻塞）、
 分布式一致性（多进程/网络分区）、工具调用本身的质量（多步规划、失败重试）。
+
+### 226. 【场景预设选什么都永远是默认档：`async` 触发 StopIteration 中断循环，异常被 pythonw 静默吞掉】（2026-11-14）
+
+**现象**：启动器六个场景预设选任何一个，右侧生成的启动命令**完全相同**——都是默认档
+（`swift15_iq3s_mtp+dflash2.ninfer` / `--model-id swift-1.5` / `--kv-capacity 81920` / `--spec dflash2 --draft-tokens 5`）。
+下拉显示确实变了，但命令没变。
+
+**根因链（三行代码）**
+
+```
+_apply_preset:
+  valid_keys = {d[0] for d in DIMENSIONS} | {"async"}          ← async 被放行进入循环
+  opts = next(d[2] for d in DIMENSIONS if d[0] == key)          ← 但 async 不在 DIMENSIONS ⇒ StopIteration
+  ...
+  self._on_change()                                             ← 永远执行不到
+```
+
+`async` 之所以不在 `DIMENSIONS`：它在顶部星窗单独一行（`row(star, "async")`），
+`DIM_TABLE["async"] = ASYNC_OPTIONS` 是**运行时局部补位**（L1707-1708），模块级的 `DIMENSIONS` 里没有它。
+
+而预设字典构造为 `dict(DEFAULTS, model=..., ..., **{"async": "on"})` —— **`async` 排在末尾**，于是：
+
+1. `channel` / `model` / `spec` / `kvcap` / `graph` / … 逐个 `self.var[key].set()` —— **下拉显示确实变了**
+2. 轮到 `async` → `next(...)` 抛 `StopIteration` → **循环中断**
+3. 末尾 `self._on_change()` 不执行 → `self.selection` 仍是 `DEFAULTS`
+4. `build_command(self.selection, …)` 读的是 `selection` → **永远拿默认值**
+
+**为什么完全静默**：`pythonw.exe` 无控制台，Tkinter 回调里的异常被标准库丢弃，用户既看不到报错也看不到中断。
+
+**为什么像"没生效"而不是"报错"**：`self.var`（显示层）与 `self.selection`（决策层）是两套状态，
+异常发生在**显示层已全部更新、决策层一次未更新**的位置 —— 只有对比右侧命令行才能发现。
+
+**修法（三处）**
+
+| # | 改动 | 作用 |
+|---|---|---|
+| 1 | 建表改用与控件构造同口径：`_dt = {d[0]: d[2] for d in DIMENSIONS}; _dt["async"] = ASYNC_OPTIONS` | 消除 StopIteration 的成因，而非捕获它 |
+| 2 | 循环内**直接写 `self.selection[key] = val`** | 不再依赖 `_on_change` 的 label→key 反查（反查在标签不匹配时会静默回退旧值，同类隐患） |
+| 3 | 状态栏显示「已应用场景预设「…」（N 项）」，有跳过时变橙色并列前 3 条 | 套档被跳过变成可见事件 |
+
+**验证**
+
+```
+py_compile                      COMPILE=0
+_apply_preset 六档映射            MATCH=6/6
+build_command 六档（含 bundle 套档模拟）  distinct=6/6
+```
+
+**附带修正的两处不一致（同批）**
+
+| 项 | 原状 | 修正 |
+|---|---|---|
+| `MODEL_IDS["swift"]` | 长名 `swift-1.5-qwen3.8-27b-gsq-rco-iq3s`，而 `build_command` 在 `spec=d*` 时又覆盖成 `swift-1.5-dflash2` —— **同一份双头件出现两个 ID**，客户端须按 spec 改名 | 统一为 `swift-1.5`，删掉赋值处的冗余覆盖（`SWIFT_DFLASH2_MODEL` 与 `MODEL_PATHS["swift"]` 本就是同一文件，那条 if 只改名不换件） |
+| `MODEL_BUNDLES["gsq_dflash2"]["kvcap"]` | `88k`（90,112，slack **13.6 MiB**），与预设标签「③ GSQ · DFlash2 d5（**80k**）」不符，且与同头的 `swift_dflash2`（80k）不一致 | 降到 `80k`（81,920，slack **217.6 MiB**）；bundle 在 `_apply_model_coupling` 里后执行会覆盖预设值，属静默套档，13.6 MiB 下桌面稍抢即 FATAL |
+
+**提炼：本次与今日多起错误同源——"两套状态只更新了一套"**
+
+| 事件 | 显示层 | 决策层 |
+|---|---|---|
+| 改 `PRESET_PROFILES` 未改硬编码标题「只 4 个」 | 数据变了 | 文案没变 |
+| 本节 bug | `var` 变了 | `selection` 没变 |
+| `MODEL_BUNDLES` 覆盖预设池 | 预设标签写 80k | 实际参数 88k |
+
+> **判据**：凡存在「显示值 / 内部值」或「数据 / 文案」两套状态的系统，
+> 写入必须**同一处代码同步两套**，并给一次可见输出（状态栏、日志、命令预览）作为断言。
+> 不能依赖"用户会去看最终结果"——本例中用户看的就是最终命令，仍然花了几轮才定位。
+
+**与 §12 第 4 条的关系**：§12.4 只说"改数据要连文案一起改"，管的是**数据/文案**这一对；
+本节补充**显示值/内部值**这一对，且强调**异常静默**这一放大器（pythonw 无控制台）。

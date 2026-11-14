@@ -222,7 +222,7 @@ MODEL_PATHS = {
 #   Coder390 系（q2lynn/iq4nl/iq4nlvis/orig）共用 coder390（同骨架同命名域，原值正确）；
 #   bonsai = 件未下载的按文件名合理默认——起服后以 engine ready 行校正（预登记，勿当实证）。
 MODEL_IDS = {
-    "swift":    "swift-1.5-qwen3.8-27b-gsq-rco-iq3s",
+    "swift":    "swift-1.5",   # 2026-11-14 统一：双头件（MTP/DFlash2 同一文件）共用一个 ID；原 MTP 长名与 DFlash2 短名并存，客户端须按 spec 改名才能请求
     "q2lynn":   "qwen3.8-27b-coder390",
     "gsq":      "qwen3.8-27b-gsq-iq3s",
 
@@ -301,7 +301,9 @@ MODEL_BUNDLES = {
                     "唯一 user 保证 cache=0）：struct 141.6 / prose 125.5 / conv 110.2 tok/s"
                     "（接受率 61 / 50 / 41%）。旧 66-token 单题报的 152.7 与其他件口径不同，不可直接横比。"},
     # GSQ 的 DFlash2 头：weights 12.3 GiB（比 MTP 多 1.0），池随之降到 88k
-    "gsq_dflash2": {"kv": "rk8v4", "kvcap": "88k", "graph": "64", "vision": "overlay",
+    # 2026-11-14：池由 88k(90,112, slack 13.6 MiB) 降到 80k(81,920, slack 217.6 MiB)，
+    #   与预设标签「③ GSQ · DFlash2 d5（80k）」及同头的 swift_dflash2 一致；要顶上限请在维度区手选 88k。
+    "gsq_dflash2": {"kv": "rk8v4", "kvcap": "80k", "graph": "64", "vision": "overlay",
                     "arith": "on",
                     "note": "核显实测：90,112 READY（slack 13.6）/ 94,208 FATAL"
                             "（need 3222.1 > avail 3133.9）；**512-token 同口径**：struct 183.7 / "
@@ -1386,9 +1388,12 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     model_id = MODEL_IDS.get(combo.get("model", "q2lynn"), "qwen3.8-27b-coder390")   # 2026-10-19 BUG 修复：按档映射
     # 2026-11-04 用户令：SWIFT + DFlash2（spec=d*）⇒ 换 DFlash2 件（与 MTP 件互斥，§203）。
     _spec_key_cmd = str(combo.get("spec", "k3"))
+    # 2026-11-14：双头件已合并（MODEL_PATHS["swift"] 与 SWIFT_DFLASH2_MODEL 是同一文件），
+    #   原先在此把 model_id 覆盖成 "swift-1.5-dflash2"，导致同一件出现两个 ID
+    #   （spec=d* 用短名、spec=mtp 用长 MTP 名），客户端必须按 spec 改名才能请求。
+    #   现统一走 MODEL_IDS，本段只保留 path 防御（万一将来件名再变）。
     if combo.get("model") == "swift" and _spec_key_cmd.startswith("d") and _spec_key_cmd != "d0":
         model_path = SWIFT_DFLASH2_MODEL
-        model_id = "swift-1.5-dflash2"
     argv = [model_path, "--host", "127.0.0.1", "--port", str(port), "--model-id", model_id]
     argv += _argv_of(CTX_OPTIONS,     combo.get("ctx", "256k"),      "256k")
     argv += _argv_of(KVCAP_OPTIONS,   combo.get("kvcap", "51200"),   "51200")  # 2026-10-11: 回退对齐 DEFAULTS（原 "55296"）
@@ -2028,22 +2033,45 @@ class LauncherApp:
         self._update_spec_k_range()
 
     def _apply_preset(self, _e=None):
-        """场景预设一键套用（照老项目；源 = 内置 PRESET_PROFILES）。"""
+        """场景预设一键套用（源 = 内置 PRESET_PROFILES）。
+
+        2026-11-14 修（用户报「选什么都永远是 SWIFT，左边选项与最终命令不联动」）：
+          原实现 `opts = next(d[2] for d in DIMENSIONS if d[0] == key)` 对 `async` 抛 StopIteration
+          —— 因为 async 不在 DIMENSIONS（它在顶部星窗单独一行，L1708 才把 ASYNC_OPTIONS 补进 DIM_TABLE）。
+          而预设字典里 `**{"async": "on"}` 排在**末尾**，于是：
+            channel/model/spec/kvcap… 已逐个 self.var[key].set()（下拉显示确实变了）
+            → 到 async 时抛异常 → 循环中断 → 末尾的 self._on_change() 不执行
+            → self.selection 仍是 DEFAULTS → build_command(self.selection, …) 永远拿默认值（swift）
+          pythonw 无控制台，异常被静默丢弃，表现为「下拉变了、命令没变」。
+
+        另一处加固：循环内**直接写 self.selection[key] = val**，不再依赖 _on_change 的
+          label→key 反查兜底（反查在标签不匹配时会静默回退旧值）。
+        """
         name = self.preset_var.get()
         preset = PRESET_PROFILES.get(name) or {}
-        valid_keys = {d[0] for d in DIMENSIONS} | {"async"}   # async 不在 DIMENSIONS（顶部星窗），但预设/组合也要能切 A/B 臂
+        # 用与 row() 相同的口径建表：DIMENSIONS + async 补位（L1707-1708 的 DIM_TABLE 是局部变量，此处重建）
+        _dt = {d[0]: d[2] for d in DIMENSIONS}
+        _dt["async"] = ASYNC_OPTIONS
+        applied, skipped = [], []
         for key, val in preset.items():
-            if key not in valid_keys:
+            opts = _dt.get(key)
+            if not opts:
+                skipped.append(f"{key}（无选项表）")
                 continue
-            opts = next(d[2] for d in DIMENSIONS if d[0] == key)
             if val not in opts:
+                skipped.append(f"{key}={val}（不在选项表）")
                 continue
             if key == "spec":
                 self._apply_spec_to_ui(val)
             else:
                 self.var[key].set(opts[val][0])
+            self.selection[key] = val          # 内部值同步写，不依赖反查
+            applied.append(key)
         self._on_change()
-        self.status.config(text=f"已应用场景预设「{name}」", fg="#4a6b4a")
+        _tip = f"已应用场景预设「{name}」（{len(applied)} 项）"
+        if skipped:
+            _tip += " · 跳过：" + "、".join(skipped[:3])
+        self.status.config(text=_tip, fg="#4a6b4a" if not skipped else "#8a5a2a")
 
     def _engine_path(self):
         want = self.engine_var.get()

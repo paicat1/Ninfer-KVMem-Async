@@ -5545,6 +5545,18 @@ gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来
 
 > 交叉引用：四-AI 表 #81 的「待用户原话裁决」为追加当时的快照，状态以本表条目 3 为准；append-only 约束下原行保留不改。
 
+## 四-AK、挂账表增量（2026-11-15，§234 追加后同步）
+
+> 沿用四-A…四-AJ 增量惯例：主表与既有增量节原文均不动，仅追加增量节。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **慢态判别实验（WDDM 逐出+fault-back 假说判决）** | ⬜ 预登记已立（§234）：用户操作——关 PBZ/3D 场景 → 重启引擎同池档 110,592 → 重放 150K+ → 三量判据（TTFT 个位数秒 / chunk 边界静默段消失 / nvidia-smi 引擎显存稳定 15.4 GiB）。**实锤=静默段消失；证伪=同档仍现静默段**（转 NINFER_DEMOTE_PROFILE=1 插桩定位）。 |
+| 2 | **两处未独立复核点（§234 假说附件）** | ⬜ ① window_align.py 20 倍吞吐坍塌时间对齐未逐行复核（TELE 标注）；② DSH 渲染预览起始时刻待用户确认（是否落在 #77 快 / #78 慢 边界前）。 |
+| 3 | **WDDM 余量长期修法**（若判别实锤） | ⬜ 候选：设备侧留余量（池档/runtime 减配）或 --host-kv-mib 降档换 VRAM 余量；需另立施工（改动面>3 先停，逐项报批）。 |
+| 4 | **valley_bench.py gz 假零陷阱** | ⬜ 工具对 .gz 输入输出全零且照常落盘 json（本轮差点误用）；修不修待用户（加格式拒绝或自动解包）。 |
+
+
 - 引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 
 ### 220. 【普通 GGUF 转 NINFER 双头件全链路打通；GSQ-RCO IQ3_S 转正第三档；日志改为双写 gzip；dGPU 榨干显存致桌面卡死】（2026-11-08）
@@ -7213,3 +7225,32 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 | `--prefill-chunk 1024` 值不值 0.49 GiB | 未做对照 | 仍未做 |
 | `RETRIEVE_SHARE=60` 是否下发 | 间接确认 | ✅ `evidence=1024` 直接确认 |
 | A/B 严格对照 | 未做 | 仍未做 |
+
+
+### 234. 【2026-11-15 慢态收口：prefill 25.6 tok/s=停顿伪象；decode 崩塌=一次性 regime 切换，统一假说 WDDM 逐出+fault-back（待判别）】（2026-11-15 夜）
+
+**数字**：req#94（p=174,227 / o=2,502）total 849.3s = TTFT 203.8s（报面 prefill 25.6 tok/s = 5,212 新 token ÷ 203.8s；实际吞吐窗实测 **179 tok/s** 计算 29s + **静默 170s** = 6 个 896-token chunk × ~33s）+ decode 645s @ 3.9 tok/s。悬崖：#77（p=149,102）decode **108.3** → #78（p=149,775）**3.3** tok/s，其后 17 条全部 2.7-10 零恢复。慢态 TTFT 拟合式 **TTFT ≈ 33s × chunk 数**（#94 6 chunk=204s ✓ / #84 2 chunk=66.8s ✓ / 单 chunk 33-38s ✓）。copy 吞吐：快 ≥800 MB/s → 慢 **~38 MB/s**（20 倍）。卡 = RTX 5080 **16,303 MiB**；引擎设备侧 15.4 GiB（权重 11.3 + runtime 4.11）= 卡的 94%，启动 `free 0 B`。
+
+**阶段原因（为何开工）**：§233 收尾挂起项——174K/209K 大 prompt prefill 25-77 tok/s 归因（用户令"请继续"，TELE 点名 per-chunk 分解）。
+
+**Δ 对基线**：§233 只定性"prefill 是唯一瓶颈"；本轮①把 25.6 tok/s 拆成伪象（真实计算 179 tok/s，瓶颈在 chunk 边界静默）；②decode 崩塌与 prefill 停顿统一到同一物理机制（copy 吞吐坍塌）；③尺寸阈值假说被 209K negative control 否定（12:09 轮 p=209,303 全程 101-310 tok/s）。
+
+**证实的事实（双方独立复核，[EVIDENCE] 在 logs\serve_20261115_135226.log.gz / work\data\*.py）**：
+1. 停顿伪象：吞吐行序列 `prefill 179.1 tok/s (896 tok) | host 285%` 与 `running 1 (prefill 1) | host 0.0% (0 us)` 交替；publish D2H 在 compute stream 上（context.cpp:1876-1878），host 睡等 DMA。
+2. decode 崩塌一次性切换：非尺寸阈值（快轮 1.70× 超池倍率 > 慢轮 1.58× 仍全程快）；非 speculative 接受率（两侧 56-87%）；非驻留数（#77 host_backed=610 快 vs #78=619 慢，仅差 9 页）。
+3. demote-other short（freed=0 want=N slots=0）= 单会话结构常态：对照实验慢轮 1,217 行 / 快轮 1,177 行同形态（TELE 假说"active 卡死扫描"由 TELE 自行撤销）；真实释放供给 = 活序列自 demote → publish host-backed（132 次 / 117.99 GiB D2H，通道逻辑正常，flush_failed=0 declined=0）。
+4. copy 吞吐坍塌：快 #71 publish 0.79 GiB 与 adopt 同秒；慢 #78 adopt 后 27 秒全进程 0% CPU 静默 → 3×1.02 GiB 一秒齐打。
+5. host% 非判别量：快 #71 decode 段 98-99%，慢 #78/#94 90-116%；判别量 = chunk 边界全进程静默段。
+6. preset 4 项差异（两轮）：池 110,592/122,880、chunk 宽 896/384、evidence 预算 1024/512、free 624/1328——均不能解释同轮悬崖（13:52 轮 #77 前同配置且快）。host KV 两轮都钉 16.0 GiB（pinned，WDDM 下映射进 GPU 地址空间与卡容量竞争，program_impl.cpp:367-394）。
+7. 排除项：disk tier 未启用（0 行）；demote 路径无 sleep；spec 接受率同量级。
+8. 活体：引擎 16:44:58 后被**用户手动停止**（用户 2026-11-15 亲口确认）；GPU 当前被 PBZ 游戏 + Steam/Overlay 等占 10.2 GiB、99% P0（活体样本，非案发时刻）。
+
+**新发现**：
+- valley_bench.py 只吃明文 log——对 .gz 输出全零且照常落盘（陷阱：差点拿全零 json 当扫描结果）；明文版全量扫落盘 `work\data\scan_slow-174K.json`，逐请求 TTFT/decode 汇总与手工账一致（req#94 ttft=203.8 等）。
+- 工具链：本轮产出 chunk_anatomy.py / paging_traffic.py / decode_anatomy.py / fast_vs_slow.py / done_lines.py / gap_dump.py / window_align.py / warn_adopt.py / startup_compare.py / verify_tele.py（work\data\，可复用）。
+- 无时间戳行（`[ninfer]`/`[ring]` 前缀）须按顺序携带时间戳归窗，否则统计=0 假象（chunk_anatomy 初版踩坑已修）。
+
+**统一假说（当前最佳，待判别）**：引擎设备侧 15.4/16.3 GiB 自启动顶满 → 14:29-14:44 DSH 便利店 WebGL 3D 场景多轮渲染（同机同 GPU）+ 1M tok → VRAM 需求冲击 → WDDM 逐出引擎设备分配；系统 RAM 被 16 GiB pinned 钉死 → 逐出页回填走 pagefile → 此后 publish D2H / retrieve H2D / 跨页注意力 ~38 MB/s 磁速 fault-back（prefill=chunk 边界睡等 DMA，decode=每步 fault 处理）。DSH 渲染持续 → 永不恢复。两个未独立复核点：window_align 20 倍坍塌时间对齐未逐行复核；渲染预览起始时刻待用户确认。
+
+**判别实验（三量判据，用户操作）**：关 PBZ/3D 场景 → 重启引擎同池档 110,592 → 重放 150K+ → 看 ①TTFT 个位数秒 ②chunk 边界静默段消失 ③nvidia-smi 引擎显存稳定 15.4 GiB。**实锤 = 静默段消失；证伪 = 同档重放仍现静默段**（转引擎内部状态，上 NINFER_DEMOTE_PROFILE=1 插桩）。挂账见四-AK。复现证据档案：evidence/repro/wddm_eviction_slowstate.md（三轮运行记录与判据）。判别实验第一阶段判决见下。
+**判别实验第一阶段判决（2026-11-16 晨补）**：引擎以忠实配置重启成功（engine_ctl -Pool 110592，CMD/ENV 与慢轮逐项一致含 --prefill-chunk 1024 末位覆盖/host-kv-mib 16384/9 对 NINFER_* env，[EVIDENCE] logs\test_wddm-judge2.log CMD/ENV 块；起服前 GPU 62 MiB 全净=PBZ/Steam 已关）。三判据全过：①重放 TTFT 943 ms（req#2）/4.4s（req#3）；②冷启动 95K 全量 prefill 1.3-1.6k tok/s 连续、**零 host 0.0% 静默窗**（对照慢轮同区 179 tok/s + 每 chunk 25-30s 静默，量化恢复 8-40 倍）；③引擎满驻留 15,965/16,303 MiB 不被压瘪。**如实标注：判别力不足**——会话已被压缩到 95,227 < 池 110,592，该区间两假说同预测快（慢轮 #2-#77 同区间亦快），host-backed 换页判别区间（>110,592，悬崖 149.7K）未进入，假说未定案。引擎保持运行，下班后继续把会话顶过判别区间（贴大文件快速路或自然增长路）。运维教训：powershell -File 模式 string[] 参数只绑定 1 个 token（数组须 -Command 传）；-Extra 裸 token 会被引擎拒（需带 -- 前缀）；engine_ctl 自动置 NINFER_DEMOTE_PROFILE=1 需显式压回。

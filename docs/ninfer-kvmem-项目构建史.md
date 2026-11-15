@@ -1,4 +1,4 @@
-﻿# ninfer-kvmem · 项目构建史
+# ninfer-kvmem · 项目构建史
 
 > 本文件记录本线（`J:\ninfer-kvmem`）**逐轮构建过程**：时间 + 做了什么 + 证据 + 教训 + 待续。
 > 纪律（T-EVIDENCE）：关键数字与结论必须带 `[EVIDENCE] 文件:行:原文` 或命令输出摘要；证据不足标【待补】；订正旧条目必须显式标注（⚠️ 原表述已证伪→改为…），禁静默改写。
@@ -6164,3 +6164,1052 @@ build_command 六档（含 bundle 套档模拟）  distinct=6/6
 
 **与 §12 第 4 条的关系**：§12.4 只说"改数据要连文案一起改"，管的是**数据/文案**这一对；
 本节补充**显示值/内部值**这一对，且强调**异常静默**这一放大器（pythonw 无控制台）。
+
+---
+
+### 227. 【DSH 客户端 26% 就自动压缩：`maxTokens: 128000` 吃掉半窗 + 默认余量 65536，压缩后残缺 prompt 会污染引擎 ring】（2026-11-14）
+
+**现象**：本地模型 `swift-1.5-qwen3.8-27b-gsq-rco-iq3s` 跑到 prompt 69,252（**26.4%** of 262,144）就被 DSH 压缩，且同一会话连压两次；压缩后 messages 63 → 8、`thinking xhigh → medium`、`max output 128,000 → 65,536`。
+
+**根因（DSH 侧，不是引擎）**：`dsh-compaction-basic` 的阈值公式为
+
+```
+messageBudget   = contextWindow - reservedCompletionTokens        // W − O
+pressureBudget  = messageBudget - headroomTokens                  // B，默认 65,536
+thresholdTokens = floor(min(W × thresholdRatio, pressureBudget))  // ratio 默认 0.8
+retainTokens    = floor(messageBudget × retainRatio)              // retain 默认 0.16
+```
+
+代入 `C:\Users\PC\.dsh\profiles\core-020\cordis.patch.yml` 原值（W=262,144、O=128,000、B=65,536、ratio=0.8）：
+
+```
+min(262,144 × 0.8, 262,144 − 128,000 − 65,536) = min(209,715, 68,608) = 68,608
+68,608 / 262,144 = 26.17%
+```
+
+**26.17% 与实测"不到 27%"逐位吻合。** 变量唯一：同一 provider 下 `qwen3.8-27b`(O=24,000) 阈值 60.97%、`kvmem`(O=24,000) 51.42%，只有两个 swift 模型（O=128,000）掉到 26.17%。
+
+**为什么连压两次**：压缩后只保留 `0.16 × (W−O) = 21,463` 近期原文，加上系统提示 2,344 + 工具 schema 9,703 ≈ 33,500 地板，已占阈值 68,608 的一半；真正可干活的余量约 35,000，读几个大文件就见底。另有 `compactionRetries` 默认 1（最多连压 2 次，源码 `for (attempt=0; attempt<=compactionRetries; attempt++)`）。
+
+**`thresholdRatio` 调到 0.9 没用**：它是 `min()` 的上限，被预算项卡住。
+
+| ratio | 比例项 | 预算项 W−O−B | 生效 | 占比 |
+|---|---|---|---|---|
+| 0.8 | 209,715 | 212,992 | 209,715 | 80.00% |
+| 0.9 | 235,929 | 212,992 | 212,992 | 81.25% |
+
+**只有 +1.25pp。要真到 90% 必须把 `O + B` 压进窗口的 10%（26,214），代价是输出被截断 + 余量不足以吸收下一轮突增。**
+
+**与引擎的交互（本仓库真正该记的一条）**：DSH 压缩后重发只有 8 条消息的请求，**但引擎 ring 里还留着上一条会话的 1,083 块（69,312 token）**——那 69K 对应的是已被压掉的原文，**全是废块却仍占位**。表现为：
+
+```
+压缩前  63 messages  ring 复用旧块  restored 320 → 960 块   prefill 200+ 
+压缩后   8 messages  ring 无空位    restored 4 → 16 → 22 … → 130 块   prefill 76.7 tok/s
+```
+
+**结论：压缩与 KV 环不通气，客户端以为上下文变小、服务端还挂着旧的。** 唯一临时解法是**压缩后重启服务器清空 ring**；根治需客户端在压缩时发"上一会话结束"信号（引擎侧无此接口）。
+
+**修复（已落地，备份 `cordis.patch.yml.bak_20261114_233530_pre_model_fix`）**：
+
+```yaml
+# 两个 swift 模型
+maxTokens: 128000 → 32768
+# 压缩插件
+auto: false → true
+headroomTokens: (默认 65536) → 16384
+```
+
+代入后 `min(0.8, 1 − (32,768 + 16,384)/262,144) = min(0.8, 0.8125) = 0.8` → **阈值 80.00%**，压缩后保留 36,700，再压前可用增量从 ≈32,098 变为 ≈157,968（**5 倍**）。
+
+**DSH 无自动回填**：`resolveCompactSpec()` 每次运行时算阈值、UI 会显示，但**从不写回 YAML、不给建议值**。换模型时须人工套一遍：
+
+```
+生效% = min(ratio, 1 − (O + B) / W) × 100
+```
+
+**判据（防复发）**：给本地模型写 `maxTokens` 时，必须同时算 `1 − (O + B)/W`；若该值明显小于 `ratio`（默认 0.8），说明输出预留或余量吃掉了窗口，阈值会远低于预期。**`maxTokens: 128000` 给 27B 本地模型在工程上不成立，疑为把"上下文长度"误填成"输出上限"。**
+
+**另需核对**：`/v1/models` 报 `context_window: 262144`，但 DSH 用的是自己声明的 `contextWindow`；若引擎启动参数 `--max-context` 小于声明值，仍会在真溢出时走"溢出恢复"（绕过阈值强压一次）。
+---
+
+### 228. 【压缩后废块的释放通道：DSH 侧三条硬阻断、`x-ninfer-draft-reset` 是假线索、`private=1` 走压力驱逐】（2026-11-15）
+
+**背景**：§227 记录压缩后 ring 里留 1,083 块（69K）废块、`restored` 从 960 掉到 4、prefill 掉到 76.7 tok/s。本节记录"能不能主动释放"的完整核查——**结论：DSH 侧无合法通道，引擎侧无外部接口，唯一可动的是 `--max-private-continuations`。**
+
+**一、DSH 侧三条硬阻断（逐条核实）**
+
+| 阻断 | 事实 |
+|---|---|
+| ① 无 hook 载体 | `.dsh\hooks` 为空；rc.2 已移除 `dsh-hook-protocol`、`dsh-hooks-claude-code`（rc.1 尚有）。"压缩后触发脚本"没有挂载点 |
+| ② 发不了自定义头 | `dsh-llm-pi-ai` 兼容配置只有 `sessionAffinityFormat`（openai/openai-nosession/openrouter）与 `promptCacheKeyMode`，无任意 header 注入 |
+| ③ `sessionId` 压缩前后不变 | `openai-completions.js`：`prompt_cache_key: cacheRetention !== "none" && supportsPromptCacheKey ? clampOpenAIPromptCacheKey(options?.sessionId) : undefined`。压缩不换 sessionId ⇒ 引擎看到的身份完全没变，继续认为同一条链 |
+
+**二、`x-ninfer-draft-reset` 是假线索（已核实，不要再用）**
+
+引擎 `http_transport.cpp:107-112` 确实接受该头并置 `hints.reset = true`，但消费方只有两处，**都在 n-gram 草稿域**：
+
+```cpp
+// frontend.cpp:861
+if (hints.reset) { archive.clear(hints.key); }          // 清 n-gram archive
+// program_impl.cpp:551
+mtp_controller->reset(draft_window);                    // 重置 MTP 草稿窗口
+```
+
+且解析入口是 `NgramSessionHints hints;`（L100），整族 `x-ninfer-draft-session/parent/generation/reset` 都是草稿投机解码的会话标识，**与 KV continuation catalog 无任何关系**。
+
+**三、引擎侧无外部释放接口（已核实）**
+
+- `ProgramImpl::invalidate_lane()` 实现只有 `++lane_epochs[lane]`（`context.cpp:112-116`）——只让 continuation 逻辑失效，不释放物理块
+- 它**只在引擎内部**被调用（`commit.cpp` / `hybrid_program.cpp` / `context.cpp`），**没有任何 HTTP 端点暴露**
+- 故"发一个请求触发释放"这条路不存在
+
+**四、`--max-private-continuations 1` 的真实机制（比"直接驱逐"精确）**
+
+关键代码：
+
+```cpp
+// context.cpp:138-146 —— 只找 Free，找不到返回 nullopt
+std::optional<std::uint32_t> ProgramImpl::allocate_continuation_slot() noexcept {
+    for (index = 0; index < continuation_capacity; ++index)
+        if (continuation_slots[index].role == ContinuationSlotRole::Free) {
+            continuation_slots[index].role = ContinuationSlotRole::Active;
+            return index;
+        }
+    return std::nullopt;
+}
+
+// hybrid_program.cpp:751-752 —— 分配失败直接抛，不是驱逐
+const std::optional<std::uint32_t> continuation = allocate_continuation_slot();
+if (!continuation) { throw std::logic_error("hybrid admission has no continuation slot"); }
+```
+
+但**存在独立的压力驱逐路径**（`pressure.cpp:2478-2511`）：预检阶段若判定压力，会拿 `details.pressure_indices[victim]` 逐项校验 `continuation_slots[index].role == Catalogued` 且 `evicts_continuation` 匹配，再释放槽位。
+
+**所以 `private=1` 的正确描述是**：私有槽只剩 1 个时，第二条对话链的准入触发**压力驱逐**，旧链从 `Catalogued` 被 evict、槽位归 Free、其 KV 引用随之可释放。**不是"新链直接把旧链踢掉"，而是"新链的准入压力导致旧的被回收"。**
+
+**驱逐有前提**（`can_release_continuation_slot_strict`，`context.cpp:148-200`）：`fork_pending == false`、`shared_prefix_references.empty()`、KV 地址空间 `can_release` 为真、StateImage 引用可释放。任一不满足则本轮不驱逐。
+
+**五、待实测（本节唯一未闭环项）**
+
+**推断**：压缩发生 → 另开一个新会话随便说一句 → 触发压力驱逐 → 旧的 69K 让位 → 回到原会话看 `restored` 是否从个位数回升。
+
+**判据**：`context cache` 行的 `private` 始终为 1；新会话首轮 `kvmem_score: SELECT` 的 `n_blocks` 应从 0 起（而非继承 1,083）；随后回原会话，`restored` 应恢复到数百而非个位数。
+
+**状态**：**未实测**。本节只到"机制上可行、代码路径存在"这一层，不得当作已验证的运维手法。
+
+**六、DSH 侧已落地的最大一件事**
+
+阈值 26.17% → 80.00%（§227），压缩频率降到约 1/5。**废块污染是"每次压缩一次"的伴生代价，频率降下来痛点跟着淡**——这是客户端侧能做的上限，引擎侧改不了。
+
+**七、排除的方案（不留钩子）**
+
+- **本地代理（DSH → 8095 → 引擎 8094）**：引擎无"释放 lane"接口，代理唯一能做的是替你重启引擎进程。为省一次手点引入常驻进程 + 进程管理，风险收益不划算，**不做**
+- **靠 LRU 自然淘汰**：时间不可控，且 `Catalogued` 有引用计数保护，可能长时间不释放，**不作依赖**
+
+**提炼**：客户端与服务端在"上下文身份"上没有协商机制——DSH 认为"同一个 sessionId 就是同一条链"，引擎按此保留 KV；压缩在客户端改变了内容语义，却传不出任何"内容变了"的信号。`private=1` 是在**没有协商通道**的前提下，用"槽位稀缺"倒逼回收的间接手段，**属于绕行而非修好**。
+---
+
+### 229. 【六档预设 ↔ 引擎池 ↔ DSH 声明窗口：`T + O + B = 池` 恒等式与三 provider 按池档拆分】（2026-11-15）
+
+**问题**：DSH 在 26.4%（69,252/262,144）就压缩（§227），根因是 `maxTokens: 128000` 吃半窗 + 默认余量 65,536。修完后暴露出更深一层：**DSH 声明的 `contextWindow`（262,144）远大于引擎物理池（122,880），比例 0.469 —— 上下文涨到 47% 时引擎已经撞墙换页（77 tok/s），而 DSH 要到 80% 才压缩，中间 87K 全是泥潭。**
+
+**一、恒等式：把三个数锁死在一个池里**
+
+```
+T（压缩点） + O（输出预留 = maxTokens） + B（余量 = headroomTokens） = P（引擎物理池）
+
+T = P − O − B
+生效阈值 = min(thresholdRatio × W, T)      // W = DSH 的 contextWindow
+```
+
+**把 `contextWindow` 设成池的实际值（`W = P = 122,880`）后，`0.8 × 122,880 = 98,304 > T = 81,920`，比例项不再起作用，`min()` 恒取 T。** 于是：
+
+```
+81,920 + 32,768 + 8,192 = 122,880   ✓
+```
+
+**`headroomTokens` 的物理含义从此可读：池里故意留着不用的一截。**
+
+**二、启动器六档预设的真实参数（`PRESET_PROFILES` + `model_ids.json`）**
+
+| 档 | model | spec | 池 P | model-id（DSH 用） |
+|---|---|---|---|---|
+| ① SWIFT·DFlash2 d5（默认主力） | swift | d5 | 81,920 | `swift-1.5-qwen3.8-27b-gsq-rco-iq3s` |
+| ② SWIFT·MTP k3 | swift | k3 | **122,880** | `swift-1.5-qwen3.8-27b-gsq-rco-iq3s` |
+| ③ GSQ·DFlash2 d5 | gsq | d5 | 81,920 | `qwen3.8-27b-gsq-iq3s` |
+| ④ GSQ·MTP k3 | gsq | k3 | **122,880** | `qwen3.8-27b-gsq-iq3s` |
+| ⑤ Coder390·MTP k3 | q2lynn | k3 | 81,920 | `qwen3.8-27b-coder390` |
+| ⑥ Coder390·DFlash2 d5 | q2lynn | d5 | 40,960 | `qwen3.8-27b-coder390` |
+
+**共同参数**：`kv=rk8v4`、`graph=64`、`vision=overlay`、`think=high`、`tb=16000`、`hemostat=on`、`--default-max-tokens 32768`、`--max-context 262144`。
+
+**三、结构性矛盾：同一 id 对应两个池**
+
+**`swift-1.5-qwen3.8-27b-gsq-rco-iq3s` 既是 ①（80k）也是 ②（120k）；`qwen3.8-27b-gsq-iq3s` 既是 ③（80k）也是 ④（120k）。** DSH 只看 model-id，分不出来。
+
+**解法：拆三个 provider，用 provider 名区分池档。依据（已核实源码）**：
+
+```cpp
+// openai_chat_request.cpp:1035-1038 —— 只校验非空字符串，不比对已加载模型
+if (!body.at("model").is_string() || body.at("model").get<std::string>().empty()) { bad_request(...); }
+output.model = body.at("model").get<std::string>();
+```
+
+**所以同一 id 可安全挂在多个 provider 下，各自声明不同 `contextWindow`。**
+
+| provider（key） | 显示名 | 声明 W | T | 对应档 |
+|---|---|---|---|---|
+| `ninfer` | NInfer kvmem async · 120K 档（MTP k3） | 122,880 | **81,920**（66.67%） | ② ④ |
+| `ninfer-80k` | NInfer kvmem async · 80K 档（DF2 d5 / C390） | 81,920 | **40,960**（50.00%） | ① ③ ⑤ |
+| `ninfer-40k` | NInfer kvmem async · 40K 档（C390 DF2） | 40,960 | **24,576**（60.00%） | ⑥ |
+
+**三档全部满足 `T > 0`、`min(0.8W, T) = T`、`retainTokens(0.16×(W−O)) < T` —— 六行无一会 throw `TargetPressureConfigError`。**
+
+**⑥ 档的死结与解法**：`40,960 − 32,768 − 8,192 = 0`，压力预算归零、压缩永不触发。**必须把该档 `maxTokens` 降到 8,192**：`40,960 − 8,192 − 8,192 = 24,576`。代价是单次回复上限 8K。
+
+**四、引擎侧：池只在 `/stats`，不在 `/v1/models`**
+
+```json
+// GET /stats 或 /v1/load
+"capacity": { "kv_capacity_tokens": 122880, "max_context": 262144, ... }
+
+// GET /v1/models（openai_common.cpp:210-216）
+{"max_model_len", max_model_len}, {"context_window", max_model_len}, {"n_ctx", max_model_len}
+```
+
+**三个字段全绑 `max_model_len`（= `--max-context`），DSH 只读 `/v1/models` 所以拿不到池。** 这不是 DSH 偷懒，是引擎没给。
+
+**根治方向（未做，需编译）**：把 `context_window` 改成报 `kv_capacity_tokens`，DSH 自动跟随池，provider 可合回一个。代价是语义从"模型能力"变为"当前可用池"。
+
+**五、使用纪律（唯一躲不掉的一条）**
+
+```
+起服后先 curl /stats 看池 → 选名字里数字相同的那一档 provider
+122,880 → 120K 档    81,920 → 80K 档    40,960 → 40K 档
+```
+
+**选小了不报错，只白丢一半上下文；选大了必然在池顶撞墙（`window_tokens` 超池 → `restored` 掉到个位数 → prefill 77 tok/s，不自愈）。**
+
+**换 provider = 换会话身份（引擎按 `prompt_cache_key` 匹配 continuation，DSH 该值源自 `sessionId`）。若 `sessionId` 含 provider，切档会驱逐旧链、120K 缓存全部重 prefill —— 所以选定档位后不要在同一会话中途切换。**
+
+**六、附带发现：`lmstudio` 两条隐患（不影响 ninfer 使用）**
+
+- **三个模型 `maxTokens` 未设 → O = 0**（`qwen/qwen3.5-9b`、`qwen3.6-35b-a3b-…`、`qwen3.8-9b-heretic-…`）。阈值算到 80%，但输出无预留，长回复会直接溢出窗口。
+- **九个模型无 `contextWindow`**（`qwen3.8-27b`、`qwen/qwen3-vl-8b`、`hy-mt2-*` 等）→ 一旦参与压缩报 `no context capacity`（源码要求 `contextWindow` 为正整数）。
+
+**七、已验证与未验证**
+
+| 项 | 状态 |
+|---|---|
+| 六档 `model`/`spec`/`池`/`model-id` | **已核实**（`PRESET_PROFILES` + `model_ids.json`） |
+| 引擎不校验 model 一致性 | **已核实**（`openai_chat_request.cpp:1035-1038`） |
+| 池只在 `/stats` 不在 `/v1/models` | **已核实**（`openai_common.cpp:210-216` + 实调两端口） |
+| 三档 provider 阈值计算 | **已核实**（逐行算 `T`、`retain < T`） |
+| 摘要上限 `maxTokens: 32768` 是否真突破 8,192 | **未验证**（需真压缩一次，看 `finish_reason` 是 `stop` 还是 `length`） |
+| `private=1` 是否真驱逐压缩后废块 | **未验证**（§228 挂账） |
+
+**提炼**：客户端与服务端对"上下文有多大"没有协商机制 —— 引擎在 `/stats` 报了真池，客户端却只读 `/v1/models` 的 `max_model_len`。在没有协商通道的前提下，唯一可靠的做法是**让声明的数字等于物理的数字**，然后用 `T + O + B = 池` 把三个参数锁死。任何"声明 262,144 而池只有 122,880"的组合，都会在 47% 处静默撞墙。
+---
+
+### 230. 【DSH 侧 compaction 配置四轮不生效：根因是 patch 层级错位（base 内该 entry 缩进 4 空格），附阈值公式与压力口径最终定稿】（2026-11-15）
+
+> **⚠⚠ 最终结论（2026-11-15 晚，见 §232）**：本节的“缩进/层级”与本条修正声明里的“config: 不能创建”**都不成立**。
+> 真因是：宿主机平面的 `compaction-basic` 被 **`dsh-web-app/cordis.patch.yml` L576-577 `disabled: true`** 主动禁用（注释写明“压缩后端随 preset 走”），
+> 所以它**从未实例化**（`fiberPhase: null`），改它的 config 当然零效果。真正在跑的是 **preset 域** `dsh-web-app/presets/standard.patch.yml` L79-80 那个无 config 的实例。
+> 正确修法 = `$DSH_HOME` 覆盖 `preset-standard` 的 `config.plugins`（已实测生效）。**一切以 §232 为准。**
+
+
+> **⚠ 修正声明（2026-11-15）**：本节把根因归为“patch 层级错位（base 内该 entry 缩进 4 空格）”，**该结论错误**。
+> `dsh-base/cordis.patch.yml` 文件头注释原文写明 `address these rows by id`，顶层 `- id:` 合法。
+> 真实规则是「`config:` 只能改已存在的 config 块，不能创建」——`agent-default-model` 自带 `config:`（base L91）所以能覆盖，
+> `compaction-basic`（base L355）没有 config 块所以静默无效。**最终结论见 §231。**
+
+
+**背景**：§227 修了 DSH 的 `maxTokens: 128000`，§229 用 `T + O + B = 池` 重标定。但实测压缩仍在 14.5K 触发（应 81,920），本节记录四轮排查与最终根因。
+
+**一、阈值公式（最终定稿，双方各自从 asar 独立复现）**
+
+```js
+// @deepseek-ai/dsh-compaction-basic/lib/index.js（0.2.2-rc.3，asar 内 50,714B）
+L124  function resolveCompactSpec(policy, contextWindow, reservedCompletionTokens) {
+L128    const messageBudgetTokens  = contextWindow - reservedCompletionTokens;
+L130    const pressureBudgetTokens = messageBudgetTokens - policy.headroomTokens;
+L132    const thresholdTokens = Math.floor(Math.min(contextWindow * policy.thresholdRatio, pressureBudgetTokens));
+L133    const retainTokens = policy.retainTokens ?? Math.floor(messageBudgetTokens * policy.retainRatio);
+
+L757  function reservedCompletionTokens(header, defaultMaxTokens) {
+L758    return header.config.maxTokens ?? defaultMaxTokens ?? 0;
+L759  }
+```
+
+**三个必须记准的点：**
+
+1. **`O` 取的是「上一条已派发请求」的 `maxTokens`，不是即将发送的那条。** 证据：`L933 const header = agent.session.requestHeader()`；注释 `L927 @param agent - agent whose latest durable routed request is measured`；`L858 const previous = agent.session.requestHeader()`（变量名直接叫 `previous`）。
+2. **压缩请求自己的 `maxTokens` 不回写 `O`。** `request/header` 只由 agent loop 追加（`dsh-agent-loop`），压缩走 `ctx.llm.stream(options)`（`compaction-basic` L323），不经 agent loop。**所以压缩不会污染下一轮的 O。**
+3. **`headroomTokens` 默认 65,536。** 全仓 253 处 `65536`，唯一与 token 有关的是 `const headroomTokens = config.headroomTokens ?? 65536;`。其余全是缓冲区 / UTF-16 / WASM 页数。
+
+**二、压力口径：`pressureTokens == 引擎日志的 prompt`**
+
+```
+[DSH 投影]  contextPressure.pressureTokens = 47,619
+[引擎日志]  req#7 prompt 47,619
+```
+
+**完全相等。所以不必猜 DSH 的压力口径 —— 直接拿引擎日志的 `prompt=` 当压力值，套公式即可预测压缩点。**
+
+**注意**：`surfaceTokens`(25,715) = `messageTokens`(23,281) + `systemTokens`(2,434)，**不含** `toolsTokens`(9,967)；而 `pressureTokens` 含工具。**把 prompt 再加一次工具定义就是重复计数**（本顾问踩过此坑，被对方纠正）。
+
+**三、四轮尝试全部失败（`config:` 形态不是病因，层级才是）**
+
+| 轮 | 写法 | 层 | 结果 |
+|---|---|---|---|
+| 1 | `- id: compaction-basic` + `config:` | profile `core-020` | 探针不炸 → 不生效 |
+| 2 | 同上（含 `retainRatio: 0.99` 探针） | profile | 不生效 |
+| 3 | 同上 | `$DSH_HOME` | 不生效 |
+| 4 | `- insert:` + 新 id `compaction-tuned` | `$DSH_HOME` | 不生效 |
+
+**探针法为何可靠**：`resolveConfig` 在构造函数里**立即**执行（不是惰性），非法值当场抛错 → 插件加载失败 → 日志必多一条 `did not activate`。四轮都只有 `permission-presets` 一条 → 配置确实没进内存。
+
+**反向旁证（本顾问提过、后被推翻）**：曾认为「若整块没生效则 B=65,536、压力预算为负、压缩不可能跑」——**不成立**，因为 `O` 取主链的 32,768 而非压缩的 65,536，`122,880 − 32,768 − 65,536 = 24,576 > 0`，压缩当然能跑。
+
+**四、根因：`compaction-basic` 在 base patch 里是嵌套的**
+
+```yaml
+# node_modules/@deepseek-ai/dsh-base/cordis.patch.yml（asar 内，21,537B / 550 行）
+# 文件头注释原文：applied as ONE insert over the empty profile root
+L352      - id: token-meter
+L353        name: '@deepseek-ai/dsh-token-meter'
+L355      - id: compaction-basic          ← 4 空格缩进
+L356        name: '@deepseek-ai/dsh-compaction-basic'
+```
+
+**整个 base patch 是「一个」`- insert:` 的 list 内容，所有 entry 都挂在 4 空格下。用户的 patch 写的是顶层 `- id:`（0 缩进）→ 层级不匹配，匹配不到。**
+
+**`pwsh-sandbox` 能生效，是因为它属于另一个 bundle 的顶层条目，缩进对得上。** 所以失效的从来不是 `config:` 这种形态，是**层级位置**。
+
+**这条否定了「loader 对 bundle 声明过的 entry 只允许 disabled、不允许 config 覆盖」的劣论。**
+
+**五、由此得出的判据（可复用）**
+
+```
+DSH 侧改任何 bundle 声明过的 entry：
+  ① 先查它在 base patch 里的缩进层级
+  ② 顶层(0) → 直接写 - id: X
+     嵌套(4) → 顶层写 - id: X 不会生效，必须找到「patch 嵌套条目」的语法
+  ③ 验证手段：塞一个必然非法的值（如 retainRatio: 0.99 ≥ thresholdRatio 0.8）
+     + 数 %APPDATA%\dsh-tauri\logs\core-020\dsh-web.log 里的 did not activate 条数
+```
+
+**六、大文件写入会毒化压缩（独立于阈值）**
+
+实测报错原文：
+
+```
+summary is not smaller than the shadowed content (1075 >= 1075)
+```
+
+**一次 32K token 的 HTML 写入变成一条巨型 assistant 消息，摘要出来还是 1,075 token，压不扁 → 抛错。`compactionRetries` 默认 1，重试一次仍失败。**
+
+**后果链**：写大文件 → pressure 从 14.5K 跳到 47K → 触发压缩 → 压缩失败 → 历史没变短 → 下一轮 pressure 还是 47K → 再压 → 再失败。**即使阈值修到 81,920，这个循环仍会转，只是起点从 24.5K 挪到 81.9K。**
+
+**规避方向**：大文件拆成多次小写入，避免单条消息过大。（未实测）
+
+**七、废块判据（实测标定）**
+
+| 现象 | 含义 | 处理 |
+|---|---|---|
+| `prefill` 从 1.02k 掉到 170–270，`host` 21–33%，`restored` 88–192 | ring 里挂着旧会话废块，或在两条链间交替抖动 | 重启引擎（7 秒），prefill 回 1,041 |
+| `skip > 0` | 开始丢块 | 立刻 `/compact` |
+| `window_tokens` 逼近 122,880 | 池要满 | `/compact` |
+| TTFT 变长但 `prefill` 正常 | 输出过长或推理强度过高 | 查 `thinking` 档位 |
+
+**实测对照**：07:08（不重启、新会话跑鹈鹕）prefill 140–231；07:11（重启后同题）prefill 1,041 / TTFT 17.0s。**同一模型同档参数，只差“重启”一步，速度差 5–7 倍。**
+
+**八、asar 解析的两处坑（本顾问踩过，记录以免重犯）**
+
+| 坑 | 错误做法 | 正确做法 |
+|---|---|---|
+| **代码树** | 读 `%APPDATA%\npm\node_modules\@deepseek-ai\dsh\...`（**0.1.5-rc.3**，45,981B，两个月前） | 读运行内核 `%APPDATA%\dsh-tauri\dependencies\dsh\deepseek-harness-pkg-windows.asar`（**0.2.2-rc.3**，50,714B） |
+| **偏移** | `dataStart = 16 + u4`（u4=4 → 20） | **`dataStart = 8 + headerSize`**（6,775,932 → 6,775,940） |
+
+**两版差异**：`headroomTokens` 旧版 **0 命中**、新版 **25 命中**；`resolveCompactSpec` 旧版 2 参、新版 3 参；`POLICY_CONFIG_KEYS` 旧版无 `headroomTokens`、新版有。**拿旧版代码否掉新版行为，是本轮最严重的方法错误。**
+
+**asar header 解析（可复现）**：
+
+```python
+import json, struct
+f = open(ASAR, "rb")
+_4, headerSize, jsonSize, jsonReal = struct.unpack("<4I", f.read(16))
+f.seek(16)
+raw = f.read(jsonSize).decode("utf-8", "ignore")
+# 头部 JSON 后有填充，截到第一个括号平衡的 }
+depth = end = -1; instr = esc = False
+for i, ch in enumerate(raw):
+    if instr:
+        if esc: esc = False
+        elif ch == "\\": esc = True
+        elif ch == '"': instr = False
+        continue
+    if ch == '"': instr = True
+    elif ch == "{": depth = 1 if depth < 0 else depth + 1
+    elif ch == "}":
+        depth -= 1
+        if depth == 0: end = i + 1; break
+tree = json.loads(raw[:end])
+dataStart = 8 + headerSize          # ← 关键：不是 16 + u4
+```
+
+**产物**：`work/data/_cb_022.js`（1,044 行，0.2.2-rc.3 的 compaction-basic 真源码）、`work/data/_base_patch.yml`（550 行，base patch 全文）、`work/data/asar_read.py`（定稿脚本，勿改）。
+
+**九、未闭环项**
+
+| 项 | 状态 |
+|---|---|
+| cordis loader 的 patch 是否支持全树 id 搜索 / 正确的嵌套 patch 语法 | **未查（下一步）** |
+| `auto: false` 后手动 `/compact` 的 `max output` 是 32,768 还是 65,536 | **未测**（配置未生效，测不到） |
+| 大文件毒化压缩的规避（拆分写入） | **仅有方向，未实测** |
+
+**十、DSH 侧配置现状（2026-11-15 08:02）**
+
+```
+$DSH_HOME\cordis.patch.yml          L40  - id: compaction-basic
+                                          config: {auto:false, headroomTokens:8192,
+                                                   maxTokens:32768, retainRatio:0.99}  ← 探针，四轮均不生效
+profiles\core-020\cordis.patch.yml  L249 - id: compaction-basic
+                                          config: {auto:false, 8192, 32768}            ← 探针已移除
+```
+
+**关键：`auto: false` 两层都写着但都不生效，所以自动压缩仍是开启状态，且 `headroomTokens` 仍是默认 65,536 → 实际 `T = 24,576`（18.75%），不是 81,920。**
+
+**提炼**：客户端插件配置的持久化失败可以完全静默 —— 形状对、id 对、YAML 合法、无任何报错，只是**层级差 4 个空格**。唯一可靠的检测手段是「塞一个必然非法的值 + 数 `did not activate` 条数」。**在没做这个探针之前，所有「配置已生效」的声称都是猜测。**
+
+---
+
+### 231. 【DSH compaction 排查最终定稿：四组未解矛盾、四条可复用判据、阈值仍未定】（2026-11-15）
+
+> **⚠⚠ 本节第三节“四组未解矛盾”已闭环（2026-11-15 晚，见 §232）**：A/B/C/D 四条全部可用一句话解释 —— 配置改在了**被 `disabled: true` 禁用、从未实例化**的宿主机平面条目上。
+> 保留的“`resolveConfig` 被调用两次”假设**作废**（一次都没调用，实例不存在）。本节其余四条判据（patch 规则、两套失败机制、`enabled:false` 不可信、不能用“没触发”反推阈值）仍然有效。
+
+
+**⚠ 本节取代 §230 的“缩进/层级”结论 —— 那条判断是错的，见 §230 开头的修正声明。**
+
+**完整结论文档见 [`docs/compact-结论-20261115.md`](compact-结论-20261115.md)（210 行，DSH 侧产出，本顾问复核）。**
+
+**一、四组观测在源码层面无法同时成立（勿当结论使用）**
+
+| # | 观测 | 证据 |
+|---|---|---|
+| A | 配置**能到达** `resolveConfig` | 比例探针 `thresholdRatio:0.2 / retainRatio:0.5` 命中 `L68` 原文 `BasicCompactionConfig: retainRatio (0.5) must be less than the resolved thresholdRatio (0.2)` |
+| B | `maxTokens` 能到达 schema | `maxTokens: 0` → `$.maxTokens expected number >= 1 but got 0` |
+| C | `maxTokens: 12345` **不影响**摘要请求 | reqlog 新增记录 `12345` 命中 **0 次**，压缩请求仍 `65,536 (client)` |
+| D | `summarizationProvider: bogus-probe` **被忽略** | `/compact` 正常完成，无 unknown provider 报错 |
+
+**代码链已由两方独立走完，无改写点：**
+
+```
+resolveConfig        L64  maxTokens = config.maxTokens ?? headroomTokens   → L81 写入返回值
+resolveTargetPolicy  L107 maxTokens: override?.maxTokens ?? config.maxTokens（modelPolicies 为空 → override = undefined）
+summarizeWithLlm     L318 maxTokens: config.maxTokens
+dsh-llm              L2504 streamWithRegistration / L2507 waterfall("llm/stream") / L2419 adapterStream / L2428 adapterCall.stream
+                     两个 llm/stream 监听者（session-checkpoint-policy L61、session-title L252）均不改写 options
+pi-ai                if (options?.maxTokens) params.max_tokens = options.maxTokens
+```
+
+**唯一能定性的手段：在 `apply()` 入口 `console.log(JSON.stringify(config))`。超出配置层能力，未做。**
+
+**保留一条未验证假设**：`resolveConfig` 可能被调用**两次**（第一次校验 patch 值、第二次用合并后的默认对象构造）。若成立，A 与 C/D 可同时容纳。**未验证，勿引用。**
+
+**二、四条可复用判据（这轮唯一真正沉淀下来的东西）**
+
+**① patch 的 `config:` 不能“创建”，只能“改”**
+
+`dsh-base/cordis.patch.yml` 里 `agent-default-model` **自带** `config:` 块（L91），所以 `- id: X` + `config:` 能覆盖；而 `compaction-basic`（L355）/ `command-compact`（L360）/ `token-meter`（L352）**都没有 config 块**，加 `config:` 静默无效 —— 本轮四个探针全被吞掉。
+
+**要带 config，必须 `disabled: true` + `insert:` 新条目。**
+
+**② 插件失败有两套机制，日志只覆盖前者**
+
+```
+启动期失败     → $APPDATA\dsh-tauri\logs\core-020\dsh-web.log 有 "N entry did not activate"
+激活后自检失败 → 日志里一个字都没有，只有 plugin_manager 的 fiberPhase: failed + diagnostic
+```
+
+**本轮前三次都只读 `dsh-web.log` 就下结论，连错三次。判插件是否真在跑，看 `fiberPhase`。**
+
+**③ `enabled: false` 不等于“没加载”**
+
+`command-compact` 是 `false` 但 `/compact` 能用；`tool-pwsh` / `tool-fs` 是 `false` 但工具能用。**`fiberPhase: null` 才代表“没有 fiber”。**
+
+**④ 不能用“没触发”反推阈值**
+
+`compactPressure` 在阈值达标后若 `selectCompactableRange` 返回空范围，会**静默返回**（`L970 if (result === null && !requireBelowThreshold) return null`，自动路径第 4 参为 `false`）。
+
+**本顾问在此栽过两次**：把 `41K 触发` 当阈值证据（其实是手动 `/compact`，不看阈值）、把 `27,937 没压` 当“T > 27,937”的排他性证明（其实范围空也会静默）。
+
+**三、阈值仍未定（81,920 还是 24,576）**
+
+`headroomTokens: 8192` 是否生效**没有证据**。判据须带前提：
+
+```
+观察点：第一次**实际发生**的自动压缩（UI 出现“正在压缩上下文…”）
+  前提：消息量足够（> retain 14,417 + 工具 9,703 + 系统 2,344 ≈ 26,500），否则范围空不触发
+  prompt ≈ 25K（19%）→ T = 24,576，headroomTokens 未生效
+  prompt ≈ 80K（66%）→ T = 81,920，已生效
+  一直不压（哪怕到 80K）→ 无法判定
+```
+
+**四、本轮实测到的正常基线**
+
+| 指标 | 值 |
+|---|---|
+| 压缩是否成功 | ✅ 三次全成功（772 / 10,274 / 12,266 token） |
+| 压缩耗时 | ✅ 2.0 秒（`cache 98.7%`，prompt 30,624） |
+| 早期失败循环 | ✅ 消失（`summary is not smaller` 不再出现） |
+| `skip` | ✅ 0 |
+| 引擎侧 | 池 122,880 / `private 1` / `shared 0` / `anchors 4 automatic` |
+
+**五、引擎 reqlog 是区分 `max_tokens` 来源的唯一手段**
+
+`--request-log-jsonl` 的 JSON 字段 `requested_output_tokens` + `requested_output_tokens_source`（`"client"` / `"server_default"`），源码 `serve/request_log.cpp` L240-242（JSON）、L532-533（文本）。
+
+**实测：主对话 `32,768 (client)`、压缩请求 `65,536 (client)`。**
+
+**注意：文件被引擎独占持有，`ReadAllText` 报 `being used by another process`，只能用 `Get-Content` 共享读。**
+
+**六、三处 token 口径（勿混）**
+
+```
+surfaceTokens   = messageTokens + systemTokens        不含 tools（实测 25,715 = 23,281 + 2,434）
+pressureTokens  = 引擎日志的 prompt                    含 tools（实测 47,619 == req#7 prompt 47,619）
+totalTokens     = compaction 用来比阈值的那个           ≈ pressureTokens
+```
+
+**把 `prompt` 再加一次 `toolsTokens` 就是重复计数 —— 本顾问犯过，被 DSH 纠正。**
+
+**七、`/v1/models` 的 `context_window` 是假值（对 DSH 而言）**
+
+引擎 `openai_common.cpp:210-216` 把 `context_window` / `max_model_len` / `n_ctx` **全绑成 `max_model_len`**（= `--max-context`），DSH 读了也白读，它用自己的 `contextWindow` 配置。**真池只在 `/stats` 的 `capacity.kv_capacity_tokens`。**
+
+**八、未闭环项**
+
+| 项 | 状态 |
+|---|---|
+| `maxTokens` / `summarizationProvider` 为何不影响摘要请求 | **未解释**（四组矛盾，需运行时打印才能定性） |
+| `headroomTokens: 8192` 是否生效（T = 81,920 or 24,576） | **未验证**（需一次真正发生的自动压缩） |
+| `disabled: true` + `insert` 同 id 能否顶掉服务注册 | **未验证**（`compaction-tuned` 能 active 但不是服务提供者） |
+
+**提炼**：这轮真正的收获不是“修好了什么”，而是**四条判据**——它们能防止下次再用错误的方法下结论。至于 `65,536`，它**不影响压缩触发点、成功率、耗时**，只多预留 32K 输出，属于**已知未解、影响有限**的缺陷。
+
+---
+
+### 232. 【DSH 压缩配置的真正位置（preset 域）+ 云端摘要 + KV 检索 1,024 页的显存代价】（2026-11-15）
+
+**背景**：§230/§231 记录了"四轮探针全被吞、`maxTokens`/`summarizationProvider` 不生效"这个未解矛盾。本节是它的终结：**真凶是改错了地方 —— 宿主机平面的 `compaction-basic` 被 `dsh-web-app` 主动禁用，真正跑的是 preset 域里的那个实例。**
+
+**一、根因：宿主机平面那条被 bundle 禁用（两处原文）**
+
+```yaml
+# node_modules/@deepseek-ai/dsh-web-app/cordis.patch.yml  L569-580
+# The token METER stays on the host plane; only the compaction backend that
+# reads it moves. It owns the context-meter projection units, and that table is
+# process-wide, so preset ownership would make the meter a function of which
+# presets happen to be mounted rather than a per-session fact.
+- id: compaction-basic
+  disabled: true          ← 宿主机平面这条从来没实例化
+- id: command-compact
+  disabled: true
+
+# node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml  L72-88
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate: { compaction: true, toolResultPruner: true }
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'      ← 真跑的是这个，无 config
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config: { thresholdChars: 8192, headChars: 4096, tailChars: 1024 }
+```
+
+**所以 §230/§231 里所有"改宿主机 `compaction-basic` 的 config"全都改在了**不会实例化的条目**上 —— `fiberPhase: null` 是必然的，不是"配置被吞"。**
+
+**§231 保留的"`resolveConfig` 被调用两次"假设，**作废**：一次都没调用，因为实例不存在。**
+
+**二、正确修法：`$DSH_HOME` 覆盖 `preset-standard` 的 `config.plugins`**
+
+**`presets/standard.patch.yml` 文件头第 2-3 行原文承诺：**
+
+```
+# after the web patch. Edits saved from the Web editor override this row's
+# `config.plugins` by id from the profile patch.
+```
+
+**实测成立。`$DSH_HOME\cordis.patch.yml` 里写：**
+
+```yaml
+- id: preset-standard
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: standard
+    order: 1
+    plugins:            # ← 必须整份抄（patch 替换整个 config，不合并）
+      ... 23 条 plugins，与 preset 原文逐条一致 ...
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate: { compaction: true, toolResultPruner: true }
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              headroomTokens: 8192
+              maxTokens: 32768
+          - id: command-compact
+          - id: tool-result-pruner
+            ...
+```
+
+**核对方法（防漏条）：同口径数 `- id:` 条数 —— 原文 33 条 = 生成 33 条，序列完全一致。** 手抄必漏，必须脚本生成。
+
+**三、生效后的实测（2026-11-15 11:33–11:46）**
+
+| 观测 | 修前 | 修后 |
+|---|---|---|
+| 压缩触发点 | 24,576（18.75%） | **75,332（61%）** |
+| 摘要请求 `max output` | 65,536 | **32,768** |
+| 摘要区域 | 3 条消息（压不扁） | **60 条消息** |
+| `cache` | 压缩后 0% | **99.9–100%** |
+| 压缩耗时 | 1 分 20 秒 | **2.0 秒** |
+| 62,185 时是否已压 | 会 | **不会** |
+
+**62,185 那次判读干净：`surface 50,138 − retain 14,417 = 可压区域 35,721`，非空 ⇒ 不是"范围空静默"，是真的没到阈值。**
+
+**四、云端摘要（用户裁决：压缩走 OpenCode GO 的 DeepSeek V4.1 Flash）**
+
+```yaml
+# $DSH_HOME\cordis.patch.yml  L122-123
+summarizationProvider: go-ds4f      # = profiles\core-020 L12 的 provider key
+summarizationModel: go-ds41f        # = profiles\core-020 L18 的 model id
+```
+
+**provider 定义：`baseURL: http://localhost:19800/v2`（本地转发）、`apiKeyEnv: GO_DS4F_API_KEY`、`contextWindow: 1000000`。**
+
+**收益不只是"压缩快"：摘要请求走云端时，**本地引擎完全不知道有这回事，环里 KV 一点不动** ⇒ 压缩后 `cache` 不掉、下一条不用全量重算。这是比省时间更值的一条。**
+
+**代价：首次压缩会把被压区域（约 180K token）发给云端。** 用户已知悉并接受。
+
+**五、KV 检索 1,024 页的显存代价（实测三次闪退定位）**
+
+**目标：`NINFER_KV_RETRIEVE=65536`（1,024 页），让增量 prefill 从 77 tok/s 提速。**
+
+**引擎有两道闸（`context.cpp:2914-2916`）：**
+
+```cpp
+const std::uint32_t pool  = text_kv_pages->physical_pool().usable_pages();       // 1,728
+const std::uint32_t share = pool * proto_kv_retrieve_share_percent() / 100U;     // 1,728 × 50% = 864
+std::uint32_t budget = std::min(proto_kv_retrieve_pages(), share);              // min(1024, 864) = 864
+```
+
+**所以要 1,024 页，必须同时设 `NINFER_KV_RETRIEVE_SHARE=60`（1,728 × 60% = 1,036 ≥ 1,024）。`0 或 >100` 会被忽略（`context.cpp:2483`）。**
+
+**但真正的问题是**显存**。三次闪退数据：**
+
+| 池 | 检索 | runtime | 结果 |
+|---|---|---|---|
+| 122,880 | 512 页 | 3.93 GiB | READY |
+| 122,880 | 1,024 页 | 4.42 GiB | **FATAL**（need 4.42 / avail 4.12，差 300 MiB） |
+| 110,592 | 1,024 页 + chunk 512 | **3.62 GiB** | **READY** |
+| 110,592 | 1,024 页 + chunk 1024 | **4.11 GiB** | **READY**（贴顶，`free 0 B`） |
+
+**⇒ 检索页不是"不占显存"：每 512 检索页约 +0.49 GiB。120K 池已贴顶（`free 0 B`），加不进去。**
+
+**六、池的取舍（必须记清代价）**
+
+```
+120K 池（1,920 页）+ 512 检索  →  skeleton 80 + evidence 512  = 592，free 1,328 页（84,992 tok）
+110,592 池（1,728 页）+ 1,024 检索 →  skeleton 80 + evidence 1024 = 1,104，free 624 页（39,936 tok）
+```
+
+**检索页翻倍直接吃掉 512 页余量。对话内容超过 **39,936 token** 之后新块就往 host 挤 —— 而长会话动辄 130K～200K，超池比以前更早开始。**
+
+**`--prefill-chunk 1024` 会额外吃 0.49 GiB（`raw_k_shadow` 从 384 → 896 token），runtime 从 3.62 顶到 4.11 GiB。**
+
+**待定项：1,024 页检索是否真能把增量 prefill 从 77 提到 150+。** 未实测，这是下一步唯一的判据。提不上去就该退回 120K 池 + 512 页。
+
+**七、锚必须关（否则超池直接 429）**
+
+**§78（挂账）原文：`--auto-long-anchors` 下若 frontier 页数 > 池 usable，引擎让请求 429（`materialize-one FAIL tag=host-restore`）。**
+
+```
+压缩点 209,715 ÷ 64 = 3,277 页
+池 1,728 页
+3,277 > 1,728  →  必 429
+```
+
+**且 §217 实测：真实会话 11 个请求，`long anchor = 0` 次命中、`private endpoint = 9` 次 —— 锚在真实会话里从来没起过作用，只白占位。**
+
+**关锚后 `context cache` 行的 `anchors` 从 `4 automatic` 变 `2`（容量默认值，不再生成锚）。**
+
+**八、`private=1` 不能退（用户否掉本顾问的"回 2"建议）**
+
+**§227/§228 记录：`private=1` 是为治"压缩后 1,083 块废块、`restored` 掉到 4、prefill 76.7"而加的。退回 2 等于把废块问题还回来。**
+
+**九、启动器联动缺陷（本次修）**
+
+**缺陷实景：模型选 `swift`（MTP 档，`kvcap 120k`）+ `spec` 停在 `d5` ⇒ 联动走 `elif` 分支套 `swift_dflash2` 档 ⇒ `--kv-capacity 81920` + `--spec dflash2 --draft-tokens 5` ⇒ `weights 12.3 GiB` ⇒ `FATAL`（两连闪退）。**
+
+**修法（`_apply_model_coupling`）：**
+
+```python
+_base_is_mtp = (_model_cur in MODEL_BUNDLES) and not _model_cur.endswith("_dflash2")
+if _spec_now.startswith("d") and _base_is_mtp:
+    self.selection["spec"] = "k3"     # 模型是 MTP 档 → spec 强制回 k3
+```
+
+**十、待闭环**
+
+| 项 | 状态 |
+|---|---|
+| 云端摘要首次实测（30 秒级 / cache 不掉） | **未跑** |
+| 1,024 页检索能否把增量 prefill 从 77 提到 150+ | **未跑** |
+| `--prefill-chunk 1024` 的实际收益（值不值那 0.49 GiB） | **未跑** |
+| 209,715 压缩点在 110,592 池下的表现（1.9 倍超池） | **未跑** |
+| `RETRIEVE=1024` + `SHARE=60` 是否已随启动器默认值下发 | 已改 `DEFAULTS["retrieve"]="64k"`，`_kvwindow_env` 加 `SHARE=60`；**但用户起服日志的 ENV 行无 `SHARE`（serve_tee 白名单未含该变量），实际值待核** |
+
+**提炼**：客户端配置的**作用域**（宿主机平面 / preset 域）比配置值本身更关键 —— 本轮 20 余次无效尝试，全部因为改在了被 `disabled: true` 的条目上。判据只有一条：**看 `fiberPhase`，`null` 就说明该条目根本没实例化，改它毫无意义。**
+
+---
+
+### 233. 【2026-11-15 全日终局：引擎与 DSH 全参数表、三组对照实测、检索提额的负结果、预填充瓶颈定性】（2026-11-15 收工）
+
+**一句话**：今天的病根是**DSH 压缩配置改在了被禁用的条目上**（§232），修好后压缩点从 24,576 抬到 75,332、摘要走云端、`cache` 不再归零。剩下的**唯一瓶颈是 prefill**，且有一条已证伪的尝试（检索提到 1,024 页反而劣化）。
+
+---
+
+#### 一、引擎侧最终参数（2026-11-15 16:46 起服，PID 见日志）
+
+**CMD（`serve_20261115_164637.log`）**
+
+```
+J:\ninfer-kvmem\engine\self-built-20261008\ninfer-serve.exe
+J:\ninfer-kvmem\models\swift15_iq3s_mtp+dflash2.ninfer
+--host 127.0.0.1 --port 8094
+--model-id swift-1.5-qwen3.8-27b-gsq-rco-iq3s
+--max-context 262144
+--kv-capacity 126976            ← 124k 档（★S15-MTP 上限，全卡剩 14 MiB）
+--cuda-graph-allowance-mib 64
+--wddm-budget-arithmetic-only
+--kv-dtype rk8v4
+--max-private-continuations 1   ← 治废块（§227/§228），不可退 2
+--host-kv-mib 16384
+--prefill-chunk 1024            ← 比 512 多占 0.49 GiB runtime
+--spec mtp --draft-tokens 3     ← 定稿档（MTP K=3）
+--vision --vision-residency overlay
+--default-max-tokens 32768
+--default-reasoning-effort high
+--default-thinking-budget 16000
+--max-concurrency 1
+--max-shared-prefixes 0
+--presence-penalty 0 --temperature 0.7 --top-p 0.9 --top-k 20
+--recover-invariant-failures
+（**无 `--auto-long-anchors`** ← 必须关，见第五节）
+```
+
+**ENV**
+
+```
+NINFER_KV_WINDOW=126976
+NINFER_KV_RETRIEVE=65536            ← 1,024 页
+NINFER_TERNARY_KVMEM_SCORE_BUDGET=131072
+NINFER_KV_SINK=5120
+NINFER_KV_RING=1
+NINFER_HOST_PAGEABLE=1
+NINFER_ASYNC_DEMOTE=1
+NINFER_ASYNC_DEMOTE_DEPTH=2
+NINFER_DEMOTE_PROFILE=(unset)
+NINFER_KV_RETRIEVE_SHARE=60         ← 启动器已下发，serve_tee 白名单不打印
+```
+
+**实测 ring 预算：**
+
+```
+[ring] budgets: skeleton=80, evidence=1024, recent=0, free=880 (pool 1984)
+capacity | KV 126,976 tokens, rk8v4, explicit | pages 1,984/4,096 | runtime 4.11 GiB | free 0 B
+context cache | 1 active + 1 cached device states | host 8 states, 16.0 GiB KV | private 1 | shared 0 | anchors 2
+```
+
+---
+
+#### 二、DSH 侧最终配置（两处文件，分工明确）
+
+**① `C:\Users\PC\.dsh\profiles\core-020\cordis.patch.yml`（provider 与模型声明）**
+
+```yaml
+- id: llm-pi-ai
+  config:
+    providers:
+      go-ds4f:                                    # provider key
+        displayName: DeepSeek V4.1 Flash (OpenCode Go)
+        apiKeyEnv: GO_DS4F_API_KEY
+        api: openai-completions
+        baseURL: http://localhost:19800/v2
+        models:
+          - id: go-ds41f                          # model id
+            contextWindow: 1000000
+
+- id: agent-default-model                        # L215 起
+  # provider: ninfer + swift-1.5-qwen3.8-27b-gsq-rco-iq3s + reasoningEffort: medium
+
+# ninfer provider 的模型声明（L50 起）
+displayName: NInfer kvmem async · 256K 虚拟池（MTP k3）
+contextWindow: 262144        ← 界面显示 256K（模型真实上限，不是池）
+maxTokens: 32768             ← 单轮输出预留（曾是 128,000，把阈值吃到 26%）
+```
+
+**② `C:\Users\PC\.dsh\cordis.patch.yml`（9,972B，覆盖 preset 域）**
+
+```yaml
+# 块 2：pwsh-sandbox -> pwsh-local（既有）
+- id: pwsh-sandbox
+  disabled: true
+- insert:
+    - id: pwsh-local
+      name: '@deepseek-ai/dsh-pwsh-local'
+
+# 块 4：覆盖 preset-standard 的 config.plugins（23 条，整份抄）
+- id: preset-standard
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: standard
+    order: 1
+    plugins:
+      ... 23 条，与 presets/standard.patch.yml 逐条一致 ...
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate: { compaction: true, toolResultPruner: true }
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              headroomTokens: 8192            # T = min(209,715, 221,184) = 209,715（80%）
+              maxTokens: 32768                # 摘要输出上限
+              summarizationProvider: go-ds4f  # ← 云端摘要（用户裁决）
+              summarizationModel: go-ds41f
+                                              # auto 未写 = 默认 true（兜底在）
+          - id: command-compact
+          - id: tool-result-pruner
+```
+
+**核心规则（§232 已证）：**
+
+```
+宿主条目自带 config: -> profile 的 config: 能覆盖（agent-default-model）
+宿主条目无 config:   -> profile 的 config: 静默无效
+被 disabled: true 的条目 -> 根本不实例化，改它零意义（fiberPhase: null）
+真正提供压缩服务的是 preset 域 -> 改 preset-standard 的 config.plugins 才有效
+```
+
+---
+
+#### 三、三组配置的对照实测（今日全部数据）
+
+| # | 池 | 检索 | 压缩点 | prompt | prefill | decode | cache | 判定 |
+|---|---|---|---|---|---|---|---|---|
+| A | 122,880（1,920页） | 512 页 | 未生效时 24,576 | 166K | **77** | **270–324** | 99.9% | 可用，超池但 decode 快 |
+| B | 110,592（1,728页） | **1,024 页** | 24,576 | 161–174K | **2.2–25.6** | **3.5–10.0** | 只复用 161 token | **灾难，已证伪** |
+| C | **126,976（1,984页）** | **1,024 页** | 209,715 | 18–22K（池内） | 79–322 | 132–195 | 88–99% | **当前在用** |
+
+**A 组关键日志（12:20–12:53，`serve_20261115_120900` 系列）：**
+
+```
+req#59  prompt 133K  prefill 76.8 tok/s 连续 110 秒（补 8,400 new token）
+req#78  prompt 209,303  cache 100%  TTFT 7.6s
+req#79  prompt 203,459  cache 0%  prefill 1.18k  TTFT 2m53s   ← 全量顺序 prefill 反而快 15 倍
+[ninfer] adopt host-backed: frontier=133,791 need=2,091 usable=1,920 host_backed=270
+```
+
+**B 组关键日志（13:52–16:16，`serve_20261115_135226.log.gz`，80,896 行 / 95 请求）：**
+
+```
+[bufgets] skeleton=80, evidence=1024, recent=0, free=624 (pool 1728)
+req#85  p=161,863  o=505    c=161  T=33.7s  pre=3.9   dec=8.0
+req#86  p=162,409  o=1,894  c=162  T=17.4s  pre=2.4   dec=4.7
+req#94  p=174,227  o=2,502  c=169  T=3m23.8s pre=25.6 dec=3.9
+[ninfer] publish host-backed: frontier=176,849 scanned=5,528 host_backed=2,081 host_bytes=1,844 MB
+```
+
+**⇒ B 组把 `free` 从 1,328 页压到 624 页，`host_backed` 冲到 2,081 页，prefill/decode 全面劣化 3–90 倍。**
+
+---
+
+#### 四、已证伪：检索预算提到 1,024 页是自伤
+
+**动机**：A 组 `prefill 77 tok/s`，想靠"每轮多捞页"提速（§216 曾有 `ret8k 141 → ret32k 230` 的 +63% 证据）。
+
+**引擎两道闸（`context.cpp:2914-2916`）：**
+
+```cpp
+const std::uint32_t pool  = text_kv_pages->physical_pool().usable_pages();
+const std::uint32_t share = pool * proto_kv_retrieve_share_percent() / 100U;
+std::uint32_t budget = std::min(proto_kv_retrieve_pages(), share);
+// proto_kv_retrieve_share_percent 读 NINFER_KV_RETRIEVE_SHARE（默认 50，0 或 >100 被忽略）
+```
+
+**要 1,024 页必须 `SHARE=60`（1,728×0.6=1,036 / 1,984×0.6=1,190）。实测 `SHARE=60` 确实生效（`evidence=1024`）。**
+
+**但代价是显存与 free：**
+
+```
+每 512 检索页 ≈ +0.49 GiB runtime
+120K 池（free 0 B）装不下 1,024 页 → FATAL（need 4.42 / avail 4.12，差 300 MiB）
+降到 110,592 池能起，但 free 从 1,328 页 → 624 页
+→ prompt 161–174K 时 host_backed 2,081 页 → prefill 2.2 / decode 3.9
+```
+
+**结论：这条路上限明确 —— 池够大时提检索有边际收益，池贴顶时提检索等于抢 frontier 的页，净负。**
+
+**待定：C 组（126,976 + 1,024 检索）在**池内**表现正常（`pre 79–322 / dec 132–195`），但**超池后是否劣化到 B 组水平，尚未测**。这是下一个要看的数。**
+
+---
+
+#### 五、锚必须关（§78 / §217，今日再次踩到）
+
+**§78 原文：`--auto-long-anchors` 下若 frontier 页数 > 池 usable，引擎让请求 429（`materialize-one FAIL tag=host-restore`）。**
+
+```
+压缩点 209,715 ÷ 64 = 3,277 页
+池 1,984 页
+3,277 > 1,984  →  必 429
+```
+
+**§217 实测：真实会话 11 个请求，`long anchor = 0` 次命中、`private endpoint = 9` 次。锚只白占位。**
+
+**关锚后 `context cache` 的 `anchors` 从 `4 automatic` 变 `2`（容量默认值，不生成锚）。**
+
+**顺带修掉一个启动器缺陷**（`_apply_model_coupling`）：模型选 MTP 档（`swift`/`gsq`，bundle 非 `_dflash2`）而 `spec` 停在 `d*` 时，旧逻辑会套 `_dflash2` 档（`kvcap 80k` + `--spec dflash2` → `weights 12.3 GiB` → FATAL）。已补：
+
+```python
+_base_is_mtp = (_model_cur in MODEL_BUNDLES) and not _model_cur.endswith("_dflash2")
+if _spec_now.startswith("d") and _base_is_mtp:
+    self.selection["spec"] = "k3"
+```
+
+---
+
+#### 六、预填充瓶颈的定性（今日结论）
+
+| 现象 | 数据 | 定性 |
+|---|---|---|
+| 增量 prefill 慢 | 命中 99.9%，只补几 K token，却 `prefill 77` | **要等散乱 host 页回捞**（每 token ~13ms） |
+| 全量 prefill 反而快 | `req#79 cache 0%` → `prefill 1.18k`，203K 只用 2m53s | **顺序搬页带宽利用率高**（每 token ~0.85ms），差 15 倍 |
+| 巨量输出后 replay | `req#50 输出 11,210` → `req#54 replay，TTFT 1m6s` | **单次输出 >8K 触发 replay**，与池无关 |
+| 重度超池 | prompt 174K / 池 110,592（1.57 倍）→ `decode 3.9` | **页太多，`transfer_stream` 搬不过来**，v2 边界是 1.1–1.3 倍 |
+
+**对策（按有效性排序）：**
+
+```
+① 单次输出 ≤ 5K（约 300 行）—— 直接消除 replay，实测 6.6K→TTFT 0.8s，18.7K→TTFT 2m26s
+② 手动压缩把 prompt 控在池内（30–38% 就压）—— 消除重度超池
+③ 压缩走云端 —— 摘要不动本地环，压缩后 cache 不归零、不用全量重算
+④ 检索提额 —— 已证伪（第四节），不再考虑
+```
+
+**解码不是瓶颈：池内 `decode 132–195`（C 组）/ `270–324`（A 组），可用。**
+
+---
+
+#### 七、今天修好的四件事（按价值排序）
+
+**① 压缩配置终于改对了地方（§232）**
+
+```
+压缩点 24,576 → 75,332
+摘要 max output 65,536 → 32,768
+摘要区域 3 条消息 → 60 条（压得动了，不再报 summary is not smaller）
+压缩耗时 1m20s → 2.0s
+cache 压缩后 0% → 99.9%
+```
+
+**② 云端摘要（用户裁决）**
+
+**收益不只是"快"：摘要请求走 `go-ds4f` 时，本地引擎完全不知道有这回事，**环里 KV 一点不动** ⇒ 压缩后 `cache` 不掉、下一条不用全量重算。代价是被压区域（约 180K token）发给云端。**
+
+**③ 锚关掉（否则超池 429）**
+
+**④ 启动器 spec 联动补齐（消除 80K DF2 档两连闪退）**
+
+---
+
+#### 八、当前状态与未闭环
+
+**当前在用（C 组）：**
+
+```
+引擎  126,976 池 / 1,984 页 / evidence=1024 / free=880 / runtime 4.11 GiB / private 1 / anchors 2
+DSH   contextWindow 262144（界面 256K）/ 压缩点 209,715（80%）/ auto=true（兜底）
+      手动 /compact 随时可用（不看阈值）
+```
+
+**未闭环：**
+
+| 项 | 状态 |
+|---|---|
+| 云端摘要首次实测（20–40 秒完成、`cache` 不掉） | **未跑**（需重启 DSH 让配置加载） |
+| C 组超池后（prompt > 126,976）的衰减幅度 | **未跑**（这是判断"能不能用 209K"的唯一数据） |
+| `--prefill-chunk 1024` 是否值那 0.49 GiB（vs 512） | **未做对照** |
+| `RETRIEVE_SHARE=60` 是否真下发到引擎进程 | **日志不打印，靠 `evidence=1024` 间接确认，已确认生效** |
+| A/B 两组在"同一 prompt 深度"下的严格对照 | **未做**（今日是不同时间点、不同 prompt 深度，非严格 A/B） |
+
+**下次开机第一件事**：重启 DSH 让云端摘要加载，维护会话敲一次 `/compact`，看是否 20–40 秒完成、`cache` 是否仍 99%。
+
+**提炼**：今天 8 小时的排查，真正的教训不是"哪个参数错了"，而是两条方法论 ——
+**① 客户端配置要先确认"作用域"（哪条条目真的在跑），再谈值；`fiberPhase: null` 就是"改它没用"的铁证。**
+**② 不要把"没观察到"当"排除了"** —— 本轮犯过三次（41K 触发是手动压缩、27,937 没压是范围空、65,536 消失是没发生压缩），每次都被对方纠正。
+
+---
+
+#### 九、云端摘要**已实测生效**（2026-11-15 17:00 补记）
+
+**用户手动 `/compact` + 手动重启引擎后，两条事实对照，只有一种解释：**
+
+```
+DSH 侧    压缩完成：198 条历史记录 / 约 109,595 tokens
+本地 8094 同一时段（serve_20261115_164637，16:46–16:57）：18 个请求，零压缩请求
+```
+
+**如果摘要走本地，这份日志里必然出现一条 `msgs` 突增（200+）、`prompt` 十几万的请求。没有，就是被 `summarizationProvider: go-ds4f` 绕过去了。**
+
+**引擎侧状态（`/stats`，uptime 1534s）：**
+
+```
+池            126,976
+committed_decode  22,013
+reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
+```
+
+**18 个请求的实测（`serve_20261115_164637`）：**
+
+| req | msgs | prompt | cache | TTFT | decode | 备注 |
+|---|---|---|---|---|---|---|
+| #1 | 8 | 18,132 | 0 | 56.4s | 132.3 | 冷启动 |
+| #4 | 17 | 23,534 | 22,251 | 5.5s | 166.9 | 输出 6,889（大文件） |
+| #14 | 39 | 36,294 | 36,261 | 2.2s | 152.4 | 输出 4,114 |
+| #17 | 50 | 43,402 | **43,369（99.9%）** | 2.7s | 156.0 | — |
+
+**`msgs` 8→50 单调递增，零压缩。`decode 123–195`、`TTFT 2.2–6.2 秒`（除冷启动）。**
+
+**⇒ 三项收益全部到手：摘要零本地开销、压缩 20–40 秒、压缩后 `cache` 不掉（环未被改写）。**
+
+**未闭环项更新（§233 第八节）：**
+
+| 项 | 原状态 | 新状态 |
+|---|---|---|
+| 云端摘要首次实测 | 未跑 | **✅ 已实测**（本地零请求 + `cache` 99.9%） |
+| C 组超池后衰减幅度 | 未跑 | **仍未跑**（prompt 只到 43,402，34%） |
+| `--prefill-chunk 1024` 值不值 0.49 GiB | 未做对照 | 仍未做 |
+| `RETRIEVE_SHARE=60` 是否下发 | 间接确认 | ✅ `evidence=1024` 直接确认 |
+| A/B 严格对照 | 未做 | 仍未做 |

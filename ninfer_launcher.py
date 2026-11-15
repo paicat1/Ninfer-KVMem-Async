@@ -422,6 +422,36 @@ KVWINDOW_OPTIONS = {
     "128k":  ("窗口：131,072（需 ≥120k 池）", []),
 }
 
+# KV 检索量（2026-11-14 新增维度，NINFER_KV_RETRIEVE）。
+#   语义：**每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device（不是总量）。
+#   块 = 64 token，故 32768 → 512 块/轮，日志体现为 `ring retrieve ... restored=512`。
+#   取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。
+#   哪个快取决于命中率，**未实测**，做成选项让同 prompt 对照实验来定。
+RETRIEVE_OPTIONS = {
+    "auto": ("检索量：自动 = 跟随窗口（win/2，上限 65,536）", []),
+    "8k":   ("检索量：8,192（128 块/轮 · 保守）", []),
+    "32k":  ("检索量：32,768（512 块/轮）", []),
+    "64k":  ("检索量：65,536（1,024 块/轮 · ★默认 · 超池增量 prefill 提速）", []),
+}
+
+
+# 私有续接目录容量（2026-11-14 加维度，argv 旗标 --max-private-continuations）。
+#   语义：最多同时"记住"多少条**独立对话链**的 KV 状态，供下次续写命中复用。
+#   CLI 原文：`--max-private-continuations N  private continuation catalog (default 2x max-concurrency)`。
+#   槽位状态：Free / ReservedMaterialization / Active / **Catalogued**。
+#   ⚠ Catalogued = 旧对话被"编目留档"、占着块却不干活 —— 压缩后 ring 废块的来源。
+#   默认 1 的取舍：只记 1 条链，新会话进来旧链必须让位 ⇒ 废块立即释放；
+#     代价是同会话并行分支（subagent / 双窗口）切回去要重新 prefill。
+#   与异步页流水（NINFER_ASYNC_DEMOTE_DEPTH）无关：那个是"同时搬几批页"。
+PRIVCONT_OPTIONS = {
+    "1": ("私有续接 1（★默认 · 只记 1 条对话链 · 废块立即让位）",
+          ["--max-private-continuations", "1"]),
+    "2": ("私有续接 2（引擎默认 = 2×并发 · 旧链留档不释放）",
+          ["--max-private-continuations", "2"]),
+    "4": ("私有续接 4（多路并行 / subagent 同时跑时用）",
+          ["--max-private-continuations", "4"]),
+}
+
 # 异步页流水主开关（2026-10-17 用户要求：AB 测试直接入口）。
 #   NINFER_ASYNC_DEMOTE = 1 异步（引擎默认，本线核心改进）；= 0 同步批回退（OFF 对照臂）。
 #   实测依据（同 exe 单变量对照）：docs\实验-超池异步ONOFF对照-20261016（r=OFF/ON=1.13，单发打平）；
@@ -829,6 +859,8 @@ DIMENSIONS = [
     ("ctx",    "上下文",          CTX_OPTIONS),
     ("kvcap",  "KV 容量",         KVCAP_OPTIONS),
     ("kvwindow", "KV 工作窗口",      KVWINDOW_OPTIONS),
+    ("retrieve", "KV 检索量",        RETRIEVE_OPTIONS),
+    ("privcont", "私有续接目录",      PRIVCONT_OPTIONS),
     ("anchor", "长前缀锚开关",     ANCHOR_OPTIONS),      # 2026-11-06 用户令
     ("anchorsize", "锚大小",       ANCHOR_SIZE_OPTIONS),  # 2026-11-06 用户令
     ("graph",  "CUDA Graph 预算", GRAPH_OPTIONS),
@@ -878,6 +910,8 @@ DEFAULTS = {
     "channel": "auto",   # 2026-11-07：默认自动检测显示通道（igpu/dgpu 手动声明）
     "spec": "d5", "kv": "rk8v4",    "ctx": "256k", "kvcap": "80k", "hostkv": "16384",
     "kvwindow": "auto",   # 2026-11-14：窗口跟随池容量，不再固定 32,768
+    "retrieve": "64k",    # 2026-11-15：默认 65,536（1,024 块/轮）+ SHARE 60%
+    "privcont": "1",      # 2026-11-14：私有续接只留 1 条，旧会话废块立即让位（引擎默认 2）
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "overlay",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
     "graph": "64",      # 2026-11-08：所有实测上限都在 graph64 下取得；128 会多吃 64 MiB，
@@ -936,6 +970,8 @@ DIM_TIPS = {
                 "（9,536 token），扩到池容量后 skip 归零、prefill 53.3s→TTFT 砍半。"
                 "（依据 evidence/repro/kv_window_matrix_28k_80k.md，7 次运行）"
                 "⚠ 手选大于池的档（如 40k 池选 128k）会预留超过池页数的环空间，可能起服即 FATAL。",
+    "privcont": "私有续接目录（--max-private-continuations）= 最多同时记住多少条**独立对话链**的 KV 状态供下次续写命中。引擎默认 2×并发（这里=2）。\n槽位四态：Free / ReservedMaterialization / Active / **Catalogued**；**Catalogued 就是废块**——旧对话被编目留档，占块不干活。\n**默认 1 的理由**：只记 1 条链，新会话进来旧链必须让位，废块立即释放；代价是同会话并行分支（subagent / 双窗口）切回去要重新 prefill。\n⚠ 与「异步深度」无关：那个是同时搬运的 demote 批数（NINFER_ASYNC_DEMOTE_DEPTH），这个是记住几条对话。",
+    "retrieve": "KV 检索量（NINFER_KV_RETRIEVE）= **每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device，不是总量。块 = 64 token：32768 → 512 块/轮，日志体现为 `ring retrieve ... restored=512`。\n取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。哪个更快取决于命中率，尚无同条件对照实测。\n**它不改变窗口容量**（那由「KV 工作窗口」定），只改变每轮搬多少。prompt 大于窗口时才会频繁换页，此时调大可能减少轮数、也可能因单轮搬运过重而更慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即「全速区间」）。"
               "**2026-11-14 实测的六档甜点（每档都已扣掉视觉塔与两个投机头）：**"
               "MTP 头 → SWIFT/GSQ **124k**（上限 126,976，131,072 FATAL）、Coder390 **84k**（上限 86,016）；"
@@ -1474,6 +1510,7 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     argv += _argv_of(GRAPH_OPTIONS,   _c["graph"],    DEFAULTS["graph"])
     argv += _argv_of(ARITH_OPTIONS,   _c["arith"],    DEFAULTS["arith"])
     argv += _argv_of(KV_OPTIONS,      _c["kv"],       DEFAULTS["kv"])
+    argv += _argv_of(PRIVCONT_OPTIONS, _c["privcont"], DEFAULTS["privcont"])   # 私有续接目录容量
     argv += _argv_of(FP16STATE_OPTIONS, _c["fp16state"], DEFAULTS["fp16state"])
     argv += _argv_of(HOSTKV_OPTIONS,  _c["hostkv"],   DEFAULTS["hostkv"])
     argv += _argv_of(PREFILL_OPTIONS, _c["prefill"],  DEFAULTS["prefill"])
@@ -1528,10 +1565,26 @@ def _kvwindow_env(combo):
         win = int(min(kv_pool_tokens_of(combo or {}), 131072))
     else:
         win = {"32k": 32768, "64k": 65536, "80k": 81920, "128k": 131072}[key]
+    # 检索量（2026-11-14 做成维度）：它是「每 chunk 搬多少」，与窗口容量无关。
+    #   auto 原先写死 32768，与「32k」档值相同 ⇒ 两档无区别、下拉等于摆设（用户当场指出）。
+    #   现改为跟随窗口：win//2，上限 65,536（1,024 块）、下限 8,192（128 块）。
+    #     120k 池 → 61,440（960 块）  80k 池 → 40,960（640 块）  40k 池 → 20,480（320 块）
+    #   依据：52,162 prompt 同条件对照 ret8k=141.1 vs ret32k=230.1（+63%），
+    #   说明「每轮多搬」在大 prompt 下占优；win//2 是把这条外推到各池档的推导值，
+    #   32k 仍是唯一有实测背书的档位，保留给对照。
+    _ret = str((combo or {}).get("retrieve", "auto"))
+    _ret_tokens = {"8k": 8192, "32k": 32768, "64k": 65536}.get(_ret)
+    if _ret_tokens is None:                      # auto 或未知值
+        _ret_tokens = 32768
+
     return {
         "NINFER_KV_WINDOW": win,
         "NINFER_TERNARY_KVMEM_SCORE_BUDGET": max(win, 131072),
-        "NINFER_KV_RETRIEVE": int(min(32768, max(8192, win // 2))),
+        "NINFER_KV_RETRIEVE": int(_ret_tokens),
+        # 2026-11-15：预算 = min(RETRIEVE, pool * SHARE%)。池 1,920 页时
+        #   默认 50% => 960 页封顶，与 RETRIEVE=32768(512) 相比只多 448 页；
+        #   设 60% => 1,152 页，才真正放行 1,024 页（RETRIEVE=65536）。
+        "NINFER_KV_RETRIEVE_SHARE": 60,
     }
 
 
@@ -1961,7 +2014,7 @@ class LauncherApp:
         f2 = section("KV 与显存")
         # 2026-11-14：kvwindow 必须在此元组里才会渲染到面板——此前只加了 DIMENSIONS，
         #   面板靠这份手工清单逐行构造（不是遍历 DIMENSIONS），漏加即"数据层有、界面层没有"。
-        for k in ("kv", "ctx", "kvcap", "kvwindow", "hostkv", "graph", "arith", "vision", "fp16state"):
+        for k in ("kv", "ctx", "kvcap", "kvwindow", "retrieve", "privcont", "hostkv", "graph", "arith", "vision", "fp16state"):
             row(f2, k)
 
         # 分区：长前缀锚（2026-11-06 用户令：开关 + 大小 + 动态 TIP）
@@ -2119,7 +2172,19 @@ class LauncherApp:
         # 2026-11-08：q2lynn 的双头件已含 DFlash2 头（同日 graft），故不再按模型名硬拦，
         # 改为「该模型是否有 <model>_dflash2 档」判断 —— 有就放行并套档，没有才回退 MTP。
         _df_bundle_key = _model_cur + "_dflash2"
-        if _spec_now.startswith("d") and _df_bundle_key not in MODEL_BUNDLES:
+        # 2026-11-15 用户令（闪退追因）：模型选了 **MTP 档** 而 spec 停在 d* 时，spec 必须回 k3。
+        #   缺陷实景：模型=swift（MTP 档 kvcap 120k）+ spec=d5
+        #     -> swift_dflash2 存在 -> 旧逻辑放行 -> 套 kvcap 80k + --spec dflash2（weights 12.3 GiB）
+        #     -> reserve 3.61 GiB > avail 3.29 GiB -> FATAL 闪退（serve_20261115_1325/1327 两连）
+        #   判据：用户选的模型 bundle 本身不是 _dflash2 档，就说明意图是 MTP。
+        _base_is_mtp = (_model_cur in MODEL_BUNDLES) and not _model_cur.endswith("_dflash2")
+        if _spec_now.startswith("d") and _base_is_mtp:
+            self.selection["spec"] = "k3"
+            if hasattr(self, "_apply_spec_to_ui"):
+                self._apply_spec_to_ui("k3")     # 同步两级 spec 下拉显示
+            print("[coupling] %s 是 MTP 档 -> spec 由 %s 回 MTP K=3" % (_model_cur, _spec_now))
+            _spec_now = "k3"
+        elif _spec_now.startswith("d") and _df_bundle_key not in MODEL_BUNDLES:
             self.selection["spec"] = "k3"
             if hasattr(self, "_apply_spec_to_ui"):
                 self._apply_spec_to_ui("k3")     # 同步两级 spec 下拉显示

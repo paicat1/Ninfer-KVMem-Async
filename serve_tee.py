@@ -273,8 +273,16 @@ def main(argv):
     log = open(logfile, "ab", buffering=0)
     # 双写：明文只留关键行；gzip 收全量（零损失，事后 DEBUG 靠它）。full 模式只写明文。
     sampler = LogSampler(log, (logfile + ".gz") if log_mode != "full" else None)
-    header = ("\n===== serve_tee start {} =====\nCMD: {}\n".format(
-        time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd))).encode("utf-8", "replace")
+    # 2026-11-14：把注入的 KV 相关环境变量一并写进日志头。
+    #   原先只写 CMD（argv），而 NINFER_KV_WINDOW / NINFER_KV_RETRIEVE / SCORE_BUDGET
+    #   三者都是 env、不进 argv，于是日志里永远看不到实际生效值，只能靠 restored= 反推。
+    _env_keys = ("NINFER_KV_WINDOW", "NINFER_KV_RETRIEVE", "NINFER_KV_RETRIEVE_SHARE",
+                 "NINFER_TERNARY_KVMEM_SCORE_BUDGET",
+                 "NINFER_KV_SINK", "NINFER_KV_RING", "NINFER_HOST_PAGEABLE",
+                 "NINFER_ASYNC_DEMOTE", "NINFER_ASYNC_DEMOTE_DEPTH", "NINFER_DEMOTE_PROFILE")
+    _env_txt = "\n".join("ENV: {}={}".format(_k, os.environ.get(_k, "(unset)")) for _k in _env_keys)
+    header = ("\n===== serve_tee start {} =====\nCMD: {}\n{}\n".format(
+        time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd), _env_txt)).encode("utf-8", "replace")
     log.write(header)
     try:
         sys.stdout.buffer.write(header)

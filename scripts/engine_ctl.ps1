@@ -36,6 +36,8 @@ param(
 
     [int]$WaitSec = 240,
 
+    [int]$WsGB = 32,
+
     [string[]]$Env = @(),
     [string]$Trace = '',          # nsys 可执行路径（2026-10-17 加：把起服包进 nsys profile，抓 CUDA 级 trace）
     [string]$TraceOut = '',      # trace 输出前缀
@@ -501,4 +503,94 @@ try {
     $jp = Join-Path $spawnDir ((Get-Date -Format 'yyyyMMdd_HHmmss') + '_engine-start.json')
     [System.IO.File]::WriteAllText($jp, ($rec | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
 } catch { Write-Output ('WARN: spawn record failed: ' + $_.Exception.Message) }  # 窗口纪律：起窗必可见——禁 Hidden/Minimized/Maximized（参数已锁）
+
+
+
+# 2026-11-17: working-set floor (fix candidate 3 = SetProcessWorkingSetSize, audit report 2.4 / build-history 236).
+
+# Root cause chain: idle OS trim pushed pageable host-KV pages to the pagefile (J:) ->
+
+# fault-back at ~38 MB/s during the next request (silent windows). Flooring the engine
+
+# working set removes the trimmer permission on those pages. User approved generous
+
+# headroom (128 GB RAM): default 32 GiB min, +16 GiB max headroom; -WsGB 0 disables.
+
+# Best-effort by design: any failure prints WARN and the engine continues unlocked.
+
+if ($WsGB -gt 0) {
+
+    $floorBytes = [int64]$WsGB * 1GB
+
+    $maxBytes = $floorBytes + ([int64]16 * 1GB)
+
+    $target = $null
+
+    for ($i = 0; $i -lt 15; $i++) {
+
+        Start-Sleep -Seconds 2
+
+        $target = Get-Process 'ninfer-serve*' -ErrorAction SilentlyContinue | Select-Object -First 1
+
+        if ($target) { break }
+
+    }
+
+    if ($target) {
+
+        try {
+
+            if (-not ([System.Management.Automation.PSTypeName]"Native.Ws").Type) {
+
+                Add-Type -Namespace Native -Name Ws -MemberDefinition '
+
+[DllImport("kernel32.dll", SetLastError=true)]
+
+public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+
+[DllImport("kernel32.dll", SetLastError=true)]
+
+public static extern bool SetProcessWorkingSetSize(IntPtr h, IntPtr min, IntPtr max);
+
+[DllImport("kernel32.dll", SetLastError=true)]
+
+public static extern bool CloseHandle(IntPtr h);'
+
+            }
+
+            $h = [Native.Ws]::OpenProcess(0x0500, $false, $target.Id)  # QUERY_INFORMATION(0x400)|SET_QUOTA(0x100)
+
+            if ($h -ne [IntPtr]::Zero) {
+
+                $ok = [Native.Ws]::SetProcessWorkingSetSize($h, [IntPtr]$floorBytes, [IntPtr]$maxBytes)
+
+                $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+                [void][Native.Ws]::CloseHandle($h)
+
+                if ($ok) { Write-Output ('ws-lock: min=' + $WsGB + ' GiB max=' + [int]($maxBytes/1GB) + ' GiB applied pid=' + $target.Id) }
+
+                else { Write-Output ('WARN: ws-lock SetProcessWorkingSetSize failed pid=' + $target.Id + ' err=' + $err + ' (engine continues unlocked)') }
+
+            } else {
+
+                $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+                Write-Output ('WARN: ws-lock OpenProcess failed pid=' + $target.Id + ' err=' + $err + ' (engine continues unlocked)')
+
+            }
+
+        } catch {
+
+            Write-Output ('WARN: ws-lock exception: ' + $_.Exception.Message + ' (engine continues unlocked)')
+
+        }
+
+    } else {
+
+        Write-Output 'WARN: ws-lock skipped (engine process not seen within 30s)'
+
+    }
+
+}
 

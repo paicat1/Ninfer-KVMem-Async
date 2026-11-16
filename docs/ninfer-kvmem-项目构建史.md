@@ -5578,6 +5578,12 @@ gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来
 | 3 | **修法候选 F**（host-kv 8192 对照） | ⬜ 半天实验；判据：自愈时间缩短 ≥50%；「改非 pinned」已反向排除（§236） |
 | 4 | **引擎异常文案（文档债 #8）** | ⬜ 低优先级：`program_impl.cpp` L421-426 异常文案按 `pageable_` 分支二分（引擎树施工，另立变更） |
 
+## 四-AN、挂账表增量（2026-11-17，§237 施工后同步）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **修法候选③ 工作集下限锁**（§236 修法更新 / 报告 §2.4 #3） | 🔨 已施工：`engine_ctl.ps1` 起服后自动锁引擎工作集（`-WsGB` 默认 32 GiB，max 48 GiB，0=关闭；容错放行）。diff 92+/0- 纯追加，PS 语法门 PASS，权限链自进程冒烟 PASS；⬜ 待下次起服实测，预注册判据见 §237 |
+
 
 - 引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 
@@ -7321,3 +7327,14 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **工具链**：work/data/probe_236*.py（探查）、append 脚本二进制行级编辑（保行尾）。
 
 **新挂账**：见四-AM（#1 env dump 已核待复核；#2 判据 B/D 采集；#3 F 实验；#4 引擎文案）。
+### 237. 【修法候选③施工：engine_ctl 起服后工作集下限锁（默认 32 GiB，治根）】（2026-11-17）
+
+**改了什么**：`scripts/engine_ctl.ps1` 两处——① param 块 `-WaitSec` 后新增 `[int]$WsGB = 32`（0=关闭）；② 文件尾新增工作集锁块：起服后轮询 `ninfer-serve*` 进程（2s×15），P/Invoke `OpenProcess(0x0500=QUERY_INFORMATION|SET_QUOTA)` + `SetProcessWorkingSetSize(min=32GiB, max=48GiB)`，成功打印 `ws-lock: min=32 GiB ... applied pid=N`（可见断言）；失败一律 WARN 放行（容错，不阻塞起服）。diff **92+/0- 纯追加**；EOL 保真（HEAD 15 个 bare LF 逐行对齐还原——中途踩 replace_in_file 翻写坑一次 + 自造还原脚本把 EOL 在同内容重复行间挪错一次，最终按行号映射摆正，numstat 回到 0 删）。
+
+**为什么改**：§236 定案主线 = 空闲期 OS trim 把 pageable host KV 页挤到 `J:\pagefile.sys`（KIOXIA NVMe Gen4）→ 请求期 ~38 MB/s 故障回（静默段）。候选③从权限上禁止 trim 引擎进程页 = **直击根因**（候选① 缓解需池重标、候选② 诊断属复测）。用户 2026-11-17 批准施工并要求多给冗余 → 32 GiB 下限 + 16 GiB 上限余量（128 GB RAM，锁后余 70+ GiB）。pinned 路线已被 §236 读码排除（WDDM 记显存账），工作集锁不走驱动分配、不被 WDDM 记账，与 pinned 死穴完全错开。
+
+**怎么改的**：权限掩码经自进程冒烟实测纠正（`0x0440`→`0x0500`，前者实测 err=5——`SET_QUOTA=0x100` 不是 `0x40`）；PS Parser 语法门 0 错误；治理基线 8 件不含 engine_ctl（实证可改）；git 跟踪可回滚。
+
+**预注册验收判据（下次起服，可证伪）**：① 起服输出含 `ws-lock: min=32 GiB ... applied pid=`；② `engine_ctl status` 显示 `ws_gb >= 32`；③ **空闲 ≥5 分钟 → 下一条请求无静默段（TTFT 个位数秒）复现 ≥2 次 = 假说实锤 + 治愈一次完成**；④ 证伪线：仍现静默段 → 工作集锁没能挡住 trim，转判据 B/D 深挖（perfmon `Pages Output/sec` + 分盘写带宽 / ETW Kernel-Memory soft fault）。
+
+**新挂账**：四-AN #1（施工完成待实测，L1 手动验证义务）；四-AM #2/#3（判据 B 采集、F 实验）保持挂起。

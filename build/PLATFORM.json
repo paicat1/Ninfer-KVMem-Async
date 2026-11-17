@@ -1,0 +1,7 @@
+{
+  "_generated_by": "Get-CimInstance Win32_ComputerSystem + Win32_Processor|Select-Object -First 1 (fields: Name/NumberOfCores) -- rerun to verify",
+  "_generated_at": "2026-11-17 23:11:33",
+  "cpu": "Intel(R) Core(TM) i7-14700K",
+  "physical_cores": 20,
+  "logical_processors": 28
+}

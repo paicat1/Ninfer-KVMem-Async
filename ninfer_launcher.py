@@ -421,6 +421,8 @@ KVWINDOW_OPTIONS = {
     "80k":   ("窗口：81,920（= 80k 池上限）", []),
     "128k":  ("窗口：131,072（需 ≥120k 池）", []),
 }
+# 真源：窗口档 -> token（_kvwindow_env 与池帽豁免共用；禁止再写第二份字典——TELE 2026-11-18 条件①）
+KVWINDOW_TOKENS = {"32k": 32768, "64k": 65536, "80k": 81920, "128k": 131072}
 
 # KV 检索量（2026-11-14 新增维度，NINFER_KV_RETRIEVE）。
 #   语义：**每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device（不是总量）。
@@ -574,7 +576,7 @@ KVCAP_OPTIONS = {
     "96k":    ("98,304 · 无 arith 上限（free 61 MiB）", ["--kv-capacity", "98304"]),
     "100k":   ("102,400 · 需 arith", ["--kv-capacity", "102400"]),
     "104k":   ("106,496 · 需 arith", ["--kv-capacity", "106496"]),
-    "108k":   ("110,592 · 需 arith", ["--kv-capacity", "110592"]),
+    "108k":   ("110,592 · 需 arith · 超池答案unverified", ["--kv-capacity", "110592"]),
     "112k":   ("114,688 · 需 arith", ["--kv-capacity", "114688"]),
     "116k":   ("118,784 · 需 arith（全卡剩 16 MiB）", ["--kv-capacity", "118784"]),
     "120k":   ("122,880 · 需 arith（全卡剩 36 MiB）", ["--kv-capacity", "122880"]),
@@ -1564,7 +1566,7 @@ def _kvwindow_env(combo):
     if key == "auto":
         win = int(min(kv_pool_tokens_of(combo or {}), 131072))
     else:
-        win = {"32k": 32768, "64k": 65536, "80k": 81920, "128k": 131072}[key]
+        win = KVWINDOW_TOKENS[key]
     # 检索量（2026-11-14 做成维度）：它是「每 chunk 搬多少」，与窗口容量无关。
     #   auto 原先写死 32768，与「32k」档值相同 ⇒ 两档无区别、下拉等于摆设（用户当场指出）。
     #   现改为跟随窗口：win//2，上限 65,536（1,024 块）、下限 8,192（128 块）。
@@ -2220,6 +2222,15 @@ class LauncherApp:
         _cap_chan = resolve_channel(self.selection)
         _cap_tbl = MODEL_KVCAP_MAX_IGPU if _cap_chan == "igpu" else MODEL_KVCAP_MAX_DGPU
         cap = _cap_tbl.get(_cap_key) or _cap_tbl.get(_cap_model_now) or MODEL_KVCAP_MAX.get(_cap_model_now)
+        # 2026-11-18 增补（用户批准 方案A · 条件化放宽）：cstep3 臂实测 swift_dflash2 + arith=on
+        #   + 窗口>=池（ring 生效）时 110,592 池稳定起服并完成 120K 超池填充（logs/test_cstep3.log）。
+        #   仅这一组合抬到 110,592；其余通道/开关继续用 51,200 贴边帽，不做全局放松。
+        _kvwin_key = str(self.selection.get("kvwindow", "auto"))
+        _kvwin_tok = (kv_pool_tokens_of(self.selection) if _kvwin_key == "auto"
+                      else KVWINDOW_TOKENS.get(_kvwin_key, 0))
+        if (_cap_key == "swift_dflash2" and str(self.selection.get("arith", "off")) == "on"
+                and _kvwin_tok >= 110592):
+            cap = max(int(cap or 0), 110592)
         if not cap:
             return
         # 2026-11-06 修（用户当场指出）：强制降池只在「模型切换」那一拍做一次。

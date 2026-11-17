@@ -21,7 +21,7 @@ REM             => earlier claim "ledger45 root cause = Chinese /showIncludes pr
 REM                is RETRACTED (see build history section 3.21 correction).
 REM             => discipline "edit a header => full rebuild" STAYS until the decisive
 REM                test (touch a header, then "ninja -n") confirms consumers requeue.
-REM   . parallel 16 : this box has 16 threads (i5-12600KF, 128 GiB); 6 was far too slow.
+REM   . parallel 20 : this box is an i7-14700K (20 cores / 28 threads, 128 GiB); 16 was below its core count.
 REM  ASCII-only on purpose: cmd parses a .bat in the OEM/ANSI codepage.
 REM ============================================================
 setlocal
@@ -38,6 +38,12 @@ if not exist "%BUILD%" mkdir "%BUILD%"
 
 REM append (not overwrite): every resumed run leaves a trace
 echo === build started %DATE% %TIME% === >> "%LOG%"
+REM ---- 2026-11-17 machine gate 0a: platform topology must match PLATFORM.json (T#0088) ----
+powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\build\topology_check.ps1" -Log "%LOG%"
+if errorlevel 1 exit /b 9
+REM ---- 2026-11-17 machine gate 0b: any .h change forces full rebuild (T#0086) ----
+powershell -NoProfile -ExecutionPolicy Bypass -File "J:\ninfer-kvmem\build\header_guard.ps1" -Src "%SRC%" -Build "%BUILD%" -Log "%LOG%"
+if errorlevel 1 exit /b 10
 REM IMPORTANT: this file must stay LF-safe: NO caret continuations, NO "( )" blocks,
 REM NO goto/labels. 2026-10-12 lesson: this file is written with LF endings; cmd
 REM mis-splits "^" continuations and parenthesised blocks => stray tokens executed
@@ -47,8 +53,8 @@ echo [configure if needed] ... >> "%LOG%"
 if not exist "%BUILD%\CMakeCache.txt" cmake -G Ninja -S "%SRC%" -B "%BUILD%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=120a -DCMAKE_CUDA_COMPILER=J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe -DNINFER_SM120_NATIVE=ON -DCMAKE_PREFIX_PATH=J:/vcpkg/installed/x64-windows -DCMAKE_TOOLCHAIN_FILE=J:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DNINFER_BUILD_APPS=ON -DBUILD_TESTING=OFF -DNINFER_BUILD_BENCHMARKS=OFF >> "%LOG%" 2>&1
 if not exist "%BUILD%\build.ninja" echo CONFIGURE-MISSING-BUILD-NINJA >> "%LOG%"
 if exist "%BUILD%\build.ninja" echo CONFIGURE-OK >> "%LOG%"
-echo [build] full graph, 16 jobs ... >> "%LOG%"
-cmake --build "%BUILD%" --parallel 16 >> "%LOG%" 2>&1
+echo [build] full graph, 20 jobs ... >> "%LOG%"
+cmake --build "%BUILD%" --parallel 20 >> "%LOG%" 2>&1
 echo BUILD-EXIT=%ERRORLEVEL% %DATE% %TIME% >> "%LOG%"
 echo BUILD-EXIT=%ERRORLEVEL%
 set "BUILD_RC=%ERRORLEVEL%"

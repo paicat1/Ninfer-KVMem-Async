@@ -7388,3 +7388,73 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **工具链**：work/data/a0_extract.py / a0_per_req.py / a3_per_req.py（按 req started/done 切窗归并 restore 事件，解决 [ninfer] 心跳行无时间戳归窗）、launch_a4.ps1 / probe_a4.ps1。
 
 **新挂账**：四-AP（1：A4 反向验证判读；2：C 步施工 contracting→施工）。
+### 240. 【A4 反向验证判决：判据①③ PASS、判据② FAIL——179 节流捕获冷填充（TTFT 31m51s）；§239 冷填充归因修正；§17 架构态依赖线索复活】（2026-11-17 深夜）
+
+**上版问题**：§239 预注册判据②为「冷填充量级回 3m14s 档」；且 §239 把 a3-arm2 冷填充 11m34s 归因为「RETRIEVE 减半的 3.5x 代价」——两处均被 A4 实测推翻，后者属 CB 归因粗疏（未看速率曲线即下结论），用户一句「上一次引擎好像没有这个情况吧」触发补查。
+
+**数字（logs/test_a4-revert1.log，RETRIEVE=65536 + full + 插桩，CMD/ENV 与 A0 臂逐字节相同）**：
+- req#2（雨夜便利店续话，163 消息 / prompt 135,820 / 超池 2,123>1,728 页）：**TTFT 31m50.9s**（引擎侧 prefill 71.1 tok/s 有效）；restore 164 事件 / 累计 85,191 页（prompt 自身的 **40 倍轮转**）/ 封顶 **864** 实锤。
+- 速率曲线：前 2 分钟正常（894→538→358 tok/s）→ 20:28 起死锁 **179 tok/s（名义）与整窗空转交替**（空转窗 `host 0.0% (0 us)`，引擎纯等待，连 host-KV 搬运都为零），占空比 ~36%，有效 ~74 tok/s。
+- req#3/4/5 小追加（cache 99.9-100%）：TTFT **7.3 / 13.5 / 11.5s**，restored 1,766-1,897 页，斜率 ~4-7ms/页与 A0 臂追加带一致。
+
+**判决**：①判据「restore 封顶回 864」✅ PASS；②判据「冷填充回 3m14s 档」❌ **FAIL（31m51s = A0 的 9.8 倍）**；③判据「小追加回 7-24s 带 + restore 税同斜率」✅ PASS（反向线性成立）。慢态（小追加）的 restore 税归因不被本次动摇；**冷填充劣化的真凶改判 = 179 节流捕获**。
+
+**§239 归因修正**：a3-arm2 填充曲线复查（a3_rate.py）——19:17:50 起（同样填充 ~2 分钟处）进入同款 179+空转捕获（179 窗 51 / 空转窗 96）⇒ 其 11m34s 的主导成分是捕获而非 RETRIEVE 减半；**「RETRIEVE 减半→冷填充 3.5x 恶化」作废**，179 捕获与 RETRIEVE 取值无关。
+
+**态依赖三样本（新）**：A0 臂（当晚**首个**引擎实例）填充全程快（717-896 tok/s 零 179 窗）；a3-arm2、A4（均**接前一实例后**重启）填充 ~2 分钟处被捕获。同 CMD/ENV/同池溢出形态（A0 溢 1,382 页反而最快）⇒ 触发条件是状态依赖非参数依赖。判别条件现成：**重启后立即填充 vs 冷机间隔后填充**一次对照即判。
+
+**历史谱系对账（用户令全面翻仓，防重造轮子）**：同族现象自 10-13 起被反复记录但**从未解决**——① tancau `live-serving-stall`（53% 零 token 窗 / 95s GPU-idle / prefill=0.00s，上游亦未结案）；② §17（10-13）超池段撞上 199.3s 停顿 + 「超池复发 run-to-run 不同 ⇒ 架构态依赖」挂账候选（**一个月无人接**，今日样本即其直接证据）；③ #58「慢态触发源判定 = 最大杠杆」至今悬空。已判死不再走的轮子：fast-prefill-kernel（§16/§18 零效应）、mtp-attention-window（§17 无增益）、SCORE=0（§199 定案 decode 路径 2.17x，另病）。
+
+**怎么改的（零代码，纯判读）**：per_req.py（参数化归窗）/ a4_progress.py（逐窗 token 累计=进度仪）/ a4_rate.py / a0_rate.py / a3_rate.py（三臂速率时间线）。用户 20:26 真实会话为判读素材，未做任何引擎参数改动。
+
+**新挂账**：四-AQ（1：179 捕获判别实验——重启后立即填充 vs 冷机间隔后填充；2：#58 判据可操作化升级；3：§239 归因修正已入本节）。
+
+## 四-AQ、挂账表增量（2026-11-17，§240 判决后新增）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **179 捕获判别实验**（残留态假说：前一实例 host-KV/引擎状态是否触发捕获） | ⬜ 待令：一次对照（重启后立即填充 vs 冷机间隔后填充），~10 分钟 |
+| 2 | **#58 慢态触发源判定**（构建史 10-26 起悬空） | ⬜ 挂（最高优先 6-7x 杠杆；179 捕获=其首个可操作样本） |
+| 3 | **§239「RETRIEVE 减半→冷填充 3.5x」归因** | ✅ 已修正（见 §240；主导成分=179 捕获） |
+
+## §241 C 步 restore extent 合并落地 + 软降级修复（2026-11-17 深夜—11-18 凌晨）
+
+**数字**：restore 每页税 4.1-7.5 ms → **0.48-1.45 ms**（实测：req#3 5,018 页/2.5s=0.50、req#4 4,978/2.4s=0.48、req#5 1,728/2.5s=1.45）；小追加 TTFT **2.4-2.5 s**（基线 7.3-13.5 s，3.0-5.4 倍改善）；120K 超池填充 **8m04s 慢但活**（修复前同场景 7m39s 即 429+recovery+125,337,600 B 泄漏）；全量构建 BUILD-EXIT=0（00:30:40）+ ARCH-GATE 384 sm_120a / 0 sm_86 / 0 ptx。
+
+**阶段与原因**：§239/§240 判定 restore 逐页串行是追加税真凶，C 步=按 extent 连续段合并一次 staged H2D。
+
+**改了什么（文件+行号+改前改后）**：
+
+1. `kv_store.h`（+51→+69 行）：新增 `restore_pages_from_host(handle, pages_in_run, source, stream)` —— 逐页 reserve（异常 unwind 已 reserve 页）→ **一次** `copy_from_host`（scatter）→ 逐页 publish/retain/block-table；软降级版：只 catch `ContextCacheExhausted`（容量类），截断为已成功前缀 `source.subview(0, reserved_ok)`、发布前缀、`return reserved_ok`；`logic_error` 等程序性异常照旧 throw；截断时打 `[diag] restore-run truncated tag=host-restore-run aborted/usable/allocated/reserved/free_runs`。
+2. `context.cpp`：`restore_kv_pages_from_host` 重写为 Pass A（按 extent 分桶，sorted offsets，dedup）+ Pass B（best-first 走序，seed 一个本 extent 内 offset 连续 run，cap 128，`run_avail` 安全减法、双条件守卫 `free_runs().empty() || available_pages()==0 → break`）；`resident` 只 push 前 `submitted` 页（部分成功不虚报）；`(hi - lo + 1) < kRestoreRunMaxPages`（修死代码：原 `run_pages.size()+1` 在填充前恒错）。
+
+**为什么这么改（根因+证据）**：
+- 追加税：A0/A3/A4 三臂 restore 总量×每页税线性；
+- 首次换件失败：`startup.cpp.obj` 停留 11-03（源 mtime 未变，ninja 只认 .cpp），而 c5f48a8 往 `EngineOptions` 中间插 `wddm_budget_arithmetic_only` ⇒ `prefill_chunk` 偏移推移 ⇒ 旧 obj 按旧布局读新 struct ⇒ 启动炸 `prefill_chunk must be a nonzero multiple of 128`；处置=整树改名归档 `build-1208a_staleABI_20261117` + 全新 configure 全量重建（T#0086）。
+- 120K 429：`run_avail = available_pages() - 1U` 在池满（reserved 积压）时无符号下溢 4,294,967,295 ⇒ 钳制失效 ⇒ `materialize_one` 撞空 `free_page_runs_` 抛 `ContextCacheExhausted` ⇒ engine_core recovery ⇒ 429 + 119.5 MiB Host KV 无主。交叉审核（旧件 `serve_20261115_120900.log.gz` 98,816 行）：668 轮检索 / 292 轮 preferred>restored 软失败 / 0×429 / 0×recovery，最大 prompt 190,170 ⇒ 旧件软失败存活，新件硬 429 = 回归。
+
+**怎么验证的（判据+原文）**：
+- 换装四判据：`build engine-rc1-7e14453-8-g352f27a-dirty`（00:43:46）/ `listening on http://127.0.0.1:8094`（00:43:56）/ MODELS-OK / PROBE OK；ENV 十项与批准清单逐字一致；deployed sha16=`7F5DA4E41F5FFFE7`（TELE 独立复算）+ `[diag]` 格式串在役 exe 命中（旧件不命中）。
+- 重采 120K 五判据：429=0 / recovery|oom=0 / without-an-owner=0 / materialize-FAIL=0 / `[diag] truncated`=0（**未触发，如实留空**）。
+- `.note` 口径更正（TELE 复核）：C 步与 A4 基线 restore 总量比 = **2.80×（req#3+4：9,996/3,568）** 或 **2.14×（三条合计 11,724/5,465）**；req#5 单条 1,728 页 < A4 1,897 页（不可写"2.6 倍"）。每页成本倍数完整区间 **4.2×-15.0×**（req#5 4.2 / req#4 8.6 / req#3 15.0），TTFT 绝对改善 **3.0-5.4×**；TTFT 含约 2 s 固定底（restore 量小时被摊薄），故落账以每页税与 TTFT 双口径并列。
+- **超池语义注记（必须随行）**：本次 req#2-5 全部是超池请求（1,871/1,872 页 > 1,728 池页），引擎原文警告"超池 prompt 中段会静默丢失、HTTP 200 给出貌似合理的错误答案，根因未定位，答案一律 unverified"。J4 召回（ZX-7001）只在**档 1 池内**验过，档 2 **未做召回**——"120K 慢但活"只表示请求完成，**不表示超池答案可信**。中段丢失为独立挂账，与本修复无关。
+
+**新发现**：
+- C 步实测收益落地：每页税压掉一个数量级，追加体感 2.4-2.5 s；
+- 修复把「池紧张」从硬异常改回软降级（与旧逐页路径合同对齐）；
+- 软降级路径本次零覆盖（池未撞墙）——需更大压力档或真实场景自然补证；
+- 门 0a（PLATFORM）/0b（HEADER）实跑生效：本次修复构建时 `[gate:platform] PLATFORM-OK` + `[gate:header] HEADER-REBUILD-FORCED files=1 (build dir wiped)`；红队撞门净零（改基准→PLATFORM-CHANGED exit1、加 1 字节→HEADER-REBUILD-FORCED，还原 sha 逐位相同）。
+
+**新挂账**：见四-AR。
+
+## 四-AR、挂账表增量（2026-11-18，§241 落地后新增）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **软件降级路径零行为覆盖**（`[diag] truncated` 未触发；需更大压力档新实验+预登记，或等真实场景） | ⬜ 挂 |
+| 2 | **超池 prompt 中段静默丢失**（引擎原文：HTTP 200 + 貌似合理错答，根因未定位；档 2 召回未验） | ⬜ 独立挂账（与 C 步无关） |
+| 3 | **recovery 泄漏 119.5 MiB Host KV 无主**（挂账48 同族；Device 侧 0 StateImages，Host 侧丢所有权） | ⬜ 挂 |
+| 4 | **`reserved=123` 持有者**（候选：ASYNC_DEMOTE 在途批次 reservation 生命周期） | ⬜ 待查 |
+| 5 | **cstep2 件未入 lineage MANIFEST**（EA50D020…，现作 bak_20261117_231624 存 test-run） | ⬜ 登记缺口 |
+| 6 | **~2 s TTFT 固定底构成未析**（restore 量小时摊薄不显） | ⬜ 观察项 |
+

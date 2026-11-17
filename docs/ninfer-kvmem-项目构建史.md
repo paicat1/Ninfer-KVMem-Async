@@ -5587,6 +5587,22 @@ gates 性能成本：单次 8s（含 1.33GB 全量哈希），已接受；将来
 
 - 引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 
+## 四-AO、挂账表增量（2026-11-17，§238 后补 + §239 同步）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **真实会话静默段插桩复测**（NINFER_DEMOTE_PROFILE=1） | ✅ 已完成：A0/A3 双臂 full+插桩实测（§239），真凶定案 restore 逐页串行，预注册判据全命中 |
+| 2 | **DSH 侧上下文改写行为核对**（§238 req#5→6 prompt -12,593 且 cache 断） | ⬜ 挂（用户侧核对） |
+| 3 | **候选③工作集锁保留常开**（对 OS 层有护体；真凶在引擎内部另行修复） | 🔨 常态化（-WsGB 32 默认） |
+
+
+## 四-AP、挂账表增量（2026-11-17，§239 判决后新增）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **A4 反向验证判读**（logs/test_a4-revert1.log） | ⬜ 待真实会话数据：判据=restore 封顶回 864 + 冷填充量级回 3m14s 档 |
+| 2 | **C 步施工：restore extent 合并**（用户已批立项） | ⬜ 待 SDA contracting：三条施工禁忌见 §239 |
+
 ### 220. 【普通 GGUF 转 NINFER 双头件全链路打通；GSQ-RCO IQ3_S 转正第三档；日志改为双写 gzip；dGPU 榨干显存致桌面卡死】（2026-11-08）
 
 **一、普通 GGUF → 双头件：本日第一次全流程自建**
@@ -7352,3 +7368,23 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **修法现状**：候选③（工作集锁）随 engine_ctl 常态化（-WsGB 32 默认）；对 OS 逐出有护体能力（受控压测下引擎页未被触碰），但今日所有实测静默段均非 OS 层——**候选③不针对真凶**；四-AM #2（判据 B/D 插桩）升级为下一主线。
 
 **新挂账**：四-AO（1：真实会话静默段插桩复测 NINFER_DEMOTE_PROFILE=1；2：DSH 侧上下文改写行为核对；3：候选③对 OS 层的保护已验证但真凶未除——保留常开）。
+### 239. 【A0+A3 双臂判决：慢态真凶实锤=restore 逐页串行提交（~8-13ms/页固定税）；封顶公式实测修正；C 步立项获批；A4 反向验证臂已起】（2026-11-17 晚）
+
+**上版问题**：§238 把真实会话 10-15s 静默段嫌疑收敛到「引擎内部 host-KV 管理路径（窗口对齐/demote/retrieve 固定开销）」但未定案；办公室 v7 报告假设现役 restore 封顶=512 页——A0 实测证明旧臂实为**窗口截断 864**，封顶公式修正为 `min(NINFER_KV_RETRIEVE/64, 窗口页数 864)`。
+
+**实测（预注册判别阶梯 A0→A3，同 binary/同池档/仅 RETRIEVE 不同）**：
+- A0 臂（RETRIEVE=65536，logs/test_a3-probe1.log，full+DEMOTE_PROFILE=1）：restore 事件封顶 **864 页×139 次**（窗口截断），单请求 restored 总量 864–2,504 页；TTFT 与 restored 总量线性，斜率 **~8–13 ms/页**（pageable bounce buffer 逐笔提交固定税；context.cpp L1631-1632 源码自认逐页串行）。
+- A3 臂（RETRIEVE=32768，logs/test_a3-arm2.log）：154 个 restore 事件，封顶 **512 页**（109 次触顶=32768/64 预算截断，全事件 max=512 实测）；TTFT 与 restored 总量**跨两臂同斜率线性**；静默段与 restored 总量正相关。
+- 代价：A3 冷填充 TTFT **11m34s**（A0 臂 3m14s 的 3.5 倍）——A3 参数不可常开，A4 已恢复 65536。
+
+**判决**：慢态静默段真凶实锤 = **restore 逐页串行提交**；因果链（参数→restored 总量→TTFT/静默段）跨两臂闭环，预注册判据全命中。四-AO #1（插桩复测）闭合。
+
+**C 步立项（用户 2026-11-17 批准）**：restore 按 extent（连续页段）合并提交，压掉每页固定税一个数量级，预期静默段接近消除。三条施工禁忌（自上游 #357）：取消页边界安全假设 / 未搬回页不进 mask / event 句柄不跨请求。走 SDA contracting，量级 1–2 天。
+
+**A4 反向验证臂（已起服，logs/test_a4-revert1.log）**：RETRIEVE 恢复 65536 + a3 臂同款旗标（--wddm-budget-arithmetic-only / --max-private-continuations 1 / --prefill-chunk 1024）+ full 日志 + DEMOTE_PROFILE=1；ws-lock applied pid=18016；listening on 20:17:59；/v1/models 200；预热探针 PASS。预注册判据：restore 封顶回 864（窗口截断）+ 冷填充量级回 3m14s 档 = 闭环。
+
+**新发现（工具坑）**：① `engine_ctl.ps1 -Env` 数组跨 `powershell -File` 边界被拆成 token 按位置灌入后续参数（-Depth 收到 env 元素）——调用一律同进程 `&` 直调；② .ps1 含中文必须 UTF-8 BOM（probe 脚本踩坑一次，改 ASCII）。
+
+**工具链**：work/data/a0_extract.py / a0_per_req.py / a3_per_req.py（按 req started/done 切窗归并 restore 事件，解决 [ninfer] 心跳行无时间戳归窗）、launch_a4.ps1 / probe_a4.ps1。
+
+**新挂账**：四-AP（1：A4 反向验证判读；2：C 步施工 contracting→施工）。

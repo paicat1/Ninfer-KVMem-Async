@@ -487,7 +487,7 @@ if (-not $PyExe) {
 if (-not $PyExe) { throw 'engine_ctl: no python interpreter found (PATH/常见路径都没有)' }
 $spawner = if ($Trace) {
         Write-Output ('trace: nsys profile -o ' + $TraceOut + ' -t cuda,nvtx -d ' + $TraceSec)
-        & $Trace profile -o $TraceOut -t cuda,nvtx -d $TraceSec --force-overwrite=true -- $PyExe @cliArgs
+        & $Trace profile --output=$TraceOut -t cuda,nvtx --duration=$TraceSec --force-overwrite=true -- $PyExe @cliArgs
     } else {
         Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle -PassThru
     }

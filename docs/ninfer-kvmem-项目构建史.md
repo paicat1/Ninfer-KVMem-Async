@@ -7458,3 +7458,33 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 | 5 | **cstep2 件未入 lineage MANIFEST**（EA50D020…，现作 bak_20261117_231624 存 test-run） | ⬜ 登记缺口 |
 | 6 | **~2 s TTFT 固定底构成未析**（restore 量小时摊薄不显） | ⬜ 观察项 |
 
+
+## §242 179 机制收口：KV 检索打分 kernel 占每步 86.5%（2026-11-18 夜）
+
+**数字**：120K 填充 520.9-531.0 s（两次独立格）；`kvmem_retrieve_scores_kernel` **455.5-465.7 s / 2,432 次 / 187.3-191.5 ms 次均**，占 GPU 忙碌 **86.5-86.8%**；prefill 外层 530.7 s ⊃ chunk 内层 230.4 s，**gap 300.2 s（57%）**；chunk 周期 med 3.35 s（1.45 s 计算 + 1.86 s 打分期）；896 tok ÷ 5.04 s ≈ **178 tok/s**；memcpy 总量 1.44 s（占 kernel 总时 **0.27%**）；kernel 总时 526.4 s ≈ 填充墙钟 ⇒ 无大段 GPU 空闲。
+
+**阶段与原因**：§240「179 捕获」此前只知节拍不知机制；本轮 C6 用 nsys（2024.6.2，--duration 900）单脚本异步起服 + /v1/models 就绪 + 1s SMI + 120K probe，取 NVTX/CUPTI 侧判据（tee 日志在注入下会冻，不作判据依赖）。
+
+**改了什么**：零源码改动。新增仪器链 `work\data\run_c6_v3.ps1`（异步起服+轮询审计+probe+等 rep）、`c6_judge2.py`/`c6_gap.py`（kern Top / NVTX gap 分解）、engine_ctl 两处 nsys 旗标 `-o/-d` → `--output=/--duration=`（2024.6.2 CLI 兼容）。
+
+**为什么这么改（根因+证据）**：`kvmem_retrieve_launch.cu` 头注释自述两趟 softmax over 全部候选（不做 logits 共享缓存：n_blocks 由索引容量决定）；log 侧 `kvmem_score: ARMED capacity_blocks=4096 layers_total=16`；调用侧 live-window 模式 **per-layer launch**（注释原文"the caller issues one launch per layer … the 16 accumulated calls 16x too large"）⇒ 153 chunk × 16 层 = 2,432 次；单层 2 趟 × 4096 候选 × 896 tok × 24 heads ≈ 90 GFLOP ÷ 187 ms ≈ **0.48 TFLOPS（≈5080 bf16 峰值 0.3%）⇒ 访存/占用率 bound，非算力不足**。
+
+**怎么验证的（判据+原文）**：K1（memcpy ≥30% 搬运瓶颈）✗；**K2（<10% 转 kernel 归因）✓ 0.27%**；K4' NVTX 步节拍 ✓（chunk 周期 3.35 s、间隔 med 1.86 s ≈ 10×187 ms）；**K6（立即重启后打分 ≈187 ms ⇒ 成本与进程内残留无关）✓：191.5 ms vs 187.3 ms，次数逐字 2,432**；注入开销 +1.3%（520.9→531.0 s，远低于 26% 阈值）；J-safety 两次格 429/recovery/without-an-owner 全 0。
+
+**新发现**：①「空转窗」改名**打分期**（host 0.0% = host 搬运为 0，GPU 在跑打分）；②`16384` 仅注释上界，实测 capacity_blocks=4096 ×4B=16KB ≪ 默认 48KB ⇒ **logits 一趟化不需 opt-in 大共享内存**，且注释自认该优化是 documented follow-up；③设计假设"retrieval runs once per view update, never per token"被实现偏离（每 chunk 16 次）；④host-backed（REUSE_HOSTBACKED=1）下 84,627 页 × 2.45 MB 不可能装进 1.256 s 的 HtoD ⇒ restore 是**映射重挂**而非数据搬运，C 步真实优化对象需据此重读。
+
+**Δ 对上个基线**：机制层从"节拍未知"→"打分 kernel 定量归因；五案排除"（H1 反压死 / QuickEdit 排除 / 同步 demote 等待排除 / restore 调用作因果主项撤回 / "连续 179 钉速"改为 896-tok 离散步节奏）。
+
+**修法四方向**（待立项，按成本收益）：①候选剪枝（4096→实际所需）②logits 一趟化（16KB shared，参考实现现成）③per-layer launch 合并（16 次→1 次 grid）④增量打分（只打新增块）。预估 8 min → 约 3.3 min。
+
+**新挂账**：见四-AS。
+
+## 四-AS、挂账表增量（2026-11-18 夜，§242 后新增）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **打分 kernel 优化立项**（四方向选型 + 判据预登记 + J4 召回硬门槛） | ⬜ 待批（预估 2-4 工作日，8min→3.3min） |
+| 2 | **C5 严格冷机格**（K6 已否证进程级残留；剩余价值=解释 A0 快态反例） | ⬜ 等冷机时机 |
+| 3 | **restore 在 REUSE_HOSTBACKED=1 下的真实形态**（映射重挂 vs 拷贝；207 GB 矛盾） | ⬜ 读码待答 |
+| 4 | 超池中段静默丢失 / 119.5 MiB 泄漏 / reserved=123 持有者 / cstep2 lineage 缺口 / ~2s 固定底 | ⬜ 结转不变 |
+

@@ -7538,3 +7538,15 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 | 3 | 1b（17-20%） | ⬜ **顺延**：刀5 若吃掉 92% 打分，1b 分母缩小，需在新基线重估 |
 | 4 | 刀3 候选剪枝 | ⬜ 1b/刀5 后重估 |
 | 5 | 跳过门落点 | ⬜ 必须用 `pool_free` 页压力，**不能用 budget**（budget 2,048 > 池 1,728，永不触发） |
+
+### §244 更正（2026-11-21 读码消费链实测后）
+
+**更正点**：§244「选择恒等 ⇒ 分数从不影响行为」表述过头。DEMOTE_PROFILE 日志实测（`test_restore2` / `test_seg_full`）：
+- demote 是**需求驱动**（`want_free` vs `free_now + in_flight`），**非每 chunk 必跑**；
+- **24K 填充全程零换出**（need=0、demote=0.00 ms、free 最低 1,352）；
+- **120K 填充期真实 demote 仅 17 个小批次**（填充尾段，合计 ~136 页 ≈ 超池盈余 143 页）；**79 个批次全部落在填充结束后的召回/追加期**（demoted=92-152 页/批）——那才是分数的主消费场；
+- 消费链**唯一调用点** `context.cpp:3092` → `select_retrieval_pages`（受 `NINFER_TERNARY_KVMEM_SCORE` env 门控）→ preferred → `is_preferred`。
+
+**刀5 形态修正**：**懒打分**——无压力 chunk 跳过；压力首现的 chunk **先补打一次全量分再 demote**；追加/召回期照旧。预期维持 fill **478.7 s → 100-150 s** 量级（含保守折减）。跳过门 = 页压力（`pool_free`），非 selector budget（维持原结论）。
+
+**验证格判据（预注册）**：① 24K 开/关两格：关格 fill 显著缩短且 `ZX-7001` 召回 PASS；② 120K 一格：fill <300 s 且召回 PASS；③ 开/关两格 demoted 总页数一致（demote 行为不变）。

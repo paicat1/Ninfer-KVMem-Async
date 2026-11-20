@@ -42,6 +42,11 @@ param(
     [string]$Trace = '',          # nsys 可执行路径（2026-10-17 加：把起服包进 nsys profile，抓 CUDA 级 trace）
     [string]$TraceOut = '',      # trace 输出前缀
     [int]$TraceSec = 330,        # trace 时长（覆盖 预热+基线+谷+释放）
+    [string]$Ncu = '',            # ncu.exe 路径（2026-11-20 加：内核级 metrics 归因通道）
+    [string[]]$NcuMetrics = @(),  # 逐项 metric 名（禁止字符串拆分）
+    [string]$NcuOut = '',
+    [int]$NcuSkip = 0,
+    [int]$NcuCount = 1,
 
 
     [int]$Score = -1,
@@ -488,7 +493,16 @@ if (-not $PyExe) { throw 'engine_ctl: no python interpreter found (PATH/常见�
 $spawner = if ($Trace) {
         Write-Output ('trace: nsys profile -o ' + $TraceOut + ' -t cuda,nvtx -d ' + $TraceSec)
         & $Trace profile --output=$TraceOut -t cuda,nvtx --duration=$TraceSec --force-overwrite=true -- $PyExe @cliArgs
-    } else {
+    } elseif ($Ncu) {
+    $ncuArgsList = @('--target-processes','all','--kernel-name-base','demangled',
+                     '--kernel-name','regex:kvmem_retrieve_scores_kernel',
+                     '--launch-skip',"$NcuSkip",'--launch-count',"$NcuCount",
+                     '--force-overwrite','-o',$NcuOut)
+    if ($NcuMetrics.Count -gt 0) { $ncuArgsList += @('--metrics', ($NcuMetrics -join ',')) }
+    $ncuArgsList += @('--', $PyExe) + $cliArgs
+    Write-Output ('trace: ncu ' + ($ncuArgsList -join ' '))
+    & $Ncu @ncuArgsList *>&1 | Tee-Object -FilePath (Join-Path $root 'work\data\ncu_channel.log') -Append
+} else {
         Start-Process -FilePath 'cmd.exe' -ArgumentList (@('/k', $PyExe) + $cliArgs) -WorkingDirectory $root -WindowStyle $WindowStyle -PassThru
     }
 # 2026-10-17：**sanctioned spawner 必须留 spawn 记录**（否则它起的进程树被判"无记录"）

@@ -7584,3 +7584,15 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **交付代价（如实）**：304.2s 比白天 108K 口径 269.6s 慢 6-13%，原因是池扩到 122,880 后评分/恢复窗口变大；这是换到真 120K 口径的价格。
 
 **未受影响**：刀5 机制结论（无压力跳过 / 压力区必打 / fail-closed）与池、chunk 无关；两条口径各自的自对比均成立。
+
+### §245 三次更正（2026-11-23 凌晨：A 格实测，2.87× 作废改 2.774×）
+
+**数字**：122,880 真交付口径（关格 env + 刀5 单变量）fill **872.2s → 314.4s = 2.774×**（省 557.8s）；探针 314.4s ↔ 引擎 `req#1 TTFT 5m 14.3s`（prefill 381.1 tok/s，prompt 119,725）双侧一致。关格 SELECT 真值 **315**（旧记 288 作废），A 格 **98**（−68.9%）。
+
+**为什么改**：初版"交付口径 304.2s（2.87×）"出自 `g_122880_512`。该格实测 `[ninfer] reuse host-backed: off`、`[ring] host_kv_arena is null … will run dense`、`context cache | host 8 states, 0 B KV`、`budgets skeleton=4, evidence=0`、`budget_blocks=512` —— **host KV 架构整体缺席、零检索**，与关格（host KV 16 GiB / evidence 960 / 299 次恢复 / budget 2048）不同族；两臂至少差 SINK、RETRIEVE、SCORE_BUDGET 三项，2.87× 不可归因刀5，作废。g 格 304.2s 仅作"dense 形态"记录，**不得引用为交付基线**。
+
+**A 格（2026-11-23 00:53–00:59）**：engine_ctl 起服，逐字复制关格 env 九项 + 显式 `NINFER_KV_REUSE_HOSTBACKED=0`（engine_ctl:381 默认注入 1，不覆写则两臂差 REUSE）+ 刀5 组 `{LAZY_SCORE=1, POOL_BLOCKS=1920}` + full 日志。五道门全过：CMD 与关格全串一致；env 头 `WINDOW=122880 / RETRIEVE=65536 / SHARE=(unset) / BUDGET=131072`；`reuse host-backed: off`；`budgets skeleton=80, evidence=960, free=880`（与关格逐字同）；SELECT 首条 `budget_blocks=2048`。机制：跳过区周期刷新（首条 1,42,48,90,102,138…），`n_blocks=1668` 起连续 **33 个 delta=6 + 5 + 0**（旧记 31 个更正）⇒ 压力线 1,664 精确命中、`POOL_BLOCKS=1920` 真进引擎；恢复 95 条峰值 960。T_skip 700s → 140s，压力区 174.4s（75.9 tok/s）闭合 314.4s。
+
+**已知偏差（不作解释）**：A 格经 engine_ctl 起服，引擎进程带 `ws-lock: min=32 GiB`（engine_ctl:561，输出只入控制台不入 tee 日志），关格为裸启动、无此锁。
+
+**④ 召回格（两轮法，2026-11-23 01:09–01:44）**：单请求 119,725 tok = 1,871 页 < 池 1,920 页，零换出故不可测检索；改 turn1 120K 建 KV → turn2 追加 20K（139,649 tok = 2,182 页，超池 262 页）逼逐出。结果：turn2 **1,814.1s**（77.0 tok/s，`cache 0%`）、turn2 段恢复 **302 条峰值 960**、答案 `ZX-7001` ⇒ 判据①恢复>0 且②命中，**PASS**。引擎侧 `req#2 done | TTFT 30m 13.7s` 与探针 1,814.1s 互证。

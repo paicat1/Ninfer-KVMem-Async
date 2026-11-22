@@ -93,12 +93,14 @@ def _registry_seed():
     #  ③ label/时间/大小等冗长实况不再拼进下拉（见 engine_display），选中件实况在状态行展示。
     _VARIANTS = os.path.join(ROOT, "engine", "variants")
     return [
-        {"label": "★★sym3 · 生产件（对外 RC1 · 新构建链 + 符号 · 20261018）",
-         "path": os.path.join(ROOT, "engine", "lineage", "ninfer-serve-RC2.exe"),
-         "tags": ["生产", "新链", "符号", "384×sm_120a"],
-         "note": "生产件（对外名 RC1）：2026-10-18 编（build_sym.ps1 同参重编 S13 源码 be2c0f9）。sha 9453FFC6…，exe 1.28GB。"
-                 "Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。与 S13 行为等价（三档 sha 逐字同、速度差 ≤0.6%），带符号件 = 对外分发正身。",
-         "status": "生产", "added": "2026-10-18", "replaced_by": "", "preset": ""},
+        {"label": "★★★现役 · 刀5 懒打分 + fail-closed（AAFAB275 · 20261122）",
+         "path": ENGINE_SELF,
+         "tags": ["生产", "刀5", "懒跳过", "fail-closed"],
+         "note": "现役件（2026-11-22 编，sha16 AAFAB275AB8AD48B，1,333,798,400 B）：含 C7 刀5 懒打分"
+                 "（NINFER_C7_LAZY_SCORE=1 + NINFER_C7_LAZY_POOL_BLOCKS=池页数）与 fail-closed（漏配池页数⇒退回旧版行为，不会静默零打分）。"
+                 "实测（池 110,592 = 108K 档）：120K prompt 关格 493.5s → 本件 269.6s（1.83×）；122,880（真 120K 档）未验证；24K：29.5s → 14.0s；多轮追加 2.4-3.0s；池满第二次大请求约 912.9s（该场景压力门必然工作，无提速）。"
+                 "J4 召回 ZX-7001 PASS。",
+         "status": "生产", "added": "2026-11-22", "replaced_by": "", "preset": ""},
         {"label": "★offi · 官方链 14.44 + 符号（判决件 · 20261019）",
          "path": os.path.join(ROOT, "engine", "lineage", "ninfer-serve-RC3.exe"),
          "tags": ["判决件", "官方链", "符号", "384×sm_120a"],
@@ -106,12 +108,13 @@ def _registry_seed():
                  "sha 3543AD18…，exe 1.28GB，pdb 226.7MB。Gen5+外压400 = 44.5 谷但完成（卡死未复现）——"
                  "与 S13 唯一差=符号链接 ⇒ 卡死元凶=符号链接缺失（布局敏感假说的实证角）。",
          "status": "判决件", "added": "2026-10-19", "replaced_by": "", "preset": ""},
-        {"label": "S13 · 历史受控件（原标生产件；Gen5+外压卡死缺陷）", "path": ENGINE_SELF,
-         "tags": ["历史受控件", "官方链", "Gen5+外压卡死缺陷", "仅Gen4/零外压"],
-         "note": "历史受控件（原标「生产件」，2026-10-28 起废止）：2026-10-15 部署 = lineage\\I3b_step13（sha 322A972D，S12-internal v3）。"
-                 "出生证明在案（archive\\temp-root-20261016\\build_engine.log：官方链 14.44 Community + 4 dirty 文件，10-15 23:47，BUILD-EXIT=0）。"
-                 "Gen5+外压400 = decode 0 卡死（5/5 探针超时）；Gen5 零外压 = 184 健康。**生产件 = sym3（对外 RC1）**，S13 仅 Gen4/零外压可继续用。",
-         "status": "封存", "added": "2026-10-15", "replaced_by": "", "preset": ""},
+        {"label": "★★sym3 · 对外分发件（RC2 · 新构建链 + 符号 · 20261018）",
+         "path": os.path.join(ROOT, "engine", "lineage", "ninfer-serve-RC2.exe"),
+         "tags": ["对外", "新链", "符号", "384×sm_120a"],
+         "note": "对外分发正身（对外名 RC1）：2026-10-18 编（build_sym.ps1 同参重编源码 be2c0f9）。sha16 9453FFC6…，exe 1.28GB。"
+                 "Gen5+外压400 = 41 谷但完成；Gen4+400 = 165 基本健康。与 S13 行为等价（三档 sha 逐字同、速度差 ≤0.6%）。"
+                 "注：不含刀5（懒打分）——要那套收益请选顶部现役件。",
+         "status": "生产", "added": "2026-10-18", "replaced_by": "", "preset": ""},
         # 2026-10-31 用户令：启动器只留可用三件（S13 / offi / sym3）；H1 + I3b×4 归档件已从下拉移除
         # （文件仍留在 engine\lineage\，需要时可按路径直指，但不占下拉、避免"选了却忘了它是归档件"）。
     ]
@@ -409,6 +412,9 @@ KV_ENV = {
     "NINFER_KV_RING":            "1",   # 已空转（B30 后源码零 getenv）；保留仅作历史兼容
     "NINFER_HOST_PAGEABLE":      "1",
     "NINFER_KV_REUSE_HOSTBACKED": "1",
+    # 2026-11-22 刀5：无压力期跳过打分（池页数由 env_for_launch 按当前池动态注入；
+    #   漏配池页数 ⇒ 引擎内 fail-closed 退回旧版行为，仅变慢不会出错）
+    "NINFER_C7_LAZY_SCORE":      "1",
 }
 
 # KV 工作窗口（2026-11-14 新增维度）：决定 ring 环一次能容纳多少 token 而不换页，
@@ -973,7 +979,9 @@ DIM_TIPS = {
                 "（依据 evidence/repro/kv_window_matrix_28k_80k.md，7 次运行）"
                 "⚠ 手选大于池的档（如 40k 池选 128k）会预留超过池页数的环空间，可能起服即 FATAL。",
     "privcont": "私有续接目录（--max-private-continuations）= 最多同时记住多少条**独立对话链**的 KV 状态供下次续写命中。引擎默认 2×并发（这里=2）。\n槽位四态：Free / ReservedMaterialization / Active / **Catalogued**；**Catalogued 就是废块**——旧对话被编目留档，占块不干活。\n**默认 1 的理由**：只记 1 条链，新会话进来旧链必须让位，废块立即释放；代价是同会话并行分支（subagent / 双窗口）切回去要重新 prefill。\n⚠ 与「异步深度」无关：那个是同时搬运的 demote 批数（NINFER_ASYNC_DEMOTE_DEPTH），这个是记住几条对话。",
-    "retrieve": "KV 检索量（NINFER_KV_RETRIEVE）= **每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device，不是总量。块 = 64 token：32768 → 512 块/轮，日志体现为 `ring retrieve ... restored=512`。\n取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。哪个更快取决于命中率，尚无同条件对照实测。\n**它不改变窗口容量**（那由「KV 工作窗口」定），只改变每轮搬多少。prompt 大于窗口时才会频繁换页，此时调大可能减少轮数、也可能因单轮搬运过重而更慢。",
+    "retrieve": "【2026-11-22 刀5 已上线】打分不再每 chunk 全量重算：无压力期（n_blocks ≤ 池页数−256）按 8-chunk 周期刷新，压力区每 chunk 必打；"
+                "实测（**池 110,592 = 108K 档**）：120K prompt 填充 493.5s→269.6s（1.83×）、24K 29.5s→14.0s；**122,880（真 120K 档）实测**：需配 `--prefill-chunk 512`，刀5 关 872.2s → 开 304.2s（2.87×）；天白 108K 口径为 chunk1024 + POOL_BLOCKS=1728。512 在 110,592 池会 ring OOM，1024 在 122,880 池会超预算 329 MB。池页数由启动器按当前池自动下发（NINFER_C7_LAZY_POOL_BLOCKS=池 token/64），"
+                "漏配时引擎 fail-closed 退回旧版（只慢不出错）。\n\n" + "= **每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device，不是总量。块 = 64 token：32768 → 512 块/轮，日志体现为 `ring retrieve ... restored=512`。\n取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。哪个更快取决于命中率，尚无同条件对照实测。\n**它不改变窗口容量**（那由「KV 工作窗口」定），只改变每轮搬多少。prompt 大于窗口时才会频繁换页，此时调大可能减少轮数、也可能因单轮搬运过重而更慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即「全速区间」）。"
               "**2026-11-14 实测的六档甜点（每档都已扣掉视觉塔与两个投机头）：**"
               "MTP 头 → SWIFT/GSQ **124k**（上限 126,976，131,072 FATAL）、Coder390 **84k**（上限 86,016）；"
@@ -1601,6 +1609,13 @@ def env_for_launch(exe=None, profile=None, combo=None):
     if combo:
         # 2026-11-14：KV 工作窗口三件套（window / score_budget / retrieve）
         env.update({k: str(v) for k, v in _kvwindow_env(combo).items()})
+        # 2026-11-22 刀5：压力门按"物理池页数"判（不是 selector budget）。页 = 64 token。
+        try:
+            _pool_pages = int(kv_pool_tokens_of(combo)) // 64
+            if _pool_pages > 0:
+                env["NINFER_C7_LAZY_POOL_BLOCKS"] = str(_pool_pages)
+        except Exception:
+            env.pop("NINFER_C7_LAZY_POOL_BLOCKS", None)   # 解析失败 ⇒ 不设，引擎 fail-closed 退回旧版
         env.update(ASYNC_OPTIONS.get(combo.get("async", "on"), ASYNC_OPTIONS["on"])[1])
         # 2026-10-19：异步深度（几批在飞）独立注入；combo 后于 PRESET_ENV ⇒ 覆盖预设写死的 DEPTH，
         # 以 GUI 用户显式选择为准。开关关（同步回退）时深度由引擎视为无效（不删，保留选择态）。

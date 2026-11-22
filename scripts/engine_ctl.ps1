@@ -59,6 +59,7 @@ param(
 
     [switch]$NoGraph,            # 2026-10-18 加：真关图臂（--no-cuda-graph；allowance=0 只是"引擎自算预算"图照开，两者互斥拒启——源码 serve_options.cpp L1166）
 
+    [switch]$NoInstall,          # 2026-11-22: 验证格专用——直接从 -Exe 起服，不覆盖在役位、不产生 bak
     [switch]$Experimental,       # 2026-10-20: T#0059 guard -- allow -Exe outside runExe to overwrite the live engine (explicit opt-in; auto-backup before overwrite)
 
     [string]$Spec = 'mtp',
@@ -277,7 +278,7 @@ if ($exeFull -ne $runExe) {
     # (2026-10-18: sym3 overwrote the production exe for ~30 min). Always back up the live exe
     # before overwriting; -Experimental only acknowledges the overwrite (no hard block, because
     # 20+ legacy experiment scripts call -Exe with lineage/variants paths).
-    if (Test-Path $runExe) {
+    if ((Test-Path $runExe) -and (-not $NoInstall)) {
         # 2026-10-27: hash dedupe. The old code archived a 1.27 GB copy on EVERY start even when
         # an identical binary was already archived -- 14 copies of the same S13 accumulated (32 GB).
         $liveHash = Get-Sha256Hex $runExe
@@ -300,7 +301,13 @@ if ($exeFull -ne $runExe) {
         if ($archivedHashes.Count -eq 0) {
             Write-Output ('WARN T#0059: lineage MANIFEST sha index empty; conservative backup')
         }
-        $skipBackup = ($archivedHashes.Count -gt 0) -and ($archivedHashes -contains $liveHash.ToUpperInvariant())
+        # 2026-11-22 堵漏：物理 .bak 同 sha 也去重（非 lineage 件此前每起服必新存 1.27GB）
+        $bakSame = @()
+        foreach ($b in @(Get-ChildItem -LiteralPath $runDir -Filter 'ninfer-serve.exe.bak_*' -File -ErrorAction SilentlyContinue)) {
+            if ((Get-Sha256Hex $b.FullName) -eq $liveHash) { $bakSame += $b.FullName }
+        }
+        $skipBackup = ((($archivedHashes.Count -gt 0) -and ($archivedHashes -contains $liveHash.ToUpperInvariant())) -or ($bakSame.Count -gt 0))
+        if ($bakSame.Count -gt 0) { Write-Output ('T#0059: backup skipped (identical .bak already in test-run: ' + (Split-Path -Leaf $bakSame[0]) + ')') }
         if ($skipBackup) {
             Write-Output ('T#0059: backup skipped (identical hash in lineage MANIFEST)')
         }
@@ -308,18 +315,25 @@ if ($exeFull -ne $runExe) {
             $bak = Join-Path $runDir ('ninfer-serve.exe.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
             Copy-Item $runExe $bak -Force
             Write-Output ('T#0059: backup live exe -> ' + $bak)
+            # 2026-11-22 堵漏：保留期——只留最近 2 个 bak，其余删除
+            # 2026-11-22: 回滚锚保护——sha==F184F1E0 的 bak 永不自动删
+            $anchorSha = 'F184F1E0D78ADB79'
+            $allBak = @(Get-ChildItem -LiteralPath $runDir -Filter 'ninfer-serve.exe.bak_*' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+            $prunable = @($allBak | Select-Object -Skip 2 | Where-Object { (Get-Sha256Hex $_.FullName) -ne $anchorSha })
+            foreach ($pb in $prunable) { Remove-Item $pb.FullName -Force; Write-Output ('T#0059: pruned ' + $pb.Name) }
         }
     }
-    if (-not $Experimental) {
+    if ((-not $Experimental) -and (-not $NoInstall)) {
         Write-Host ('[GATE T#0059] refuse to overwrite live engine with ' + $exeFull + ' (pass -Experimental to acknowledge; backup kept)')
         exit 1
     }
-    Copy-Item $Exe $runExe -Force
+    if (-not $NoInstall) { Copy-Item $Exe $runExe -Force }
+    else { Write-Output ('T#0059: -NoInstall -> run from ' + $exeFull + ' (live untouched)') }
 }
 
 Set-Content -Path (Join-Path $runDir 'VARIANT.txt') -Encoding ascii -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + '  from=' + $Exe + '  tag=' + $Tag + '  depth=' + [string]$Depth)   # 记录仍留 test-run
 
-$Exe = $runExe
+if (-not $NoInstall) { $Exe = $runExe }
 
 $modelPath = Join-Path (Join-Path $root 'models') $Model
 
@@ -509,7 +523,7 @@ $spawner = if ($Trace) {
 try {
     $spawnDir = Join-Path $root 'evidence\spawns'
     New-Item -ItemType Directory -Force -Path $spawnDir | Out-Null
-    $exeSha = if (Test-Path -LiteralPath $Exe -PathType Leaf) { (Get-FileHash -LiteralPath $Exe -Algorithm SHA256).Hash } else { $null }
+    $exeSha = if (Test-Path -LiteralPath $Exe -PathType Leaf) { (Get-Sha256Hex $Exe) } else { $null }
     $rec = [ordered]@{ ts = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); purpose = 'engine-start'; exe = $Exe
                        exe_sha = $exeSha
                        pid = $spawner.Id; has_window = $true; is_minimized = $false; is_visible = $true

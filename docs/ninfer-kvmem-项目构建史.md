@@ -7686,3 +7686,40 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **回滚**：不设 `NINFER_C7_LAZY_PRESSURE_PERIOD` ⇒ 默认 1 ⇒ 与刀5 等价；源码 git 跟踪；旧件 AAFAB275 在 lineage。
 
 **现场**：engine 已停，VRAM 62 MiB；build-out 产物为新件，在役位未覆盖。
+
+### §245 九次更正（2026-11-23 22:07 刀6 基线卡 —— 首张"只认这张卡"的实验件基线）
+
+**卡的性质**：这是**实验件基线**，不是在役交付基线。在役位仍 `AAFAB275AB8AD48B`（刀5），本卡件未部署。
+
+**件**
+- build 件与世系归档件同 sha16 **`8E437B712AC06CDF`**，1,334,855,680 B
+- 世系：`_safety_backups\exe_lineage_20261123\ninfer-serve.exe.20261123_220725` + `MANIFEST.txt`（直算哈希一致，不依赖 MANIFEST 转述）
+- 源码：`engine-src` 本地提交 **`917efd1`**（按门规则本地提交，未推上游）
+
+**构建**
+- 全量重编：`ninja -t clean`（1434 件）→ `build\s6_1208a.bat`，**耗时 15 分 53 秒，完成于 22:07:15**
+- `BUILD-EXIT=0`；`ARCH-GATE: OK`（ELF=384 / sm_120a=384 / sm_86=0 / ptx=0）；`text.cpp` 消费者确认重编
+
+**起服口径（13 项 env 全集 + 日志模式）**
+`KV_WINDOW=122880`、`KV_RETRIEVE=65536`、`SCORE_BUDGET=131072`、`KV_SINK=5120`、`KV_RING=1`、`HOST_PAGEABLE=1`、`ASYNC_DEMOTE=1`、`ASYNC_DEMOTE_DEPTH=2`、`DEMOTE_PROFILE=1`、`REUSE_HOSTBACKED=0`、`C7_LAZY_SCORE=1`、`C7_LAZY_POOL_BLOCKS=1920`、`C7_LAZY_PRESSURE_PERIOD=8` + `SERVE_TEE_LOG_MODE=full`
+实测预算行：`[ring] budgets: skeleton=80, evidence=960, recent=0, free=880 (pool 1920)`
+
+**三组数（行级出处）**
+
+| 场景 | 时长 | 出处 |
+|---|---|---|
+| 冷池 120K fill | **156.7s** | `req#1 done … TTFT 2m 36.7s`（prompt 119,725） |
+| 池满二次 120K fill | **244.3s** | `req#2 done … TTFT 4m 4.3s`（prompt 119,681） |
+| 139.6K 全量重跑 | **292.2s** | `req#3 done … TTFT 4m 52.2s`（prompt 139,615） |
+| 刀5 池满对照 | 912.9s | `k5d_recall.log elapsed`（既有回执在案） |
+
+召回：针 156 两轮法 PASS —— 答案 `ZX-7001`；恢复 480 条中 **413** 条覆盖块 156。
+
+**未平项（同卡登记，防被当定论）**
+1. **三账是减法推算链，不是 profile 实测**：92.6s = 156.7 − 64.1（导出值），其中 31.3s 是"kernel 按 ÷8"的**下界口径**，余 61.3s 为行级成本（同步/D2H/选块）；行频实测均值 4.45 单位/行，与 16 行/72 单位（和恒 72）模型吻合。
+2. **跨件减法前提**：64.1s 出自臂 Y，跑在**刀5 件 AAFAB275** 上；156.7s 出自刀6 件 —— 两个不同件的减法，只作量级参考。
+3. 池满二次 **+87.6s 全在非打分段**（SELECT 69 vs 70、chunk 间距同型、打分成本相同），机理未查。
+4. `blocks_written` 在 req#2 零增长（恒 1,871）而 `chunk_abs` 正常爬升，且三次请求全部 `cache 0%`；机理未查。
+5. 刀7（全局节流）收益预估建立在"行级成本 ∝ 行数线性"假设上，未实测。
+
+**引用纪律**：今后凡引用刀6 数字，必须同时引用本卡的"未平项"；单独引用 156.7s 作交付宣传数，视为错口径。

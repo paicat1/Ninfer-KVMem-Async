@@ -8061,3 +8061,44 @@ A 与 B 由**同一 `build()` 生成、全文同模板**，仅块 156 处 7 个�
 | 全程真实 D2H 仅 **192 页 / 30 ms**；同期 `restored` 计数 **285,965 页**（比 1:1,490） | 数字钉：`demote profile:.*demoted=(\d+)` + `copy=([0-9.]+)`；语义钉：`context.cpp:1665-1671`；反例钉：仅 k6 三请求、单进程 |
 
 **E. 本表自身的边界**：归类基于截至 2026-11-24 06:57 的实测与读码；新增证据先按"三钉"（数字钉 / 语义钉 / 反例钉）过门槛，再改本表。
+
+### §245 二十次登记（2026-11-24 07:21–07:22：刀6 上线 + C3 口径钉死 + 本战役收口）
+
+**一、部署记录**
+
+| 项 | 值 |
+|---|---|
+| 新在役件 | `8E437B712AC06CDF`（1,334,855,680 B） |
+| 旧在役件 | `AAFAB275AB8AD48B`（1,333,798,400 B），归档于 `_safety_backups\exe_lineage_20261124\ninfer-serve.exe.20261124_064022`（已核哈希一致） |
+| 治理基线 | MANIFEST `38D27BE5…` → `B020670D…`；外锚同步；备份 `MANIFEST.json.bak_20261124_072158` / `.gov_anchor.bak_20261124_072158` |
+| 预检 | `anchor == sha256(MANIFEST) = 38D27BE5`（自洽，通过后才允许重建） |
+| 预测命中 | DryRun 预测 `B020670D` = apply 实际 `B020670D`（同 `--reason`） |
+| GATE_LOG | 已追加 `baseline-rebuild: … AAFAB275AB8AD48B -> 8E437B712AC06CDF (size 1333798400 -> 1334855680); reason=approved ph6 deploy 8E437B71 (user order 2026-11-24); MANIFEST sha16 B020670D9E6B1ED4; anchor updated` |
+| 冒烟 | 在役路径 + `PERIOD=8` + `REUSE=1`：`ready=True`、`/v1/models` 正常、`context cache \| private 1 \| shared 0 \| anchors 2`、无 FATAL；已停服 |
+| 启动器 | `KV_ENV` 增 `NINFER_C7_LAZY_PRESSURE_PERIOD="8"`（+6 行含注释）；`py_compile=0` |
+
+**二、C3 口径钉死（三钉齐）**
+
+- **数字**：k6 三请求 `demoted=` 合计 **192 页**、`copy=` 合计 **30 ms**；同期 `restored=` 合计 **285,965 页** ⇒ 比 **1:1,490**。
+  可复现：`demote profile:.*demoted=(\d+)`、`copy=([0-9.]+)` 求和；`restored=(\d+)` 求和（`logs\test_a_k6_p8.log`）。
+- **语义**：`context.cpp:1665-1671`（`device_resident` 零拷贝直接计入 `resident`）、`:3142`（打印口径注释）。
+- **反例**：仅 k6 单进程三请求；SCORE=0 两格与 semantic 格未计入本统计。
+
+**三、`PERIOD=8` 生效性（按审核钉死的表述）**
+
+- **节流生效**：B 臂压力区 SELECT 间距均值 **1,649 tok（≈4.3×384）**，与已知生效格 k6 req#1（**1,810**）同族；`PERIOD=1` 反事实应为 **384**（每 chunk 一行）。
+- **精确周期 = 8 待部署后复验**（本轮不宣称）。
+
+**四、上线 ≠ 合格（收口声明）**
+
+- **已交付**：刀5（原在役）+ 刀6（本轮）。收益：冷池 120K `314.4 → 156.7s`（2.0×）、池满二次 `912.9 → 244.3s`（3.7×）、召回针 156 PASS（413 条覆盖）。
+- **未交付、且不在本战役范围**：池满每轮 244s 的轮开销归因；#48 前缀复用的交付面（启动器仍 `shared=0`）；SCORE=0 快路（语义未验）；索引污染在真实换文档场景的伤害；行级 drain 实测；`blocks_written` 跨请求零增长机理；req#2 零降级形态。
+- **合格线（未达成）**：多轮每轮 ≤100s；前缀复用进交付；索引污染真实场景无错答。
+
+**五、回退（一条命令 + 两个备份）**
+
+```
+Copy-Item _safety_backups\exe_lineage_20261124\ninfer-serve.exe.20261124_064022 engine\self-built-20261008\ninfer-serve.exe -Force
+Copy-Item _safety_backups\governance_baseline_20261101_post\MANIFEST.json.bak_20261124_072158 _safety_backups\governance_baseline_20261101_post\MANIFEST.json -Force
+Copy-Item .codebuddy\sda\.gov_anchor.bak_20261124_072158 .codebuddy\sda\.gov_anchor -Force
+```

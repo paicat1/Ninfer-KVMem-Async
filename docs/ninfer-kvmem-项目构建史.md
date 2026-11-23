@@ -7612,3 +7612,14 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **诚实项**：末条 SELECT `kept=2048 / n_blocks=2182`（94%），选择近恒等 ⇒ 本臂证明**物理恢复链路把针搬回 device**，不证明"选择性检索精度"。
 
 **新增挂账**：①选择性检索精度臂（SCORE_BUDGET 调 512/256，看答案是否仍命中）；②ASSET-DUAL 门为 env 直通（gates.ps1:665，L686 明文"设 NINFER_ALLOW_ASSET_SINGLE=1 临时放行"），未走 11-01 令牌化 —— 任何进程设变量即可放行"资产未发布"拦截。
+
+### §245 挂账登记（2026-11-23 0806，四项未闭）
+
+| 项 | 状态 | 判据 / 前置 |
+|---|---|---|
+| ASSET-DUAL 门 env 直通未令牌化 | ⬜ 治理 | `gates.ps1:665`（L686 明文"设 NINFER_ALLOW_ASSET_SINGLE=1 临时放行"）；建议按 11-01 令牌化，BAT 已有条目 |
+| 选择性检索精度臂 | ⬜ 实验 | 末条 SELECT `kept=2048 / n_blocks=2182`（94%，近恒等）；需 SCORE_BUDGET 512/256 臂看答案是否仍命中 |
+| 末段 76.7 tok/s 地板归因 | ⬜ 判别实验 | 三个独立运行同值（A 格 / off122880 / ④ turn2）；先跑 `NINFER_KV_RETRIEVE=8192` 与 `NINFER_TERNARY_KVMEM_SCORE=0` 两臂，区分"恢复量"与"逐 chunk 打分"，每臂约 6 分钟 |
+| prefix cache 0% | ⬜ 结构 | 两轮实测 `cache 0 (0.0%)`；开关为 `--max-shared-prefixes 0`（防打砖铁律），动它属独立风险面；"命中后能到几十秒"目前无实测 |
+
+**校正（审核回合）**：evidence 不扣 sink —— `context.cpp:3031-3032`（`budget = min(retrieve_pages, pool*share%)`）+ `:3079`（`b_evidence = min(budget, pool−skeleton)`）；判决证据是 SHARE=60 时实测 `evidence=1024`（若扣 sink 应为 960）。故"RETRIEVE 压半 → 448"应为 **512**，按其模型末段约 144 tok/s、fill 约 232s（仍属投影，未实测）。

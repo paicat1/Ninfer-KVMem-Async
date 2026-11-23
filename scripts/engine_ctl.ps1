@@ -77,6 +77,7 @@ param(
     [ValidateSet('cpu','resident','overlay','off')][string]$Vision = 'overlay',
 
     [string]$Extra = '',
+[int]$SharedPrefixes = -1,   # -1=不改（保持 :458 写死的 0）；>=0 追加到 argv 末尾覆盖（实验用）
 
 
 
@@ -472,6 +473,13 @@ if ($NoGraph) {
     }
     $cliArgs = @($kept) + @('--no-cuda-graph')
     Write-Output 'knob: graph OFF (--no-cuda-graph; allowance flag removed)'
+}
+
+# 2026-11-23：实验用覆盖——>=0 时把 max-shared-prefixes 追加到 argv **末尾**（后者胜，
+# 覆盖上面 :458 写死的 0；放在 NoGraph 之后以免被它的重建丢掉）。默认 -1 行为逐字不变。
+if ($SharedPrefixes -ge 0) {
+    $cliArgs += @('--max-shared-prefixes', [string]$SharedPrefixes)
+    Write-Output ('knob: shared prefixes = ' + $SharedPrefixes + ' (appended last; overrides hardcoded 0)')
 }
 
 if ($Spec -eq 'none') {

@@ -7643,3 +7643,15 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **定音**：76.7 是**打分成本**（压力区每 chunk 全量打分 + D2H sync），不是搬运。**evidence/RETRIEVE 调参路线作废**（压它只砍检索预算、换不到速度；审核纸面推算"压半→144 tok/s / fill 232s"被臂 X 反向证伪）。刀5 的懒跳过只在无压区生效，压力区仍全量打分 —— 下一刀（候选）是**压力区降频打分**，必须以召回质量为门槛（臂 Y 是 SCORE=0 的极端形态，检索回落词面排序，不能直接当交付）。
 
 **代价与边界（如实）**：臂 Y 的 64.1s 属"无内容打分"形态，不可作为交付数字；它只用于归因。真交付要先把"压力区降至 1/8 频度"落地并过召回格。
+
+### §245 六次更正（2026-11-23 20:28–20:51：#48 松动 shared-prefixes 判负 —— 旗标是必要条件，非充分条件）
+
+**动机**：`--max-shared-prefixes 0`（启动器铁律）令共享前缀机制整体关闭，日志实测 `private 1 | shared 0`；本轮所有请求 `cache 0 (0.0%)`（④ turn2 为此重算 139,649 tok、1,820s）。挂账 #48 记载 2026-10-20 考古结论：该 0 属预防性"隔离/确定性"，非实测因果。
+
+**工具改动**：`scripts/engine_ctl.ps1` 增 `-SharedPrefixes`（默认 `-1` 不改行为；`>=0` 时把 `--max-shared-prefixes` 追加到 argv **末尾**，因 `:458` 写死的 0 在 `$extraList` 之后、按"后者胜"会覆盖 Extra）。字节级插入，numstat **+8/−0**，`i/mixed w/mixed` 保持，PS 解析 0 错。
+
+**机械门（PASS）**：起服 `-SharedPrefixes 1` ⇒ `knob: shared prefixes = 1`，日志实发 `context cache | … | private 1 | shared 1 | anchors 2`，无 FATAL、无打砖。
+
+**功能判负**：两轮法（针 156，turn1 119,681 tok → turn2 139,649 tok）。turn1 **287.4s**（与基线 287–315 同带，未见 capture 发布开销）；turn2 跑到 **8 分钟仍 76.7 tok/s**、SELECT 196（≈37K/139K），与无缓存形态（④ turn2 = 1,820s）同速 ⇒ **前缀未被复用**。为省 22 分钟机时主动止损，**判负依据=速率+SELECT 计数，非终局 usage 行**（如实标注，未取得 `cache N` 终值）。
+
+**结论与下一步**：`--max-shared-prefixes 0` 不是唯一闸门；旗标打开后仍需可用 cache anchor。线索：`frontend.cpp:535/:911` 的 `hints.allow_engine_automatic_shared_prefixes` 控制"在结构边界自动放 cache marker"，而本探针是**单条 user 消息**（无消息边界）⇒ 可能未形成可复用 anchor（**假设，未验证**）。下一动作（零机时）：读 marker→anchor→state-key 全链，确定客户端需带什么（或 prompt 需什么形态）才命中。

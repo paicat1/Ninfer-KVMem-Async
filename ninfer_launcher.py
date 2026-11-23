@@ -9,7 +9,7 @@
     构造出的参数与实测起服成功的命令逐字一致
     （见 docs\\ninfer-kvmem-项目构建史.md §4.4 与三·九）
   · S2 就绪判据：判活必须真发请求（/v1/models 200 ≠ 能服务）
-  · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 0 / --max-concurrency 1 强制
+  · 参数铁律：KVMem 五环境变量自动注入；--max-shared-prefixes 1（2026-11-24 起，原 0）/ --max-concurrency 1 强制
 
 版本：v1（覆盖起服 + 自检/就绪自测）。
 沿革补：DFlash2 档位 d1-d15（与 MTP 互斥联动）。2026-11-08 起两模型均为双头件
@@ -733,7 +733,7 @@ def anchor_calc_lines(combo):
 ANCHOR_CAVEAT = (
     "⚠ 工作集 256 页是报告 §14.4 的推导值（tancau 原型），本仓未实测；\n"
     "⚠ 本仓该旗标控制「私有锚最小间距」，不是 tancau 的 32K 绝对步长；\n"
-    "⚠ 启动器固定带 --max-shared-prefixes 0（防打砖），共享前缀网格不可用；\n"
+    "共享前缀目录已开启（--max-shared-prefixes 1，2026-11-24 起；原 0 为防打砖隔离）；\n"
     "   单条长文档（单 message）不产生私有锚，需多轮/多 message 才有边界。\n"
     "⚠ 与报告 §14.13 表格的两处差异：本启动器按 ①公式法（最大 2 次幂）算，\n"
     "   32K 池激进档得 16K、256K 池激进档得 128K；表里 8K/192K 是 ②查表草案值\n"
@@ -938,7 +938,8 @@ DEFAULTS = {
  "reqlog": "off", "async": "on", "asyncdepth": "2",
     "adaptivemtp": "off",  # 2026-10-31：投机自适应默认关（定稿 k3 固定不变；opt-in 开启，仅 spec=mtp 生效）
     "fp16state": "off",  # 2026-10-20 #47 条件档接入；**默认 FP32（关）—— 用户后令：默认应 FP32，fp16 作 opt-in 开关保留**
-    "anchor": "off",       # 2026-11-06：默认关，不改变既有起服行为
+    "anchor": "on",        # 2026-11-24 交付口径改默认开：第二轮省 229s（284.1→55.4，有源）；
+                           # 首轮 +18.9s 为单点差分、未受控，且与刀5 时代 +0.2s 结论矛盾在案（挂账）
     "anchorsize": "auto",  # 2026-11-06：默认按 KV 池推荐
     "arith": "on",         # 2026-11-14：默认主力档（SWIFT+m88k）必须 arith：非 arith 下 88k 池起不来；
                            # 旧默认 off 是 CODER390 32-51k 小池时代的设定
@@ -1566,7 +1567,9 @@ def build_command(combo, port=PORT_DEFAULT, exe=None):
     if _c.get("reqlog") == "on":   # 2026-10-13 夜：Stage 0 仪器（文件名按端口）
         argv += ["--request-log-jsonl", os.path.join("work", "data", "reqlog_serve_%s.jsonl" % port),
                  "--request-log-max-mib", "256", "--request-log-keep", "2"]
-    argv += ["--max-shared-prefixes", "0"]   # 铁律：防打砖
+    # 2026-11-24 交付口径：1 = 开启共享前缀目录（原 0 为防打砖隔离）。
+    # 实测：turn2 55.4s（cache 119,676）vs 刀5 同形态 284.1s ⇒ 5.1×；两轮合计 231.0s。
+    argv += ["--max-shared-prefixes", "1"]
     argv += _argv_of(SAMPLE_OPTIONS,  _c["sample"],   DEFAULTS["sample"])
     argv += _argv_of(HEMOSTAT_OPTIONS, _c["hemostat"], DEFAULTS["hemostat"])   # B01 止血（E5 决定：默认开）
     return exe, argv
@@ -2752,5 +2755,6 @@ if __name__ == "__main__":
 #     --lookup-ngram、--vision-residency、--kv-headroom-mib、--seed 等
 #   · 日志落盘（serve_tee 等价物，写 logs\serve_<时间戳>.log）
 #   · （2026-10-13 夜已补）stage0a reqlog 三旗已进启动器（reqlog 维度）；--max-shared-prefixes 0 早已内置（防打砖），勿误列。
+#   · （2026-11-24）#48 交付口径：--max-shared-prefixes 1 + anchor 默认 on（实测两轮 231.0s；turn2 55.4s vs 284.1s = 5.1×，有源）。
 #   · 端口可改、S3 KVMem 检索证据（kvmem_score: SELECT）采集
 # ---------------------------------------------------------------

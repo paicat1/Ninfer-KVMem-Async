@@ -8102,3 +8102,47 @@ Copy-Item _safety_backups\exe_lineage_20261124\ninfer-serve.exe.20261124_064022 
 Copy-Item _safety_backups\governance_baseline_20261101_post\MANIFEST.json.bak_20261124_072158 _safety_backups\governance_baseline_20261101_post\MANIFEST.json -Force
 Copy-Item .codebuddy\sda\.gov_anchor.bak_20261124_072158 .codebuddy\sda\.gov_anchor -Force
 ```
+
+### §245 二十一次登记（2026-11-24 07:26–07:42：#48 交付口径落地 —— shared=1 + anchor 默认 on）
+
+**一、实测（刀6 在役件 `8E437B71`，`REUSE=1` + `PERIOD=8`）**
+
+| 项 | 值 | 锚点 |
+|---|---|---|
+| 机械门（真实启动路径） | `private 1 \| shared 1 \| anchors 4 automatic` | 启动器 `build_command({})` + `env_for_launch` 真实起服，`logs\test_launcher_path2.log` |
+| turn1（120K，含 4 锚） | **175.6s** | 引擎 `TTFT 2m55.5s` |
+| turn2（追加 20K） | **55.4s**，`cache 119,676 (85.7%, turn closure)` | 引擎 `TTFT 54.9s` |
+| 答案 | `ZX-7001` | 探针 `a48_deliver_probe.log` |
+| 两轮合计 | **231.0s** | 本格实测 175.6 + 55.4 |
+| 对照（刀5 同形态 turn2） | **284.1s** | `work\data\a48_anchor_probe.log`（11-23 21:30，刀5 在役）⇒ **5.1×**，省 228.7s |
+
+**二、首轮 +18.9s 的归因：未定（两处混淆，不得当锚成本）**
+
+- 数值：本格 turn1 **175.6s** vs 刀6 冷池基线 **156.7s**（`logs\test_a_k6_p8.log`）⇒ +18.9s。
+- **混淆①**：基线格 `reuse host-backed: **off**`，本格 `**on**`（`grep` 两格 ENV 行可复现）⇒ 差值至少部分是 REUSE 效应，不是锚。
+- **混淆②**：11-23 同一套 4 锚（刀5 在役）实测 **+0.2s ≈ 0**（`§245 七次更正`，基线 287.5s）；两次数值差 94 倍，**未解释**。
+- 结论：+18.9s 只能记为「首次逐字对比、未受控」，**不得写成锚的固有成本**。
+
+**三、启动器补丁（5 处，三轮核过；行号为应用后）**
+
+| # | 行号 | 改动 |
+|---|---|---|
+| 1 | L1572 | `--max-shared-prefixes` `"0"` → `"1"` |
+| 2 | L941 | `DEFAULTS["anchor"]` `"off"` → `"on"` |
+| 3 | L12 | 参数铁律文案（0 → 1，注明改期） |
+| 4 | L736 | GUI 提示（"网格不可用" → "已开启"） |
+| 5 | L2758 | 历史注释追加（保留原文） |
+
+`py_compile=0`；真实 argv 已验（`--max-shared-prefixes 1` + `--auto-long-anchors` + spacing + max-per-continuation）。
+
+**四、风险与回退**
+
+- **打砖**：`shared=0` 当初为何定为 0，**具体原因未考证**（挂账 48 开放问题，不宣称"非实测因果"）；`--recover-invariant-failures` 默认开作兜底。
+- **shared=1 的实测覆盖面**：本战役共 **3 次**起服 —— 11-23 `a48_anchor`（刀5）、11-24 `a48_deliver`（刀6）、11-24 启动器真实路径（刀6）；三次均无 FATAL。
+- **回退**：`git revert` 本提交，或用 `_safety_backups\\launcher\\ninfer_launcher.py.bak_20261124_074022` 覆盖。
+
+**五、边界（未验证，不得当已解决）**
+
+1. 只测到**两轮**；3 轮以上、超长文档下锚数量累积的影响未测。
+2. 首轮 +18.9s 的归因**未定**（REUSE 混淆 + 与 11-23 的 +0.2s 矛盾），故"锚成本"方向与量级都不能引用。
+3. 打砖只在短会话暴露面验过，长跑未验。

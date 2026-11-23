@@ -7655,3 +7655,18 @@ reused_prompt     561,693      ← 环复用了 56 万 token 历史，全命中
 **功能判负**：两轮法（针 156，turn1 119,681 tok → turn2 139,649 tok）。turn1 **287.4s**（与基线 287–315 同带，未见 capture 发布开销）；turn2 跑到 **8 分钟仍 76.7 tok/s**、SELECT 196（≈37K/139K），与无缓存形态（④ turn2 = 1,820s）同速 ⇒ **前缀未被复用**。为省 22 分钟机时主动止损，**判负依据=速率+SELECT 计数，非终局 usage 行**（如实标注，未取得 `cache N` 终值）。
 
 **结论与下一步**：`--max-shared-prefixes 0` 不是唯一闸门；旗标打开后仍需可用 cache anchor。线索：`frontend.cpp:535/:911` 的 `hints.allow_engine_automatic_shared_prefixes` 控制"在结构边界自动放 cache marker"，而本探针是**单条 user 消息**（无消息边界）⇒ 可能未形成可复用 anchor（**假设，未验证**）。下一动作（零机时）：读 marker→anchor→state-key 全链，确定客户端需带什么（或 prompt 需什么形态）才命中。
+
+### §245 七次更正（2026-11-23 21:17–21:30：#48 锚点格 PASS —— 前缀复用首次成立）
+
+**结果**：turn1 **287.7s**（基线 287.5s ⇒ 锚点固有成本 **+0.2s ≈ 0**）；turn2 **284.1s**、prompt 139,630、**`cached_tokens`=119,676（85.7%）**、答案 `ZX-7001`；对照无缓存同形 turn2 **1,820.8s** ⇒ **6.4×**；两轮合计 571.8s vs 2,108.3s ⇒ **3.7×**。
+
+**机械门**：`context cache | … | private 1 | shared 1 | anchors 4 automatic`（无旗标时 `anchors 2`）；turn2 SELECT 起点 `n_blocks=1870/1871`、SELECT 总数 57（无缓存形态 196–288）—— 复用不只在 usage 计数上，打分/检索侧同样可见。
+
+**配方（三条件缺一不可）**：
+1. `--max-shared-prefixes 1`（启动器写死 0，本轮用新增 `-SharedPrefixes` 覆盖；Extra 路线不通，因 `engine_ctl.ps1:458` 的 0 在 `$extraList` 之后）
+2. `--auto-long-anchors`（`include\ninfer\types.h:327` 默认 false；`serve_options.cpp:958` 是该旗标；`startup.cpp:1484` 不开则不建长锚检查点）
+3. 会话键稳定：`session_key = FNV-1a(system/developer 文本 + 第一条 user 消息全文)`（`translate.cpp:387-411`）⇒ 多轮必须保持首条 user 逐字不变
+
+**历史更正**：④ / 补臂 / #48 前两版的全部 `cache 0%` 由此解释 —— 前两版未开锚点，且前两版把两轮拼成**一条** user 消息（键随内容变）。此前"引擎无前缀复用能力/无 anchor"的解读作废。
+
+**挂账新增**：启动器接入两旗标（口径变更，独立评估）—— 收益=真实多轮 6.4×；风险面=打砖边界考古（挂账 #48 有底子）+ 锚点随长 prompt 累积（本格 4 锚成本≈0，更密网格需实测）+ 启动器铁律走审批 + 与 #45 DSH 布局联动。

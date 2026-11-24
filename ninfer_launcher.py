@@ -1076,6 +1076,14 @@ PRESET_PROFILES = {
     #   （kvcap=20480 / graph192 / reqlog on）在维度区仍可手动复现。
 }
 
+# 2026-11-25（用户批·乙）：实验预设。与②逐项相同，唯一差别在下方 PRESET_ENV 里
+#   注入 NINFER_KV_REUSE_HOSTBACKED=0（禁用超池 host-backed 复用）。
+#   用途：隔离"锚/复用"实验变量。日常请用②——本档会让超池请求必然退回 Root 全量重算。
+_EXP_NO_HOSTBACKED = "⑦ 实验 · 禁用超池复用（基于② · MTP k3 120k）"
+PRESET_PROFILES[_EXP_NO_HOSTBACKED] = dict(
+    PRESET_PROFILES["② SWIFT · MTP k3（大池 120k · struct 161.4）"]
+)
+
 # ---------------------------------------------------------------
 # 预设专属环境变量（2026-10-12）：只对同名预设追加，其余预设零影响。
 #   KV_ENV 六开关对所有预设生效；这里是"某个档额外要的"两项：
@@ -1092,6 +1100,11 @@ PRESET_ENV = {
     "⑥ Coder390 · DFlash2 d5（池仅 40k · struct 140.6）":    {"NINFER_ASYNC_DEMOTE_DEPTH": "2"},
     # 2026-10-19 注：DEPTH 已是 GUI 独立维度（"异步深度(批)"，默认 2）。经 env_for_launch 时 combo
     # 后于本表注入 ⇒ GUI 选择覆盖上表；本表仅在"不经 GUI 的 preset 直载路径"上兜底为 2。
+    # 2026-11-25（乙）：实验档——禁用超池 host-backed 复用。KV_ENV 默认 1，本档覆盖为 0。
+    "⑦ 实验 · 禁用超池复用（基于② · MTP k3 120k）": {
+        "NINFER_ASYNC_DEMOTE_DEPTH": "2",
+        "NINFER_KV_REUSE_HOSTBACKED": "0",
+    },
 }
 
 

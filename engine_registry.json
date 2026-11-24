@@ -23,25 +23,24 @@
       "EFB3F69B",
       "刀6退役"
     ],
-    "note": "2026-11-25 07:00:12 BUILD-EXIT=0，ARCH-GATE OK（sm_120a=384/sm_86=0）；sha16 EFB3F69B3300129C，1,333,700,096 B。压力区恒等必打（B）+ /Brepro。实测 p2 深超池（45.4% 超池）三针 ALL3_PASS，75.1s，ZX-7001 中段针恢复。未过 T-BUILD-TWICE（两次干净构建 sha 不同，根因已定位 -lineinfo），不得替换现役位、不得作交付口径；仅用于实机联调/验证。",
+    "note": "2026-11-25 07:00:12 BUILD-EXIT=0，ARCH-GATE OK；sha16 EFB3F69B3300129C，1,333,700,096 B。压力区恒等必打（B）+ /Brepro。p2 深超池三针 ALL3_PASS 75.1s。未过 T-BUILD-TWICE（-lineinfo），不得替换现役/作交付口径。",
     "status": "候选",
     "added": "2026-11-25",
     "replaced_by": "",
     "preset": ""
   },
   {
-    "label": "候选 · 刀6退役 + B（仅实机验证 · 未转正）",
+    "label": "旧线 1208a（11-05 现役 · 已被取代）",
     "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
     "tags": [
-      "候选",
-      "仅测试",
-      "EFB3F69B",
-      "刀6退役"
+      "旧件",
+      "已被取代",
+      "F814B07A"
     ],
-    "note": "2026-11-25 07:00:12 BUILD-EXIT=0，ARCH-GATE OK（sm_120a=384/sm_86=0）；sha16 EFB3F69B3300129C，1,333,700,096 B。压力区恒等必打（B）+ /Brepro。实测 p2 深超池（45.4% 超池）三针 ALL3_PASS，75.1s，ZX-7001 中段针恢复。⛔ 未过 T-BUILD-TWICE（两次干净构建 sha 不同，根因已定位 -lineinfo），不得替换现役位、不得作交付口径；仅用于实机联调/验证。",
-    "status": "候选",
-    "added": "2026-11-25",
-    "replaced_by": "",
+    "note": "该目录曾被 2026-11-05 的 publish 拷贝覆盖，当前实际 sha 是 F814B07A…（登记时写的 B93B1791 已不符）。11-05 的现役旧件，已被 1208b 取代，仅作 A/B 对照。不支持 --wddm-budget-arithmetic-only。  ［2026-11-22 标：该构建目录已删除（批10 清理），此登记项仅作历史，选中会报\"起服件不存在\"。］",
+    "status": "已取消",
+    "added": "2026-11-04",
+    "replaced_by": "★★现役 1208b（算术池版 · 126K 天花板）",
     "preset": ""
   },
   {

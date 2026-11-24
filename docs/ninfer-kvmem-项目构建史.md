@@ -8237,3 +8237,125 @@ Copy-Item .codebuddy\sda\.gov_anchor.bak_20261124_072158 .codebuddy\sda\.gov_anc
 3. p2b 中针 first_hit=144 vs P2 原格 34（覆盖时段后移）未解释；
 4. 刀6 代价仅测 120K/45% 最深格，7.9% 交付档代价未测；
 5. `kvmem_score.h` 压力区必打改动未编译验证（构建目录待冷编）。
+
+### §245 二十四次登记（2026-11-25 凌晨：刀6 退役落地与构建可复现性缺口）
+
+**一、数字**
+
+- 源码改动：`kvmem_score.h` 压力区恒等必打（`NINFER_C7_LAZY_PRESSURE_PERIOD` 对压力区失效；非压力区仍 8-chunk）
+- 构建#1（清目录后首次全量）：`BUILD-EXIT=0` 01:46:59；sha16 **`6DC6EB379E421FFA`**；1,333,897,216 B；`ARCH-GATE OK`（sm_120a=384 / sm_86=0 / ptx=0）
+- 判据（新件，p2 格＝池 65,536、超池 45.4%，env 仍写 PERIOD=8）：**ALL3_PASS**，77.0s，prompt=120,011，三针块 155/937/1797
+- 构建#2（删除构建目录后重编，T-BUILD-TWICE）：`BUILD-EXIT=0` 02:17:25；sha16 **`81E85A37B9035833`**；1,334,380,544 B
+- 两次产物差：**Δsize = 483,328 B，sha 不同**
+- 确定性旗标：`CMakeCache.txt` 的 `CMAKE_CXX_FLAGS` 为 `/DWIN32 /D_WINDOWS /EHsc`，**无 `/Brepro`**
+
+**二、阶段与原因**
+
+B 改动（压力区必打）→ 清目录全量冷编 → 新件 p2 判据 → 再清目录重编（T-BUILD-TWICE）→ 产物不等。
+
+**三、Δ 对上个基线**
+
+- 召回：p2（45.4% 超池）由 `K2_SIGN`（丢中段针）→ **ALL3_PASS**
+- 可复现性：首次量化「同源同配方、两次干净构建产物不等」（Δ483,328 B）
+
+**四、解决了什么**
+
+- 刀6 退役的行为验证成立：即使环境仍传 `PERIOD=8`，深超池也不再丢中段针
+- 定位 T-BUILD-TWICE 不通过的事实，并锁定直接原因候选（缺 `/Brepro`）
+
+**五、新发现**
+
+- 本链构建**不可复现**：两次干净构建 size 相差 483,328 B（不是纯时间戳差异量级）
+- 无 `/Brepro` ⇒ PE 时间戳与 PDB 路径进入产物，属 T-BUILD-DETERMINISM 未落地
+
+**六、新挂账**
+
+1. 补 `/Brepro`（必要时加 `SOURCE_DATE_EPOCH`/固定 `/Fd`）后，须再连编两次比 sha，相同方可转正
+2. 本轮首个候选（`6DC6EB37`）已被第二次构建覆盖，未归档；后续 TWICE 必须先归档首个产物
+3. 换装（PROMOTE）阻塞于 TWICE 不通过；在役件保持 `8E437B71` 不动
+
+**七、复现**
+
+- 日志 `build-out\build_engine.log`（02:01:14 → 02:17:25 段）
+- 台账 `docs\01-构建与发布\BUILD_LEDGER.jsonl`：两条 `candidate`（`6dc6eb37…`、`81e85a37…`）
+
+## §246 夜巡时间线（2026-11-25 02:00–03:00 · 工作树追加，未提交）
+
+**一、数字**
+
+- 02:0x p2 判据（构建#1 `6DC6EB379E421FFA`）：`ALL3_PASS`，77.0s，prompt=120,011，中段针块 937 PASS
+- 02:01:14 起第二次干净全量构建（`purpose=build B knife6-retire twice`）
+- 02:17:25 构建#2 完成：`BUILD-EXIT=0`，`ARCH-GATE OK`，sha16 **`81E85A37B9035833`**，1,334,380,544 B
+- 与构建#1 差：**Δsize 483,328 B**，sha 不同 ⇒ **T-BUILD-TWICE 不通过**
+- 02:2x p2 判据（构建#2 产物）：`ALL3_PASS`，75.1s（与构建#1 行为一致）
+- 台账：两条 `candidate`（`6dc6eb37…` / `81e85a37…`），无 `已验证/已转正`
+
+**二、阶段**
+
+p2 PASS → 清目录重编（TWICE）→ 产物不等 → 停手（未盲目重试）→ 换装阻塞 → 台账/预登记/值守布防
+
+**三、Δ 对 §245 二十四次**
+
+- 行为面：两次产物判据一致（ALL3_PASS），证明 B 改动与编译产物个体无关
+- 复现面：确认不可复现（非单次抖动），且 `CMAKE_CXX_FLAGS` 无 `/Brepro`
+
+**四、新挂账**
+
+1. `/Brepro` 配方补丁（属配方变更，待批）+ 修后连编两次比 sha
+2. 首个候选产物（`6DC6EB37`）在删除构建目录前**未备份**，已被构建#2 覆盖——后续 >1G 产物删除前先备份到 `_safety_backups\exe_lineage_<日期>\`
+3. 换装判据已预登记（`work\data\prereg_p2_promote_20261125.md`），P5（p1 新件三针）未测
+
+**五、现场**
+
+- 引擎 0 进程；VRAM 68 MiB；无残留 cmake/ninja/cl/nvcc
+- 在役件仍为 `8E437B712AC06CDF`（未换装）
+
+## §247 构建可复现性战役（2026-11-25 02:00–08:00 · 工作树追加）
+
+**一、数字**
+
+- 候选件（B：压力区恒等必打）两版构建：
+  - 构建#1 `BUILD-EXIT=0` 01:46:59；sha16 `6DC6EB379E421FFA`；1,333,897,216 B
+  - 构建#2 `BUILD-EXIT=0` 02:17:25；sha16 `81E85A37B9035833`；1,334,380,544 B
+  - ⇒ `T-BUILD-TWICE` 不通过（Δ483,328 B）
+- 加 `/Brepro` 后重编两版（清目录、`CMakeLists` +6 行）：
+  - #A `BUILD-EXIT=0` 06:42:23；sha16 `BB00A5DD7C79FDB2`；1,333,991,424 B
+  - #B `BUILD-EXIT=0` 07:00:12；sha16 `EFB3F69B3300129C`；1,333,700,096 B
+  - ⇒ 仍不通过（Δ291,328 B）
+- 两次判据（各自产物）：p2 深超池（45.4% 超池）**均 ALL3_PASS**（77.0s / 75.1s），中段针 ZX-7001 均恢复
+- `ARCH-GATE`：两版均 `sm_120a=384 / sm_86=0 / ptx=0`
+
+**二、取证（逐层定位）**
+
+| 层 | 结果 |
+|---|---|
+| 两份 `build.ninja` | **逐字节相同**（sha16 `00A61562`，11,990 行）⇒ 配方/目标一致 |
+| 主机侧 OBJ（`main.cpp.obj`、`context.cpp.obj`） | **逐字节相同** |
+| 722 个 OBJ 全量尺寸比对 | **55 个不同**，全部为 `src/ops/.../ggml_mmq_*.cu.obj`，差 8–144 B |
+| 差异字节起点 | COFF 头 `TimeDateStamp`（offset 4..8），其后为 `.debug$S` 行号区 |
+| 静态库（ops/serve/model_runtime） | 全不同（由上述 OBJ 带偏） |
+| 最终 exe | 尺寸差**全部落在 `.nv_fatb`**；`.text/.rdata/.rsrc/.reloc` 尺寸不变、hash 变（fatbin 位移牵连） |
+
+**三、微实验（同目录、同命令、同一 TU）**
+
+- 带 `-lineinfo`（现配方）：两次编译 1,886,786 B / 1,886,650 B，sha 不同；临时文件名不同（`tmpxft_00003d18` vs `tmpxft_000039b4`）
+- 去掉 `-lineinfo`：两次编译 **819,538 B，sha 完全相同（`8A968AAD534184A8`）**
+
+**⇒ 根因：`-lineinfo` 把设备行号表写入对象，而每次编译的临时文件名随机 ⇒ 对象不可复现。`-Xcompiler=/Brepro` 只作用于 nvcc 转交 cl 的部分，管不到 nvcc 自身写出的对象头/调试段。**
+
+**四、解决/未解决**
+
+- 已解决：定位到单一开关（`-lineinfo`），且验证"关掉即可复现"（微实验级）
+- 未解决：发布配方尚未改（需把 `-lineinfo` 改为可选、默认关，并保留 profile 变体）；改后须再连编两次复验
+- `T-BUILD-TWICE` 未通过 ⇒ 两版产物均标 `candidate`，**在役件仍 `8E437B712AC06CDF` 未动**
+
+**五、交付面**
+
+- 启动器：`NINFER_C7_LAZY_PRESSURE_PERIOD` 已从 `KV_ENV` 移除（引擎侧压力区恒等必打，该 env 对压力区失效）
+- `engine_registry.json`：新增「候选 · 刀6退役 + B（仅实机验证 · 未转正）」条目，指向 `build-out\build-1208a\apps\ninfer-serve.exe`（`EFB3F69B3300129C`），标注不得替换现役
+
+**六、新挂账**
+
+1. 发布配方：`-lineinfo` 默认关 + profile 变体（改后连编两次复验 TWICE）
+2. `T-BUILD-DETERMINISM`：`/Brepro` 已加；剩余项（`SOURCE_DATE_EPOCH`、固定 `/Fd`）未做
+3. 构建目录三份（B 产物 / A 归档 / stale）占盘，待清理

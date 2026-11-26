@@ -1798,6 +1798,83 @@ public:
         return true;
     }
 
+    // C-STEP RESTORE EXTENT MERGE (2026-11-17): batched counterpart of restore_page_from_host.
+    // `pages_in_run` are logical pages whose Host replicas live CONTIGUOUSLY inside ONE extent --
+    // `source` covers them in ascending page_offset order and the caller passes them in that same
+    // order, so destination[i] receives source page i (copy_from_host maps positionally). Each
+    // page keeps the exact single-page pipeline (reserve -> publish -> retain -> block-table
+    // publish); only the staged H2D is shared: ONE call for the whole run instead of one PER
+    // PAGE. Measured (SS239/SS240): the per-call pageable staging cost is ~8-13ms/page, so small
+    // appends paid 7-24s of TTFT on 1.7-2.5k restored pages and a fill paid it 40x over its own
+    // prompt size. A mid-run failure unwinds every already-reserved page so no page is left
+    // pinned (parity with the single-page path, which never leaves partial state).
+    [[nodiscard]] std::uint32_t restore_pages_from_host(
+        KVAddressSpaceHandle handle, std::span<const std::uint32_t> pages_in_run,
+        HostKVAllocationConstView source, cudaStream_t stream = nullptr) {
+        Address& address = require_active(handle);
+        std::vector<DeviceKVPageHandle> destinations;
+        std::vector<DeviceKVPageReservation> reservations;
+        destinations.reserve(pages_in_run.size());
+        reservations.reserve(pages_in_run.size());
+        std::size_t reserved_ok = 0;
+        bool capacity_hit = false;
+        try {
+            for (const std::uint32_t page : pages_in_run) {
+                const LogicalKVPageHandle logical = membership(address, page);
+                if (!pages_->valid(logical) || pages_->device_resident(logical) ||
+                    !pages_->host_resident(logical)) {
+                    throw std::logic_error("logical KV Device restore run is not reservable");
+                }
+                // LOCAL FIX (cstep-restore-soft, 2026-11-18): capacity exhaustion is a SOFT
+                // failure -- the run truncates to its already-reserved prefix and the pages that
+                // did not fit stay out of the mask ("a failed restore simply drops out", the
+                // contract this method is built on). Program errors (logic_error and friends)
+                // still propagate: a real bug must not be swallowed into a quiet short restore.
+                try {
+                    reservations.emplace_back(pages_->physical_pool().make_empty_reservation());
+                    pages_->physical_pool().resize_reservation(reservations.back(), 1);
+                    destinations.push_back(
+                        pages_->reserve_device_replica(logical, reservations.back()));
+                } catch (const ContextCacheExhausted&) {
+                    capacity_hit = true;
+                    break;
+                }
+                ++reserved_ok;
+            }
+        } catch (...) {
+            for (std::size_t i = 0; i < reserved_ok; ++i) {
+                pages_->abort_device_replica(membership(address, pages_in_run[i]),
+                                             reservations[i]);
+            }
+            throw;
+        }
+        if (capacity_hit) {
+            // [diag] accounting line (mirrors paged_kv_cache's fprintf style): the pool ledger a
+            // truncated run leaves behind, so the soft path's accept/reject stays auditable.
+            std::fprintf(stderr,
+                         "[diag] restore-run truncated tag=host-restore-run aborted=%zu usable=%u "
+                         "allocated=%u reserved=%u free_runs=%zu\n",
+                         pages_in_run.size() - reserved_ok,
+                         pages_->physical_pool().usable_pages(),
+                         pages_->physical_pool().allocated_pages(),
+                         pages_->physical_pool().reserved_pages(),
+                         pages_->physical_pool().free_runs().size());
+        }
+        if (reserved_ok == 0) { return 0; }
+        pages_->physical_pool().copy_from_host(
+            source.subview(0, static_cast<std::uint32_t>(reserved_ok)),
+            std::span<const DeviceKVPageHandle>(destinations.data(), reserved_ok), stream);
+        for (std::size_t i = 0; i < reserved_ok; ++i) {
+            const LogicalKVPageHandle logical = membership(address, pages_in_run[i]);
+            pages_->publish_device_replica(logical);
+            pages_->retain_active_reference(logical);
+            publish_scratch_.clear();
+            publish_scratch_.push_back(pages_->physical(logical));
+            tables_->publish(address.row->handle(), pages_in_run[i], publish_scratch_, stream);
+        }
+        return static_cast<std::uint32_t>(reserved_ok);
+    }
+
     // Coverage is a lower bound. A speculative mapping may already extend beyond this stage's
     // needs; only an explicit truncate releases it, and commit_frontier publishes valid tokens.
     void ensure_mapped_to_tokens(KVAddressSpaceHandle handle, std::uint32_t tokens,

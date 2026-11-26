@@ -143,6 +143,12 @@ if(MSVC)
     # headers, not just spdlog's own .cpp files, so this is global rather than per-target.
     $<$<COMPILE_LANGUAGE:C,CXX>:/utf-8>
     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/utf-8>)
+  # T-BUILD-DETERMINISM（2026-11-25 用户批准）：实测两次干净构建 size 差 483,328 B、sha 不同；
+  #   无 /Brepro 时 PE 时间戳随构建时刻变化。此项只固定 PE 头，不改调试信息格式（仍 /Zi）。
+  add_compile_options(
+    $<$<COMPILE_LANGUAGE:C,CXX>:/Brepro>
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Brepro>)
+  add_link_options(/Brepro)
   # CUDA's static runtime requests LIBCMT even when the application and vcpkg dependencies use
   # the project-wide /MD runtime. Keep one CRT in the final process.
   add_link_options($<HOST_LINK:/NODEFAULTLIB:LIBCMT>)

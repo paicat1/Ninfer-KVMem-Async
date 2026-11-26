@@ -1634,12 +1634,35 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
     // capture.cpp / disk_tier.cpp precedent) and wait ONCE after the loop -- this step's attention
     // must read the pages, so one batch wait is required; per-page serialisation is not.
     std::uint32_t restore_submitted = 0;
+    // C-STEP RESTORE EXTENT MERGE (2026-11-17): the loop kept the 挂账46第四步 transfer-stream
+    // batching but still issued ONE copy_from_host PER PAGE -- and copy_from_host's per-call
+    // pageable staging cost is the measured ~8-13ms/page tax (SS239: 1.7-2.5k restored pages ->
+    // 7-24s TTFT per small append; SS240: 85k pages restored for a 2.1k-page prompt, 40x churn).
+    // This rewrite keeps every per-page lifecycle predicate and the single batch wait, and adds
+    // one thing: pages that live CONTIGUOUSLY inside one Host extent (same extent, consecutive
+    // page_offset -- the common shape of ring-window refills, seam neighbourhoods and demote-batch
+    // siblings) are restored with ONE staged H2D per contiguous run; copy_from_host already
+    // scatters into arbitrary device slots and splits runs by physical adjacency internally.
+    // Priority is preserved at run granularity: the walk stays best-first over the ranked input,
+    // and a run only pulls its own extent-neighbours (the seam-neighbour completeness policy, D-5:
+    // breadth traded for completeness on purpose). Invariants carried over unchanged:
+    //   * cancellation checkpoints stay at page/run boundaries (partial restore is safe by
+    //     design -- pages that never made it back stay hidden from the mask);
+    //   * a page enters `resident` only after its copy is submitted (it can never be read from a
+    //     stale Device slot);
+    //   * the ONE batch wait below is the only synchronization; no new event crosses requests;
+    //   * the pool-full break stays: when free slots run dry the loop breaks after the last
+    //     submittable run, exactly like the old loop broke after its last submittable page.
+    struct RestoreRunGroup {
+        HostKVExtentCapability extent;
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> offsets;  // (page_offset, page), sorted
+        std::vector<char> done;
+    };
+    std::vector<RestoreRunGroup> groups;
+    // Pass A (classification only): bucket the wanted Host-resident pages by extent with sorted
+    // offsets; already-resident pages join `resident` in input order, exactly like the old loop's
+    // first check.
     for (const std::uint32_t page : logical_pages) {
-        // LOCAL FIX (挂账42/41): page-boundary cancellation checkpoint (mirror of the demote
-        // loop). A partial restore is semantically safe by design -- pages that never made it
-        // back stay hidden from the mask (the "silently unreadable" contract), and a cancelled
-        // unit should stop paying H2D PCIe traffic immediately.
-        if (decode_cancelled()) { break; }
         const LogicalKVPageHandle logical = addresses.logical_page(address, page);
         if (!pages.valid(logical)) { continue; }
         if (pages.device_resident(logical)) {
@@ -1647,20 +1670,113 @@ ProgramImpl::restore_kv_pages_from_host(KVAddressSpaceStore& addresses, LogicalK
             continue;
         }
         if (!pages.host_resident(logical)) { continue; }
-        // SAFETY: never materialize into a full pool. A page that cannot be brought back is simply
-        // left out of the mask, which hides it -- it can never be read from a stale Device slot.
-        if (pages.physical_pool().free_runs().empty()) { break; }
         const HostKVPageReplica replica = pages.host_replica(logical);
-        DeviceKVPageReservation reservation = pages.physical_pool().make_empty_reservation();
-        pages.physical_pool().resize_reservation(reservation, 1);
+        RestoreRunGroup* group = nullptr;
+        for (RestoreRunGroup& g : groups) {
+            if (g.extent == replica.extent) { group = &g; break; }
+        }
+        if (group == nullptr) {
+            groups.emplace_back(RestoreRunGroup{replica.extent, {}, {}});
+            group = &groups.back();
+        }
+        std::size_t pos = 0;
+        while (pos < group->offsets.size() && group->offsets[pos].first < replica.page_offset) {
+            ++pos;
+        }
+        if (pos < group->offsets.size() && group->offsets[pos].first == replica.page_offset) {
+            continue;  // duplicate wanted page: one restore covers it
+        }
+        group->offsets.insert(group->offsets.begin() + static_cast<std::ptrdiff_t>(pos),
+                              {replica.page_offset, page});
+        group->done.insert(group->done.begin() + static_cast<std::ptrdiff_t>(pos), 0);
+    }
+    // Pass B (best-first at run granularity): walk the ranked input; every still-unprocessed
+    // wanted page seeds the maximal contiguous offset run inside its extent, clamped to the pool
+    // pages that are actually available (an over-long run truncates at its tail). The run's pages
+    // are exactly group->offsets[lo..hi] -- a contiguous offset range by construction -- so the
+    // source span and the destination order align positionally without any re-sorting.
+    constexpr std::size_t kRestoreRunMaxPages = 128;
+    std::vector<std::uint32_t> run_pages;
+    run_pages.reserve(kRestoreRunMaxPages);
+    for (const std::uint32_t page : logical_pages) {
+        if (decode_cancelled()) { break; }
+        // SAFETY: never materialize into a full pool (unchanged from the old loop). A page that
+        // cannot be brought back is simply left out of the mask, which hides it.
+        // LOCAL FIX (cstep-restore-soft, 2026-11-18): reserved-but-not-materialized pages can
+        // drive available_pages() to zero while free_page_runs_ is still non-empty, so BOTH
+        // conditions must gate the walk (the old single guard let the underflow below happen).
+        if (pages.physical_pool().free_runs().empty() ||
+            pages.physical_pool().available_pages() == 0) {
+            break;
+        }
+        const LogicalKVPageHandle seed_logical = addresses.logical_page(address, page);
+        if (!pages.valid(seed_logical) || pages.device_resident(seed_logical) ||
+            !pages.host_resident(seed_logical)) {
+            continue;
+        }
+        const HostKVPageReplica seed_replica = pages.host_replica(seed_logical);
+        RestoreRunGroup* group = nullptr;
+        for (RestoreRunGroup& g : groups) {
+            if (g.extent == seed_replica.extent) { group = &g; break; }
+        }
+        if (group == nullptr) { continue; }
+        std::size_t seed = 0;
+        while (seed < group->offsets.size() &&
+               group->offsets[seed].first < seed_replica.page_offset) {
+            ++seed;
+        }
+        if (seed >= group->offsets.size() ||
+            group->offsets[seed].first != seed_replica.page_offset ||
+            group->done[seed] != 0) {
+            continue;
+        }
+        // Expand [lo, hi] alternately so the window always contains the seed and stays a
+        // contiguous index range; every taken page is one pool slot, clamped by availability.
+        std::size_t lo = seed;
+        std::size_t hi = seed;
+        group->done[seed] = 1;
+        // LOCAL FIX (cstep-restore-soft, 2026-11-18): `available_pages() - 1U` underflowed to
+        // 4,294,967,295 when the pool was full (reserved backlog), which disabled the clamp and
+        // pushed the run into a hard materialize throw. Guard the subtraction.
+        const std::uint32_t pool_avail = pages.physical_pool().available_pages();
+        std::uint32_t run_avail = pool_avail == 0 ? 0U : (pool_avail - 1U);
+        while ((hi - lo + 1) < kRestoreRunMaxPages) {
+            if (decode_cancelled() || run_avail == 0) { break; }
+            std::size_t take;
+            bool take_hi = false;
+            if (hi + 1 < group->offsets.size() && group->done[hi + 1] == 0 &&
+                group->offsets[hi + 1].first == group->offsets[hi].first + 1) {
+                take = hi + 1;
+                take_hi = true;
+            } else if (lo > 0 && group->done[lo - 1] == 0 &&
+                       group->offsets[lo].first == group->offsets[lo - 1].first + 1) {
+                take = lo - 1;
+            } else {
+                break;
+            }
+            group->done[take] = 1;
+            --run_avail;
+            if (take_hi) { hi = take; } else { lo = take; }
+        }
+        run_pages.clear();
+        for (std::size_t k = lo; k <= hi; ++k) {
+            run_pages.push_back(group->offsets[k].second);
+        }
+        const std::uint32_t run_first_offset = group->offsets[lo].first;
+        const std::uint32_t run_count = static_cast<std::uint32_t>(hi - lo + 1);
         const HostKVAllocationConstView source =
-            host_kv_extents->view(replica.extent).subview(replica.page_offset, 1);
-        // 挂账46 第四步: copy + publish on the transfer stream (rank 0; the single-GPU build is
-        // the only configuration this tree ships).
-        if (addresses.restore_page_from_host(address, page, source, reservation,
-                                             transfer_streams[0])) {
-            resident.push_back(page);
-            ++restore_submitted;
+            host_kv_extents->view(group->extent).subview(run_first_offset, run_count);
+        const std::uint32_t submitted = addresses.restore_pages_from_host(
+            address, std::span<const std::uint32_t>(run_pages.data(), run_pages.size()), source,
+            transfer_streams[0]);
+        if (submitted != 0) {
+            // LOCAL FIX (cstep-restore-soft, 2026-11-18): only the submitted PREFIX is resident -- a
+            // capacity-truncated run publishes its first `submitted` pages and leaves the rest out
+            // of the mask, so every page handed to `resident` is genuinely Device-resident.
+            for (std::size_t k = 0; k < submitted; ++k) {
+                resident.push_back(run_pages[k]);
+            }
+            restore_submitted += submitted;
         }
     }
     if (restore_submitted != 0) {

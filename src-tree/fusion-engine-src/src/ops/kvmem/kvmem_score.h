@@ -207,6 +207,53 @@ inline void kvmem_score_set_chunk_origin(std::int32_t abs_begin) noexcept {
     kvmem_score_probe().abs_chunk_begin = abs_begin;
 }
 
+// ---- C7 刀5 懒打分门控（2026-11-21 用户批；2026-11-22 修：命名空间层 + 冷启动 + 去 layer0 依赖）--
+// 依据 §244 更正：demote 需求驱动，填充前 92% chunk 池未满、分数无人消费。
+// 关：env 未设/为 0 时恒 false（与现役逐位等价）。开：
+//   无压力(n_blocks <= pool_blocks-256) 且 距上次本层打分 < 8 个"chunk 等价钱" ⇒ 跳过。
+//   chunk 等价钱 = 全局调用序号 / max(1, layers_total)，不依赖 layer 编号从 0 起或含 0。
+//   首块冷启动：该层从未打过(s_last_call==0) ⇒ 必打。
+inline bool c7_lazy_should_skip(std::int32_t layer, std::int32_t n_blocks,
+                                std::int32_t layers_total, std::int32_t pool_blocks) {
+    static const int kOn = []() {
+        const char* e = std::getenv("NINFER_C7_LAZY_SCORE");
+        return e != nullptr ? std::atoi(e) : 0;
+    }();
+    if (kOn != 1) { return false; }
+    static std::int64_t s_calls = 0;
+    static std::int64_t s_last_call[64] = {};
+    const std::int32_t li  = (layer >= 0 && layer < 64) ? layer : 63;
+    const std::int64_t per = (layers_total > 0) ? layers_total : 16;
+    const std::int64_t cur = s_calls++ / per;            // 当前 chunk 等价序号
+    // 2026-11-22 修正：pool_blocks 由调用点传 capacity_blocks（index 容量 4096），
+    // 而压力应按物理池页数（-Pool 110592/64 = 1728）。env 覆盖优先。
+    static const long kPoolOverride = []() {
+        const char* e = std::getenv("NINFER_C7_LAZY_POOL_BLOCKS");
+        return e != nullptr ? std::atol(e) : 0L;
+    }();
+    // fail-closed（2026-11-22 用户批）：LAZY 开启但池页数未配 ⇒ 宁可不跳，
+    // 绝不因漏配退化成"该打不打"的纯刷新形态（已实测该形态池满段零打分）。
+    if (kPoolOverride <= 0) { return false; }
+    const long pool_pages = kPoolOverride;
+    const bool pressure = static_cast<long>(n_blocks) > (pool_pages - 256L);
+    // 刀6 退役（2026-11-24 用户批 B；依据 P2 深超池 3/3 复现 + 代价定量）：
+    //   压力区（n_blocks > pool-256）恒等必打，与刀5 逐位等价。
+    //   旧行为靠 NINFER_C7_LAZY_PRESSURE_PERIOD（实验取 8）在深超池丢中段针：
+    //     PERIOD=8 三跑全丢 ZX-7001、PERIOD=1 三跑全对；代价仅 +6.85s / 120K 预填。
+    //   该 env 自此对压力区无效（显式传 8 同样不生效），
+    //   杜绝把"正确性"旋钮误配成静默错答（该故障形态本战役已实证为最危险）。
+    if (pressure) {
+        s_last_call[li] = s_calls;                       // 记"打了"（以调用序号为单位）
+        return false;                                    // 压力区每 chunk 必打
+    }
+    constexpr long period = 8L;                          // 非压力区：保持刀5 的 8-chunk 周期
+    const bool cold     = (s_last_call[li] == 0);        // 本层首次 ⇒ 必打
+    const bool stale    = cold || (cur - s_last_call[li] / per) >= period;
+    if (!stale) { return true; }
+    s_last_call[li] = s_calls;                           // 记"打了"（以调用序号为单位）
+    return false;
+}
+
 inline void kvmem_score_fail(const char* why) noexcept {
     KvMemScoreProbe& p = kvmem_score_probe();
     p.failed = true;
@@ -420,6 +467,8 @@ inline void kvmem_score_accumulate(std::int32_t fidx, const void* q, std::int32_
     const Tensor& sums = index->layer_sums(fidx);
     if (sums.data == nullptr) { return; }
 
+    // C7 刀5：无压力期跳过打分（缺省关闭）
+    if (c7_lazy_should_skip(fidx, p.n_blocks, p.layers_total, p.capacity_blocks)) { return; }
     KvMemRetrieveConfig cfg;
     cfg.n_layers          = 1;                      // 逐层调用
     cfg.n_layers_total    = p.layers_total;         // head_w = 1/(总层数×query 头数)

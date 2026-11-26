@@ -63,10 +63,22 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib> // C7 分段门控 getenv/atoi
 
 namespace ninfer::ops {
 namespace detail {
 namespace {
+
+// C7 分段测量门控（2026-11-20，用户批）：0=完整（缺省，与在役件等价）
+// 1=只跑到 phase1 结束 2=完整但把 atomicAdd 换成普通写。
+// 非 0 取值下 score 数值一律无效，只用于 profiler 计时/stall 归因（S4 声明）。
+static int c7_seg_mode() {
+    static const int m = []() {
+        const char* e = std::getenv("NINFER_C7_SEG");
+        return e != nullptr ? std::atoi(e) : 0;
+    }();
+    return m;
+}
 
 constexpr int kRetrieveThreads = 256;
 constexpr int kRetrieveWarps   = kRetrieveThreads / kWarpSize;
@@ -77,8 +89,27 @@ constexpr int kRetrieveWarps   = kRetrieveThreads / kWarpSize;
 // is the production instantiation, not a convenience.
 __device__ __forceinline__ float dot_q_bf16_sum(const __nv_bfloat16* __restrict__ q,
                                                 const float* __restrict__ ksum, int n) {
-    float s = 0.0f;
-    for (int d = 0; d < n; ++d) {
+    // C7 刀1a（微基准 M1=3.80x / M2' 0 失效 / M3 top-16=1.000）：8 元素/轮向量化 + 4 累加器 ILP。
+    // 生产 dtype 保真：q=BF16（1×float4 = 8 个 bf16），ksum=F32（2×float4 = 8 个 fp32）；
+    // 乘积与累加仍是 float，仅求和顺序变化（Σ 标定绝对线 1e-5·Σ|q·k| 内，实测 1% 线）。
+    float a0 = 0.0f, a1 = 0.0f, a2 = 0.0f, a3 = 0.0f;
+    int d = 0;
+    for (; d + 7 < n; d += 8) {
+        const float4 qv = *reinterpret_cast<const float4*>(q + d);
+        const __nv_bfloat162* qs = reinterpret_cast<const __nv_bfloat162*>(&qv);
+        const float2 q0 = __bfloat1622float2(qs[0]);
+        const float2 q1 = __bfloat1622float2(qs[1]);
+        const float2 q2 = __bfloat1622float2(qs[2]);
+        const float2 q3 = __bfloat1622float2(qs[3]);
+        const float4 klo = *reinterpret_cast<const float4*>(ksum + d);
+        const float4 khi = *reinterpret_cast<const float4*>(ksum + d + 4);
+        a0 += q0.x * klo.x + q0.y * klo.y;
+        a1 += q1.x * klo.z + q1.y * klo.w;
+        a2 += q2.x * khi.x + q2.y * khi.y;
+        a3 += q3.x * khi.z + q3.y * khi.w;
+    }
+    float s = (a0 + a1) + (a2 + a3);
+    for (; d < n; ++d) {
         s += __bfloat162float(q[d]) * ksum[d];
     }
     return s;
@@ -132,10 +163,25 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
                                              int n_layers, int n_query_tokens, int n_heads,
                                              int n_kv_heads, int head_dim, int q_layer_stride,
                                              int q_token_begin, int n_blocks, int kbar_layer_stride,
-                                             int incl_lo, int incl_hi, float scale, float head_w) {
+                                             int incl_lo, int incl_hi, float scale, float head_w,
+                                             int c7_seg, int hg, int n_groups) {
     const int lt = static_cast<int>(blockIdx.x);
-    const int l  = lt / n_query_tokens;
-    const int t  = lt % n_query_tokens;
+    // C7 A2 验证：head 维切分。n_groups<=1 时与旧布局逐位等价。
+    int l, t, qh_lo, qh_hi;
+    if (n_groups <= 1) {
+        l      = lt / n_query_tokens;
+        t      = lt % n_query_tokens;
+        qh_lo  = 0;
+        qh_hi  = n_heads;
+    } else {
+        t          = lt % n_query_tokens;
+        const int rest = lt / n_query_tokens;
+        l          = rest % n_layers;
+        const int g = rest / n_layers;
+        qh_lo = g * hg;
+        qh_hi = qh_lo + hg;
+        if (qh_hi > n_heads) { qh_hi = n_heads; }
+    }
     if (l >= n_layers) { return; }
 
     const int tid  = static_cast<int>(threadIdx.x);
@@ -164,7 +210,7 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
     // always-kept sink/recent bands (kernels_cuda.cu:5400-5407) so their mass redistributes. Skipping
     // them is the same arithmetic and never evaluates exp(-inf - -inf), which would be NaN if a
     // caller ever passed a range with no included block at all.
-    for (int qh = 0; qh < n_heads; ++qh) {
+    for (int qh = qh_lo; qh < qh_hi; ++qh) {
         const int kvh  = qh / group;
         const QT* qr   = q_l + (static_cast<long long>(q_token_begin + t) * n_heads + qh) * head_dim;
         float     lm   = -CUDART_INF_F;
@@ -214,6 +260,9 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
         __syncthreads();
     }
 
+    // C7 分段：=1 时到此为止（只测 phase1，score 无效）。
+    if (c7_seg == 1) { return; }
+
     // ---- Phase 2: mass accumulation, ONE atomic per (block, layer, query token).
     //
     // The head loop is inside so the atomics are n_heads times fewer than one per (block, head), and
@@ -225,7 +274,7 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
                                     : 1.0f;
         const float logit_w   = scale * invc;
         float       local     = 0.0f;
-        for (int qh = 0; qh < n_heads; ++qh) {
+        for (int qh = qh_lo; qh < qh_hi; ++qh) {
             const float gm = s_stats[qh];
             const float gs = s_stats[n_heads + qh];
             // Unreachable while the band rule guarantees a non-empty middle, and defended anyway:
@@ -239,7 +288,9 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
             const float  logit = logit_w * dot_q_sum<QT>(qr, krow, head_dim);
             local += expf(logit - gm) * (head_w / gs);
         }
-        if (local != 0.0f) {
+        if (c7_seg == 2) {
+            score[b] = local; // 免 atomic 变体：数值无效，仅计时（S4）
+        } else if (local != 0.0f) {
             atomicAdd(&score[b], local);
         }
     }
@@ -264,8 +315,21 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
     // A mask that leaves nothing competing means no block receives mass at all; returning early keeps
     // the score array untouched (still all zero) rather than launching a grid that can only add 0.
     if (incl_hi <= incl_lo) { return cudaSuccess; }
+    // C7 A2 验证：head 组大小（缺省 0 = 不切分，与在役件逐位等价）
+    int hg = 0;
+    {
+        static const int env_hg = []() {
+            const char* e = std::getenv("NINFER_C7_HG");
+            return e != nullptr ? std::atoi(e) : 0;
+        }();
+        hg = env_hg;
+    }
+    if (hg < 0) { hg = 0; }
+    if (hg > config.n_heads) { hg = config.n_heads; }
+    const int n_groups = hg > 0 ? (config.n_heads + hg - 1) / hg : 1;
     const long long grid_x =
-        static_cast<long long>(config.n_layers) * static_cast<long long>(config.n_query_tokens);
+        static_cast<long long>(config.n_layers) * static_cast<long long>(config.n_query_tokens) *
+        static_cast<long long>(hg > 0 ? (config.n_heads + hg - 1) / hg : 1);
     if (grid_x > 0x7fffffffLL) { return cudaErrorInvalidValue; }
 
     // head_w carries the mean over LAYERS and heads. It must be built from the model's TOTAL
@@ -276,6 +340,7 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
     const float head_w =
         1.0f / (static_cast<float>(total_layers) * static_cast<float>(config.n_heads));
     const std::size_t shmem = 2u * sizeof(float) * static_cast<std::size_t>(config.n_heads);
+    const int         c7_seg = c7_seg_mode(); // C7 分段门控（缺省 0 = 在役等价）
     const dim3        grid(static_cast<unsigned>(grid_x));
 
     if (config.dtype == KvMemRetrieveDtype::BF16) {
@@ -283,19 +348,19 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
             score, static_cast<const __nv_bfloat16*>(q), kbar_sum, block_tokens, config.n_layers,
             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
-            incl_lo, incl_hi, scale, head_w);
+            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
     } else if (config.dtype == KvMemRetrieveDtype::F16) {
         kvmem_retrieve_scores_kernel<__half><<<grid, kRetrieveThreads, shmem, stream>>>(
             score, static_cast<const __half*>(q), kbar_sum, block_tokens, config.n_layers,
             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
-            incl_lo, incl_hi, scale, head_w);
+            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
     } else {
         kvmem_retrieve_scores_kernel<float><<<grid, kRetrieveThreads, shmem, stream>>>(
             score, static_cast<const float*>(q), kbar_sum, block_tokens, config.n_layers,
             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
-            incl_lo, incl_hi, scale, head_w);
+            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
     }
     return cudaGetLastError();
 }

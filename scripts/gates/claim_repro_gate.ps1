@@ -63,8 +63,23 @@ $files = @(Get-TargetFiles) | Where-Object { $_ -notmatch '\\evidence\\audits\\'
 if ($files.Count -eq 0) { Write-Output 'PASS[claim-repro]: 无待检落盘件'; exit 0 }
 
 $fail = @()
+$diffMode = ((-not $All) -and $Paths.Count -eq 0)
 foreach ($f in $files) {
-    $txt = Get-Content -LiteralPath $f -Raw -Encoding UTF8
+    if ($diffMode) {
+        # 2026-11-26 fix（用户批：还 engine-main 欠账时暴露）：
+        #   原实现扫**整个文件正文**，于是"只追加一行发布台账"的 append-only 日志
+        #   （engine/lineage/MANIFEST.md 正文有"卡死"、施工记录有"退化"）被永久挡提交。
+        #   本门的语义是"**新落盘**的归因必须带复现记录"⇒ 差异模式只判**新增行**。
+        #   -All / -Paths 模式仍扫全文（审计用），行为不变。
+        $rel = $f.Replace($root + '\', '')
+        $add = @()
+        $add += @(& git -C $root -c core.quotepath=false diff --cached -U0 -- $rel 2>$null | Where-Object { $_ -match '^\+' -and $_ -notmatch '^\+\+\+' })
+        $add += @(& git -C $root -c core.quotepath=false diff -U0 -- $rel 2>$null | Where-Object { $_ -match '^\+' -and $_ -notmatch '^\+\+\+' })
+        $txt = ($add -join "`n")
+        if (-not $txt) { continue }
+    } else {
+        $txt = Get-Content -LiteralPath $f -Raw -Encoding UTF8
+    }
     if (-not $txt) { continue }
 
     $hits = [regex]::Matches($txt, $AttribWords)

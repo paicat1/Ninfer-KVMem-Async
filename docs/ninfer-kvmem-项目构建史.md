@@ -8501,7 +8501,7 @@ ring retrieve: preferred=960 restored=960 first=80 last=1818
 - `pref`/`rest` 集合落盘（诊断插桩 `context.cpp` 恢复点，env 复用 `SCORE_DUMP`）。
 - 预算 ≥900 的轮（答题相关段）：b938 在 **161/161（944 版）**、**479/479（940 版）**、**79/79（p0 池满二次）** 全部驻留。
 - 预算 ≤600 的热身轮全部缺席（28/28、216/216），属 prefill 未完成 + 预算 512 的结构性现象。
-- 尾针块 b1798 在 p0 池满二次的 restore 轨迹是 **[68-71] + [262-266]**（9 轮），即在**收尾答题轮被动态拉入**，不是靠 recency 常驻；与 variant a 的动态拉入同构。
+- 尾针块 b1798 在 p0 池满二次的 restore 轨迹是 **[68-71] + [262-266]**（1 基；0 基 67-70 / 261-265），即在**收尾答题轮被 restore 动态拉入**，此前 67-70 亦被拉入；**无 recency 保留证据**。
 
 **三、940 vs 944 的翻转机理：预算级联**
 
@@ -8526,7 +8526,7 @@ ring retrieve: preferred=960 restored=960 first=80 last=1818
 
 **五、池满二次 p0（决定性关卡，首次实测）**
 
-网格 p0（池 **1,920 页 = 122,880 tok** / RETRIEVE 65,536 / SHARE 未设 ⇒ 预算 1,024；压力区放宽后仍 1,024，RETRIEVE 封顶）：
+网格 p0（池 **1,920 页（122,880 tok）** / RETRIEVE 65,536 / SHARE 未设 ⇒ 预算 1,024；压力区放宽后仍 1,024，RETRIEVE 封顶）：
 
 | 发 | 语料 | 结果 | 耗时 |
 |---|---|---|---|
@@ -8543,5 +8543,5 @@ ring retrieve: preferred=960 restored=960 first=80 last=1818
 **七、挂账**
 
 1. 940 版 dump 多出 598 个 `sum=60/4/64` 普通段、三组 tail 段互异（maxabsdiff 13.70/9.20/16.57）——两版插桩事件总体不同，跨构建 tail 分数不可直接横比，需源码级钉死。
-2. variant b 的失败机制**未定**：`.rest` 轨迹显示 b938 有 [35-53]/[173-174]/[181-197] 三段、174-179 为 restored=False——在"逐轮增量 restore"语义下，restored=False 无法区分"仍驻留"与"被逐出未恢复"；preferred=True 也不等于答题时在片上。需按轮落盘 mask=resident 集或源码级钉死 restore/demote 语义。
+2. variant b 的失败机制**未定**：`.rest` 轨迹显示 b938 有 [35-53]/[173-174]/[181-197] 三段（0 基 34-52 / 172-173 / 180-196）、174-179 为 restored=False——在"逐轮增量 restore"语义下，restored=False 无法区分"仍驻留"与"被逐出未恢复"；preferred=True 也不等于答题时在片上。需按轮落盘 mask=resident 集或源码级钉死 restore/demote 语义。
 3. 交付口径 kept 1,849 → restore 1,024（截 825 页）仍是产品面缺口；乙案（RETRIEVE=120,000，压力区预算 1,024→1,840）实测 p0 +74 s。

@@ -8360,3 +8360,38 @@ p2 PASS → 清目录重编（TWICE）→ 产物不等 → 停手（未盲目重
 2. `T-BUILD-DETERMINISM`：`/Brepro` 已加；剩余项（`SOURCE_DATE_EPOCH`、固定 `/Fd`）未做
 3. 构建目录三份（B 产物 / A 归档 / stale）占盘，待清理
 - 引擎树发布机械化 20261126_201849：line-coder390@7865d17 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+
+## §248 engine-main 断更还账（2026-11-26 20:00–20:40）
+
+**一、数字**
+
+- 发布前：`origin/engine-main = b9a9cc6`（2026-11-14 09:30「src-tree 携入 line-coder390@352f27a 快照」）
+- 库侧 `src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h`：**565 行**，`c7_lazy_should_skip` 0 命中、`NINFER_C7_LAZY_PRESSURE_PERIOD` 0 命中
+- 本地同文件：**614 行**，`c7_lazy_should_skip` 2 命中
+- `line-coder390` 自发布点起 **7 笔未发布提交**：`52f801c` restore extent 合并 → `2458acb` 打分点积向量化 → `ba1e2f4` 分段/head 门控 → `f6da6d7` 打分懒跳过 → `917efd1` 压力区周期旋钮 → `dba94ee` 压力区恒等必打 → `7865d17` `/Brepro`
+
+**二、阶段**
+
+1. 预检 `publish_engine.ps1 -CheckOnly` 报 0005 补丁冲突 ⇒ 判为**工具假阴性**：原 STEP 3 对同一基线逐个 `apply --cached --check`（`--check` 不推进索引），依赖前序补丁的 0005 会失败。
+2. 修正 STEP 3 为**累积应用 + 树等价证明**：正向 `write-tree == HEAD^{tree}`（实测 `3993e9cc`），反向从 HEAD 逆序累积撤回、`write-tree == 352f27a^{tree}`（实测 `8ef580d0`）。
+3. 基线重建（用户批准）：`tools\publish\publish_engine.ps1` `F6D48B82(24680) → 849208A6(26304)`，外锚 `4D8B4593 → B1741108`，0 意外漂移。
+4. `claim-repro` 门：两个 append-only 台账（两个文件的历史正文各含一处归因词，本文不复述）因被追加一行发布记录而被整文件扫描挡住 ⇒ 差异模式改为只判**新增行**（`-All`/`-Paths` 不变）；正例 PASS、负例 `exit 4` 均实测。
+5. 正式发布：`origin/engine-main = dd94e4f`（`line-coder390@7865d17` 快照），`main = 81c15c6` 已推。
+6. 台账：`BUILD_LEDGER.jsonl` 登记在役件 `8e437b712ac06cdf`（`status=verified`），`Source=line-coder390@7865d17`。
+
+**三、Δ 对上个基线**
+
+- 库侧源码由 11-14 快照推进到 11-26 现值：刀1a/刀5/刀6/B 首次进入 `origin/engine-main`，办公室侧源码级复核可到 11-26。
+- 在役件与源码首次建立可核锚点（`8e437b712ac06cdf ↔ 7865d17`）。
+
+**四、新挂账**
+
+1. `-lineinfo` 配方改造未做（TWICE 仍未闭合）；
+2. 候选件 soak 未跑；
+3. 跨机引用预算值须带四元组（池页数, `NINFER_KV_RETRIEVE`, `NINFER_KV_RETRIEVE_SHARE`, evidence 来源）。
+
+**五、复现**
+
+- 预检/发布日志：`work\data\publish_check4.log`、`work\data\publish_run4.log`
+- 台账：`docs\01-构建与发布\BUILD_LEDGER.jsonl` 末行
+- 基线：`_safety_backups\governance_baseline_20261101_post\MANIFEST.json`（锚 `B1741108593829C4`）

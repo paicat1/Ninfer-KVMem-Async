@@ -1,0 +1,52 @@
+From 2458acb83a17bc4730e3bf33001d0c42e5f9076e Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 18 Nov 2026 23:58:33 +0800
+Subject: [PATCH 2/7] =?UTF-8?q?perf(kvmem):=20=E6=A3=80=E7=B4=A2=E6=89=93?=
+ =?UTF-8?q?=E5=88=86=E7=82=B9=E7=A7=AF=E5=90=91=E9=87=8F=E5=8C=96=EF=BC=88?=
+ =?UTF-8?q?bf16=20q=20+=20fp32=20ksum=EF=BC=8C8=20=E5=85=83=E7=B4=A0/?=
+ =?UTF-8?q?=E8=BD=AE=20+=204=20=E7=B4=AF=E5=8A=A0=E5=99=A8=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../src/ops/kvmem/kvmem_retrieve_launch.cu    | 23 +++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
+index f466afd..7cb9710 100644
+--- a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
++++ b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
+@@ -77,8 +77,27 @@ constexpr int kRetrieveWarps   = kRetrieveThreads / kWarpSize;
+ // is the production instantiation, not a convenience.
+ __device__ __forceinline__ float dot_q_bf16_sum(const __nv_bfloat16* __restrict__ q,
+                                                 const float* __restrict__ ksum, int n) {
+-    float s = 0.0f;
+-    for (int d = 0; d < n; ++d) {
++    // C7 刀1a（微基准 M1=3.80x / M2' 0 失效 / M3 top-16=1.000）：8 元素/轮向量化 + 4 累加器 ILP。
++    // 生产 dtype 保真：q=BF16（1×float4 = 8 个 bf16），ksum=F32（2×float4 = 8 个 fp32）；
++    // 乘积与累加仍是 float，仅求和顺序变化（Σ 标定绝对线 1e-5·Σ|q·k| 内，实测 1% 线）。
++    float a0 = 0.0f, a1 = 0.0f, a2 = 0.0f, a3 = 0.0f;
++    int d = 0;
++    for (; d + 7 < n; d += 8) {
++        const float4 qv = *reinterpret_cast<const float4*>(q + d);
++        const __nv_bfloat162* qs = reinterpret_cast<const __nv_bfloat162*>(&qv);
++        const float2 q0 = __bfloat1622float2(qs[0]);
++        const float2 q1 = __bfloat1622float2(qs[1]);
++        const float2 q2 = __bfloat1622float2(qs[2]);
++        const float2 q3 = __bfloat1622float2(qs[3]);
++        const float4 klo = *reinterpret_cast<const float4*>(ksum + d);
++        const float4 khi = *reinterpret_cast<const float4*>(ksum + d + 4);
++        a0 += q0.x * klo.x + q0.y * klo.y;
++        a1 += q1.x * klo.z + q1.y * klo.w;
++        a2 += q2.x * khi.x + q2.y * khi.y;
++        a3 += q3.x * khi.z + q3.y * khi.w;
++    }
++    float s = (a0 + a1) + (a2 + a3);
++    for (; d < n; ++d) {
+         s += __bfloat162float(q[d]) * ksum[d];
+     }
+     return s;
+-- 
+2.55.0.windows.4
+

@@ -48,3 +48,16 @@
 - 本批新增 2 份：
   - `0001-feat-ops-Q8-conv-Linear-workspace-draft-RC8-B93B1791.patch` sha256 `74799ec1335782690889854bbf431ceda3fd8637c089257530552f6951c590a5`
   - `0002-feat-kvmem-capture.patch` sha256 `9fa73907cf7076aa8887a19edc7ebbe8de434f74e21e8cafb5d81d4abeaa60fe`
+
+## 追加（publish_engine 20261126_201849）
+
+- 本节起 patches/*.patch 计数 = 32，PATCHSET_FINGERPRINT = `7658B5BB42F896C1D2FFDE02A21E78829054367D15A2910BDF95AACECE4ACBAF`
+- 上方「补丁数 = 23 / 旧指纹」为 2026-10-30 快照，已过时；以本节为准。
+- 本批新增 7 份：
+  - `0001-feat-kvmem-restore-extent.patch` sha256 `0677de8e4161f1c3b9f20b32603aaa497fe875455dd4a4f008b2faf900746797`
+  - `0002-perf-kvmem-bf16-q-fp32-ksum-8-4.patch` sha256 `c77ee9814780373cb26edf4d9980543a5df7da5eba45f4858fdd243211658a3a`
+  - `0003-test-kvmem-head-NINFER_C7_SEG-NINFER_C7_HG.patch` sha256 `27e58b6b05f463888296233686d41723e4b4dd53fefa1ca2e25d5a1011799b9b`
+  - `0004-perf-kvmem-fail-closed.patch` sha256 `24d6a72b213c4ee56c0ddd70c0471939e52649dfc95dbd8eccad4ed77d435417`
+  - `0005-kvmem-C7-pressure-period-knob-NINFER_C7_LAZY_PRESSUR.patch` sha256 `00b195d3f22b13363016204ed6bebd8e824fc4ea68a69711c60ed078f22db1d3`
+  - `0006-perf-kvmem-PRESSURE_PERIOD.patch` sha256 `7b65c3749ab756449d6d2b471fd7093ca6e761ac5598d8e047dd1f9b1ea952cb`
+  - `0007-build-Brepro-PE-nvcc-lineinfo.patch` sha256 `f0c8da6a3b0427e026c009b769f3b033a9fe7faa8b0d7e66f9a49a6ab0fac73b`

@@ -146,3 +146,4 @@
 - 引擎树发布机械化 20261106_035456：line-coder390@2755b24 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 - 引擎树发布机械化 20261107_190812：line-coder390@c5f48a8 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 - 引擎树发布机械化 20261114_093158：line-coder390@352f27a 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+- 引擎树发布机械化 20261126_201849：line-coder390@7865d17 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

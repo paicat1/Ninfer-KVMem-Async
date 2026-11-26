@@ -1,0 +1,168 @@
+From ba1e2f4ae9c4c75548fb52a58719ab4e991fd42b Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Sat, 21 Nov 2026 01:36:55 +0800
+Subject: [PATCH 3/7] =?UTF-8?q?test(kvmem):=20=E5=88=86=E6=AE=B5/head=20?=
+ =?UTF-8?q?=E7=BB=84=E9=97=A8=E6=8E=A7=EF=BC=88NINFER=5FC7=5FSEG=20/=20NIN?=
+ =?UTF-8?q?FER=5FC7=5FHG=EF=BC=89=EF=BC=8C=E4=BB=85=E4=BB=AA=E5=99=A8?=
+ =?UTF-8?q?=EF=BC=8C=E7=BC=BA=E7=9C=81=E7=AD=89=E4=BB=B7?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../src/ops/kvmem/kvmem_retrieve_launch.cu    | 66 ++++++++++++++++---
+ 1 file changed, 56 insertions(+), 10 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
+index 7cb9710..c55d7ba 100644
+--- a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
++++ b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_retrieve_launch.cu
+@@ -63,11 +63,23 @@
+ 
+ #include <cstddef>
+ #include <cstdint>
++#include <cstdlib> // C7 分段门控 getenv/atoi
+ 
+ namespace ninfer::ops {
+ namespace detail {
+ namespace {
+ 
++// C7 分段测量门控（2026-11-20，用户批）：0=完整（缺省，与在役件等价）
++// 1=只跑到 phase1 结束 2=完整但把 atomicAdd 换成普通写。
++// 非 0 取值下 score 数值一律无效，只用于 profiler 计时/stall 归因（S4 声明）。
++static int c7_seg_mode() {
++    static const int m = []() {
++        const char* e = std::getenv("NINFER_C7_SEG");
++        return e != nullptr ? std::atoi(e) : 0;
++    }();
++    return m;
++}
++
+ constexpr int kRetrieveThreads = 256;
+ constexpr int kRetrieveWarps   = kRetrieveThreads / kWarpSize;
+ 
+@@ -151,10 +163,25 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
+                                              int n_layers, int n_query_tokens, int n_heads,
+                                              int n_kv_heads, int head_dim, int q_layer_stride,
+                                              int q_token_begin, int n_blocks, int kbar_layer_stride,
+-                                             int incl_lo, int incl_hi, float scale, float head_w) {
++                                             int incl_lo, int incl_hi, float scale, float head_w,
++                                             int c7_seg, int hg, int n_groups) {
+     const int lt = static_cast<int>(blockIdx.x);
+-    const int l  = lt / n_query_tokens;
+-    const int t  = lt % n_query_tokens;
++    // C7 A2 验证：head 维切分。n_groups<=1 时与旧布局逐位等价。
++    int l, t, qh_lo, qh_hi;
++    if (n_groups <= 1) {
++        l      = lt / n_query_tokens;
++        t      = lt % n_query_tokens;
++        qh_lo  = 0;
++        qh_hi  = n_heads;
++    } else {
++        t          = lt % n_query_tokens;
++        const int rest = lt / n_query_tokens;
++        l          = rest % n_layers;
++        const int g = rest / n_layers;
++        qh_lo = g * hg;
++        qh_hi = qh_lo + hg;
++        if (qh_hi > n_heads) { qh_hi = n_heads; }
++    }
+     if (l >= n_layers) { return; }
+ 
+     const int tid  = static_cast<int>(threadIdx.x);
+@@ -183,7 +210,7 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
+     // always-kept sink/recent bands (kernels_cuda.cu:5400-5407) so their mass redistributes. Skipping
+     // them is the same arithmetic and never evaluates exp(-inf - -inf), which would be NaN if a
+     // caller ever passed a range with no included block at all.
+-    for (int qh = 0; qh < n_heads; ++qh) {
++    for (int qh = qh_lo; qh < qh_hi; ++qh) {
+         const int kvh  = qh / group;
+         const QT* qr   = q_l + (static_cast<long long>(q_token_begin + t) * n_heads + qh) * head_dim;
+         float     lm   = -CUDART_INF_F;
+@@ -233,6 +260,9 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
+         __syncthreads();
+     }
+ 
++    // C7 分段：=1 时到此为止（只测 phase1，score 无效）。
++    if (c7_seg == 1) { return; }
++
+     // ---- Phase 2: mass accumulation, ONE atomic per (block, layer, query token).
+     //
+     // The head loop is inside so the atomics are n_heads times fewer than one per (block, head), and
+@@ -244,7 +274,7 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
+                                     : 1.0f;
+         const float logit_w   = scale * invc;
+         float       local     = 0.0f;
+-        for (int qh = 0; qh < n_heads; ++qh) {
++        for (int qh = qh_lo; qh < qh_hi; ++qh) {
+             const float gm = s_stats[qh];
+             const float gs = s_stats[n_heads + qh];
+             // Unreachable while the band rule guarantees a non-empty middle, and defended anyway:
+@@ -258,7 +288,9 @@ __global__ void kvmem_retrieve_scores_kernel(float* __restrict__ score,
+             const float  logit = logit_w * dot_q_sum<QT>(qr, krow, head_dim);
+             local += expf(logit - gm) * (head_w / gs);
+         }
+-        if (local != 0.0f) {
++        if (c7_seg == 2) {
++            score[b] = local; // 免 atomic 变体：数值无效，仅计时（S4）
++        } else if (local != 0.0f) {
+             atomicAdd(&score[b], local);
+         }
+     }
+@@ -283,8 +315,21 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
+     // A mask that leaves nothing competing means no block receives mass at all; returning early keeps
+     // the score array untouched (still all zero) rather than launching a grid that can only add 0.
+     if (incl_hi <= incl_lo) { return cudaSuccess; }
++    // C7 A2 验证：head 组大小（缺省 0 = 不切分，与在役件逐位等价）
++    int hg = 0;
++    {
++        static const int env_hg = []() {
++            const char* e = std::getenv("NINFER_C7_HG");
++            return e != nullptr ? std::atoi(e) : 0;
++        }();
++        hg = env_hg;
++    }
++    if (hg < 0) { hg = 0; }
++    if (hg > config.n_heads) { hg = config.n_heads; }
++    const int n_groups = hg > 0 ? (config.n_heads + hg - 1) / hg : 1;
+     const long long grid_x =
+-        static_cast<long long>(config.n_layers) * static_cast<long long>(config.n_query_tokens);
++        static_cast<long long>(config.n_layers) * static_cast<long long>(config.n_query_tokens) *
++        static_cast<long long>(hg > 0 ? (config.n_heads + hg - 1) / hg : 1);
+     if (grid_x > 0x7fffffffLL) { return cudaErrorInvalidValue; }
+ 
+     // head_w carries the mean over LAYERS and heads. It must be built from the model's TOTAL
+@@ -295,6 +340,7 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
+     const float head_w =
+         1.0f / (static_cast<float>(total_layers) * static_cast<float>(config.n_heads));
+     const std::size_t shmem = 2u * sizeof(float) * static_cast<std::size_t>(config.n_heads);
++    const int         c7_seg = c7_seg_mode(); // C7 分段门控（缺省 0 = 在役等价）
+     const dim3        grid(static_cast<unsigned>(grid_x));
+ 
+     if (config.dtype == KvMemRetrieveDtype::BF16) {
+@@ -302,19 +348,19 @@ cudaError_t launch_kvmem_retrieve_scores(const KvMemRetrieveConfig& config, floa
+             score, static_cast<const __nv_bfloat16*>(q), kbar_sum, block_tokens, config.n_layers,
+             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
+             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
+-            incl_lo, incl_hi, scale, head_w);
++            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
+     } else if (config.dtype == KvMemRetrieveDtype::F16) {
+         kvmem_retrieve_scores_kernel<__half><<<grid, kRetrieveThreads, shmem, stream>>>(
+             score, static_cast<const __half*>(q), kbar_sum, block_tokens, config.n_layers,
+             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
+             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
+-            incl_lo, incl_hi, scale, head_w);
++            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
+     } else {
+         kvmem_retrieve_scores_kernel<float><<<grid, kRetrieveThreads, shmem, stream>>>(
+             score, static_cast<const float*>(q), kbar_sum, block_tokens, config.n_layers,
+             config.n_query_tokens, config.n_heads, config.n_kv_heads, config.head_dim,
+             config.q_layer_stride, config.q_token_begin, config.n_blocks, config.kbar_layer_stride,
+-            incl_lo, incl_hi, scale, head_w);
++            incl_lo, incl_hi, scale, head_w, c7_seg, hg, n_groups);
+     }
+     return cudaGetLastError();
+ }
+-- 
+2.55.0.windows.4
+

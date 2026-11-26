@@ -1,0 +1,38 @@
+From 917efd1264cb117ce40c3a57bb90d9c02a1310f7 Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Mon, 23 Nov 2026 22:23:51 +0800
+Subject: [PATCH 5/7] kvmem: C7 pressure-period knob
+ (NINFER_C7_LAZY_PRESSURE_PERIOD, default 1 = previous behaviour)
+
+---
+ .../fusion-engine-src/src/ops/kvmem/kvmem_score.h   | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
+index 62f9f24..4b010f3 100644
+--- a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
++++ b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
+@@ -236,9 +236,18 @@ inline bool c7_lazy_should_skip(std::int32_t layer, std::int32_t n_blocks,
+     if (kPoolOverride <= 0) { return false; }
+     const long pool_pages = kPoolOverride;
+     const bool pressure = static_cast<long>(n_blocks) > (pool_pages - 256L);
++    // 刀6（2026-11-23 用户批）：压力区也按周期节流。默认 1 = 与刀5 逐位等价
++    //   （压力区每 chunk 必打）；实验取 8（与无压区周期对齐）。留空/非法 ⇒ 1，
++    //   永不静默改变现役行为。
++    static const long kPressurePeriod = []() {
++        const char* e = std::getenv("NINFER_C7_LAZY_PRESSURE_PERIOD");
++        const long v = (e != nullptr) ? std::atol(e) : 1L;
++        return v > 0 ? v : 1L;
++    }();
++    const long period   = pressure ? kPressurePeriod : 8L;
+     const bool cold     = (s_last_call[li] == 0);        // 本层首次 ⇒ 必打
+-    const bool stale    = cold || (cur - s_last_call[li] / per) >= 8;
+-    if (!pressure && !stale) { return true; }
++    const bool stale    = cold || (cur - s_last_call[li] / per) >= period;
++    if (!stale) { return true; }
+     s_last_call[li] = s_calls;                           // 记"打了"（以调用序号为单位）
+     return false;
+ }
+-- 
+2.55.0.windows.4
+

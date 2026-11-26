@@ -1,0 +1,49 @@
+From dba94eea5aa70cf0edb58b38ba9822da743839ec Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Wed, 25 Nov 2026 07:25:06 +0800
+Subject: [PATCH 6/7] =?UTF-8?q?perf(kvmem):=20=E5=8E=8B=E5=8A=9B=E5=8C=BA?=
+ =?UTF-8?q?=E6=81=92=E7=AD=89=E5=BF=85=E6=89=93=EF=BC=88=E9=80=80=E5=BD=B9?=
+ =?UTF-8?q?=20PRESSURE=5FPERIOD=20=E5=AF=B9=E5=8E=8B=E5=8A=9B=E5=8C=BA?=
+ =?UTF-8?q?=E5=BD=B1=E5=93=8D=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../src/ops/kvmem/kvmem_score.h               | 20 ++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
+index 4b010f3..f7913c9 100644
+--- a/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
++++ b/src-tree/fusion-engine-src/src/ops/kvmem/kvmem_score.h
+@@ -236,15 +236,17 @@ inline bool c7_lazy_should_skip(std::int32_t layer, std::int32_t n_blocks,
+     if (kPoolOverride <= 0) { return false; }
+     const long pool_pages = kPoolOverride;
+     const bool pressure = static_cast<long>(n_blocks) > (pool_pages - 256L);
+-    // 刀6（2026-11-23 用户批）：压力区也按周期节流。默认 1 = 与刀5 逐位等价
+-    //   （压力区每 chunk 必打）；实验取 8（与无压区周期对齐）。留空/非法 ⇒ 1，
+-    //   永不静默改变现役行为。
+-    static const long kPressurePeriod = []() {
+-        const char* e = std::getenv("NINFER_C7_LAZY_PRESSURE_PERIOD");
+-        const long v = (e != nullptr) ? std::atol(e) : 1L;
+-        return v > 0 ? v : 1L;
+-    }();
+-    const long period   = pressure ? kPressurePeriod : 8L;
++    // 刀6 退役（2026-11-24 用户批 B；依据 P2 深超池 3/3 复现 + 代价定量）：
++    //   压力区（n_blocks > pool-256）恒等必打，与刀5 逐位等价。
++    //   旧行为靠 NINFER_C7_LAZY_PRESSURE_PERIOD（实验取 8）在深超池丢中段针：
++    //     PERIOD=8 三跑全丢 ZX-7001、PERIOD=1 三跑全对；代价仅 +6.85s / 120K 预填。
++    //   该 env 自此对压力区无效（显式传 8 同样不生效），
++    //   杜绝把"正确性"旋钮误配成静默错答（该故障形态本战役已实证为最危险）。
++    if (pressure) {
++        s_last_call[li] = s_calls;                       // 记"打了"（以调用序号为单位）
++        return false;                                    // 压力区每 chunk 必打
++    }
++    constexpr long period = 8L;                          // 非压力区：保持刀5 的 8-chunk 周期
+     const bool cold     = (s_last_call[li] == 0);        // 本层首次 ⇒ 必打
+     const bool stale    = cold || (cur - s_last_call[li] / per) >= period;
+     if (!stale) { return true; }
+-- 
+2.55.0.windows.4
+

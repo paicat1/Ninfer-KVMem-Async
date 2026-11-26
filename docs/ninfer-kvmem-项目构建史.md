@@ -8359,3 +8359,4 @@ p2 PASS → 清目录重编（TWICE）→ 产物不等 → 停手（未盲目重
 1. 发布配方：`-lineinfo` 默认关 + profile 变体（改后连编两次复验 TWICE）
 2. `T-BUILD-DETERMINISM`：`/Brepro` 已加；剩余项（`SOURCE_DATE_EPOCH`、固定 `/Fd`）未做
 3. 构建目录三份（B 产物 / A 归档 / stale）占盘，待清理
+- 引擎树发布机械化 20261126_201849：line-coder390@7865d17 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

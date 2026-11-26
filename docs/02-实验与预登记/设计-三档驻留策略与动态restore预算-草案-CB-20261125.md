@@ -24,9 +24,9 @@
 |---|---|---|
 | 池容量 | 1,920 页 = 122,880 token | 实测（§245 交付口径） |
 | 页大小 | ≈1.56 MB（由「512 页 ≈ 800 MB」反推） | 派生 |
-| 每轮 restore 预算 | **512 页（静态）** | 实测（`KV_RETRIEVE` 65,536 token / 64） |
+| 每轮 restore 预算 | **1,024 页**（= min(`RETRIEVE` 65,536/64=1,024, 池 1,920×`SHARE` 60%=1,152)） | **实测**：`serve_20261125_074635.log.gz` 内 `[ring] budgets` **20,567 行全为 `evidence=1024 (pool 1920)`**，恒等式 80+1024+0+816=1,920 通过 |
 | restore 每页税（C 步后） | **0.48–1.45 ms** | 实测（§241） |
-| 每 chunk restore 成本 | ≈0.45 s（512 × ~0.9 ms） | 派生 |
+| 每 chunk restore 成本 | ≈0.92 s（1,024 × ~0.9 ms） | 派生（原 0.45 s 基于过时的 512 页） |
 | 读全历史（3 GB）@22 GB/s | **136 ms** | 派生（双通道 + pageable 折半） |
 | decode 读全历史 | 136 ms/token ⇒ **≤7 tok/s** | 派生 |
 | host 环 | 16 GiB ≈ **6,500 页** | 实测（配置） |
@@ -72,13 +72,14 @@ kept         = |select_retrieval_pages(...)|   ≤ min(SCORE_BUDGET/64, working_
 
 ### 3.1 问题
 
-现在是**静态 512 页**（`KV_RETRIEVE`）。但**池还有空槽时，这个 512 是浪费**——明明能装 1,500 页，却只搬 512。
+现在的预算是 `min(RETRIEVE/64, 池×SHARE%)`（`context.cpp:3030-3032`）。交付口径（池 1,920 页、`RETRIEVE`=65,536、`SHARE`=60，后者自 2026-11-15 起进启动器 `L930/L1625`）= `min(1,024, 1,152)` = **1,024 页**，实测常量（见 §1 表）。
+但**池还有空槽时，这 1,024 仍是浪费**——明明能装 1,500 页，却只搬 1,024。
 
 ### 3.2 改法
 
 ```cpp
-// 现状（示意）：budget 来自 env，固定
-const std::int32_t budget = retrieve_pages;            // 512
+// 现状（示意，context.cpp:3030-3032）：env 与池份额取小
+const std::int32_t budget = std::min(retrieve_pages, pool * share_pct / 100);   // 交付口径 = 1,024
 
 // 改为：取「kept 需求」与「实际可用槽」的较小者
 const std::int32_t avail  = pool_pages - skeleton - recent - in_flight - frontier_reserve;
@@ -90,9 +91,9 @@ const std::int32_t budget = std::min<std::int32_t>(kept_wanted, avail);
 | 场景 | 现状 | 动态预算 |
 |---|---|---|
 | 池内（M0） | 不打分不搬 | 不变 |
-| 轻度超池（kept ≈ 1,500） | 截到 512（丢 988 页可见性） | **全可见** |
-| 重度超池（kept ≈ 3,000） | 截到 512 | 仍受 avail 限制（约 1,500） |
-| 池贴顶（avail ≈ 0） | 512 | 退化，等同现状 |
+| 轻度超池（kept ≈ 1,500） | 截到 1,024（丢 476 页可见性） | **全可见** |
+| 重度超池（kept ≈ 3,000） | 截到 1,024 | 仍受 avail 限制（约 1,500） |
+| 池贴顶（avail ≈ 0） | 1,024 | 回落到与现状相同 |
 
 **风险**：`frontier_reserve` 必须留够，否则重演 §233「提检索 = 抢 frontier 的页 ⇒ prefill 2.2–25.6 tok/s」。
 
@@ -130,7 +131,14 @@ prefill 第 N 个 chunk
 
 ### 5.1 为什么
 
-现在 `overflow > 0` 时，引擎返回 **HTTP 200 + 看起来正常的答案**，但可能缺信息。这是"把错误答案当正确答案用"的直接入口。
+**已经有一条告警通道，不是从零开始。** `GenerationService::warn_on_prompt_over_pool`（`generation_service.cpp:299-338`）在 prompt 超过驻留池时写 console 警告，文案逐字包含 "HTTP 200 and a plausible wrong answer … Treat every answer to this request as unverified against its context"，并自述 "a MISSING line is never evidence that a request was safe"。
+
+它的三个缺陷正是本方案要补的：
+1. **只在 console**，客户端拿不到（HTTP 响应无字段）；
+2. **30 秒节流**（`kOverPoolInterval`），连续超池请求会被抑制成一行；
+3. **无量化**：只说"unverified"，不告诉客户端丢了多少 token。
+
+⇒ 本节不是新造机制，而是把已有告警升级为**结构化响应字段**（并去掉节流对可见性的影响）。
 
 ### 5.2 定义
 

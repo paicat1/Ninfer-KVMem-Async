@@ -8633,3 +8633,4 @@ p2 观测：variant a ALL3_PASS 71.8 s / variant b `tail=False` 71.6 s（观测�
 1. `/Brepro` 只管 host COFF：45 个 CUDA 对象的时间戳仍随构建变化（其中 5 个仅差此一处）——若将来做"仅时间戳归一"，可先修这 5 个。
 2. 是否试确定性开关（`--split-compile` 等）未做；每次验证约 5 分钟，成功率未知。
 3. p2 的 variant b 边际不稳（tail/mid 漂移两次）仍属观测项，不作门。
+- 引擎树发布机械化 20261127_185002：line-coder390@5185faf 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。

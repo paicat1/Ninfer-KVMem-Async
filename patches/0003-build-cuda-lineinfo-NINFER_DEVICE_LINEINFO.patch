@@ -1,0 +1,70 @@
+From 5185faf65417367e4ac8829b529d30e56b921e8e Mon Sep 17 00:00:00 2001
+From: paicat1 <573148556@qq.com>
+Date: Fri, 27 Nov 2026 18:39:21 +0800
+Subject: [PATCH 3/3] =?UTF-8?q?build(cuda):=20=E8=AE=BE=E5=A4=87=20lineinf?=
+ =?UTF-8?q?o=20=E6=94=B9=E4=B8=BA=20NINFER=5FDEVICE=5FLINEINFO=20=E5=BC=80?=
+ =?UTF-8?q?=E5=85=B3=EF=BC=8C=E9=BB=98=E8=AE=A4=E5=85=B3=E9=97=AD?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- CMakeLists.txt 新增 option(NINFER_DEVICE_LINEINFO ... OFF)
+- ninfer_cuda_archive 与 ninfer_cuda_non_rdc_archive 仅在开关 ON 时追加 -lineinfo
+- 发布构建默认不携带设备 lineinfo；诊断构建显式传 -DNINFER_DEVICE_LINEINFO=ON
+---
+ src-tree/fusion-engine-src/CMakeLists.txt        |  4 ++++
+ .../fusion-engine-src/cmake/NinferTargets.cmake  | 16 ++++++++++++++--
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/src-tree/fusion-engine-src/CMakeLists.txt b/src-tree/fusion-engine-src/CMakeLists.txt
+index 72a9615..ef48457 100644
+--- a/src-tree/fusion-engine-src/CMakeLists.txt
++++ b/src-tree/fusion-engine-src/CMakeLists.txt
+@@ -210,6 +210,10 @@ if(NINFER_BUILD_APPS OR BUILD_TESTING)
+   set(NINFER_BUILD_PRODUCT_SUPPORT ON)
+ endif()
+ 
++# 2026-11-27 (user approved): CUDA device line info switch, default OFF so release
++#   artifacts are bit-reproducible; profile builds pass -DNINFER_DEVICE_LINEINFO=ON.
++option(NINFER_DEVICE_LINEINFO "Emit device line info; diagnostic builds only, breaks bit-repro" OFF)
++
+ include(cmake/Dependencies.cmake)
+ include(cmake/NinferTargets.cmake)
+ 
+diff --git a/src-tree/fusion-engine-src/cmake/NinferTargets.cmake b/src-tree/fusion-engine-src/cmake/NinferTargets.cmake
+index 4d9de63..a8b1420 100644
+--- a/src-tree/fusion-engine-src/cmake/NinferTargets.cmake
++++ b/src-tree/fusion-engine-src/cmake/NinferTargets.cmake
+@@ -14,7 +14,13 @@ function(ninfer_cuda_archive target)
+   if(WIN32)
+     set_target_properties(${target} PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+   endif()
+-  target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++  # 2026-11-27 (user approved): release recipe carries NO device line info by default.
++  #   Reason: -lineinfo writes the random nvcc temp filename into every cubin, so
++  #   two clean builds never match (T-BUILD-TWICE). Diagnostic builds pass
++  #   -DNINFER_DEVICE_LINEINFO=ON explicitly.
++  if(NINFER_DEVICE_LINEINFO)
++    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++  endif()
+ endfunction()
+ 
+ function(ninfer_cuda_non_rdc_archive target)
+@@ -24,7 +30,13 @@ function(ninfer_cuda_non_rdc_archive target)
+   if(WIN32)
+     set_target_properties(${target} PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+   endif()
+-  target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++  # 2026-11-27 (user approved): release recipe carries NO device line info by default.
++  #   Reason: -lineinfo writes the random nvcc temp filename into every cubin, so
++  #   two clean builds never match (T-BUILD-TWICE). Diagnostic builds pass
++  #   -DNINFER_DEVICE_LINEINFO=ON explicitly.
++  if(NINFER_DEVICE_LINEINFO)
++    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++  endif()
+ endfunction()
+ 
+ # Runtime DLL staging for the apps and tests.
+-- 
+2.55.0.windows.4
+

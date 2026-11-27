@@ -61,3 +61,12 @@
   - `0005-kvmem-C7-pressure-period-knob-NINFER_C7_LAZY_PRESSUR.patch` sha256 `00b195d3f22b13363016204ed6bebd8e824fc4ea68a69711c60ed078f22db1d3`
   - `0006-perf-kvmem-PRESSURE_PERIOD.patch` sha256 `7b65c3749ab756449d6d2b471fd7093ca6e761ac5598d8e047dd1f9b1ea952cb`
   - `0007-build-Brepro-PE-nvcc-lineinfo.patch` sha256 `f0c8da6a3b0427e026c009b769f3b033a9fe7faa8b0d7e66f9a49a6ab0fac73b`
+
+## 追加（publish_engine 20261127_185002）
+
+- 本节起 patches/*.patch 计数 = 35，PATCHSET_FINGERPRINT = `11A289600C2EB1D4E2C236ECCA26412E31095A0EE55719E0D060CA8CFA19ABBB`
+- 上方「补丁数 = 23 / 旧指纹」为 2026-10-30 快照，已过时；以本节为准。
+- 本批新增 3 份：
+  - `0001-perf-kvmem-6-1.1-8-chunk.patch` sha256 `f818e95f70c2b160859ae40f2a54647e89a5e79891b77230f086cd5354bda8db`
+  - `0002-perf-kvmem-6-1.2-chunk-1.3-SCORE_DUMP-pref-rest.patch` sha256 `abda3e4950fa5fe21b938fcb58f3ab9afbde6ce6685d24601ac1e70b8ab3e020`
+  - `0003-build-cuda-lineinfo-NINFER_DEVICE_LINEINFO.patch` sha256 `65c9a4da719cd26c2930c46c252bef12a168c8c870017de4762a6f5bbb544f8b`

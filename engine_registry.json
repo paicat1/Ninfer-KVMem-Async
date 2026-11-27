@@ -1,32 +1,61 @@
 [
   {
-    "label": "★★★现役 · 刀5 懒打分 + fail-closed（8E437B71 · 20261123）",
-    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "label": "★★★现役 · B 计划件（5CB1340D · 20261127 · lineinfo OFF）",
+    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
     "tags": [
-      "生产",
-      "刀5",
-      "懒跳过",
-      "fail-closed"
+      "现役",
+      "B计划",
+      "5CB1340D",
+      "lineinfo-OFF"
     ],
-    "note": "实际件 sha16=8E437B712AC06CDF（1,334,855,680 B，2026-11-23 编）。原 label 记 AAFAB275 为旧记录，2026-11-25 校正。现役件（2026-11-22 编，sha16 AAFAB275AB8AD48B，1,333,798,400 B）：含 C7 刀5 懒打分（NINFER_C7_LAZY_SCORE=1 + NINFER_C7_LAZY_POOL_BLOCKS=池页数）与 fail-closed（漏配池页数 ⇒ 退回旧版行为，不会静默零打分）。实测（池 110,592 = 108K 档）：120K prompt 493.5s → 269.6s（1.83×）；122,880 真交付口径（2026-11-23 A 格：关格 env + 刀5 单变量，--prefill-chunk 512）872.2s → 314.4s = 2.774×（探针 314.4s ↔ 引擎 TTFT 5m14.3s）；⚠ 2026-11-22 记的 304.2s（g_122880_512）非交付口径——该格 host KV 0 B、ring dense、零检索，不得引用为交付基线；512 在 110,592 池 ring OOM，1024 在 122,880 池超预算 329 MB；24K 29.5s → 14.0s；多轮追加 2.4-3.0s；池满第二次大请求 ~912.9s（该场景压力门必然工作，无提速）。J4 召回 ZX-7001 PASS。",
+    "note": "2026-11-27 BUILD-EXIT=0 09:35，ARCH-GATE OK；sha16 5CB1340D6D47CEFA，691,578,880 B。配方：关 -lineinfo（NINFER_DEVICE_LINEINFO=OFF）+ /Brepro。行为判据：p0 冷池 120K 169–178 s（三发）、池满二次 273.3 s，均 ALL3_PASS；p2 观测 a 过 / b 丢尾。TWICE 按 B 计划不适用（单 TU 双编 Δ550 B，ptxas 内部）；sha 锁定 + 双份归档见 BUILD_LEDGER。",
     "status": "生产",
-    "added": "2026-11-22",
+    "added": "2026-11-27",
     "replaced_by": "",
     "preset": "①②"
   },
   {
-    "label": "候选 · 刀6退役 + B（仅实机验证 · 未转正）",
-    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a\\apps\\ninfer-serve.exe",
+    "label": "已归档 · 2026-11-23 现役（8E437B71 · 已被 B 计划件取代）",
+    "path": "J:\\ninfer-kvmem\\engine\\self-built-20261008\\ninfer-serve.exe",
+    "tags": [
+      "归档",
+      "8E437B71",
+      "刀6旋钮件"
+    ],
+    "note": "2026-11-23 22:07:12 编，sha16 8E437B712AC06CDF，1,334,855,680 B；含 PERIOD 旋钮（刀6）。2026-11-27 被 B 计划件取代；保留作回滚锚与对照件（PERIOD=1/8 两组历史数据均由它产出）。",
+    "status": "已归档",
+    "added": "2026-11-23",
+    "replaced_by": "",
+    "preset": "①②"
+  },
+  {
+    "label": "候选 · pair A（8A8E7FFE · 同配方另一次构建）",
+    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a.rel1_20261127_091957\\apps\\ninfer-serve.exe",
     "tags": [
       "候选",
-      "仅测试",
-      "EFB3F69B",
-      "刀6退役"
+      "B计划",
+      "8A8E7FFE",
+      "pair-A"
     ],
-    "note": "2026-11-25 07:00:12 BUILD-EXIT=0，ARCH-GATE OK；sha16 EFB3F69B3300129C，1,333,700,096 B。压力区恒等必打（B）+ /Brepro。p2 深超池三针 ALL3_PASS 75.1s。未过 T-BUILD-TWICE（-lineinfo），不得替换现役/作交付口径。",
+    "note": "2026-11-27 BUILD-EXIT=0 09:19，ARCH-GATE OK；sha16 8A8E7FFE1BAB3C05，691,140,096 B。与现役件同配方（lineinfo OFF + Brepro）的另一次干净构建，属 B 计划 pair A；两树保留不删不改（build-1208a.rel1_20261127_091957）。",
     "status": "候选",
-    "added": "2026-11-25",
+    "added": "2026-11-27",
     "replaced_by": "",
+    "preset": ""
+  },
+  {
+    "label": "已归档 · 诊断配方退役（6C55E37E · 含 SCORE_DUMP 插桩）",
+    "path": "J:\\ninfer-kvmem\\build-out\\build-1208a.stale_20261127_090357\\apps\\ninfer-serve.exe",
+    "tags": [
+      "归档",
+      "6C55E37E",
+      "诊断件",
+      "插桩"
+    ],
+    "note": "2026-11-27 02:22 编，sha16 6C55E37E5E85CB87，1,334,277,632 B；配方含 -lineinfo（诊断用）与 SCORE_DUMP / pref / rest 落盘插桩。产出 p2/pref 判据数据后退役，保留仅供复现诊断。",
+    "status": "已归档",
+    "added": "2026-11-27",
+    "replaced_by": "5CB1340D",
     "preset": ""
   },
   {

@@ -56,7 +56,9 @@ ENGINE_DIR  = os.path.dirname(ENGINE)
 #   现改为谱系末端件（MANIFEST 末端、与在役 sha 322A972D 同件）。
 # 2026-10-17 恢复：本行原指向 engine\self-built-20261008\ninfer-serve.exe；该文件被误删后我先改成谱系件，
 #   但**正确修法是恢复文件**（已用同 sha 的 lineage\G2_default_depth1.exe 逐字节拷回）⇒ 指针一并改回原路径，行为不变。
-ENGINE_SELF = os.path.join(ROOT, "engine", "self-built-20261008", "ninfer-serve.exe")   # 自编·现役（已恢复）
+# 2026-11-27（乙）：指向 B 计划件。ENGINE_SELF 是历史锚——下拉来源是 registry（见 L71-75 在案结论：
+#   ENGINE_OPTIONS 已删、实际下拉 = engine_registry），此处改指向不改变任何起服行为。
+ENGINE_SELF = os.path.join(ROOT, "build-out", "build-1208a", "apps", "ninfer-serve.exe")   # B 计划件 5CB1340D
 # 2026-10-31：16 个 DLL（libcurl/z/cublas/avcodec…）只在 self-built-20261008\；lineage\ 件零 DLL。
 # 启动器直跑 lineage\*.exe 时必须把 DLL 目录放进 PATH，否则加载器报 libcurl.dll / z.dll 缺失。
 DLL_DIR = os.path.join(ROOT, "engine", "self-built-20261008")
@@ -404,10 +406,15 @@ KV_POOL_TOKENS_FALLBACK = 51200
 #   WINDOW 32768 → 工作窗口只有 512 块；RETRIEVE 8192 → 52K prompt prefill 只剩 141；
 #   SCORE_BUDGET 此前根本没注入，引擎自带 32768 默认，同样锁在 512 块。
 #   现在 WINDOW 由 kvwindow 维度覆盖（auto = 池容量），SCORE_BUDGET 恒 ≥ 131072，RETRIEVE 32768。
+#   2026-11-27（乙案）：默认 RETRIEVE 已升 120,000（生效点在 DEFAULTS + L1617 映射）；上面 32,768 是历史值。
 KV_ENV = {
     "NINFER_KV_WINDOW":          "32768",     # 会被 kvwindow 维度覆盖
     "NINFER_KV_SINK":            "5120",
-    "NINFER_KV_RETRIEVE":        "32768",     # 原 8192：每 chunk 只捞 128 块
+    # 2026-11-27（乙案）：本表的值只在"不经 GUI 的直载路径"生效——GUI 路径由 env_for_launch 的
+    #   retrieve 维度覆盖（L1617 映射 + L1624 写入），默认档见 DEFAULTS["retrieve"]。
+    #   池 1,920 页前提下：GUI 默认 64k ⇒ 预算 min(1,024, 1,152)=1,024 页；改 120k ⇒ 压力区放宽到
+    #   min(1,875, 1,920−80−0)=1,840 页。出厂档 kvcap=80k（池 1,280 页）时放宽后的封顶是 1,200 页。
+    "NINFER_KV_RETRIEVE":        "120000",    # 乙案；GUI 维度仍可覆盖（L1621）
     "NINFER_TERNARY_KVMEM_SCORE_BUDGET": "131072",   # 原缺省（引擎默认 32768 → 512 块）
     "NINFER_KV_RING":            "1",   # 已空转（B30 后源码零 getenv）；保留仅作历史兼容
     "NINFER_HOST_PAGEABLE":      "1",
@@ -445,10 +452,11 @@ KVWINDOW_TOKENS = {"32k": 32768, "64k": 65536, "80k": 81920, "128k": 131072}
 #   取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。
 #   哪个快取决于命中率，**未实测**，做成选项让同 prompt 对照实验来定。
 RETRIEVE_OPTIONS = {
-    "auto": ("检索量：自动 = 跟随窗口（win/2，上限 65,536）", []),
+    "auto": ("检索量：自动 = 跟随窗口（win/2，下限 8,192，上限 65,536）", []),
     "8k":   ("检索量：8,192（128 块/轮 · 保守）", []),
     "32k":  ("检索量：32,768（512 块/轮）", []),
-    "64k":  ("检索量：65,536（1,024 块/轮 · ★默认 · 超池增量 prefill 提速）", []),
+    "64k":  ("检索量：65,536（1,024 块/轮 · 超池增量 prefill 提速）", []),
+    "120k": ("检索量：120,000（1,875 块/轮 · ★默认 · 压力区解除恢复截断）", []),
 }
 
 
@@ -594,7 +602,7 @@ KVCAP_OPTIONS = {
     "108k":   ("110,592 · 需 arith · 超池答案unverified", ["--kv-capacity", "110592"]),
     "112k":   ("114,688 · 需 arith", ["--kv-capacity", "114688"]),
     "116k":   ("118,784 · 需 arith（全卡剩 16 MiB）", ["--kv-capacity", "118784"]),
-    "120k":   ("122,880 · 需 arith（全卡剩 36 MiB）", ["--kv-capacity", "122880"]),
+    "120k":   ("122,880 · 需 arith（【口径 2026-11-07，未复测】全卡剩 36 MiB）", ["--kv-capacity", "122880"]),
     "124k":   ("126,976 · ★S15-MTP 上限（全卡剩 14 MiB · 刀尖）", ["--kv-capacity", "126976"]),
     "128k":   ("131,072 · ⛔FATAL（need 4245.3 > avail 4217.1）", ["--kv-capacity", "131072"]),
     "150k":   ("153,600 · ⛔超天花板 · 备用", ["--kv-capacity", "153600"]),
@@ -927,7 +935,8 @@ DEFAULTS = {
     "channel": "auto",   # 2026-11-07：默认自动检测显示通道（igpu/dgpu 手动声明）
     "spec": "d5", "kv": "rk8v4",    "ctx": "256k", "kvcap": "80k", "hostkv": "16384",
     "kvwindow": "auto",   # 2026-11-14：窗口跟随池容量，不再固定 32,768
-    "retrieve": "64k",    # 2026-11-15：默认 65,536（1,024 块/轮）+ SHARE 60%
+    "retrieve": "120k",   # 2026-11-27 乙案：120,000 token（1,875 块/轮）；池 1,920 页 ⇒ 压力区放宽 1,840，
+                          #   出厂 kvcap=80k（池 1,280 页）⇒ 放宽 1,200
     "privcont": "1",      # 2026-11-14：私有续接只留 1 条，旧会话废块立即让位（引擎默认 2）
     "prefill": "512", "think": "high", "tb": "16000", "maxout": "32768", "vision": "overlay",
     "sample": "shipped", "conc": "1", "preserve": "off", "hemostat": "on",
@@ -994,7 +1003,7 @@ DIM_TIPS = {
     "privcont": "私有续接目录（--max-private-continuations）= 最多同时记住多少条**独立对话链**的 KV 状态供下次续写命中。引擎默认 2×并发（这里=2）。\n槽位四态：Free / ReservedMaterialization / Active / **Catalogued**；**Catalogued 就是废块**——旧对话被编目留档，占块不干活。\n**默认 1 的理由**：只记 1 条链，新会话进来旧链必须让位，废块立即释放；代价是同会话并行分支（subagent / 双窗口）切回去要重新 prefill。\n⚠ 与「异步深度」无关：那个是同时搬运的 demote 批数（NINFER_ASYNC_DEMOTE_DEPTH），这个是记住几条对话。",
     "retrieve": "【2026-11-22 刀5 已上线】打分不再每 chunk 全量重算：无压力期（n_blocks ≤ 池页数−256）按 8-chunk 周期刷新，压力区每 chunk 必打；"
                 "实测（**池 110,592 = 108K 档**）：120K prompt 填充 493.5s→269.6s（1.83×）、24K 29.5s→14.0s；**122,880 真交付口径（2026-11-23 A 格：关格 env + 刀5 单变量）**：需配 `--prefill-chunk 512`，872.2s → 314.4s（2.774×）；⚠ 2026-11-22 记的 304.2s（g_122880_512）非交付口径（host KV 0 B / ring dense / 零检索），不得引用；天白 108K 口径为 chunk1024 + POOL_BLOCKS=1728。512 在 110,592 池会 ring OOM，1024 在 122,880 池会超预算 329 MB。池页数由启动器按当前池自动下发（NINFER_C7_LAZY_POOL_BLOCKS=池 token/64），"
-                "漏配时引擎 fail-closed 退回旧版（只慢不出错）。\n\n" + "= **每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device，不是总量。块 = 64 token：32768 → 512 块/轮，日志体现为 `ring retrieve ... restored=512`。\n取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。哪个更快取决于命中率，尚无同条件对照实测。\n**它不改变窗口容量**（那由「KV 工作窗口」定），只改变每轮搬多少。prompt 大于窗口时才会频繁换页，此时调大可能减少轮数、也可能因单轮搬运过重而更慢。",
+                "漏配时引擎 fail-closed 退回旧版（只慢不出错）。\n\n" + "= **每个 prefill chunk** 从 host 侧 KV 恢复多少块到 device，不是总量。块 = 64 token：默认 120,000 → 1,875 块/轮（旧默认 32768 → 512 块/轮），日志体现为 `ring retrieve ... restored=N`。\n取舍：调大 ⇒ 每轮搬得多、轮数少；调小 ⇒ 每轮搬得少、轮数多。哪个更快取决于命中率：2026-11-27 同件同语料实测（p0，默认 64k vs 120k）——冷池 120K 168.7 s vs 168.1 s（Δ0.6 s）、池满二次 261.9 s vs 262.4 s（Δ0.5 s）⇒ 本池档下加大检索量代价可忽略；默认已改 120k。\n**它不改变窗口容量**（那由「KV 工作窗口」定），只改变每轮搬多少。prompt 大于窗口时才会频繁换页，此时调大可能减少轮数、也可能因单轮搬运过重而更慢。",
     "kvcap":  "KV 池容量（--kv-capacity）= 显存里能直接读的 KV token 数（即「全速区间」）。"
               "**2026-11-14 实测的六档甜点（每档都已扣掉视觉塔与两个投机头）：**"
               "MTP 头 → SWIFT/GSQ **124k**（上限 126,976，131,072 FATAL）、Coder390 **84k**（上限 86,016）；"
@@ -1594,7 +1603,7 @@ def _kvwindow_env(combo):
 
     auto = 池容量（上限 131072）；显式档 = 该档值。
     score_budget 恒 >= 131072（预算大于窗口无害，实际受池页数限制）。
-    retrieve = min(32768, max(8192, win//2))，实测 52K prompt 下 32768 比 8192 快 63%。
+    retrieve = min(65536, max(8192, win//2))，实测 52K prompt 下 32768 比 8192 快 63%。
     """
     key = str((combo or {}).get("kvwindow", "auto"))
     if key not in KVWINDOW_OPTIONS:
@@ -1605,23 +1614,25 @@ def _kvwindow_env(combo):
         win = KVWINDOW_TOKENS[key]
     # 检索量（2026-11-14 做成维度）：它是「每 chunk 搬多少」，与窗口容量无关。
     #   auto 原先写死 32768，与「32k」档值相同 ⇒ 两档无区别、下拉等于摆设（用户当场指出）。
-    #   现改为跟随窗口：win//2，上限 65,536（1,024 块）、下限 8,192（128 块）。
+    #   2026-11-27 补码落地：auto 真正跟随窗口 win//2，上限 65,536（1,024 块）、下限 8,192（128 块）。
     #     120k 池 → 61,440（960 块）  80k 池 → 40,960（640 块）  40k 池 → 20,480（320 块）
     #   依据：52,162 prompt 同条件对照 ret8k=141.1 vs ret32k=230.1（+63%），
     #   说明「每轮多搬」在大 prompt 下占优；win//2 是把这条外推到各池档的推导值，
     #   32k 仍是唯一有实测背书的档位，保留给对照。
     _ret = str((combo or {}).get("retrieve", "auto"))
-    _ret_tokens = {"8k": 8192, "32k": 32768, "64k": 65536}.get(_ret)
-    if _ret_tokens is None:                      # auto 或未知值
+    _ret_tokens = {"8k": 8192, "32k": 32768, "64k": 65536, "120k": 120000}.get(_ret)
+    if _ret == "auto":                           # 2026-11-27 补码落地：跟随 win/2
+        _ret_tokens = min(65536, max(8192, win // 2))
+    elif _ret_tokens is None:                    # 未知值保持旧回退
         _ret_tokens = 32768
 
     return {
         "NINFER_KV_WINDOW": win,
         "NINFER_TERNARY_KVMEM_SCORE_BUDGET": max(win, 131072),
         "NINFER_KV_RETRIEVE": int(_ret_tokens),
-        # 2026-11-15：预算 = min(RETRIEVE, pool * SHARE%)。池 1,920 页时
-        #   默认 50% => 960 页封顶，与 RETRIEVE=32768(512) 相比只多 448 页；
-        #   设 60% => 1,152 页，才真正放行 1,024 页（RETRIEVE=65536）。
+        # 2026-11-15：预算 = min(RETRIEVE, pool * SHARE%)；2026-11-27 起压力区再放宽为
+        #   min(RETRIEVE, pool − sink − slack)，slack=0。池 1,920 页 / SHARE 60% ⇒ 份额 1,152：
+        #   默认 64k 封顶 1,024；改 120k 后放宽 1,840。出厂 kvcap=80k（1,280 页）⇒ 放宽 1,200。
         "NINFER_KV_RETRIEVE_SHARE": 60,
     }
 

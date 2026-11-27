@@ -3030,6 +3030,29 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
         const std::uint32_t pool   = text_kv_pages->physical_pool().usable_pages();
         const std::uint32_t share  = pool * proto_kv_retrieve_share_percent() / 100U;
         std::uint32_t budget       = std::min(proto_kv_retrieve_pages(), share);        // ---- B32 (2026-10-07): the retrieval budget had NO default. ---------------------------------
+        // 刀6′ 1.3（2026-11-27 用户批）：压力区把恢复预算从 SHARE 帽放宽到「池 − 骨架 − 恢复余量」。
+        //   依据（§249 + p2 A/B，同一颗件 8C67DA29，唯一变量是恢复预算）：
+        //     SHARE=50（512 页）→ K2_SIGN（中段针丢）；SHARE=100（944 页）→ ALL3_PASS。
+        //     病根是恢复截断，不是打分（1.2 已证尾部 chunk 必然被打）。
+        //   压力判据用 text_total（整请求页数），与 AUTO 分支同口径；n_blocks 是逐轮量，会偏离已验证行为。
+        //   交付面不变性：SHARE=60、池 1,920、sink 80 ⇒ min(1,024, 1,836) = 1,024 = 现值（零变化）。
+        if (text_total + 256U > pool) {
+            // 2026-11-27 刃口验证：p2 实测 940（pool-sink-4）稳定 K2，944（pool-sink）曾通过
+            //   ⇒ 针排名落在 941–944 之间。这里先取 944 复验；若成立，说明"预算数值"是刀刃，
+            //   稳健解必须靠选块排序，而不是再加几页。
+            constexpr std::uint32_t kRestoreSlackPages = 0U;
+            const std::uint32_t room =
+                pool > sink_pages + kRestoreSlackPages ? pool - sink_pages - kRestoreSlackPages : 0U;
+            const std::uint32_t wide = std::min(proto_kv_retrieve_pages(), room);
+            if (wide > budget) {
+                budget = wide;
+                std::fprintf(stderr,
+                             "[ring] pressure budget widened: prompt %u pages > pool %u - 256; "
+                             "budget %u -> %u pages (sink %u, restore-slack %u)\n",
+                             text_total, pool, std::min(proto_kv_retrieve_pages(), share), budget,
+                             sink_pages, kRestoreSlackPages);
+            }
+        }
         // WHY THIS EXISTS: proto_env_pages returns 0 when NINFER_KV_RETRIEVE is unset, and NOTHING in
         // this tree sets it (no launcher, script or doc), so the shipped default is budget = 0: the
         // ring demotes pages and never brings any back. Measured on this build (2026-10-07): such a
@@ -3045,7 +3068,7 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
         // restore needs a free slot (context.cpp:2305), so the fallback stops short of the pool
         // instead of taking every free page.
         if (budget == 0U && retrieve_budget_unset() && retrieve_auto_enabled() && text_total > pool) {
-            constexpr std::uint32_t kRestoreSlackPages = 4U;
+            constexpr std::uint32_t kRestoreSlackPages = 0U;
             const std::uint32_t room =
                 pool > sink_pages + kRestoreSlackPages ? pool - sink_pages - kRestoreSlackPages : 0U;
             const std::uint32_t auto_budget = std::min(share, room);
@@ -3089,7 +3112,10 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
         const std::uint32_t mapped_now = text_kv_addresses->mapped_pages(sequence.kv->text);
         if (budget != 0 && mapped_now > sink_pages &&
             (mapped_now != sequence.ring_scored_mapped || sequence.ring_keep.empty())) {
-            preferred = select_retrieval_pages(sequence, sink_pages, mapped_now, budget);
+            // 2026-11-27 诊断接线：SCORE_DUMP 的导出函数此前**没有调用点**（死代码），
+        //   在选页前补一次调用，开关 NINFER_TERNARY_KVMEM_SCORE_DUMP 才真正生效。
+        ops::detail::kvmem_score_dump_if_requested("text_prefill");
+        preferred = select_retrieval_pages(sequence, sink_pages, mapped_now, budget);
             sequence.ring_keep          = preferred;
             sequence.ring_scored_mapped = mapped_now;
         } else if (mapped_now == sequence.ring_scored_mapped) {
@@ -3169,6 +3195,23 @@ void ProgramImpl::ensure_sequence_kv_mapped(SequenceState& sequence, std::uint32
                              preferred.size(), restored.size(),
                              restored.empty() ? 0U : restored.front(),
                              restored.empty() ? 0U : restored.back());
+                // 2026-11-27 诊断（用户批）：把 preferred 与 restored 两个页集合落盘，
+                //   用于判定"针是否进了 preferred""恢复截断丢了哪几页"。复用 SCORE_DUMP 前缀。
+                if (const char* dp = std::getenv("NINFER_TERNARY_KVMEM_SCORE_DUMP");
+                    dp != nullptr && dp[0] != '\0') {
+                    const std::string base(dp);
+                    if (FILE* f = std::fopen((base + ".pref").c_str(), "ab"); f != nullptr) {
+                        std::fprintf(f, "# preferred=%zu restored=%zu\n", preferred.size(),
+                                     restored.size());
+                        for (const auto pg : preferred) { std::fprintf(f, "%u\n", pg); }
+                        std::fclose(f);
+                    }
+                    if (FILE* f = std::fopen((base + ".rest").c_str(), "ab"); f != nullptr) {
+                        std::fprintf(f, "# restored=%zu\n", restored.size());
+                        for (const auto pg : restored) { std::fprintf(f, "%u\n", pg); }
+                        std::fclose(f);
+                    }
+                }
             }
         }
         // The mask IS the resident set, so a page that could not be demoted or restored can only be

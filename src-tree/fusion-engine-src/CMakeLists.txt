@@ -210,6 +210,10 @@ if(NINFER_BUILD_APPS OR BUILD_TESTING)
   set(NINFER_BUILD_PRODUCT_SUPPORT ON)
 endif()
 
+# 2026-11-27 (user approved): CUDA device line info switch, default OFF so release
+#   artifacts are bit-reproducible; profile builds pass -DNINFER_DEVICE_LINEINFO=ON.
+option(NINFER_DEVICE_LINEINFO "Emit device line info; diagnostic builds only, breaks bit-repro" OFF)
+
 include(cmake/Dependencies.cmake)
 include(cmake/NinferTargets.cmake)
 

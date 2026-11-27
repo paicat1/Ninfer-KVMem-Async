@@ -236,17 +236,13 @@ inline bool c7_lazy_should_skip(std::int32_t layer, std::int32_t n_blocks,
     if (kPoolOverride <= 0) { return false; }
     const long pool_pages = kPoolOverride;
     const bool pressure = static_cast<long>(n_blocks) > (pool_pages - 256L);
-    // 刀6 退役（2026-11-24 用户批 B；依据 P2 深超池 3/3 复现 + 代价定量）：
-    //   压力区（n_blocks > pool-256）恒等必打，与刀5 逐位等价。
-    //   旧行为靠 NINFER_C7_LAZY_PRESSURE_PERIOD（实验取 8）在深超池丢中段针：
-    //     PERIOD=8 三跑全丢 ZX-7001、PERIOD=1 三跑全对；代价仅 +6.85s / 120K 预填。
-    //   该 env 自此对压力区无效（显式传 8 同样不生效），
-    //   杜绝把"正确性"旋钮误配成静默错答（该故障形态本战役已实证为最危险）。
-    if (pressure) {
-        s_last_call[li] = s_calls;                       // 记"打了"（以调用序号为单位）
-        return false;                                    // 压力区每 chunk 必打
-    }
-    constexpr long period = 8L;                          // 非压力区：保持刀5 的 8-chunk 周期
+    // 刀6′ 步骤 1.1（2026-11-26 用户批）：恢复压力区节流，压力区/非压力区统一 8-chunk 周期。
+    //   依据（构建史 §249 实测）：恒等必打使冷池 120K 达 398.7 s（刀6 156.7 s，+242 s / +154%），
+    //   池满二次 >1,062 s（刀6 244.3 s，>4×）。
+    //   深超池丢中段针的机制是"尾部漏拍"，由 1.2 的 final 重算补掉，不靠逐 chunk 必打。
+    //   ⚠ 中间态（只有 1.1、无 final 重算）已知会丢中段针（K2 形态），禁止单独转正。
+    (void)pressure;                                      // 压力值保留供 SELECT 行观察
+    constexpr long period = 8L;                          // 统一 8-chunk 周期
     const bool cold     = (s_last_call[li] == 0);        // 本层首次 ⇒ 必打
     const bool stale    = cold || (cur - s_last_call[li] / per) >= period;
     if (!stale) { return true; }
@@ -467,8 +463,17 @@ inline void kvmem_score_accumulate(std::int32_t fidx, const void* q, std::int32_
     const Tensor& sums = index->layer_sums(fidx);
     if (sums.data == nullptr) { return; }
 
-    // C7 刀5：无压力期跳过打分（缺省关闭）
-    if (c7_lazy_should_skip(fidx, p.n_blocks, p.layers_total, p.capacity_blocks)) { return; }
+    // 刀6′ 步骤 1.2（2026-11-26 用户批）：尾部必打。
+    //   判据不用"是否最后一个 chunk"（调用点没有这个信号），用**问句结尾落在哪个 chunk**：
+    //   打分是 query 条件的，只有"问题已经出现"的那一拍打出来的分数才反映针块相关性。
+    //   刀6 丢中段针的机制就是这一拍被 8-chunk 周期跳过（§249 实测 K2 形态）。
+    const bool tail_chunk = p.abs_query_end > p.abs_query_begin && p.abs_chunk_begin >= 0 &&
+                            chunk_tokens > 0 && p.abs_query_end > p.abs_chunk_begin &&
+                            p.abs_query_end <= p.abs_chunk_begin + chunk_tokens;
+    // C7 刀5：无压力期跳过打分（缺省关闭）；尾部 chunk 例外，恒等必打。
+    if (!tail_chunk && c7_lazy_should_skip(fidx, p.n_blocks, p.layers_total, p.capacity_blocks)) {
+        return;
+    }
     KvMemRetrieveConfig cfg;
     cfg.n_layers          = 1;                      // 逐层调用
     cfg.n_layers_total    = p.layers_total;         // head_w = 1/(总层数×query 头数)

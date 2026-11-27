@@ -14,7 +14,13 @@ function(ninfer_cuda_archive target)
   if(WIN32)
     set_target_properties(${target} PROPERTIES CUDA_RUNTIME_LIBRARY Static)
   endif()
-  target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+  # 2026-11-27 (user approved): release recipe carries NO device line info by default.
+  #   Reason: -lineinfo writes the random nvcc temp filename into every cubin, so
+  #   two clean builds never match (T-BUILD-TWICE). Diagnostic builds pass
+  #   -DNINFER_DEVICE_LINEINFO=ON explicitly.
+  if(NINFER_DEVICE_LINEINFO)
+    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+  endif()
 endfunction()
 
 function(ninfer_cuda_non_rdc_archive target)
@@ -24,7 +30,13 @@ function(ninfer_cuda_non_rdc_archive target)
   if(WIN32)
     set_target_properties(${target} PROPERTIES CUDA_RUNTIME_LIBRARY Static)
   endif()
-  target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+  # 2026-11-27 (user approved): release recipe carries NO device line info by default.
+  #   Reason: -lineinfo writes the random nvcc temp filename into every cubin, so
+  #   two clean builds never match (T-BUILD-TWICE). Diagnostic builds pass
+  #   -DNINFER_DEVICE_LINEINFO=ON explicitly.
+  if(NINFER_DEVICE_LINEINFO)
+    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+  endif()
 endfunction()
 
 # Runtime DLL staging for the apps and tests.

@@ -8634,3 +8634,129 @@ p2 观测：variant a ALL3_PASS 71.8 s / variant b `tail=False` 71.6 s（观测�
 2. 是否试确定性开关（`--split-compile` 等）未做；每次验证约 5 分钟，成功率未知。
 3. p2 的 variant b 边际不稳（tail/mid 漂移两次）仍属观测项，不作门。
 - 引擎树发布机械化 20261127_185002：line-coder390@5185faf 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+
+## §252 修法 1+2+3+D 上机与长 prompt 慢态归因（2026-11-28 08:45–10:10 · 工作树追加，未提交）
+
+> 恢复件（2026-11-28 15:0x）：本节原文在行尾修复时被误覆盖（编辑工具将文件整体转为 LF，恢复 HEAD 时连带覆盖了未提交的 §252）。以下按夜巡台账 v24–v29、交接单 v2、预登记与本节尾部留存的实测表重建；数字与结论均来自这些权威记录，措辞非原文。
+
+**一、数字**
+
+- 09:16:32 冷编 `BUILD-EXIT=0`；`ARCH-GATE: exe=ninfer-serve.exe ELF=384 sm_120a=384 sm_86=0 ptx=0`；产物 sha16 **7E1618F8**，691,408,384 B。
+- 改动四件：`kv_store.h`（修法 1/2/D）、`commit.cpp`（修法 3）；备份 `kv_store.h` 22139DB3、`commit.cpp` 8B244E08。
+- 慢态 A/B（同件、同负载、打分 ON/OFF）：39K prompt 7.5×；2,552 tok 17.5 s/145.9 tok/s → 1.3 s/1,990 tok/s（13.6×）。
+- 负载中 GPU：SM 2,932 MHz、mem 15,001 MHz、util 100%、功耗 71 W/360 W；无降频。
+- 亲和性钉 0xFFFF：仍 153.6 tok/s，非 E 核调度。
+- 39K=611 页 < 池 1,920：日志无 `ring retrieve` / `demote-other` / `mask hidden`，非满环换页。
+- `SERVE_TEE_LOG_MODE=full` 额外约 2–4×（同 38.8K 压到 76.8）；slim 同件 153–313。
+
+**二、阶段**
+
+四修法设计经 TELE v25–v27 审核（D 批准、修法 1 存 growth 而非 required、无 defer 分支）→ 09:16 冷编上机 → sanity → 长 prompt 慢态 A/B 归因。invariant 真实会话验证未跑（DSH 重跑归用户）。
+
+**三、四处修法（已上机，禁动）**
+
+1. `KVActivationReservation` 存 `expected_growth_`（growth，非 required）；`commit_activation` 统一公式 `expected = expected_growth_ + deferred_missing`，无 defer 分支；
+2. `resize_entitlement` 只增不减；
+3. ring 模式 `kv_within` 上界改用 `details.text_kv_page_entitlement` / `backend_kv_page_entitlement`；
+4. D：`can_drop_device_replica` 增加 `page.references == 1`（共享页禁止单方下沉）。
+
+**四、不是回退、不是本轮改动引入**
+
+- 改前件日志 `test_diag_kv_activation.log` 08:13、早间 `serve_20261128_062641.log` 06:56 均有 `prefill 76.8 tok/s (384 tok)`；本轮同型只在新件复现。
+- `76.8 = 384/5` 与 §223 的满环节拍同签名；本节新增：非满环（611 页）也出现 153–313，成本源是每 chunk 全量内容打分。
+
+**五、结论**
+
+- 四处修法已编译上机；invariant 未验证。
+- 该配置下长 prompt 慢态主因=ring 内容打分路径；与满环换页（§223）两条成本源可叠加。
+- 打分属 KVMem 检索语义的一部分，只能作归因负对照，不作常规提速开关。
+
+**六、挂账**
+
+1. invariant（defer=0 面）真实会话验证：DSH 重跑原项目，判据见 `work\data\prereg_fix123D_20261128.md`（P1 错误行不出现、P2 `reservation == expected`、P3 `publish == restore-ready`）。
+2. 打分路径性能未优化（每 chunk 全量打分），本轮不动。
+3. full 日志与性能实验互斥：后续性能类实验一律 slim 并注明；full 仅用于判据轮。
+
+## §253 第 5 缺陷定案：Host KV 批内重复 → 部分发布残态 → 静默 abort（2026-11-28 11:25–12:1x · 工作树追加，未提交）
+
+**一、数字**
+
+- 11:25:42 崩溃：`0xC0000409`（fastfail 7），`ucrtbase.dll+0x7286E`（abort），pid 2220，`serve_tee end (exit=3221226505)`；WER 278,974,535 B dump（11:25:45）。
+- 死前现场：req#49 prompt 197,500 / 3,087 页；req#50 prompt 198,381 / 3,100 页；host_backed 2,835；全程 `probe-drop` 73 万级。
+- 日志 L808273：`publish PARTIAL: page=7 of 8 attached=7 reason=attach-threw; extent left published`。
+
+**二、阶段**
+
+判决轮已实跑：3,088 页零 500、102/102 `reservation==expected`（v31 口径），40% 必崩已消除；随后进入第 5 缺陷（进程死）取证。本轮为「根因定案 + 设计稿」，未改码、未编译、未起服。
+
+**三、原因（已钉死）**
+
+`context.cpp::flush_batch()` 的 8 页 demote 批次（`kDemoteBatchPages=8`）在 `:2506-2511` 无同页检查；COW/别名页使同一逻辑页在批内出现两次（`page[7]==page[k]`）。`publish()` 预检（`host_kv_store.h:197-219`）对两条重复记录都放行（预检时都无 replica），attach 第二条时失败；此时 extent 已在 `:227` 提前置 Published，reservation 的 `abort()` 因 `valid()` 要求 Reserved（`:484-494`）而空转（`:258-261`），残态固化。约 5 秒后 `prepare_consumed_source()`（`materialization.cpp:656`）调 `release_unreferenced()`，其无条件遍历 Published extent（`:422-443`）→ `partition_extent` 校验重复项 offset/node 不符 → 抛 `:602` 的 `std::logic_error`；`release_unreferenced()` 的 `catch(...) { std::terminate(); }`（`:444`）→ abort。DSH 侧表现为 `ECONNREFUSED 127.0.0.1:8094`。
+
+**四、Δ 对基线**
+
+- 对 §252（四修法上机、invariant 未验证）：本轮判决完成，且会话首次越过 2,206 页到 3,100 页；同时首次暴露该发布残态。
+- 对 2026-10-02 同族修复（`demote_other_addresses_to_host` 的 `std::find` 去重）：同一机制的**批内形态**，`flush_batch` 是漏掉的第二条 demote 路径；不是旧 bug 复发。
+- 对 TELE v31「修复生效」：维持；进程死是独立第 5 缺陷，不推翻 40% 判决。
+
+**五、解决结论**
+
+根因已定案，修复方向已出设计稿（`work\data\设计稿_第5缺陷_HostKV批内重复_20261128.md`）：A 在 `flush_batch` 补同页跳过（与 `:2052` 同款）+ `prepare()` 唯一性安全网；B 部分发布置 `Broken`（否决 Published 后置：capability 要求 Published；全量回滚留第二批）；C 仅 `release_unreferenced` 改逐 extent 隔离（7 个调用点中 4 个在 noexcept 内，不能改抛异常）；D 诊断字段。**未实施**，等 TELE 复核 + 用户批准。
+
+**六、新发现**
+
+1. `publish()` 的预检存在结构性盲区：只能挡「页在别的 extent 已有副本」，挡不住「同一批内重复」；两条重复记录预检时都无 replica，都会通过。
+2. `extent.state = Published` 提前于 attach，使 reservation 的 `abort()` 在部分失败时必然空转——这是残态固化的直接原因。
+3. `release_unreferenced()` 无条件扫描全部 Published extent（不看 release 标记），所以任何残态都会在下一次 source truncation 时被校验到。
+4. `flush_batch` 与 `demote_other_addresses_to_host` 是两条 demote 路径，前者漏了 2026-10-02 的去重修复。
+
+**七、新挂账**
+
+1. 第 5 缺陷 A+B+C+D 实施与验证（等批准；判据：无 PARTIAL、无 partition throw、无 0xC0000409、3,100 页会话完成）。
+2. 全量回滚替代 Broken 泄漏、`release_marked_extents` 逐 extent 隔离、pressure `change.pages` 别名审计（第二批）。
+3. `publish_pressure_work` 的 `terminate_with_reason` 收敛（第三批）。
+4. 76 T/s 打分全量重算（独立性能立项，与本缺陷无关）。
+
+## §254 第 5 缺陷 A+B+C+D 实施与冷编（2026-11-28 14:16–14:43 · 工作树追加，未提交）
+
+**一、数字**
+
+- 构建：14:43:22 `BUILD-EXIT=0`；`ARCH-GATE: exe=ninfer-serve.exe ELF=384 sm_120a=384 sm_86=0 ptx=0 → OK`；全量冷编 1089 目标，约 27 分钟。
+- 新件：`build-out\build-1208a\apps\ninfer-serve.exe`，sha256 `F9DAD3B0A4F0B59323CE8CE8598D742A5147608645236FAAB8B28808809A35CD`，sha16 `F9DAD3B0`，691,359,744 B，14:43:18。
+- 台账：`BUILD_LEDGER` 14:44:11 登记 `status=candidate`；`engine/lineage/MANIFEST.txt` 14:43 自动归档行。
+- 判决件封存：7E1618F8 在 header_guard 清 `build-out` 前复制到 `engine\lineage\ninfer-serve-20261128-fix123D-7E1618F8.exe`（sha 复算一致），MANIFEST.md 新增 J1 表。
+
+**二、阶段**
+
+设计稿经 TELE v34 复核通过（约 45 项源码声称零证伪、12 处 ExtentState 全安全）→ 用户裁决"执行" → T-BACKUP 两文件 → 实施 → 编译门 DryRun → 冷编 → ARCH-GATE。运行判据未跑（等用户起服原构造复现）。
+
+**三、原因（实施对象）**
+
+第 5 缺陷：`flush_batch` 8 页 demote 批次无去重 → 同页两次入 extent → `publish()` 预检盲区 → 第二次 attach 抛 → Published 提前使回滚空转 → `release_unreferenced` 校验重复项的 replica 不符 → `noexcept` catch→`std::terminate` → 0xC0000409。
+
+**四、Δ 对基线**
+
+- 对 §253（根因定案、未实施）：A/B/C/D 已落码并冷编通过；`7E1618F8`（判决件）→ `F9DAD3B0`（修复候选）。
+- 对 2026-10-02 同族修复：把"批内重复"盲区补到第二条 demote 路径 `flush_batch`（与 `demote_other_addresses_to_host` 的 `std::find` 同款）。
+- 工作树 diff（两文件）+123/−19，含前会话既有 probe 打印（L2281/L2394/L2458/L2526/trim）；本轮净改动约 +57 行。
+
+**五、解决结论（代码层）**
+
+1. A：`context.cpp::demote_kv_pages_to_host` 的 `flush_batch` 页循环加 `std::find` 同页跳过 + `skip_duplicate` 计数（30s 限频打印）；`prepare()` 入口加批内唯一性检查，重复在分配/pin 前 `return nullopt`。
+2. B：`ExtentState` 增 `Broken`；`publish()` attach 失败时 unpin 未 attach 页 → `state=Broken` → return nullopt；`release_marked_extents` 只处理 Published。
+3. C：`release_unreferenced()` 改逐 extent `try/catch` → quarantine（标 Broken + 打印）→ continue；overflow 改饱和；scan 失败打印后返回，不再 terminate。签名与 noexcept 合同不变（7 调用点中 4 个 noexcept）。
+4. D：`partition_extent` 抛错前打印 extent/offset/node/entry/replica 全字段；PARTIAL 行加 extent 号；`prepare` 重复 decline 打印；quarantine 打印。
+5. 残余（第二批）：Broken 页的 `mark_release` false → `release_page_replicas` false → `publish_pressure_work` terminate（`materialization.cpp:1805-1806`）。A 去重后 Broken 不可达（预检与 attach 间无其他突变），故本批不作为 live path；第二批前置过滤。
+
+**六、新发现**
+
+1. `publish()` 的预检盲区与 `Published` 提前的组合是残态固化的完整解释；`valid(reservation)` 的 Reserved 要求使析构 abort 必然空转。
+2. `flush_batch` 是唯一漏掉 2026-10-02 去重的 8 页批次构造点（`kDemoteBatchPages=8`）。
+3. Broken 的残余终止路径在 `release_page_replicas` 的调用方，而非 partition 本身；需第二批收口。
+
+**七、新挂账**
+
+1. 运行判据：原构造过 3,087/3,100 页；无 PARTIAL / 无 disagrees / 无 0xC0000409；`dup>0` 为正面证据，`dup=0` 只能记"未复现"。
+2. 第二批：Broken 页 release 前置过滤、全量回滚替代 Broken 泄漏、`release_marked_extents` 逐 extent 隔离、pressure `change.pages` 别名审计。
+3. 第三批：`publish_pressure_work` 的 `terminate_with_reason` 收敛。
+4. 提交与转正：源码改动未提交（需用户令牌逐条审批）；产物 `candidate`，运行判据过后按 T-PROMOTE 转正。

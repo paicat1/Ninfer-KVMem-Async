@@ -148,3 +148,14 @@
 - 引擎树发布机械化 20261114_093158：line-coder390@352f27a 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 - 引擎树发布机械化 20261126_201849：line-coder390@7865d17 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
 - 引擎树发布机械化 20261127_185002：line-coder390@5185faf 已物化至 origin/engine-main，补丁链入库（publish_engine.ps1）。
+
+## 判决件封存（2026-11-28）
+
+| # | 文件 | MiB | sha256 |
+|---|---|---|---|
+| J1 | `ninfer-serve-20261128-fix123D-7E1618F8.exe` | 659.4 | `7E1618F8F7C50DAD6038DBD1F1DDC79CBC6D899F7771A7CE3CD68E201A50A818` |
+
+- 来源：`build-out\build-1208a\apps\ninfer-serve.exe`（09:16 冷编，691,408,384 B）。
+- 性质：四处修法（1/2/3/D）判决件；40% 必崩已消除，3,100 页零 500（v31）；11:25:42 进程死为独立第 5 缺陷。
+- 封存原因：改 `host_kv_store.h` 触发 header_guard 全清 `build-out\build-1208a`，此件为唯一副本。
+- 备份位：`engine\lineage\`（gitignored，永久只读）；test-run 为空，self-built 现役为 8E437B71（11-23）。

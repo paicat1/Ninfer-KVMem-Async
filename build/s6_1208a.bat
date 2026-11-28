@@ -28,7 +28,8 @@ setlocal
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 if errorlevel 1 (echo VCVARS-FAILED & exit /b 1)
 set "VSLANG=1033"
-set "PATH=J:\vcpkg\downloads\tools\ninja-1.13.2-windows;J:\Bonsai\landing\cuda-13.3\bin;%PATH%"
+set "PATH=J:\vcpkg\downloads\tools\ninja-1.13.2-windows;J:\Bonsai\landing\cuda-13.3\bin;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;%PATH%"
+set "VCPKG_VISUAL_STUDIO_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
 set "VCPKG_ROOT=J:\vcpkg"
 set "VCPKG_TARGET_TRIPLET=x64-windows"
 set "SRC=J:\ninfer-kvmem\engine-src\src-tree\fusion-engine-src"
@@ -50,7 +51,7 @@ REM mis-splits "^" continuations and parenthesised blocks => stray tokens execut
 REM ("'D_TYPE' is not recognized") and a bogus CONFIGURE-FAILED echo, while the real
 REM cmake calls still ran. Keep every command on ONE line.
 echo [configure if needed] ... >> "%LOG%"
-if not exist "%BUILD%\CMakeCache.txt" cmake -G Ninja -S "%SRC%" -B "%BUILD%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=120a -DCMAKE_CUDA_COMPILER=J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe -DNINFER_SM120_NATIVE=ON -DCMAKE_PREFIX_PATH=J:/vcpkg/installed/x64-windows -DCMAKE_TOOLCHAIN_FILE=J:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DNINFER_BUILD_APPS=ON -DBUILD_TESTING=OFF -DNINFER_BUILD_BENCHMARKS=OFF >> "%LOG%" 2>&1
+if not exist "%BUILD%\CMakeCache.txt" cmake -G Ninja -S "%SRC%" -B "%BUILD%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=120a -DCMAKE_CUDA_COMPILER=J:/Bonsai/landing/cuda-13.3/bin/nvcc.exe -DNINFER_SM120_NATIVE=ON -DCMAKE_PREFIX_PATH=J:/vcpkg/installed/x64-windows -DCMAKE_TOOLCHAIN_FILE=J:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_MANIFEST_INSTALL=OFF -DVCPKG_MANIFEST_MODE=OFF -DVCPKG_INSTALLED_DIR=J:/vcpkg/installed -DNINFER_BUILD_APPS=ON -DBUILD_TESTING=OFF -DNINFER_BUILD_BENCHMARKS=OFF >> "%LOG%" 2>&1
 if not exist "%BUILD%\build.ninja" echo CONFIGURE-MISSING-BUILD-NINJA >> "%LOG%"
 if exist "%BUILD%\build.ninja" echo CONFIGURE-OK >> "%LOG%"
 echo [build] full graph, 20 jobs ... >> "%LOG%"
